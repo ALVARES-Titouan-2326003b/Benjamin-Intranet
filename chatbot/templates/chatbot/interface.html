@@ -1,0 +1,43 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistant Factures</title>
+    <link rel="stylesheet" href="{% static 'chatbot/css/chatbot.css' %}">
+</head>
+<body>
+    <!-- Widget Chatbot flottant -->
+    <div id="chatbot-widget">
+        <!-- Bouton pour ouvrir le chat -->
+        <div id="chatbot-toggle" onclick="toggleChat()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+            </svg>
+        </div>
+
+        <!-- Interface du chat -->
+        <div id="chatbot-container" class="hidden">
+            <div id="chatbot-header">
+                <span>🤖 Assistant Factures</span>
+                <button onclick="toggleChat()" id="close-btn">×</button>
+            </div>
+            
+            <div id="chatbot-messages">
+                <div class="bot-message">
+                    Bonjour {{ user.username }} ! Je peux vous aider à consulter l'état de vos factures. 
+                    Posez-moi vos questions !
+                </div>
+            </div>
+            
+            <div id="chatbot-input">
+                <input type="text" id="message-input" placeholder="Tapez votre message...">
+                <button onclick="sendMessage()" id="send-btn">📤</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'chatbot/js/chatbot.js' %}"></script>
+</body>
+</html>
