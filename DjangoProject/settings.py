@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-g1k-9cd$srtp^4qk%%5pyt4t-_4_9c^vtyh(8g8#=-1va6@)m!'
+SECRET_KEY = 'django-insecure-u63z80eykd7#&6zwx-9ur%+)+5-b2g80+8ib%-xq85wd+@8y)2'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_mailbox',
 ]
 
 MIDDLEWARE = [
@@ -54,7 +55,7 @@ ROOT_URLCONF = 'DjangoProject.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates']
+        'DIRS': [BASE_DIR / 'MVT' / 'templates']
         ,
         'APP_DIRS': True,
         'OPTIONS': {
@@ -75,8 +76,12 @@ WSGI_APPLICATION = 'DjangoProject.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'benjaminmail_bd',
+        'USER': 'benjaminmail',
+        'PASSWORD': 'Arceus2004',
+        'HOST': 'postgresql-benjaminmail.alwaysdata.net',
+        'PORT': '5432',
     }
 }
 
@@ -121,3 +126,16 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Configuration email pour les tests
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp-benjaminmail.alwaysdata.net'
+EMAIL_PORT = 587  # Port pour TLS
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'benjaminmail@alwaysdata.net'
+EMAIL_HOST_PASSWORD = 'Arceus2004'
+DEFAULT_FROM_EMAIL = 'benjaminmail@alwaysdata.net'
+
+
+
+
