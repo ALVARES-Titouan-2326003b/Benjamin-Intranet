@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<h2>Factures</h2>
+
+<form method="get" class="filters">
+  <input type="text" name="fournisseur" value="{{ request.GET.fournisseur }}" placeholder="Fournisseur">
+  <input type="text" name="client" value="{{ request.GET.client }}" placeholder="Client">
+  <input type="number" step="0.01" name="min_amount" value="{{ request.GET.min_amount }}" placeholder="Montant min">
+  <input type="number" step="0.01" name="max_amount" value="{{ request.GET.max_amount }}" placeholder="Montant max">
+  <input type="text" name="statut" value="{{ request.GET.statut }}" placeholder="Statut (Reçue, En cours, Payée, Refusée, Archivée)">
+  <button type="submit">Filtrer</button>
+  <a href="{% url 'invoices:list' %}">Réinitialiser</a>
+</form>
+
+
+{% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
+  <p>
+    <a class="btn" href="{% url 'invoices:create' %}">+ Nouvelle facture</a>
+  </p>
+{% endif %}
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>ID</th><th>Fournisseur</th><th>Client</th><th>Montant</th><th>Statut</th><th>Échéance</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for invoice in object_list %}
+    <tr>
+      <td><a href="{% url 'invoices:detail' invoice.pk %}">{{ invoice.id }}</a></td>
+      <td>{{ invoice.fournisseur|default:"—" }}</td>
+      <td>{{ invoice.client.nom|default:invoice.client_id|default:"—" }}</td>
+      <td>{% if invoice.montant %}{{ invoice.montant }} €{% else %}—{% endif %}</td>
+      <td>{{ invoice.statut|default:"—" }}</td>
+      <td>{% if invoice.echeance %}{{ invoice.echeance|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6">Aucune facture.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if page_obj.has_previous or page_obj.has_next %}
+<div class="pagination">
+  {% if page_obj.has_previous %}
+    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">Précédent</a>
+  {% endif %}
+  <span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">Suivant</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% include 'chatbot/widget.html' %}
+{% endblock %}

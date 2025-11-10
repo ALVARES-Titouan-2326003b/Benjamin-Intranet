@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{% if object %}Modifier{% else %}Créer{% endif %} une facture</h2>
+
+{% if form.errors or form.non_field_errors or piece_form.errors %}
+  <div class="flash" style="background:#ffe9e9;border:1px solid #ffb7b7;">
+    <strong>Erreurs :</strong>
+    <ul>
+      {% for err in form.non_field_errors %}<li>{{ err }}</li>{% endfor %}
+      {% for field in form %}{% for err in field.errors %}<li><b>{{ field.label }} :</b> {{ err }}</li>{% endfor %}{% endfor %}
+      {% for field in piece_form %}{% for err in field.errors %}<li><b>{{ field.label }} :</b> {{ err }}</li>{% endfor %}{% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.as_p }}
+
+  <fieldset style="margin-top:1rem;">
+    <legend>Pièce jointe</legend>
+    {{ piece_form.as_p }}
+
+    {# Lister les pièces déjà présentes #}
+    {% if object %}
+      {% with pieces=object.piecejointe_set.all %}
+        {% if pieces %}
+          <ul style="margin-top:.5rem">
+            {% for pj in pieces %}
+              <li>
+                <a href="{{ pj.fichier.url }}" target="_blank" rel="noopener">
+                  PDF existant — {{ pj.fichier.name|slice:"8:" }}
+                </a>
+                <small> — {{ pj.uploaded_at|date:"d/m/Y H:i" }}</small>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+    {% endif %}
+  </fieldset>
+
+  <button type="submit" class="btn">Enregistrer</button>
+</form>
+
+{% endblock %}

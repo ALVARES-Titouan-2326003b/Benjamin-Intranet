@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <title>Intranet Factures</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+</head>
+<body>
+  <header class="topbar">
+    <h1><a href="/">Intranet Factures</a></h1>
+    <nav>
+      {% if user.is_authenticated %}
+        <span>Bonjour, {{ user.username }}</span>
+
+        <form action="{% url 'logout' %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" style="background:none;border:none;color:#fff;cursor:pointer;padding:0;">
+              Se déconnecter
+            </button>
+        </form>
+
+      {% else %}
+        <a href="{% url 'login' %}">Se connecter</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="container">
+    {% for message in messages %}
+      <div class="flash">{{ message }}</div>
+    {% endfor %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">© Benjamin Immobilier</footer>
+</body>
+</html>
