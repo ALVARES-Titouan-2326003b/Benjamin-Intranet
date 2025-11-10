@@ -8,7 +8,7 @@
 	.wrapper header{
 		display: flex;
 		align-items: center;
-		padding: 0px 30px;
+		padding: 0 30px;
 		justify-content: space-between;
 	}
 	header .icons{
@@ -110,9 +110,9 @@
 			<li>Sam</li>
 			<li>Dim</li>
 		</ul>
-		<ul class="days">
+		<div class="days">
 			<p>Chargement...</p>
-		</ul>
+		</div>
 	</div>
 </div>
 
@@ -126,7 +126,7 @@
 		currYear = date.getFullYear(),
 		currMonth = date.getMonth();
 
-		const months = ["Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin", "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Décembre"];
+		const months = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Décembre"];
 
 		function changeMonth(newMonth) {
 			if(newMonth < 0 || newMonth > 11) {
@@ -138,23 +138,32 @@
 		}
 
 		const renderCalendar = () => {
-			let firstDayofMonth = new Date(currYear, currMonth, 0).getDay(),
-			lastDateofMonth = new Date(currYear, currMonth + 1, 0).getDate(),
-			lastDayofMonth = new Date(currYear, currMonth, lastDateofMonth).getDay(),
-			lastDateofLastMonth = new Date(currYear, currMonth, 0).getDate();
+			let firstDayOfMonth = new Date(currYear, currMonth, 0).getDay(),
+			lastDateOfMonth = new Date(currYear, currMonth + 1, 0).getDate(),
+			lastDayOfMonth = new Date(currYear, currMonth, lastDateOfMonth).getDay(),
+			lastDateOfLastMonth = new Date(currYear, currMonth, 0).getDate();
 			days.innerHTML = "";
+            let weekCounter = 0;
 
-			for (let i = firstDayofMonth; i > 0; i--) {
+            let ul = document.createElement("ul");
+			for (let i = firstDayOfMonth; i > 0; --i) {
 				let li = document.createElement("li");
 				li.classList.add("inactive");
-				li.innerText = lastDateofLastMonth - i + 1;
+				li.innerText = lastDateOfLastMonth - i + 1;
 				li.addEventListener("click", () => {
 					changeMonth(--currMonth);
 				});
-				days.append(li);
+
+				ul.append(li);
+                ++weekCounter;
+                if (weekCounter === 7) {
+                    days.append(ul);
+                    ul = document.createElement("ul");
+                    weekCounter = 0;
+                }
 			}
 
-			for (let i = 1; i <= lastDateofMonth; i++) {
+			for (let i = 1; i <= lastDateOfMonth; ++i) {
 				let li = document.createElement("li");
 				li.innerText = i;
 				if(i === date.getDate() && currMonth === new Date().getMonth() && currYear === new Date().getFullYear()) {
@@ -168,18 +177,39 @@
 						if(activeEle !== li) activeEle.classList.remove("active");
 					});
 				});
-				days.append(li);
+
+				ul.append(li);
+                ++weekCounter;
+                if (weekCounter === 7) {
+                    days.append(ul);
+                    ul = document.createElement("ul");
+                    weekCounter = 0;
+                }
 			}
 
-			for (let i = lastDayofMonth; i < 7; i++) {
+			for (let i = lastDayOfMonth; i < 7; ++i) {
 				let li = document.createElement("li");
 				li.classList.add("inactive");
-				li.innerText = i - lastDayofMonth + 1;
+				li.innerText = i - lastDayOfMonth + 1;
 				li.addEventListener("click", () => {
 					changeMonth(++currMonth);
 				});
-				days.append(li);
+
+				ul.append(li);
+                ++weekCounter;
+                if (weekCounter === 7) {
+                    days.append(ul);
+                    ul = document.createElement("ul");
+                    weekCounter = 0;
+                }
 			}
+
+            if (weekCounter > 0) {
+                for (let i = 0; i<7-weekCounter; ++i) {
+                    ul.append(document.createElement("li"));
+                }
+                days.append(ul);
+            }
 			currentDate.innerText = `${months[currMonth]} ${currYear}`;
 		}
 
