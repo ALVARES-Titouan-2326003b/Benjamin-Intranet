@@ -1,10 +1,14 @@
 """
 Gestionnaire de récupération et traitement des emails
+LOGIQUE INVERSÉE : Affiche les emails ENVOYÉS et vérifie si on a reçu des réponses
 """
 from django_mailbox.models import Mailbox, Message
 from django.core.mail import EmailMessage
 from django.conf import settings
 from django.utils import timezone
+import imaplib
+import email as email_lib
+from email.header import decode_header
 
 
 def get_or_create_mailbox():
@@ -28,57 +32,27 @@ def get_or_create_mailbox():
 
 def fetch_new_emails():
     """
-    Récupère les nouveaux emails depuis le serveur (INBOX et Sent)
+    Récupère les nouveaux emails depuis le serveur (INBOX pour les réponses ET Sent pour nos envois)
     Retourne le nombre d'emails récupérés
     """
     mailbox = get_or_create_mailbox()
+    total_fetched = 0
 
     try:
-        # Récupère les emails reçus (INBOX) - convertir le générateur en liste
+        # 1. RÉCUPÈRE LES EMAILS REÇUS (INBOX) - pour avoir les réponses
+        print("\n📥 Récupération des emails reçus (INBOX)...")
         inbox_messages = list(mailbox.get_new_mail())
         print(f"✅ {len(inbox_messages)} nouveaux emails reçus (INBOX)")
+        total_fetched += len(inbox_messages)
 
-        # Pour récupérer les emails envoyés, il faut créer une connexion IMAP manuelle
-        # car django-mailbox ne supporte pas nativement les autres dossiers
-        import imaplib
-        import email as email_lib
-        from email.header import decode_header
+        # 2. RÉCUPÈRE ET STOCKE LES EMAILS ENVOYÉS (SENT)
+        print("\n📤 Récupération des emails envoyés (SENT)...")
+        sent_count = fetch_sent_emails(mailbox)
+        print(f"✅ {sent_count} emails envoyés récupérés et stockés")
+        total_fetched += sent_count
 
-        sent_count = 0
-        try:
-            # Connexion IMAP
-            imap = imaplib.IMAP4_SSL('imap-benjaminmail.alwaysdata.net', 993)
-            imap.login('benjaminmail@alwaysdata.net', 'Arceus2004')
-
-            # Essaye différents noms de dossier Sent
-            for folder_name in ['Sent', 'Sent Items', 'INBOX.Sent', 'Envoyés']:
-                try:
-                    status, _ = imap.select(f'"{folder_name}"', readonly=True)
-                    if status == 'OK':
-                        # Liste les emails
-                        _, message_numbers = imap.search(None, 'ALL')
-
-                        for num in message_numbers[0].split():
-                            _, msg_data = imap.fetch(num, '(RFC822)')
-                            email_body = msg_data[0][1]
-                            email_message = email_lib.message_from_bytes(email_body)
-
-                            # Crée un objet Message django-mailbox si besoin
-                            # Pour l'instant on compte juste
-                            sent_count += 1
-
-                        print(f"✅ {sent_count} emails dans le dossier '{folder_name}'")
-                        break
-                except Exception as e:
-                    continue
-
-            imap.logout()
-        except Exception as e:
-            print(f"⚠️ Impossible de récupérer le dossier Sent: {e}")
-
-        total = len(inbox_messages) + sent_count
-        print(f"📊 Total: {total} emails analysés")
-        return total
+        print(f"\n📊 Total: {total_fetched} emails synchronisés")
+        return total_fetched
 
     except Exception as e:
         print(f"❌ Erreur lors de la récupération des emails: {e}")
@@ -87,75 +61,219 @@ def fetch_new_emails():
         return 0
 
 
-def get_all_emails(limit=50):
+def fetch_sent_emails(mailbox):
     """
-    Récupère tous les emails REÇUS stockés dans la base de données
-    Exclut les emails envoyés pour n'afficher que ceux à traiter
+    Récupère les emails du dossier SENT et les stocke dans la base de données
+
+    Args:
+        mailbox: Objet Mailbox de django-mailbox
+
+    Returns:
+        int: Nombre d'emails envoyés récupérés
+    """
+    sent_count = 0
+
+    try:
+        # Connexion IMAP
+        imap = imaplib.IMAP4_SSL('imap-benjaminmail.alwaysdata.net', 993)
+        imap.login('benjaminmail@alwaysdata.net', 'Arceus2004')
+
+        # Essaye différents noms de dossier Sent
+        sent_folder = None
+        for folder_name in ['Sent', 'Sent Items', 'INBOX.Sent', 'Envoyés', 'Éléments envoyés']:
+            try:
+                status, _ = imap.select(f'"{folder_name}"', readonly=True)
+                if status == 'OK':
+                    sent_folder = folder_name
+                    print(f"✅ Dossier trouvé: {folder_name}")
+                    break
+            except Exception:
+                continue
+
+        if not sent_folder:
+            print("⚠️ Aucun dossier SENT trouvé")
+            imap.logout()
+            return 0
+
+        # Liste les emails
+        _, message_numbers = imap.search(None, 'ALL')
+
+        for num in message_numbers[0].split():
+            try:
+                # Récupère le message RAW complet (bytes)
+                _, msg_data = imap.fetch(num, '(RFC822)')
+                raw_email = msg_data[0][1]  # Bytes du message complet
+                email_message = email_lib.message_from_bytes(raw_email)
+
+                # Extraction des informations des headers
+                message_id = email_message.get('Message-ID', '').strip()
+                subject = decode_email_header(email_message.get('Subject', ''))
+                from_header = decode_email_header(email_message.get('From', ''))
+                to_header = decode_email_header(email_message.get('To', ''))
+                date_str = email_message.get('Date', '')
+
+                # ⭐ GÉNÈRE UN message_id SI ABSENT
+                if not message_id:
+                    import hashlib
+                    # Génère un ID unique basé sur le contenu de l'email
+                    unique_string = f"{subject}-{from_header}-{to_header}-{date_str}"
+                    unique_hash = hashlib.md5(unique_string.encode()).hexdigest()
+                    message_id = f"<generated-{unique_hash}@benjaminmail.alwaysdata.net>"
+                    print(f"   ⚠️ Message-ID absent, généré : {message_id}")
+
+                # Vérifie si le message existe déjà (par message_id)
+                # ⭐ MAINTENANT message_id est TOUJOURS présent
+                message_exists = Message.objects.filter(message_id=message_id).exists()
+
+                print(f"\n📧 Email #{num}")
+                print(f"   Sujet: {subject[:50]}...")
+                print(f"   Message-ID: {message_id}")
+                print(f"   From: {from_header}")
+                print(f"   To: {to_header}")
+                print(f"   Existe déjà ? {message_exists}")
+
+                if not message_exists:
+                    try:
+                        # Crée l'objet Message dans la BD avec le message RAW
+                        # Django-mailbox va parser automatiquement le contenu
+                        created_msg = Message.objects.create(
+                            mailbox=mailbox,
+                            subject=subject,
+                            message_id=message_id,
+                            from_header=from_header,
+                            to_header=to_header,
+                            outgoing=True,  # IMPORTANT : Marque comme email envoyé
+                            body=raw_email,  # ⭐ Message brut complet (bytes)
+                            encoded=True,    # ⭐ Indique que c'est encodé, django-mailbox va le parser
+                            processed=timezone.now(),
+                            read=timezone.now(),  # Marqué comme lu
+                        )
+                        sent_count += 1
+                        print(f"   ✅ Message créé avec succès (ID: {created_msg.id})")
+                    except Exception as create_error:
+                        print(f"   ❌ ERREUR lors de la création: {create_error}")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    print(f"   ⏭️  Message déjà en BD, ignoré")
+
+            except Exception as e:
+                print(f"⚠️ Erreur sur un email: {e}")
+                continue
+
+        imap.logout()
+        return sent_count
+
+    except Exception as e:
+        print(f"❌ Erreur lors de la récupération du dossier Sent: {e}")
+        import traceback
+        traceback.print_exc()
+        return 0
+
+
+def decode_email_header(header):
+    """
+    Décode les headers d'email qui peuvent être encodés
+
+    Args:
+        header (str): Header à décoder
+
+    Returns:
+        str: Header décodé
+    """
+    if not header:
+        return ''
+
+    decoded_parts = decode_header(header)
+    decoded_string = ''
+
+    for part, encoding in decoded_parts:
+        if isinstance(part, bytes):
+            decoded_string += part.decode(encoding or 'utf-8', errors='ignore')
+        else:
+            decoded_string += part
+
+    return decoded_string
+
+
+def get_sent_emails(limit=50):
+    """
+    Récupère tous les emails ENVOYÉS stockés dans la base de données
 
     Args:
         limit (int): Nombre maximum d'emails à retourner
 
     Returns:
-        QuerySet: Liste des emails triés par date (plus récents en premier)
+        QuerySet: Liste des emails envoyés triés par date (plus récents en premier)
     """
-    # Filtre pour ne récupérer que les emails REÇUS (pas ceux envoyés par nous)
-    messages = Message.objects.exclude(
-        from_header__icontains='benjaminmail@alwaysdata.net'
+    # Filtre pour récupérer UNIQUEMENT les emails ENVOYÉS
+    messages = Message.objects.filter(
+        outgoing=True  # Emails envoyés par nous
     ).order_by('-processed')[:limit]
 
     return messages
 
 
-def check_if_replied(message):
+def check_if_received_reply(sent_message):
     """
-    Vérifie si un email reçu a été répondu en cherchant un email envoyé
-    avec in_reply_to_id pointant vers cet email
+    LOGIQUE INVERSÉE : Vérifie si on a REÇU une réponse à un email qu'on a ENVOYÉ
+    Utilise la relation ForeignKey in_reply_to de django-mailbox
 
     Args:
-        message (Message): Email reçu
+        sent_message (Message): Email envoyé par nous
 
     Returns:
-        bool: True si répondu, False sinon
+        bool: True si quelqu'un nous a répondu, False sinon
     """
-    # Cherche un email envoyé par nous qui répond à ce message
-    reply_exists = Message.objects.filter(
-        from_header__icontains='benjaminmail@alwaysdata.net',  # Envoyé par nous
-        in_reply_to_id=message.id  # Qui répond à cet email
-    ).exists()
+    if not sent_message.message_id:
+        return False
 
-    return reply_exists
+    try:
+        # Vérifier via la ForeignKey in_reply_to
+        # django-mailbox crée automatiquement ce lien quand il détecte un In-Reply-To header
+        reply_exists = Message.objects.filter(
+            outgoing=False,  # Email reçu (pas envoyé par nous)
+            in_reply_to_id=sent_message.id  # Utilise l'ID direct au lieu de l'objet
+        ).exists()
+
+        return reply_exists
+
+    except Exception as e:
+        # Si ça échoue, on retourne False par défaut
+        print(f"⚠️ Erreur dans check_if_received_reply: {e}")
+        return False
 
 
 def get_email_summary(message):
     """
-    Retourne un résumé formaté d'un email avec son statut calculé dynamiquement
+    Retourne un résumé formaté d'un email ENVOYÉ avec son statut de réponse
 
     Args:
-        message (Message): Objet Message de django-mailbox
+        message (Message): Objet Message de django-mailbox (email envoyé)
 
     Returns:
         dict: Dictionnaire avec les infos principales de l'email
     """
-    # Vérifie si l'email a été répondu
-    is_replied = check_if_replied(message)
+    # Vérifie si quelqu'un nous a répondu
+    has_received_reply = check_if_received_reply(message)
 
     # Détermine l'emoji et le texte selon le statut
-    if is_replied:
+    if has_received_reply:
         status_emoji = '✅'
-        status_text = 'Répondu'
+        status_text = 'A répondu'
         status = 'replied'
     else:
         status_emoji = '⏳'
-        status_text = 'En attente'
+        status_text = 'Pas de réponse'
         status = 'pending'
 
     return {
         'id': message.id,
         'subject': message.subject,
-        'from': message.from_header,
-        'to': message.to_header,
+        'from': message.from_header,  # Nous (l'expéditeur)
+        'to': message.to_header,      # Le destinataire (celui à qui on a écrit)
         'date': message.processed,
-        'body_text': message.text[:200] if message.text else '',
+        'body_text': message.text[:200] if message.text else (message.body[:200] if message.body else ''),
         'body_html': message.html,
         'read': message.read,
         'status': status,
@@ -203,7 +321,7 @@ def send_email_reply(to_email, subject, message_text, original_message_id):
 
     try:
         # Récupère le message original
-        print("📧 Récupération du message original...")
+        print("🔧 Récupération du message original...")
         original_message = Message.objects.get(id=original_message_id)
         print(f"✅ Message original trouvé : {original_message.subject}")
 
@@ -287,5 +405,3 @@ def send_email_reply(to_email, subject, message_text, original_message_id):
             'success': False,
             'message': f'Erreur : {str(e)}'
         }
-
-

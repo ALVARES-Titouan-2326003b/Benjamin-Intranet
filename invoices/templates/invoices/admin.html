@@ -131,10 +131,11 @@
 			font-size: 0.9rem;
 		}
 
-		.email-from {
+		.email-to {
 			color: #555;
 			font-size: 0.95rem;
 			margin-bottom: 8px;
+			font-weight: 500;
 		}
 
 		.email-preview {
@@ -185,6 +186,29 @@
 		.reply-info p {
 			margin: 5px 0;
 			color: #555;
+		}
+
+		/* Style pour le bouton Auto-générer */
+		.auto-btn {
+			width: 100%;
+			padding: 12px;
+			background: #3498db;
+			color: white;
+			border: none;
+			border-radius: 6px;
+			font-size: 1rem;
+			font-weight: 600;
+			cursor: pointer;
+			margin-bottom: 15px;
+			transition: background 0.3s;
+		}
+
+		.auto-btn:hover {
+			background: #2980b9;
+		}
+
+		.auto-btn:active {
+			transform: scale(0.98);
 		}
 
 		#reply-message {
@@ -265,15 +289,15 @@
 
 			<!-- Menu déroulant pour sélectionner un email -->
 			<div class="reply-selector">
-				<label for="email-select">Répondre à un email :</label>
+				<label for="email-select">Relancer un destinataire :</label>
 				<select id="email-select" onchange="showReplyForm()">
 					<option value="">-- Sélectionner un email --</option>
 					{% for email in emails %}
 						{% if email.status == 'pending' %}
 							<option value="{{ email.id }}"
-								data-from="{{ email.from }}"
+								data-to="{{ email.to }}"
 								data-subject="{{ email.subject|default:'(Sans objet)' }}">
-								{{ email.subject|default:"(Sans objet)"|truncatewords:8 }}
+								{{ email.to }} - {{ email.subject|default:"(Sans objet)"|truncatewords:8 }}
 							</option>
 						{% endif %}
 					{% endfor %}
@@ -287,14 +311,17 @@
 					<p><strong>Sujet :</strong> <span id="reply-subject"></span></p>
 				</div>
 
-				<textarea id="reply-message" placeholder="Écrivez votre message ici..."></textarea>
+				<!-- Bouton Auto-générer -->
+				<button onclick="autoGenerate()" class="auto-btn" type="button">🤖 Auto-générer le message</button>
+
+				<textarea id="reply-message" placeholder="Écrivez votre message de relance ici..."></textarea>
 
 				<button onclick="sendReply()" class="send-btn">Envoyer 📨</button>
 
 				<div id="reply-status" style="display: none;"></div>
 			</div>
 
-			<!-- Liste des emails -->
+			<!-- Liste des emails ENVOYÉS -->
 			{% if emails %}
 				<div class="emails-list">
 					{% for email in emails %}
@@ -306,14 +333,14 @@
 								</div>
 								<span class="email-date">{{ email.date|date:"d/m/Y H:i" }}</span>
 							</div>
-							<div class="email-from">De: {{ email.from }}</div>
+							<div class="email-to">À : {{ email.to }}</div>
 							<div class="email-preview">{{ email.body_text|truncatewords:20 }}</div>
 						</div>
 					{% endfor %}
 				</div>
 			{% else %}
 				<p style="color: #666; text-align: center; margin-top: 50px;">
-					Aucun email pour le moment. Rechargez la page pour synchroniser.
+					Aucun email envoyé pour le moment. Rechargez la page pour synchroniser.
 				</p>
 			{% endif %}
 		</div>
@@ -327,10 +354,10 @@
 
 			if (select.value) {
 				const option = select.options[select.selectedIndex];
-				const from = option.getAttribute('data-from');
+				const to = option.getAttribute('data-to');
 				const subject = option.getAttribute('data-subject');
 
-				document.getElementById('reply-to').textContent = from;
+				document.getElementById('reply-to').textContent = to;
 				document.getElementById('reply-subject').textContent = 'Re: ' + subject;
 				document.getElementById('reply-message').value = '';
 
@@ -339,6 +366,66 @@
 			} else {
 				form.style.display = 'none';
 			}
+		}
+
+		function autoGenerate() {
+			const select = document.getElementById('email-select');
+			const email_id = select.value;
+			const textarea = document.getElementById('reply-message');
+			const status = document.getElementById('reply-status');
+
+			if (!email_id) {
+				alert('Veuillez d\'abord sélectionner un email');
+				return;
+			}
+
+			// Affiche un message de chargement
+			textarea.value = 'Génération en cours...';
+			textarea.disabled = true;
+
+			// Récupère le token CSRF
+			const csrftoken = getCookie('csrftoken');
+
+			fetch('/api/generate-message/', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRFToken': csrftoken
+				},
+				body: JSON.stringify({
+					email_id: email_id
+				})
+			})
+			.then(response => response.json())
+			.then(data => {
+				textarea.disabled = false;
+
+				if (data.success) {
+					// Remplit le textarea avec le message généré
+					textarea.value = data.message;
+
+					// Affiche un message de succès
+					status.style.display = 'block';
+					status.className = 'success';
+					status.textContent = '✅ Message généré automatiquement';
+
+					setTimeout(() => {
+						status.style.display = 'none';
+					}, 3000);
+				} else {
+					textarea.value = '';
+					status.style.display = 'block';
+					status.className = 'error';
+					status.textContent = '❌ ' + data.message;
+				}
+			})
+			.catch(error => {
+				textarea.disabled = false;
+				textarea.value = '';
+				status.style.display = 'block';
+				status.className = 'error';
+				status.textContent = '❌ Erreur réseau: ' + error;
+			});
 		}
 
 		function sendReply() {
