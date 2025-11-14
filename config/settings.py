@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'invoices',
     'django_filters',
     'chatbot',
+    'management'
 ]
 
 MIDDLEWARE = [
