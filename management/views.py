@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from invoices.email_manager import fetch_new_emails, get_all_emails, get_email_summary, send_email_reply
+from management.email_manager import fetch_new_emails, get_all_emails, get_email_summary, send_email_reply
 import json
 
 # Données temporaires pour l'authentification
@@ -54,7 +54,7 @@ def administratif_view(request):
     # Formate les emails pour l'affichage
     emails_data = [get_email_summary(email) for email in emails]
 
-    return render(request, 'invoices/admin.html', {
+    return render(request, 'management.html', {
         'pole_name': 'Administratif',
         'emails': emails_data,
     })

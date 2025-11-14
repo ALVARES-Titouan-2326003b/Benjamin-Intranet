@@ -1,11 +1,7 @@
 from django.urls import path
-from .viewsFin import (
+from .views import (
     FactureListView, FactureDetailView,
     FactureCreateView, FactureUpdateView,
-)
-from .viewsAdm import (
-    administratif_view,
-    send_reply_view
 )
 
 app_name = 'invoices'
@@ -15,8 +11,4 @@ urlpatterns = [
     path('finance/facture/new/', FactureCreateView.as_view(), name='create'),
     path('finance/facture/<str:pk>/edit/', FactureUpdateView.as_view(), name='edit'),
     path('finance/facture/<str:pk>/', FactureDetailView.as_view(), name='detail'),
-    path('administratif/', administratif_view, name='admin'),
-
-    # API pour l'envoi d'emails
-    path('api/send-reply/', send_reply_view, name='send_reply'),
 ]

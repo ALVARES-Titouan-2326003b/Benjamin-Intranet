@@ -61,7 +61,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'invoices/templates']
+        'DIRS': [BASE_DIR, 'invoices/templates', 'management/templates', 'chatbot/templates']
         ,
         'APP_DIRS': True,
         'OPTIONS': {
@@ -72,6 +72,13 @@ TEMPLATES = [
             ],
         },
     },
+]
+
+STATICFILES_DIRS = [
+    BASE_DIR,
+    "chatbot/static",
+    "invoices/static",
+    "management/static",
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
