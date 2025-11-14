@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Gestion des candidatures</h2>
+
+<p><a class="btn" href="{% url 'recrutement:fiche_create' %}">+ Nouvelle fiche de poste</a></p>
+
+<h3>Fiches de poste</h3>
+<table class="table">
+  <thead><tr><th>Titre</th><th>Créée le</th><th>Candidatures</th></tr></thead>
+  <tbody>
+    {% for f in fiches %}
+      <tr>
+        <td><a href="{% url 'recrutement:fiche_detail' f.pk %}">{{ f.titre }}</a></td>
+        <td>{{ f.created_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ f.candidatures.count }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3">Aucune fiche.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3>Dernières évaluations</h3>
+<table class="table">
+  <thead><tr><th>Poste</th><th>Candidat</th><th>Score</th><th>Statut</th></tr></thead>
+  <tbody>
+    {% for c in candidatures %}
+      <tr>
+        <td><a href="{% url 'recrutement:fiche_detail' c.fiche.pk %}">{{ c.fiche.titre }}</a></td>
+        <td>{{ c.candidat.nom }}</td>
+        <td>{% if c.score != None %}{{ c.score|floatformat:0 }} / 100{% else %}—{% endif %}</td>
+        <td>{{ c.get_statut_display }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4">Aucune candidature.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+ 
