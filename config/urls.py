@@ -10,6 +10,8 @@ urlpatterns = [
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('chatbot/', include('chatbot.urls')),
     path('', include('invoices.urls')),
+    path('gestion-des-candidatures/', include('recrutement.urls')),
+    
 ]
 
 if settings.DEBUG:
