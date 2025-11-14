@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'invoices',
     'django_filters',
     'chatbot',
+    'management',
+    'recrutement',
 ]
 
 MIDDLEWARE = [
@@ -61,7 +63,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR, 'invoices/templates', 'management/templates', 'chatbot/templates']
+        'DIRS': [BASE_DIR, 'invoices/templates', 'management/templates', 'chatbot/templates', 'recrutement/templates']
         ,
         'APP_DIRS': True,
         'OPTIONS': {
@@ -79,6 +81,7 @@ STATICFILES_DIRS = [
     "chatbot/static",
     "invoices/static",
     "management/static",
+    "recrutement/static",
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
