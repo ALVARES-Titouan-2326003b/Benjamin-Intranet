@@ -7,8 +7,8 @@ from .views import (
 app_name = 'invoices'
 
 urlpatterns = [
-    path('', FactureListView.as_view(), name='list'),
-    path('facture/new/', FactureCreateView.as_view(), name='create'),
-    path('facture/<str:pk>/edit/', FactureUpdateView.as_view(), name='edit'),
-    path('facture/<str:pk>/', FactureDetailView.as_view(), name='detail'),
+    path('finance/', FactureListView.as_view(), name='list'),
+    path('finance/facture/new/', FactureCreateView.as_view(), name='create'),
+    path('finance/facture/<str:pk>/edit/', FactureUpdateView.as_view(), name='edit'),
+    path('finance/facture/<str:pk>/', FactureDetailView.as_view(), name='detail'),
 ]

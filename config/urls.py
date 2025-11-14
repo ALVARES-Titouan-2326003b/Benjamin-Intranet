@@ -11,7 +11,7 @@ urlpatterns = [
     path('chatbot/', include('chatbot.urls')),
     path('', include('invoices.urls')),
     path('gestion-des-candidatures/', include('recrutement.urls')),
-    
+    path('', include('management.urls')),
 ]
 
 if settings.DEBUG:
