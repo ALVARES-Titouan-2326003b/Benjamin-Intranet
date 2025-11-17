@@ -23,7 +23,12 @@
 <table class="table">
   <thead>
     <tr>
-      <th>ID</th><th>Fournisseur</th><th>Client</th><th>Montant</th><th>Statut</th><th>Échéance</th>
+      <th>ID</th>
+      <th>Fournisseur</th>
+      <th>Client</th>
+      <th>Montant</th>
+      <th>Statut</th>
+      <th>Échéance</th>
     </tr>
   </thead>
   <tbody>
@@ -32,9 +37,32 @@
       <td><a href="{% url 'invoices:detail' invoice.pk %}">{{ invoice.id }}</a></td>
       <td>{{ invoice.fournisseur|default:"—" }}</td>
       <td>{{ invoice.client.nom|default:invoice.client_id|default:"—" }}</td>
-      <td>{% if invoice.montant %}{{ invoice.montant }} €{% else %}—{% endif %}</td>
-      <td>{{ invoice.statut|default:"—" }}</td>
-      <td>{% if invoice.echeance %}{{ invoice.echeance|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+
+      <td>
+        {% if invoice.montant %}
+          {{ invoice.montant }} €
+        {% else %}
+          —
+        {% endif %}
+      </td>
+
+      <td>
+        {% if invoice.statut %}
+          <span class="status-badge status-{{ invoice.statut|slugify }}">
+            {{ invoice.statut }}
+          </span>
+        {% else %}
+          —
+        {% endif %}
+      </td>
+
+      <td>
+        {% if invoice.echeance %}
+          {{ invoice.echeance|date:"d/m/Y" }}
+        {% else %}
+          —
+        {% endif %}
+      </td>
     </tr>
   {% empty %}
     <tr><td colspan="6">Aucune facture.</td></tr>
@@ -45,11 +73,17 @@
 {% if page_obj.has_previous or page_obj.has_next %}
 <div class="pagination">
   {% if page_obj.has_previous %}
-    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">Précédent</a>
+    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">
+      Précédent
+    </a>
   {% endif %}
+
   <span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+
   {% if page_obj.has_next %}
-    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">Suivant</a>
+    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">
+      Suivant
+    </a>
   {% endif %}
 </div>
 {% endif %}

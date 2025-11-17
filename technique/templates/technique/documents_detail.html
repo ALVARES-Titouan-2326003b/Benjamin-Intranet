@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ document.titre }}</h2>
+
+<p><b>Projet :</b> {{ document.projet|default:"—" }}</p>
+<p><b>Type de document :</b> {{ document.get_type_document_display }}</p>
+
+<p>
+  <b>Fichier original :</b>
+  {% if document.fichier %}
+    <a href="{{ document.fichier.url }}" target="_blank" rel="noopener">Télécharger</a>
+  {% else %}
+    —
+  {% endif %}
+</p>
+
+<p><b>Créé le :</b> {{ document.created_at|date:"d/m/Y H:i" }}</p>
+
+{# Bouton de téléchargement du résumé PDF  #}
+{% if document.resume %}
+  <p style="margin-top:1rem;">
+    <a href="{% url 'technique:document_resume_pdf' document.pk %}"
+       class="download-icon"
+       title="Télécharger le résumé PDF">
+       <i class="bi bi-download"></i>
+    </a>
+  </p>
+{% endif %}
+
+<hr style="margin:1.5rem 0;">
+
+{% if document.resume %}
+  <h3>Résumé global</h3>
+  <p style="white-space:pre-wrap;">{{ document.resume }}</p>
+{% endif %}
+
+{% if document.prix and document.prix != "—" %}
+  <h3>Prix / montants</h3>
+  <p style="white-space:pre-wrap;">{{ document.prix }}</p>
+{% endif %}
+
+{% if document.dates and document.dates != "—" %}
+  <h3>Dates clés</h3>
+  <p style="white-space:pre-wrap;">{{ document.dates }}</p>
+{% endif %}
+
+{% if document.conditions_suspensives and document.conditions_suspensives != "—" %}
+  <h3>Conditions suspensives</h3>
+  <p style="white-space:pre-wrap;">{{ document.conditions_suspensives }}</p>
+{% endif %}
+
+{% if document.penalites and document.penalites != "—" %}
+  <h3>Pénalités</h3>
+  <p style="white-space:pre-wrap;">{{ document.penalites }}</p>
+{% endif %}
+
+{% if document.delais and document.delais != "—" %}
+  <h3>Délais</h3>
+  <p style="white-space:pre-wrap;">{{ document.delais }}</p>
+{% endif %}
+
+{% endblock %}
