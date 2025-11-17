@@ -61,7 +61,7 @@ def documents_upload(request):
                 "titre": obj.titre,
                 "type_document": obj.get_type_document_display(),
             }
-            summary = summarize_document(obj.texte_brut, meta)
+            summary = summarize_document(obj.texte_brut)
 
             obj.resume = (summary.get("resume") or "")[:50000]
             obj.prix = (summary.get("prix") or "")[:20000]
