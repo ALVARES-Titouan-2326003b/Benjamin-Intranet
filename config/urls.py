@@ -11,6 +11,7 @@ urlpatterns = [
     path('chatbot/', include('chatbot.urls')),
     path('', include('invoices.urls')),
     path('gestion-des-candidatures/', include('recrutement.urls')),
+    path('pole-technique/documents/', include('technique.urls')),
     path('', include('management.urls')),
 ]
 

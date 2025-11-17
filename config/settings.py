@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'chatbot',
     'management',
     'recrutement',
+    'technique',
 ]
 
 MIDDLEWARE = [
