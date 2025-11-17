@@ -82,7 +82,9 @@ STATICFILES_DIRS = [
     "chatbot/static",
     "invoices/static",
     "management/static",
-    "recrutement/static",
+    "technique/templates",
+    "technique/static"
+
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
