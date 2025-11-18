@@ -12,13 +12,16 @@ from datetime import datetime, timedelta
 @shared_task
 def check_and_send_auto_relances():
     """
-    Tâche Celery exécutée quotidiennement pour vérifier et envoyer les relances automatiques
+    Tâche Celery exécutée périodiquement pour vérifier et envoyer les relances automatiques
+
+    FRÉQUENCE : Toutes les 5 minutes (configurable dans config/celery.py)
 
     Logique :
-    1. Récupère tous les emails ENVOYÉS (outgoing=True)
+    1. Récupère tous les emails ENVOYÉS des 90 derniers jours (outgoing=True)
     2. Pour chaque email, calcule : nb_jours = (aujourd'hui - date_envoi).days
     3. Si nb_jours > 0 ET nb_jours % intervalle_relance == 0 :
        → Envoyer une relance automatique avec le message personnalisé
+    4. Vérification anti-doublon : max 1 relance par jour par email
     """
     print("\n" + "=" * 80)
     print("🤖 DÉBUT DE LA TÂCHE DE RELANCE AUTOMATIQUE")
@@ -31,10 +34,14 @@ def check_and_send_auto_relances():
     erreurs = 0
 
     try:
-        # 1. Récupère tous les emails ENVOYÉS (outgoing=True)
-        sent_emails = Message.objects.filter(outgoing=True).order_by('-processed')
+        # 1. Récupère les emails ENVOYÉS des 90 derniers jours (optimisation)
+        date_limite = timezone.now() - timedelta(days=90)
+        sent_emails = Message.objects.filter(
+            outgoing=True,
+            processed__gte=date_limite
+        ).order_by('-processed')
 
-        print(f"\n📊 Nombre d'emails envoyés à traiter : {sent_emails.count()}")
+        print(f"\n📊 Nombre d'emails envoyés à traiter (90 derniers jours) : {sent_emails.count()}")
 
         for email in sent_emails:
             emails_traites += 1
