@@ -1,0 +1,18 @@
+{% extends "base_signatures.html" %}
+
+{% block title %}Ajouter un document{% endblock %}
+{% block header_title %}Ajouter un document{% endblock %}
+
+{% block content %}
+<div class="sig-card">
+    <h2 class="sig-card-title">Nouveau document</h2>
+
+    <form method="post" enctype="multipart/form-data" class="sig-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="sig-btn sig-btn-primary">
+            Uploader
+        </button>
+    </form>
+</div>
+{% endblock %}

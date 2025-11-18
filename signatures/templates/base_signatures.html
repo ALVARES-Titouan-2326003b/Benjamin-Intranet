@@ -1,0 +1,36 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Signature électronique{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'signatures/css/signatures.css' %}">
+</head>
+<body>
+<div class="sig-page">
+    <header class="sig-header">
+        <div>
+            <h1 class="sig-title">{% block header_title %}Signature des documents{% endblock %}</h1>
+            <p class="sig-subtitle">
+                Gestion des documents, signatures et tampon numérique.
+            </p>
+        </div>
+        <nav class="sig-nav">
+            <a href="{% url 'signatures:document_list' %}">Documents</a>
+            <a href="{% url 'signatures:upload_document' %}">Ajouter un doc</a>
+
+            <!-- Accessible à tous -->
+            <a href="{% url 'signatures:ma_signature' %}">Ma signature</a>
+
+            <!-- Réservé au CEO -->
+            {% if request.user.is_superuser %}
+                <a href="{% url 'signatures:tampon_edit' %}">Tampon</a>
+                <a href="{% url 'signatures:ceo_dashboard' %}">Demandes CEO</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    {% block content %}{% endblock %}
+</div>
+</body>
+</html>

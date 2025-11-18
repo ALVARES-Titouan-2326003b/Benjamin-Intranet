@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'management',
     'recrutement',
     'technique',
+    'signatures',
 ]
 
 MIDDLEWARE = [
@@ -64,7 +65,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR, 'invoices/templates', 'management/templates', 'chatbot/templates', 'recrutement/templates', "technique/templates",]
+        'DIRS': [BASE_DIR, 'invoices/templates', 'management/templates', 'chatbot/templates', 'recrutement/templates', "technique/templates", "signatures/templates"]
         ,
         'APP_DIRS': True,
         'OPTIONS': {
@@ -82,7 +83,8 @@ STATICFILES_DIRS = [
     "chatbot/static",
     "invoices/static",
     "management/static",
-    "technique/static"
+    "technique/static",
+    "signatures/static",
 
 ]
 
@@ -155,4 +157,5 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
 
 
+X_FRAME_OPTIONS = "SAMEORIGIN"
 

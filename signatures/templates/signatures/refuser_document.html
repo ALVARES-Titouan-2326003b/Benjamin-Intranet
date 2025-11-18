@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Refuser {{ doc.titre }}</title>
+</head>
+<body>
+<h1>Refuser le document : {{ doc.titre }}</h1>
+
+<form method="post">
+    {% csrf_token %}
+    <p>
+        <label>Commentaire (optionnel) :</label><br>
+        <textarea name="commentaire" rows="4" cols="60"></textarea>
+    </p>
+    <button type="submit">Refuser</button>
+</form>
+
+<p><a href="{% url 'signatures:document_detail' doc.pk %}">Annuler</a></p>
+</body>
+</html>

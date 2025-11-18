@@ -1,0 +1,96 @@
+{% extends "base_signatures.html" %}
+
+{% block title %}{{ doc.titre }}{% endblock %}
+{% block header_title %}{{ doc.titre }}{% endblock %}
+
+{% block content %}
+<div class="sig-card">
+    <h2 class="sig-card-title">Document</h2>
+    <p><strong>Titre :</strong> {{ doc.titre }}</p>
+
+    <p>
+        <strong>Fichier original :</strong>
+        <a href="{{ doc.fichier.url }}" target="_blank">Ouvrir</a>
+    </p>
+
+    {% if doc.fichier_signe %}
+        <p>
+            <strong>Fichier signé :</strong>
+            <a href="{{ doc.fichier_signe.url }}" target="_blank">Télécharger</a>
+        </p>
+    {% endif %}
+</div>
+
+<div class="sig-card">
+    <h2 class="sig-card-title">Workflow</h2>
+    <ul class="sig-timeline">
+        {% for h in historiques %}
+            <li class="sig-timeline-item">
+                <div class="sig-timeline-dot"></div>
+                <div class="sig-timeline-content">
+                    <div><strong>{{ h.date_action }}</strong></div>
+                    <div>
+                        {{ h.statut }}{% if h.commentaire %} – {{ h.commentaire }}{% endif %}
+                    </div>
+                </div>
+            </li>
+        {% empty %}
+            <li>Aucune action pour le moment.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="sig-card">
+    <h2 class="sig-card-title">Actions</h2>
+
+    {% if is_signed %}
+        <p>✅ Ce document est déjà signé.</p>
+
+    {% elif is_ceo %}
+        {% if pending_request %}
+            <p>
+                Une demande de signature est en attente pour ce document
+                (créée par
+                {{ pending_request.requested_by.get_full_name|default:pending_request.requested_by.username }}
+                le {{ pending_request.created_at }}).
+            </p>
+            <p>
+                <a href="{% url 'signatures:signature_approval' pending_request.token %}"
+                   class="sig-btn sig-btn-primary">
+                    Ouvrir la demande et signer
+                </a>
+            </p>
+        {% else %}
+            <p>
+                Vous pouvez signer ce document directement.
+            </p>
+            <p>
+                <a href="{% url 'signatures:placer_signature' doc.pk %}"
+                   class="sig-btn sig-btn-primary">
+                    Signer ce document
+                </a>
+            </p>
+        {% endif %}
+
+    {% else %}
+        {% if pending_request %}
+            <p>
+                ⏳ Une demande de signature est déjà en attente auprès du CEO
+                (créée le {{ pending_request.created_at }}).
+                Vous ne pouvez plus modifier le placement.
+            </p>
+        {% else %}
+            <p>
+                Vous pouvez placer le bloc tampon + signature et envoyer
+                une demande de signature au CEO.
+            </p>
+            <p>
+                <a href="{% url 'signatures:placer_signature' doc.pk %}"
+                   class="sig-btn sig-btn-primary">
+                    Demander la signature du CEO
+                </a>
+            </p>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

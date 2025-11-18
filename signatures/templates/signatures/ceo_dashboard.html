@@ -1,0 +1,77 @@
+{% extends "base_signatures.html" %}
+
+{% block title %}Demandes de signature{% endblock %}
+{% block header_title %}Tableau de bord des signatures (CEO){% endblock %}
+
+{% block content %}
+<div class="sig-card">
+    <h2 class="sig-card-title">Demandes en attente</h2>
+
+    {% if pending_requests %}
+        <table class="sig-table">
+            <thead>
+            <tr>
+                <th>Document</th>
+                <th>Demandé par</th>
+                <th>Date de demande</th>
+                <th>Position</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for d in pending_requests %}
+                <tr>
+                    <td>{{ d.document.titre }}</td>
+                    <td>
+                        {{ d.requested_by.get_full_name|default:d.requested_by.username }}
+                    </td>
+                    <td>{{ d.created_at }}</td>
+                    <td>{{ d.pos_x_pct|floatformat:1 }}% / {{ d.pos_y_pct|floatformat:1 }}%</td>
+                    <td>
+                        <a class="sig-btn sig-btn-primary"
+                           href="{% url 'signatures:signature_approval' d.token %}">
+                            Voir &amp; signer
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Aucune demande de signature en attente</p>
+    {% endif %}
+</div>
+
+<div class="sig-card">
+    <h2 class="sig-card-title">Historique des demandes (50 dernières)</h2>
+
+    {% if all_requests %}
+        <table class="sig-table">
+            <thead>
+            <tr>
+                <th>Document</th>
+                <th>Demandé par</th>
+                <th>Date</th>
+                <th>Statut</th>
+                <th>Décision le</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for d in all_requests %}
+                <tr>
+                    <td>{{ d.document.titre }}</td>
+                    <td>
+                        {{ d.requested_by.get_full_name|default:d.requested_by.username }}
+                    </td>
+                    <td>{{ d.created_at }}</td>
+                    <td>{{ d.get_statut_display }}</td>
+                    <td>{{ d.decided_at|default:"-" }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Aucune demande enregistrée.</p>
+    {% endif %}
+</div>
+{% endblock %}

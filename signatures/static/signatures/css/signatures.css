@@ -1,0 +1,281 @@
+/* ==== Layout global ==== */
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f4f5f7;
+    margin: 0;
+    padding: 0;
+    color: #1f2933;
+}
+
+.sig-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+}
+
+.sig-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.sig-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.sig-subtitle {
+    margin-top: 4px;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.sig-nav {
+    display: flex;
+    gap: 8px;
+}
+
+.sig-nav a {
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    text-decoration: none;
+    color: #374151;
+    background: #fff;
+}
+
+.sig-nav a:hover {
+    border-color: #4f46e5;
+    color: #111827;
+}
+
+/* ==== Cartes & blocs ==== */
+
+.sig-card {
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+    padding: 16px 18px;
+    margin-bottom: 16px;
+}
+
+.sig-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 12px;
+}
+
+/* ==== Tableau de documents ==== */
+
+.sig-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.sig-table th,
+.sig-table td {
+    padding: 10px 8px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.sig-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    font-size: 13px;
+    color: #4b5563;
+}
+
+.sig-table tr:hover td {
+    background: #f3f4ff;
+}
+
+/* ==== Badges de statut ==== */
+
+.sig-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.sig-badge-upload {
+    background: #e5f3ff;
+    color: #1d4ed8;
+}
+
+.sig-badge-attente {
+    background: #fff7e6;
+    color: #92400e;
+}
+
+.sig-badge-signe {
+    background: #e6f9f0;
+    color: #047857;
+}
+
+.sig-badge-refuse {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.sig-badge-erreur {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* ==== Boutons ==== */
+
+.sig-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 8px;
+    font-size: 14px;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.sig-btn-primary {
+    background: #4f46e5;
+    color: #ffffff;
+    border-color: #4f46e5;
+}
+
+.sig-btn-primary:hover {
+    background: #4338ca;
+}
+
+.sig-btn-outline {
+    background: #ffffff;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+.sig-btn-outline:hover {
+    border-color: #4f46e5;
+    color: #111827;
+}
+
+/* ==== Formulaires ==== */
+
+.sig-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sig-form label {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.sig-form input[type="text"],
+.sig-form input[type="file"],
+.sig-form input[type="number"],
+.sig-form textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.sig-form textarea {
+    min-height: 80px;
+}
+
+.sig-form input:focus,
+.sig-form textarea:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
+}
+
+/* ==== Historique (timeline) ==== */
+
+.sig-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sig-timeline-item {
+    display: flex;
+    gap: 10px;
+    padding: 6px 0;
+    font-size: 13px;
+}
+
+.sig-timeline-dot {
+    width: 8px;
+    height: 8px;
+    margin-top: 6px;
+    border-radius: 999px;
+    background: #9ca3af;
+    flex-shrink: 0;
+}
+
+.sig-timeline-content {
+    flex: 1;
+}
+
+/* ==== Zone de placement (PDF + bloc) ==== */
+
+.sig-pdf-wrapper {
+    margin-top: 12px;
+}
+
+#page {
+    position: relative;
+    width: 900px;
+    height: 1200px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16);
+    overflow: hidden;
+}
+
+#pdf-preview {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: none;
+    z-index: 1;
+}
+
+#sig-block {
+    position: absolute;
+    width: 220px;
+    height: 130px;
+    border: 2px dashed #4f46e5;
+    background: rgba(79, 70, 229, 0.12);
+    cursor: grab;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1e3a8a;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 10;
+    transition: box-shadow .15s, transform .1s;
+}
+
+#sig-block:active {
+    cursor: grabbing;
+    box-shadow: 0 0 14px rgba(79, 70, 229, 0.4);
+    transform: scale(1.01);
+}
