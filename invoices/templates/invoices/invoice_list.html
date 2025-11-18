@@ -4,14 +4,51 @@
 <h2>Factures</h2>
 
 <form method="get" class="filters">
-  <input type="text" name="fournisseur" value="{{ request.GET.fournisseur }}" placeholder="Fournisseur">
-  <input type="text" name="client" value="{{ request.GET.client }}" placeholder="Client">
-  <input type="number" step="0.01" name="min_amount" value="{{ request.GET.min_amount }}" placeholder="Montant min">
-  <input type="number" step="0.01" name="max_amount" value="{{ request.GET.max_amount }}" placeholder="Montant max">
-  <input type="text" name="statut" value="{{ request.GET.statut }}" placeholder="Statut (Reçue, En cours, Payée, Refusée, Archivée)">
+  <input type="text"
+         name="fournisseur"
+         value="{{ request.GET.fournisseur }}"
+         placeholder="Fournisseur">
+
+  <input type="text"
+         name="client"
+         value="{{ request.GET.client }}"
+         placeholder="Client">
+
+  <input type="number"
+         step="0.01"
+         name="min_amount"
+         value="{{ request.GET.min_amount }}"
+         placeholder="Montant min">
+
+  <input type="number"
+         step="0.01"
+         name="max_amount"
+         value="{{ request.GET.max_amount }}"
+         placeholder="Montant max">
+
+  <input type="text"
+         name="statut"
+         value="{{ request.GET.statut }}"
+         placeholder="Statut (Reçue, En cours, Payée, Refusée, Archivée)">
+
+  <input type="text"
+         name="pole"
+         value="{{ request.GET.pole }}"
+         placeholder="Service / Pôle">
+
+  <div class="date-range-onebox">
+    <span>Du</span>
+    <input type="date" id="date_from" name="echeance_min" value="{{ request.GET.echeance_min }}">
+    <span>au</span>
+    <input type="date" id="date_to" name="echeance_max" value="{{ request.GET.echeance_max }}">
+</div>
+
+
   <button type="submit">Filtrer</button>
   <a href="{% url 'invoices:list' %}">Réinitialiser</a>
 </form>
+
+
 
 
 {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}

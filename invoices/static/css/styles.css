@@ -700,3 +700,27 @@ main.container form button[type="submit"] {
     background: rgba(255,255,255,0.15);
     color: #ffffff;
 }
+
+.date-range-onebox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #d0d7de;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: white;
+}
+
+.date-range-onebox input[type="date"] {
+    border: none;
+    padding: 3px;
+    background: transparent;
+}
+
+.date-range-onebox input[type="date"]:focus {
+    outline: none;
+}
+.date-range-onebox span {
+    color: #000;     
+    font-weight: 500; 
+}
