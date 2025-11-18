@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Placement – {{ doc.titre }}</title>
+</head>
+<body>
+<h1>Placement de la signature & du tampon</h1>
+
+<p>Document : <strong>{{ doc.titre }}</strong></p>
+
+<p>
+    Indique les positions en pourcentage de la page (0 = bord gauche/bas, 100 = bord droit/haut).<br>
+    Si tu laisses vide, le système utilisera le mode automatique (signature sur le tampon, en bas à gauche).
+</p>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Enregistrer</button>
+</form>
+
+<p><a href="{% url 'signatures:document_detail' doc.pk %}">Retour au document</a></p>
+</body>
+</html>

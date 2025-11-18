@@ -12,6 +12,7 @@ urlpatterns = [
     path('', include('invoices.urls')),
     path('gestion-des-candidatures/', include('recrutement.urls')),
     path('pole-technique/documents/', include('technique.urls')),
+    path('signatures/', include('signatures.urls')),
     path('', include('management.urls')),
 ]
 

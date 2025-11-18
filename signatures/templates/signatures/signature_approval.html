@@ -1,0 +1,80 @@
+{% extends "base_signatures.html" %}
+
+{% block title %}Approbation CEO – {{ doc.titre }}{% endblock %}
+{% block header_title %}Approbation de la signature{% endblock %}
+
+{% block content %}
+<div class="sig-card">
+    <h2 class="sig-card-title">{{ doc.titre }}</h2>
+    <p>
+        Une demande de signature a été effectuée par
+        <strong>{{ demande.requested_by.get_full_name|default:demande.requested_by.username }}</strong>
+        le {{ demande.created_at }}.
+    </p>
+    <p>
+        Vous voyez ci-dessous le document tel qu'il sera signé, avec le tampon et la signature
+        positionnés à l'endroit choisi.
+    </p>
+
+    <div class="sig-pdf-wrapper">
+        <div id="page">
+            <embed
+                id="pdf-preview"
+                src="{{ doc.fichier.url }}#page=1&zoom=page-width&toolbar=0&navpanes=0"
+                type="application/pdf"
+            >
+
+            <div id="sig-block"
+                 data-pos-x="{{ demande.pos_x_pct }}"
+                 data-pos-y="{{ demande.pos_y_pct }}">
+                Tampon + Signature (aperçu)
+            </div>
+        </div>
+    </div>
+
+    <form method="post" style="margin-top: 16px;">
+        {% csrf_token %}
+        <p>
+            <label for="commentaire">Commentaire (optionnel) :</label><br>
+            <textarea id="commentaire" name="commentaire" rows="3" style="width:100%;"></textarea>
+        </p>
+
+        <button type="submit" name="action" value="approve" class="sig-btn sig-btn-primary">
+            Approuver et signer
+        </button>
+        <button type="submit" name="action" value="refuse" class="sig-btn sig-btn-outline">
+            Refuser
+        </button>
+    </form>
+</div>
+
+<script>
+    (function() {
+        const page = document.getElementById("page");
+        const block = document.getElementById("sig-block");
+
+        function positionnerBloc() {
+            const pageRect = page.getBoundingClientRect();
+            const blockRect = block.getBoundingClientRect();
+
+            const posX = parseFloat(block.dataset.posX);
+            const posY = parseFloat(block.dataset.posY);
+
+            if (isNaN(posX) || isNaN(posY)) return;
+
+            const leftPx = (posX / 100) * pageRect.width;
+            const bottomPx = (posY / 100) * pageRect.height;
+
+            const topPx = pageRect.height - bottomPx - blockRect.height;
+
+            block.style.left = leftPx + "px";
+            block.style.top = topPx + "px";
+        }
+
+        // on attend un micro instant que le layout soit prêt
+        window.addEventListener("load", function() {
+            setTimeout(positionnerBloc, 200);
+        });
+    })();
+</script>
+{% endblock %}
