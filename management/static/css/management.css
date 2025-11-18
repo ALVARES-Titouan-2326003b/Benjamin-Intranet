@@ -195,6 +195,37 @@ body {
     border-color: #9B59B6;
 }
 
+/* Bouton Auto-générer */
+.auto-btn {
+    width: 100%;
+    padding: 12px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 15px;
+    transition: all 0.3s;
+}
+
+.auto-btn:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+.auto-btn:active {
+    transform: scale(0.98);
+}
+
+.auto-btn:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .send-btn {
     width: 100%;
     padding: 12px;
