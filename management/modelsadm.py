@@ -42,3 +42,19 @@ class Modele_Relance(models.Model):
 
     def __str__(self):
         return f"Modèle relance pour utilisateur {self.utilisateur}"
+
+class Temps_Relance(models.Model):
+    """
+    Modèle représentant la table Temps_Relance
+    Contient le nombre de jours entre chaque relance pour chaque utilisateur
+    """
+    id = models.TextField(primary_key=True)  # ID utilisateur (FK vers Utilisateurs.id)
+    pole = models.TextField()  # Type 'poles' en PostgreSQL (enum)
+    relance = models.IntegerField()  # Nombre de jours entre chaque relance
+
+    class Meta:
+        db_table = 'Temps_Relance'  # Nom exact de la table existante
+        managed = False  # Django ne gère pas cette table (déjà créée en BD)
+
+    def __str__(self):
+        return f"Relance tous les {self.relance} jours pour utilisateur {self.id}"

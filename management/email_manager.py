@@ -3,6 +3,8 @@ Gestionnaire de récupération et traitement des emails
 LOGIQUE INVERSÉE : Affiche les emails ENVOYÉS et vérifie si on a reçu des réponses
 VERSION SANS decode_email_header() - POUR TEST
 """
+import hashlib
+
 from django_mailbox.models import Mailbox, Message
 from django.core.mail import EmailMessage
 from django.conf import settings
@@ -157,7 +159,7 @@ def fetch_sent_emails(mailbox):
                             from_header=from_header,  # ⚠️ Potentiellement encodé
                             to_header=to_header,  # ⚠️ Potentiellement encodé
                             outgoing=True,
-                            body=body_html if body_html else body_text,
+                            body=body_html,
                             encoded=False,
                             processed=timezone.now(),
                             read=timezone.now(),
@@ -384,6 +386,119 @@ def send_email_reply(to_email, subject, message_text, original_message_id):
         return {
             'success': True,
             'message': 'Email envoyé avec succès !'
+        }
+
+    except Message.DoesNotExist:
+        print("❌ Message original introuvable")
+        return {
+            'success': False,
+            'message': 'Email original introuvable'
+        }
+    except Exception as e:
+        print(f"\n❌❌❌ ERREUR : {e}")
+        import traceback
+        traceback.print_exc()
+        print("=" * 60 + "\n")
+        return {
+            'success': False,
+            'message': f'Erreur : {str(e)}'
+        }
+
+def send_auto_relance(to_email, subject, message_text, objet_custom, original_message_id):
+    """
+    Envoie une RELANCE AUTOMATIQUE avec les headers appropriés
+    ET enregistre l'email envoyé dans la base de données
+
+    Différence avec send_email_reply : utilisé par la tâche Celery, pas l'interface manuelle
+
+    Args:
+        to_email (str): Adresse email du destinataire
+        subject (str): Sujet de l'email original
+        message_text (str): Contenu du message personnalisé
+        objet_custom (str): Objet personnalisé depuis Modele_Relance (optionnel)
+        original_message_id (int): ID du message original auquel on répond
+
+    Returns:
+        dict: {'success': bool, 'message': str}
+    """
+    print("\n" + "=" * 60)
+    print("🤖 DÉBUT send_auto_relance() - RELANCE AUTOMATIQUE")
+    print(f"   to_email: {to_email}")
+    print(f"   subject: {subject}")
+    print(f"   objet_custom: {objet_custom}")
+    print(f"   original_message_id: {original_message_id}")
+    print("=" * 60)
+
+    try:
+        # Récupère le message original
+        print("📧 Récupération du message original...")
+        original_message = Message.objects.get(id=original_message_id)
+        print(f"✅ Message original trouvé : {original_message.subject}")
+
+        # Utilise l'objet personnalisé si disponible, sinon "Re: [sujet]"
+        if objet_custom:
+            final_subject = objet_custom
+        else:
+            final_subject = f"Re: {subject}" if not subject.startswith('Re:') else subject
+
+        # 1. CRÉER L'OBJET MESSAGE DANS LA BD D'ABORD
+        print("\n💾 CRÉATION DE L'OBJET MESSAGE DANS LA BD")
+        print("-" * 60)
+
+        mailbox = get_or_create_mailbox()
+
+        # Génère un message_id unique
+        unique_id = hashlib.md5(f"auto-{original_message_id}-{timezone.now()}".encode()).hexdigest()
+        generated_message_id = f"<auto-relance-{unique_id}@benjaminmail.alwaysdata.net>"
+
+        print(f"   Mailbox: {mailbox.name} (ID: {mailbox.id})")
+        print(f"   Original message ID: {original_message.id}")
+        print(f"   Message-ID généré: {generated_message_id}")
+        print(f"   Sujet final: {final_subject}")
+
+        sent_message = Message.objects.create(
+            mailbox=mailbox,
+            subject=final_subject,
+            message_id=generated_message_id,
+            from_header=settings.EMAIL_HOST_USER,
+            to_header=to_email,
+            outgoing=True,
+            body=message_text,
+            encoded=False,
+            processed=timezone.now(),
+            read=timezone.now(),
+            in_reply_to_id=original_message.id,
+        )
+
+        print(f"✅✅✅ Message enregistré en BD ! ID: {sent_message.id}")
+        print(f"       in_reply_to_id: {sent_message.in_reply_to_id}")
+
+        # 2. ENVOYER L'EMAIL VIA SMTP
+        print("\n📮 ENVOI DE LA RELANCE AUTOMATIQUE VIA SMTP")
+        print("-" * 60)
+
+        email = EmailMessage(
+            subject=final_subject,
+            body=message_text,
+            from_email=settings.EMAIL_HOST_USER,
+            to=[to_email],
+        )
+
+        # Ajoute les headers pour marquer comme réponse
+        email.extra_headers = {
+            'In-Reply-To': original_message.message_id,
+            'References': original_message.message_id,
+            'Message-ID': generated_message_id,
+            'X-Auto-Relance': 'true',  # Header custom pour identifier les relances auto
+        }
+
+        email.send()
+        print(f"✅ Relance automatique envoyée à {to_email}")
+        print("=" * 60 + "\n")
+
+        return {
+            'success': True,
+            'message': 'Relance automatique envoyée avec succès !'
         }
 
     except Message.DoesNotExist:
