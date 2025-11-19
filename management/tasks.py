@@ -1,12 +1,19 @@
 """
 Tâches Celery pour les relances automatiques
 """
+import os
+
 from celery import shared_task
 from django.utils import timezone
 from django_mailbox.models import Message
 from .modelsadm import Utilisateur, Modele_Relance, Temps_Relance
 from .email_manager import send_auto_relance
 from datetime import datetime, timedelta
+from .modelsadm import Activites
+from django.core.mail import EmailMessage
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -176,3 +183,116 @@ def check_and_send_auto_relances():
             'success': False,
             'message': str(e)
         }
+
+
+@shared_task
+def check_and_send_activite_reminders():
+    """
+    Tâche périodique qui vérifie les activités à venir
+    et envoie des rappels 10, 7, 4 et 1 jour(s) avant la date prévue
+    """
+
+
+    logger.info("\n" + "=" * 60)
+    logger.info("📅 DÉBUT - Vérification des rappels d'activités")
+    logger.info("=" * 60)
+
+    now = datetime.now()
+    today = now.date()
+    logger.info(f"📅 Date actuelle : {today}")
+
+    # Date limite : dans 10 jours
+    date_limite = today + timedelta(days=10)
+    logger.info(f"📆 Date limite : {date_limite} (dans 10 jours)")
+
+    # Récupérer toutes les activités dans les 10 prochains jours
+    activites = Activites.objects.filter(
+        date__date__gt=today,
+        date__date__lte=date_limite
+    ).order_by('date')
+
+    logger.info(f"📊 Activités trouvées dans les 10 prochains jours : {activites.count()}")
+
+    activites_traitees = 0
+    rappels_envoyes = 0
+
+    for activite in activites:
+        try:
+            activites_traitees += 1
+
+            # Calculer le nombre de jours restants
+            date_activite = activite.date.date()
+            jours_restants = (date_activite - today).days
+
+            logger.info(f"\n📋 Activité #{activite.id}")
+            logger.info(f"   Dossier: {activite.dossier}")
+            logger.info(f"   Type: {activite.type}")
+            logger.info(f"   Date: {date_activite}")
+            logger.info(f"   Jours restants: {jours_restants}")
+
+            # Vérifier si on doit envoyer un rappel
+            # Condition : jours_restants ≤ 10 ET multiple de 3 (1, 4, 7, 10)
+            should_send = False
+
+            if jours_restants in [1, 4, 7, 10]:
+                should_send = True
+                logger.info(f"   ✅ Rappel nécessaire (J-{jours_restants})")
+            else:
+                logger.info(f"   ⏭️  Pas de rappel pour J-{jours_restants}")
+
+            if should_send:
+                # Construire le message
+                objet = f"Rappel d'activité - J-{jours_restants}"
+
+                message = f"""Bonjour,
+
+Ceci est un rappel automatique concernant l'activité suivante :
+
+- Dossier : {activite.dossier}
+- Type : {activite.type}
+- Date prévue : {date_activite.strftime('%d/%m/%Y')}
+- Échéance : dans {jours_restants} jour(s)
+
+"""
+
+                if activite.commentaire:
+                    message += f"Commentaire : {activite.commentaire}\n\n"
+
+                message += f"""Merci de prendre les dispositions nécessaires.
+
+Cordialement,
+Système de rappel Benjamin Immobilier"""
+
+                # Envoyer l'email à l'administrateur en utilisant EmailMessage
+                try:
+                    email = EmailMessage(
+                        subject=objet,
+                        body=message,
+                        from_email=os.getenv("EMAIL_HOST_USER"),
+                        to=[os.getenv("EMAIL_HOST_USER")],
+                    )
+
+                    email.send()
+                    rappels_envoyes += 1
+                    logger.info(f"   ✅ Rappel envoyé avec succès")
+                except Exception as e:
+                    logger.error(f"   ❌ Erreur envoi email : {e}")
+
+        except Exception as e:
+            logger.error(f"❌ Erreur traitement activité {activite.id}: {e}")
+            import traceback
+            traceback.print_exc()
+            continue
+
+    logger.info("\n" + "=" * 60)
+    logger.info(f"✅ FIN - Rappels d'activités")
+    logger.info(f"📊 Résumé :")
+    logger.info(f"   - Activités traitées : {activites_traitees}")
+    logger.info(f"   - Rappels envoyés : {rappels_envoyes}")
+    logger.info("=" * 60 + "\n")
+
+    return {
+        'success': True,
+        'activites_traitees': activites_traitees,
+        'rappels_envoyes': rappels_envoyes
+    }

@@ -1,12 +1,14 @@
 """
 Vues pour la partie administrative - Gestion des emails et relances
 """
+from datetime import timezone
+
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from .email_manager import fetch_new_emails, get_sent_emails, get_email_summary, send_email_reply
-from .modelsadm import Utilisateur, Modele_Relance
+from .modelsadm import Utilisateur, Modele_Relance, Temps_Relance, Activites
 import json
 from celery import Celery
 
@@ -247,4 +249,80 @@ def generate_auto_message_view(request):
         return JsonResponse({
             'success': False,
             'message': f'Erreur: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["GET"])
+def get_calendar_activities(request):
+    """
+    API endpoint pour récupérer les activités du calendrier
+
+    Paramètres GET :
+    - month : numéro du mois (1-12)
+    - year : année (ex: 2025)
+
+    Retourne :
+    - Liste des activités avec leurs détails pour affichage dans le calendrier
+    """
+    try:
+        # Récupérer les paramètres (par défaut = mois/année actuels)
+        from datetime import datetime  # ← Import local pour éviter conflit
+        now = datetime.now()  # ← Utilise datetime.now() au lieu de timezone.now()
+        month = int(request.GET.get('month', now.month))
+        year = int(request.GET.get('year', now.year))
+
+        print(f"\n{'=' * 60}")
+        print(f"📅 API Calendar Activities - Requête pour {month}/{year}")
+        print(f"{'=' * 60}")
+
+        # Calculer les dates de début et fin du mois
+        start_date = datetime(year, month, 1)
+
+        # Fin du mois = début du mois suivant
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+
+        print(f"📆 Période : {start_date.date()} → {end_date.date()}")
+
+        # Récupérer les activités du mois depuis la BD
+        activites = Activites.objects.filter(
+            date__gte=start_date,
+            date__lt=end_date
+        ).values('id', 'dossier', 'type', 'pole', 'date', 'commentaire')
+
+        print(f"📊 Activités trouvées : {activites.count()}")
+
+        # Formater les données pour JSON
+        activites_list = []
+        for act in activites:
+            activites_list.append({
+                'id': act['id'],
+                'dossier': act['dossier'],
+                'type': act['type'],
+                'pole': act['pole'],
+                'date': act['date'].strftime('%Y-%m-%d'),
+                'commentaire': act['commentaire'] or ''
+            })
+            print(f"   - {act['date'].strftime('%Y-%m-%d')} : {act['type']} - {act['dossier']}")
+
+        print(f"{'=' * 60}\n")
+
+        return JsonResponse({
+            'success': True,
+            'activites': activites_list,
+            'month': month,
+            'year': year
+        })
+
+    except Exception as e:
+        print(f"\n❌ Erreur API Calendar Activities : {e}")
+        import traceback
+        traceback.print_exc()
+        print(f"{'=' * 60}\n")
+
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur : {str(e)}'
         }, status=500)

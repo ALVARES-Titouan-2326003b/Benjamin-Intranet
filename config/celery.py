@@ -28,36 +28,13 @@ app.conf.beat_schedule = {
         'task': 'management.tasks.check_and_send_auto_relances',
 
         # ⏰ FRÉQUENCE : Toutes les 5 minutes
-        'schedule': crontab(minute='*/1'),
-
-        # 📝 AUTRES EXEMPLES DE PLANIFICATION :
-        #
-        # Tous les jours à 9h00 :
-        # 'schedule': crontab(hour=9, minute=0),
-        #
-        # Tous les jours à 14h30 :
-        # 'schedule': crontab(hour=14, minute=30),
-        #
-        # Toutes les heures :
-        # 'schedule': crontab(minute=0),
-        #
-        # Toutes les 30 minutes :
-        # 'schedule': crontab(minute='*/30'),
-        #
-        # Toutes les 10 minutes :
-        # 'schedule': crontab(minute='*/10'),
-        #
-        # Du lundi au vendredi à 9h00 :
-        # 'schedule': crontab(hour=9, minute=0, day_of_week='1-5'),
-        #
-        # Uniquement les lundis à 10h00 :
-        # 'schedule': crontab(hour=10, minute=0, day_of_week=1),
-        #
-        # Le 1er de chaque mois à 9h00 :
-        # 'schedule': crontab(hour=9, minute=0, day_of_month=1),
+        'schedule': crontab(minute='*/5'),
+    },
+    'check-activite-reminders-daily': {
+        'task': 'management.tasks.check_and_send_activite_reminders',
+        'schedule': crontab(minute='*/5'),
     },
 }
-
 # Configuration du fuseau horaire
 app.conf.timezone = 'Europe/Paris'
 

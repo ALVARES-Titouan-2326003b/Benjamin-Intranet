@@ -58,3 +58,24 @@ class Temps_Relance(models.Model):
 
     def __str__(self):
         return f"Relance tous les {self.relance} jours pour utilisateur {self.id}"
+
+class Activites(models.Model):
+    """
+    Modèle représentant la table Activites
+    Contient les événements/activités liés aux dossiers à afficher dans le calendrier
+    """
+    id = models.AutoField(primary_key=True)
+    dossier = models.TextField()  # Référence au dossier
+    type = models.TextField()  # Type d'activité (vente, location, compromis, visite, etc.)
+    pole = models.TextField()  # Type 'poles' en PostgreSQL (enum)
+    date = models.DateTimeField()  # Date de l'activité
+    date_type = models.TextField(blank=True, null=True)  # Type 'date_type' (ignoré pour l'instant)
+    commentaire = models.TextField(blank=True, null=True)  # Commentaire optionnel
+
+    class Meta:
+        db_table = 'Activites'  # Nom exact de la table existante
+        managed = False  # Django ne gère pas cette table (déjà créée en BD)
+        ordering = ['date']  # Trier par date par défaut
+
+    def __str__(self):
+        return f"{self.type} - {self.dossier} ({self.date.strftime('%Y-%m-%d')})"

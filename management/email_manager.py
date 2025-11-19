@@ -404,6 +404,7 @@ def send_email_reply(to_email, subject, message_text, original_message_id):
             'message': f'Erreur : {str(e)}'
         }
 
+
 def send_auto_relance(to_email, subject, message_text, objet_custom, original_message_id):
     """
     Envoie une RELANCE AUTOMATIQUE avec les headers appropriés
@@ -435,11 +436,16 @@ def send_auto_relance(to_email, subject, message_text, objet_custom, original_me
         original_message = Message.objects.get(id=original_message_id)
         print(f"✅ Message original trouvé : {original_message.subject}")
 
-        # Utilise l'objet personnalisé si disponible, sinon "Re: [sujet]"
+        # Format de l'objet : "[sujet original]: relance automatique"
+        # Si objet_custom existe, on l'utilise comme base
         if objet_custom:
-            final_subject = objet_custom
+            base_subject = objet_custom
         else:
-            final_subject = f"Re: {subject}" if not subject.startswith('Re:') else subject
+            # Enlever "Re: " si présent dans le sujet original
+            base_subject = subject.replace('Re: ', '', 1) if subject.startswith('Re:') else subject
+
+        # Ajouter ": relance automatique"
+        final_subject = f"{base_subject}: relance automatique"
 
         # 1. CRÉER L'OBJET MESSAGE DANS LA BD D'ABORD
         print("\n💾 CRÉATION DE L'OBJET MESSAGE DANS LA BD")
