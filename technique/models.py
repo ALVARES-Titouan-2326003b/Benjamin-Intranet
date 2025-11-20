@@ -50,13 +50,13 @@ class DocumentTechnique(models.Model):
 
 class TechnicalProject(models.Model):
     DOSSIER_TYPES = [
-        ("Client", "Client"),
+        ("client", "Client"),
         ("juridique", "Juridique"),
     ]
 
     reference = models.CharField("Référence projet", max_length=50, unique=True, db_column='reference')
     name = models.CharField("Nom du projet", max_length=255, db_column='nom')
-    type = models.TextField(choices=DOSSIER_TYPES, default="client")
+    type = models.TextField(choices=DOSSIER_TYPES, default="Client")
 
     # Saisis de l'utilisateur
     engaged_amount = models.DecimalField(
