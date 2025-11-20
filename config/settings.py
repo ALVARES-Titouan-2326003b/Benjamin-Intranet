@@ -50,7 +50,6 @@ INSTALLED_APPS = [
     'technique',
     'signatures',
     'django_celery_results',
-    'management',
 ]
 
 MIDDLEWARE = [
