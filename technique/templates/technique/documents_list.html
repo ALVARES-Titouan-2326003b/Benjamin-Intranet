@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Documents techniques</h2>
+
+<p>
+  <a class="btn" href="{% url 'technique:documents_upload' %}">+ Importer un document</a>
+</p>
+
+<form method="get" style="margin-bottom:1rem;">
+  <input type="text" name="projet" placeholder="Filtrer par projet" value="{{ projet }}">
+  <button type="submit">Filtrer</button>
+  {% if projet %}
+    <a href="{% url 'technique:documents_list' %}">Réinitialiser</a>
+  {% endif %}
+</form>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Projet</th>
+      <th>Titre</th>
+      <th>Type</th>
+      <th>Créé le</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for doc in documents %}
+      <tr>
+        <td>{{ doc.projet|default:"—" }}</td>
+        <td>
+          <a href="{% url 'technique:documents_detail' doc.pk %}">
+            {{ doc.titre }}
+          </a>
+        </td>
+        <td>{{ doc.get_type_document_display }}</td>
+        <td>{{ doc.created_at|date:"d/m/Y H:i" }}</td>
+        <td>
+          <a href="{% url 'technique:documents_detail' doc.pk %}">Voir</a>
+
+          {# Bouton de téléchargement du résumé PDF #}
+          {% if doc.resume %}
+            &nbsp;|&nbsp;
+            <a href="{% url 'technique:document_resume_pdf' doc.pk %}"
+               class="download-icon"
+               title="Télécharger le résumé PDF">
+               <i class="bi bi-download"></i>
+            </a>
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5">Aucun document.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

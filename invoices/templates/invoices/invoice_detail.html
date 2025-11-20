@@ -1,34 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Détails facture #{{ object.id }}</h2>
+<div class="invoice-detail">
 
-<p><b>Fournisseur :</b> {{ object.fournisseur|default:"—" }}</p>
-<p><b>Client :</b> {{ object.client.nom|default:object.client_id|default:"—" }}</p>
-<p><b>Montant :</b> {{ object.montant|default_if_none:"—" }}{% if object.montant %} €{% endif %}</p>
-<p><b>Pôle :</b> {{ object.pole|default:"—" }}</p>
-<p><b>Statut :</b> {{ object.statut|default:"—" }}</p>
-<p><b>Échéance :</b> {% if object.echeance %}{{ object.echeance|date:"d/m/Y" }}{% else %}—{% endif %}</p>
-<p><b>Titre :</b> {{ object.titre|default:"—" }}</p>
+  <h2>Détails facture #{{ object.id }}</h2>
 
-<h3>Pièces jointes</h3>
-{% with pieces=object.piecejointe_set.all %}
-  {% if pieces %}
-    <ul>
-      {% for pj in pieces %}
-        <li>
-          <a href="{{ pj.fichier.url }}" target="_blank" rel="noopener">
-            Télécharger la facture (PDF) – {{ pj.fichier.name|slice:"8:" }}
-          </a>
-          <small> — {{ pj.uploaded_at|date:"d/m/Y H:i" }}</small>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>— Aucune pièce jointe.</p>
+  <p><b>Fournisseur :</b> {{ object.fournisseur|default:"—" }}</p>
+  <p><b>Client :</b> {{ object.client.nom|default:object.client_id|default:"—" }}</p>
+  <p><b>Montant :</b> {{ object.montant|default_if_none:"—" }}{% if object.montant %} €{% endif %}</p>
+  <p><b>Pôle :</b> {{ object.pole|default:"—" }}</p>
+  <p>
+    <b>Statut :</b>
+    {% if object.statut %}
+      <span class="status-badge status-{{ object.statut|slugify }}">
+        {{ object.statut }}
+      </span>
+    {% else %}
+      —
+    {% endif %}
+  </p>
+  <p><b>Échéance :</b>
+    {% if object.echeance %}{{ object.echeance|date:"d/m/Y" }}{% else %}—{% endif %}
+  </p>
+  <p><b>Titre :</b> {{ object.titre|default:"—" }}</p>
+
+  <h3>Pièces jointes</h3>
+  {% with pieces=object.piecejointe_set.all %}
+    {% if pieces %}
+      <ul>
+        {% for pj in pieces %}
+          <li>
+            <a href="{{ pj.fichier.url }}" target="_blank" rel="noopener">
+              Télécharger la facture (PDF) – {{ pj.fichier.name|slice:"8:" }}
+            </a>
+            <small> — {{ pj.uploaded_at|date:"d/m/Y H:i" }}</small>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>— Aucune pièce jointe.</p>
+    {% endif %}
+  {% endwith %}
+
+  {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
+    <p class="invoice-actions">
+      <a class="btn" href="{% url 'invoices:edit' object.pk %}">Modifier</a>
+    </p>
   {% endif %}
-{% endwith %}
 
-{% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
-  <p><a class="btn" href="{% url 'invoices:edit' object.pk %}">Modifier</a></p>
-{% endif %}
+</div>
 {% endblock %}

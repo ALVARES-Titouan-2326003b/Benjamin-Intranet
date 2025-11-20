@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Vue financière – Pôle technique{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'technique/css/technique.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="finance-page">
+
+    <!-- HEADER -->
+    <div class="finance-header">
+        <div>
+            <h1 class="finance-title">Vue financière – Pôle technique</h1>
+            <p class="finance-subtitle">
+                Suivi des budgets, frais engagés et paiements projet par projet.
+            </p>
+        </div>
+    </div>
+
+    <!-- BOUTON CREATION -->
+    <div style="margin-bottom: 20px;">
+        <button class="btn btn-primary" id="showCreateFormBtn">
+            + Créer un projet
+        </button>
+    </div>
+
+    <!-- FORMULAIRE CREATION-->
+    <section class="finance-card" id="createProjectForm" style="display: none;">
+        <h2 class="finance-card-title">Créer un nouveau projet</h2>
+
+        <form method="post" class="finance-form">
+            {% csrf_token %}
+            <div class="finance-form-grid">
+                {{ form.as_p }}
+            </div>
+            <button type="submit" class="btn btn-primary">Créer le projet</button>
+        </form>
+    </section>
+
+    <!-- LISTE DES PROJETS -->
+    <section class="finance-card finance-card-main">
+
+        <div class="finance-card-header">
+            <h2 class="finance-card-title">Projets techniques</h2>
+            <span class="finance-badge">
+                {{ projects|length }} projet{% if projects|length > 1 %}s{% endif %}
+            </span>
+        </div>
+
+        {% if projects %}
+        <table class="finance-table-list">
+            <thead>
+                <tr>
+                    <th>Référence</th>
+                    <th>Nom</th>
+                    <th>Total estimé</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in projects %}
+                <tr>
+                    <td>{{ p.reference }}</td>
+                    <td>{{ p.name }}</td>
+                    <td>{{ p.total_estimated }} €</td>
+                    <td>
+                        <a href="{% url 'technique_financial_project_detail' p.pk %}" class="btn btn-primary">
+                            Voir / éditer
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+            <p>Aucun projet technique pour le moment.</p>
+        {% endif %}
+    </section>
+
+</div>
+
+<!-- Affichage du formulaire -->
+<script>
+document.getElementById("showCreateFormBtn").addEventListener("click", function () {
+    const form = document.getElementById("createProjectForm");
+    form.style.display = (form.style.display === "none") ? "block" : "none";
+});
+</script>
+
+{% endblock %}

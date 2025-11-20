@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="recruitment-container">
+
+  <h2>{{ fiche.titre }}</h2>
+  <p class="job-meta"><b>Compétences clés :</b> {{ fiche.competences_clees|default:"—" }}</p>
+  <div class="job-description">{{ fiche.description }}</div>
+
+  <h3>Candidatures</h3>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Candidat</th>
+        <th>Email</th>
+        <th class="score">Score</th>
+        <th class="resume-col">Résumé</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in candidatures %}
+        <tr>
+          <td>{{ c.candidat.nom }}</td>
+          <td>{{ c.candidat.email|default:"—" }}</td>
+          <td class="score">
+            {% if c.score != None %}{{ c.score|floatformat:0 }} / 100{% else %}—{% endif %}
+          </td>
+          <td class="resume-col">
+            <div class="recruitment-resume">
+              {{ c.explication|default:"—" }}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">Aucune candidature.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>Ajouter un CV</h3>
+  <form class="form-card"
+        method="post"
+        action="{% url 'recrutement:upload_cv' fiche.pk %}"
+        enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ upload_form.as_p }}
+    <button class="btn" type="submit">Déposer le CV</button>
+  </form>
+
+</div>
+{% endblock %}

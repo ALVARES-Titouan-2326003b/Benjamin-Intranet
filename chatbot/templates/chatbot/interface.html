@@ -20,14 +20,15 @@
         <!-- Interface du chat -->
         <div id="chatbot-container" class="hidden">
             <div id="chatbot-header">
-                <span>🤖 Assistant Factures</span>
+                <span>Assistant Factures et Juridique</span>
                 <button onclick="toggleChat()" id="close-btn">×</button>
             </div>
             
             <div id="chatbot-messages">
                 <div class="bot-message">
-                    Bonjour {{ user.username }} ! Je peux vous aider à consulter l'état de vos factures. 
-                    Posez-moi vos questions !
+                    Bonjour {{ user.username }} ! Je peux vous aider sur :
+                    • l’état de vos factures fournisseurs 💸
+                    • vos questions juridiques immobilières ⚖️ (baux, DPE, diagnostics, loyers, copropriété, fiscalité logement…)
                 </div>
             </div>
             

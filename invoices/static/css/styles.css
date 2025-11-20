@@ -1,12 +1,1067 @@
-body { font-family: system-ui, sans-serif; margin:0; background:#fafafa; color:#222; }
-.topbar { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#111; color:#fff; }
-.topbar a { color:#fff; text-decoration:none; margin-left:12px; }
-.container { max-width:1000px; margin:24px auto; padding:0 16px; }
-.table { width:100%; border-collapse:collapse; background:#fff; }
-.table th, .table td { border:1px solid #ddd; padding:8px; }
-.table th { background:#f2f2f2; text-align:left; }
-.btn { display:inline-block; padding:8px 12px; background:#111; color:#fff; text-decoration:none; border-radius:6px; }
-.filters input, .filters button, .filters a { margin-right:8px; margin-bottom:8px; }
-.flash { background:#e9ffe9; border:1px solid #b7ffb7; padding:8px; margin-bottom:12px; }
-.footer { padding:24px 16px; color:#666; text-align:center; }
-.pagination { margin-top:12px; }
+/* =========================================
+   RESET & BASE
+   ========================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #f5f5f5;
+}
+
+/* Liens globaux */
+a {
+    color: #f5f5f5;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* =========================================
+   LAYOUT GLOBAL (base.html)
+   ========================================= */
+
+.topbar {
+    background: #1a2f5a;
+    padding: 20px 40px;
+    margin: -20px -20px 30px -20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    /* bandeau qui reste en haut */
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+
+/* Logo identique à management.css */
+.logo {
+    color: white;
+    font-size: 1.8rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.logo span {
+    font-size: 0.9rem;
+    font-weight: normal;
+    display: block;
+    margin-top: 5px;
+    letter-spacing: 4px;
+}
+
+/* Nav à droite dans le bandeau */
+.topbar nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.95rem;
+}
+
+.topbar nav a,
+.topbar-user {
+    color: #ffffff;
+}
+
+/* Bouton de déconnexion dans le header */
+.topbar form {
+    margin: 0;
+}
+
+.topbar form button {
+    background: none;
+    border: none;
+    color: #ffffff;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* Pas de souligné dans le header */
+.topbar a:hover,
+.topbar form button:hover {
+    text-decoration: none;
+    opacity: 0.85;
+}
+
+
+/* Contenu principal */
+main.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px 24px 32px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+/* Footer */
+.footer {
+    margin-top: 24px;
+    text-align: center;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+}
+
+/* =========================================
+   TITRES & TEXTE
+   ========================================= */
+
+h2 {
+    font-size: 1.7rem;
+    margin-bottom: 18px;
+    color: #ffffff;
+    letter-spacing: 0.03em;
+}
+
+h3 {
+    font-size: 1.2rem;
+    margin: 24px 0 10px;
+    color: #ffffff;
+}
+
+p {
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+b, strong {
+    font-weight: 600;
+}
+
+/* =========================================
+   BOUTONS
+   ========================================= */
+
+.btn,
+main.container button[type="submit"] {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #27ae60;
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s, box-shadow 0.1s;
+    text-decoration: none;
+}
+
+.btn:hover,
+main.container button[type="submit"]:hover {
+    background: #229954;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    transform: translateY(-1px);
+}
+
+.btn:active,
+main.container button[type="submit"]:active {
+    transform: scale(0.98);
+}
+
+/* Ne pas casser le bouton "Se déconnecter" du header */
+.topbar form button {
+    background: none !important;
+    border: none !important;
+    color: #ffffff !important;
+    padding: 0 !important;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* =========================================
+   FLASH MESSAGES (erreurs / succès)
+   ========================================= */
+
+.flash {
+    background: #e8f4f8;
+    border: 1px solid #b4d8e8;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    color: #1e3c72;
+    font-size: 0.9rem;
+}
+
+/* =========================================
+   FORMULAIRES (login + facture)
+   ========================================= */
+
+/* Formulaires génériques dans main */
+main.container form {
+    background: rgba(255,255,255,0.97);
+    padding: 18px 20px 20px;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    margin-bottom: 20px;
+}
+
+/* Formulaire login : centré et plus étroit */
+main.container form[action*="login"],
+main.container form[action$="login/"] {
+    max-width: 420px;
+}
+
+/* Django {{ form.as_p }} */
+main.container form p {
+    margin-bottom: 12px;
+    color: #333;
+}
+
+main.container form label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #1e3c72;
+}
+
+main.container form input[type="text"],
+main.container form input[type="password"],
+main.container form input[type="email"],
+main.container form input[type="number"],
+main.container form input[type="date"],
+main.container form input[type="file"],
+main.container form textarea,
+main.container form select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd4e3;
+    font: inherit;
+    box-sizing: border-box;
+    margin-top: 2px;
+}
+
+main.container form textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+main.container form input:focus,
+main.container form textarea:focus,
+main.container form select:focus {
+    outline: none;
+    border-color: #1e3c72;
+    box-shadow: 0 0 0 2px rgba(30,60,114,0.12);
+}
+
+/* Fieldset pièces jointes */
+main.container fieldset {
+    border: 1px solid #dde3f0;
+    border-radius: 10px;
+    padding: 12px 14px 14px;
+    margin-top: 12px;
+    background: #f8fafc;
+}
+
+main.container legend {
+    padding: 0 6px;
+    font-weight: 600;
+    color: #1e3c72;
+}
+
+/* Liste des PJ dans le formulaire */
+main.container fieldset ul {
+    margin-top: 6px;
+    padding-left: 18px;
+    color: #444;
+    font-size: 0.9rem;
+}
+
+/* =========================================
+   LISTE DES FACTURES
+   ========================================= */
+
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    background: rgba(255,255,255,0.96);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+
+.filters input[type="text"],
+.filters input[type="number"],
+.filters input[type="date"],
+.filters select {
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid #cbd4e3;
+    font-size: 0.9rem;
+    min-width: 140px;
+}
+
+.filters input:focus,
+.filters select:focus {
+    outline: none;
+    border-color: #1e3c72;
+    box-shadow: 0 0 0 2px rgba(30,60,114,0.15);
+}
+
+.filters button {
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: #1e3c72;
+    color: #fff;
+    border: none;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.filters button:hover {
+    background: #15254a;
+}
+
+.filters a {
+    font-size: 0.85rem;
+    text-decoration: underline;
+    color: #1e3c72;
+    align-self: center;
+}
+
+/* Bouton "Nouvelle facture" sous les filtres */
+main.container > p > .btn {
+    margin-bottom: 10px;
+}
+
+/* =========================================
+   TABLEAU FACTURES
+   ========================================= */
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4px;
+    background: rgba(255,255,255,0.97);
+    border-radius: 14px;
+    overflow: hidden;
+    font-size: 0.9rem;
+    color: #2c3e50;
+}
+
+.table thead {
+    background: #f3f6fb;
+}
+
+.table th,
+.table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e1e6f0;
+}
+
+.table th {
+    text-align: left;
+    font-weight: 600;
+    color: #1e3c72;
+}
+
+.table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.table tbody tr:nth-child(even) {
+    background: #f9fbff;
+}
+
+.table tbody tr:hover {
+    background: #edf3ff;
+}
+
+/* Colonne Montant (4ème) alignée à droite */
+.table tbody td:nth-child(4),
+.table thead th:nth-child(4) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Colonne Échéance (6ème) centrée */
+.table tbody td:nth-child(6),
+.table thead th:nth-child(6) {
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Lien ID facture dans le tableau */
+.table td a {
+    color: #1e3c72;
+    font-weight: 600;
+}
+
+/* Pagination */
+.pagination {
+    margin-top: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+    font-size: 0.9rem;
+}
+
+.pagination a {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.95);
+    color: #1e3c72;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.pagination a:hover {
+    background: #f3f6fb;
+}
+
+.pagination span {
+    color: #f5f5f5;
+}
+
+/* =========================================
+   DÉTAIL FACTURE
+   ========================================= */
+
+.invoice-detail {
+    background: rgba(255,255,255,0.98);
+    border-radius: 22px;
+    padding: 24px 26px 26px;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+    color: #2c3e50;
+}
+
+/* Titre & sous-titres dans la carte */
+.invoice-detail h2 {
+    color: #1e3c72;
+    margin-bottom: 16px;
+}
+
+.invoice-detail h3 {
+    color: #1e3c72;
+    margin-top: 22px;
+    margin-bottom: 8px;
+}
+
+/* Informations ligne à ligne */
+.invoice-detail p {
+    margin-bottom: 6px;
+    font-size: 0.95rem;
+    color: #34495e;
+}
+
+.invoice-detail p b,
+.invoice-detail p strong {
+    color: #1e3c72;
+    font-weight: 700;
+}
+
+/* Liste des pièces jointes */
+.invoice-detail ul {
+    margin: 4px 0 10px;
+    padding-left: 20px;
+    font-size: 0.92rem;
+    color: #34495e;
+}
+
+.invoice-detail ul li {
+    margin-bottom: 4px;
+}
+
+.invoice-detail ul li a {
+    color: #1e3c72;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+/* Zone du bouton Modifier */
+.invoice-actions {
+    margin-top: 18px;
+}
+
+/* =========================================
+   PAGE DE CONNEXION
+   ========================================= */
+
+main.container h2 {
+    /* deja stylé mais pour login, on ajoute un petit centrage visuel possible */
+}
+
+main.container form button[type="submit"] {
+    margin-top: 6px;
+}
+
+/* =========================================
+   RECRUTEMENT – GESTION DES CANDIDATURES
+   ========================================= */
+
+/* Grosse carte blanche à l’intérieur du main bleu */
+.recruitment-container {
+    background: rgba(255,255,255,0.98);
+    border-radius: 18px;
+    padding: 20px 22px 26px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.28);
+    color: #2c3e50;
+}
+
+/* Titres en bleu foncé dans cette carte */
+.recruitment-container h2,
+.recruitment-container h3 {
+    color: #1e3c72;
+}
+
+/* Header du dashboard recrutement */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.page-header-actions {
+    flex-shrink: 0;
+}
+
+/* Tableaux dans la carte recrutement */
+.recruitment-container .table {
+    margin-top: 10px;
+    background: #ffffff;
+    color: #2c3e50;
+}
+
+/* Colonne score centrée */
+.table td.score,
+.table th.score {
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Métadonnées de la fiche de poste */
+.job-meta {
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+/* Description du poste dans un bloc lisible */
+.job-description {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 1px solid #dde3f0;
+    margin-bottom: 20px;
+    font-size: 0.93rem;
+    line-height: 1.5;
+    color: #34495e;
+}
+
+/* Carte formulaire (nouvelle fiche + upload CV) */
+.form-card {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+    border: 1px solid #dde3f0;
+    margin-bottom: 20px;
+}
+
+.form-card p {
+    margin-bottom: 10px;
+}
+
+.form-card label {
+    color: #1e3c72;
+}
+
+/* Résumé IA du CV avec scroll vertical */
+.recruitment-resume {
+    max-width: 550px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: #34495e;
+
+    /* Hauteur fixe lignes */
+    max-height: 5.6em;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding-right: 6px;
+    white-space: normal;
+    word-break: break-word;
+    text-align: left;
+    margin: 0;
+    padding-left: 0;
+}
+
+/* Colonne Résumé – largeur fixe pour alignement propre */
+.table th.resume-col,
+.table td.resume-col {
+    width: 35%;
+}
+
+/* cellule Résumé : alignement texte à gauche */
+.table td.resume-col {
+    vertical-align: top;
+    text-align: left;
+}
+
+/* Scroll vertical discret */
+.recruitment-resume::-webkit-scrollbar {
+    width: 6px;
+}
+
+.recruitment-resume::-webkit-scrollbar-thumb {
+    background: #cbd4e3;
+    border-radius: 3px;
+}
+
+
+/* =========================================
+   STATUTS FACTURES – BADGES COLORÉS
+   ========================================= */
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #fff;
+    text-transform: none;
+}
+
+/* Reçue */
+.status-recue {
+    background: #27ae60;
+}
+
+/* En retard */
+.status-en-retard,
+.status-en_retard {
+    background: #e74c3c;
+}
+
+/* En cours */
+.status-en-cours,
+.status-en_cours {
+    background: #f1c40f;
+    color: #333;
+}
+
+/* Payée */
+.status-payee {
+    background: #2980b9;
+}
+
+/* Refusée */
+.status-refusee {
+    background: #8e44ad;
+}
+
+/* Archivée */
+.status-archivee {
+    background: #7f8c8d;
+}
+
+
+.download-icon {
+    font-size: 26px;   
+    color: #fff;
+    padding: 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+}
+
+.download-icon i {
+    font-size: 28px;
+}
+
+.download-icon:hover {
+    background: rgba(255,255,255,0.15);
+    color: #ffffff;
+}
+
+.date-range-onebox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #d0d7de;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: white;
+}
+
+.date-range-onebox input[type="date"] {
+    border: none;
+    padding: 3px;
+    background: transparent;
+}
+
+.date-range-onebox input[type="date"]:focus {
+    outline: none;
+}
+.date-range-onebox span {
+    color: #000;     
+    font-weight: 500; 
+}
+
+
+/* ====== Module vue financière – pôle technique ====== */
+.download-icon {
+    font-size: 26px;   
+    color: #fff;
+    padding: 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+}
+
+.download-icon i {
+    font-size: 28px;
+}
+
+.download-icon:hover {
+    background: rgba(255,255,255,0.15);
+    color: #ffffff;
+}
+
+
+/* ====== Module vue financière – pôle technique ====== */
+.download-icon {
+    font-size: 26px;   
+    color: #fff;
+    padding: 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+}
+
+.download-icon i {
+    font-size: 28px;
+}
+
+.download-icon:hover {
+    background: rgba(255,255,255,0.15);
+    color: #ffffff;
+}
+
+/* ====== Module vue financière – pôle technique ====== */
+
+.finance-page {
+    max-width: 1200px;
+    margin: 32px auto;
+    padding: 24px 20px 40px;
+}
+
+.finance-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.finance-title {
+    font-size: 1.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0 0 4px;
+}
+
+.finance-subtitle {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #6c757d;
+}
+
+.finance-header-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* Mise en page 2 colonnes pour la vue projet */
+
+.finance-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: 20px;
+    align-items: flex-start;
+}
+
+/* Cartes */
+
+.finance-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 18px 20px 20px;
+    margin-bottom: 20px;
+    box-shadow:
+        0 14px 30px rgba(15, 23, 42, 0.08),
+        0 2px 4px rgba(15, 23, 42, 0.06);
+    border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.finance-card-main {
+    /* colonne principale */
+}
+
+.finance-card-side {
+    /* colonne secondaire (graphique ou création projet) */
+}
+
+.finance-card-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.finance-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+/* Badge */
+
+.finance-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(13, 110, 253, 0.09);
+    color: #0d6efd;
+    font-weight: 500;
+}
+
+/* Résumé des chiffres */
+
+.finance-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px 18px;
+    margin-top: 14px;
+}
+
+.finance-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.finance-item-total {
+    border-top: 1px dashed #dee2e6;
+    padding-top: 8px;
+    margin-top: 4px;
+}
+
+.finance-label {
+    font-size: 0.83rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6c757d;
+}
+
+.finance-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #212529;
+}
+
+/* Formulaire */
+
+.finance-form {
+    margin-bottom: 12px;
+}
+
+.finance-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px 16px;
+}
+
+.finance-form p {
+    margin: 0;
+}
+
+.finance-form label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: #495057;
+}
+
+.finance-form input[type="number"],
+.finance-form input[type="text"],
+.finance-form input[type="date"],
+.finance-form select {
+    width: 100%;
+    padding: 7px 9px;
+    border-radius: 8px;
+    border: 1px solid #ced4da;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.finance-form input:focus,
+.finance-form select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
+}
+
+/* Table liste des projets */
+
+.finance-table-list {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-size: 0.9rem;
+}
+
+.finance-table-list th,
+.finance-table-list td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.finance-table-list th {
+    text-align: left;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6c757d;
+}
+
+.finance-table-list tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Boutons */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 14px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    color: #ffffff;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+    box-shadow: 0 10px 20px rgba(13, 110, 253, 0.25);
+}
+
+.btn-ghost {
+    background: #ffffff;
+    color: #495057;
+    border-color: #dee2e6;
+}
+
+.btn-ghost:hover {
+    background: #f8f9fa;
+    border-color: #ced4da;
+}
+
+/* Graphique */
+
+.charts-container {
+    display: flex;
+    justify-content: center;
+}
+
+.chart-wrapper {
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 4px 0 0;
+}
+
+.chart-legend {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: #6c757d;
+    text-align: center;
+}
+
+/* Responsive */
+
+@media (max-width: 900px) {
+    .finance-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .finance-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .finance-header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 600px) {
+    .finance-page {
+        margin: 16px auto 28px;
+        padding: 12px 10px 28px;
+    }
+
+    .finance-card {
+        padding: 14px 14px 16px;
+    }
+
+    .finance-title {
+        font-size: 1.4rem;
+    }
+}
+
+.finance-table-list td,
+.finance-table-list th {
+    color: #000 !important;
+}

@@ -1,0 +1,18 @@
+{% extends "base_signatures.html" %}
+
+{% block title %}Tampon numérique{% endblock %}
+{% block header_title %}Tampon numérique de l'entreprise{% endblock %}
+
+{% block content %}
+<div class="sig-card">
+    <h2 class="sig-card-title">Configurer le tampon</h2>
+
+    <form method="post" enctype="multipart/form-data" class="sig-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="sig-btn sig-btn-primary">
+            Enregistrer
+        </button>
+    </form>
+</div>
+{% endblock %}

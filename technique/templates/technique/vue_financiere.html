@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load static l10n %}
+{% block title %}Vue financière – {{ project.reference }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'technique/css/technique.css' %}">
+{% endblock %}
+{% block content %}
+<div class="finance-page">
+
+    <div class="finance-header">
+        <div>
+            <h1 class="finance-title">
+                Vue financière – {{ project.name }} ({{ project.reference }})
+            </h1>
+            <p class="finance-subtitle">
+                Synthèse des montants engagés, payés et restants à régler pour ce projet.
+            </p>
+        </div>
+        <div class="finance-header-actions">
+            <a href="{% url 'technique_financial_overview' %}" class="btn btn-ghost">
+                ← Retour aux projets
+            </a>
+            <a href="{% url 'technique_financial_project_pdf' project.pk %}" class="btn btn-primary">
+                Exporter en PDF
+            </a>
+        </div>
+    </div>
+
+    <div class="finance-layout">
+        <section class="finance-card finance-card-main">
+            <h2 class="finance-card-title">Données financières</h2>
+
+            <form method="post" class="finance-form">
+                {% csrf_token %}
+                <div class="finance-form-grid">
+                    {{ form.as_p }}
+                </div>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </form>
+
+            <div class="finance-summary">
+                <div class="finance-item">
+                    <span class="finance-label">Frais engagés</span>
+                    <span class="finance-value">{{ frais_engages }} €</span>
+                </div>
+                <div class="finance-item">
+                    <span class="finance-label">Frais déjà payés</span>
+                    <span class="finance-value">{{ frais_payes }} €</span>
+                </div>
+                <div class="finance-item">
+                    <span class="finance-label">Frais restants à régler</span>
+                    <span class="finance-value">{{ frais_restants }} €</span>
+                </div>
+                <div class="finance-item finance-item-total">
+                    <span class="finance-label">Total estimé du projet</span>
+                    <span class="finance-value">{{ total_estime }} €</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="finance-card finance-card-side">
+            <h2 class="finance-card-title">Visualisation graphique</h2>
+
+            <div class="chart-wrapper">
+                <canvas id="barChart"></canvas>
+            </div>
+            <p class="chart-legend">
+                Comparatif des montants engagés, payés, restants et du budget total estimé.
+            </p>
+        </section>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'technique/js/vue_financiere.js' %}"></script>
+<script>
+    initFinanceCharts({
+        fraisEngages: {{ frais_engages|unlocalize }},
+        fraisPayes: {{ frais_payes|unlocalize }},
+        fraisRestants: {{ frais_restants|unlocalize }},
+        totalEstime: {{ total_estime|unlocalize }}
+    });
+</script>
+{% endblock %}
+

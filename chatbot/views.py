@@ -8,6 +8,8 @@ import re
 import requests
 
 from invoices.models import Facture
+from .legifrance import legifrance_search_generic, format_legifrance_context
+
 
 
 @login_required
@@ -22,7 +24,9 @@ def chatbot_query(request):
     """
     Route unique :
       - si message concerne les factures -> interroge la BD
-      - sinon -> question juridique via Groq
+      - sinon -> question juridique via Groq (+ Légifrance)
+
+    Si la route facture ne trouve rien, on fait un fallback vers le juridique.
     """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'response': 'Méthode non autorisée'}, status=405)
@@ -33,9 +37,18 @@ def chatbot_query(request):
         if not message:
             return JsonResponse({'success': False, 'response': 'Message vide.'}, status=400)
 
+        route = None
+
         if _is_invoice_query(message):
+            route = "invoice"
             resp = _handle_invoice_query(message, request.user)
+
+            # Fallback si aucune facture trouvée
+            if resp.startswith("❌ Aucune facture") or resp.startswith("🕳️ Aucune facture"):
+                route = "legal_fallback"
+                resp = _handle_legal_query(message)
         else:
+            route = "legal"
             resp = _handle_legal_query(message)
 
         return JsonResponse({'success': True, 'response': resp})
@@ -43,7 +56,7 @@ def chatbot_query(request):
         return JsonResponse({'success': False, 'response': f'Erreur: {e}'}, status=500)
 
 
-# ---------- Factures (BD) ----------
+# Factures
 
 INVOICE_STATUS_MAP = {
     'payee': 'Payee', 'payée': 'Payee', 'payé': 'Payee', 'paid': 'Payee',
@@ -61,7 +74,7 @@ LIST_KEYWORDS = {'liste', 'toutes', 'all'}
 
 def _is_invoice_query(msg: str) -> bool:
     m = msg.lower()
-    has_id = bool(re.search(r'\b[A-Z]{3,}-[A-Z0-9]{4,}\b', msg))  # ex nom de facture donc à voir si on reprends les noms d'origine: FAC-39FC27A3
+    has_id = bool(re.search(r'\b[A-Z]{3,}-[A-Z0-9]{4,}\b', msg))
     keywords = ['facture', 'factures', 'fournisseur', 'statut', 'liste', 'total', 'combien', 'stats']
     return has_id or any(k in m for k in keywords)
 
@@ -136,7 +149,6 @@ def _invoices_summary(user) -> str:
     )
 
 
-# --- Aide pr analyse des mess ------------------------------------------------
 
 def _extract_existing_invoice_id(text: str) -> str | None:
     """
@@ -150,7 +162,7 @@ def _extract_existing_invoice_id(text: str) -> str | None:
 
 def _map_status_from_text(text: str) -> str | None:
     m = text.lower()
-    # on teste les clés les plus longues d'abord pour éviter collisions ("en cours" vs "cours")
+    # on teste les clés les plus longues
     for k in sorted(INVOICE_STATUS_MAP.keys(), key=len, reverse=True):
         if k in m:
             return INVOICE_STATUS_MAP[k]
@@ -178,7 +190,7 @@ def _handle_invoice_query(message: str, user) -> str:
     if mapped_status:
         return _invoices_by_status(mapped_status, user)
 
-    # 5) Tentative par fournisseur
+    # 5) Fournisseur
     m = re.search(r'fournisseur\s+(.+)$', message, flags=re.I)
     if m:
         supplier = m.group(1).strip()
@@ -188,27 +200,66 @@ def _handle_invoice_query(message: str, user) -> str:
     return _invoices_by_supplier(message.strip(), user)
 
 
-# ---------- Questions juridiques avec Groq----------
+# Questions juridiques
 
 def _handle_legal_query(message: str) -> str:
     """
-    Utilise Groq (Llama) pour répondre aux questions juridiques (France).
+    Utilise Légifrance comme base de connaissance (via /search),
+    puis Groq (Llama) pour générer la réponse en s'appuyant sur ces résultats
+    Spécialisé pour l'immobilier
     """
+    
     api_key = getattr(settings, 'GROQ_API_KEY', None)
     if not api_key:
-        return "Clé API manquante"
+        return "Clé API Groq manquante"
 
+    # 1) On récupérer des résultats depuis Légifrance
+    legifrance_context = ""
+    try:
+        # LODA_DATE dans legifrance_search_generic
+        search_result = legifrance_search_generic(message, page_size=5)
+        legifrance_context = format_legifrance_context(search_result, max_items=3)
+    except Exception as e:
+        # Si Légifrance est KO, on prévient juste le modèle pour ne planter le tout
+        legifrance_context = f"(Impossible de récupérer des résultats sur Légifrance pour cette question : {e})"
+
+    # 2) On contextualise la réponse via Groq
     url = "https://api.groq.com/openai/v1/chat/completions"
+
+    base_system_prompt = (
+        "Tu es un assistant juridique spécialisé en droit immobilier en France. "
+        "Tu t'adresses à des professionnels d'une agence immobilière.\n\n"
+        "Quand la question concerne des mesures très récentes (2023, 2024, 2025 : MaPrimeRénov', fiscalité, "
+        "taxe foncière, taxe d'habitation résiduelle, locations de courte durée type Airbnb, encadrement des loyers, "
+        "calendrier d'interdiction des logements F et G, etc.) :\n"
+        "- sois particulièrement prudent,\n"
+        "- ne donne pas de dates ou de seuils chiffrés si tu n'es pas sûr,\n"
+        "- recommande explicitement de vérifier sur service-public.fr, impots.gouv.fr, ANAH ou Légifrance "
+        "et de demander conseil à un professionnel (avocat, notaire, expert-comptable).\n"
+        "Précise clairement quand tu donnes une réponse générale ou approximative."
+    )
+
+
+
+    messages = [
+        {"role": "system", "content": base_system_prompt},
+    ]
+
+    if legifrance_context:
+        messages.append({
+            "role": "system",
+            "content": (
+                "Contexte brut provenant directement de l'API Légifrance. "
+                "Utilise-le pour étayer ta réponse :\n\n"
+                f"{legifrance_context}"
+            )
+        })
+
+    messages.append({"role": "user", "content": message})
+
     payload = {
         "model": "llama-3.3-70b-versatile",
-        "messages": [
-            {"role": "system", "content": (
-                "Tu es un assistant juridique pour la France. "
-                "Réponds clairement et brièvement. Cite les textes quand c'est pertinent. "
-                "Si la question nécessite un avis professionnel, indique-le."
-            )},
-            {"role": "user", "content": message}
-        ],
+        "messages": messages,
         "temperature": 0.2,
         "max_tokens": 700,
         "stream": False,
@@ -219,19 +270,22 @@ def _handle_legal_query(message: str) -> str:
         r = requests.post(url, headers=headers, json=payload, timeout=30)
         if r.status_code == 200:
             data = r.json()
-            return data["choices"][0]["message"]["content"].strip()
-        # Fallback si modèle indispo
-        if r.status_code == 400:
-            payload["model"] = "llama-3.1-8b-instant"
-            r = requests.post(url, headers=headers, json=payload, timeout=30)
-            if r.status_code == 200:
-                data = r.json()
-                return data["choices"][0]["message"]["content"].strip()
+            answer = data["choices"][0]["message"]["content"].strip()
+
+            # On ajoute les sources Légifrance à la fin
+            if legifrance_context and legifrance_context.startswith("Résultats Légifrance"):
+                answer += (
+                    "\n\n---\n"
+                    "📚 **Sources Légifrance (métadonnées)**\n"
+                    + legifrance_context.replace("Résultats Légifrance (métadonnées) :", "").strip()
+                )
+
+            return answer
         try:
             err = r.json()
         except Exception:
             err = r.text
-        return f" Erreur API ({r.status_code}) : {err}"
+        return f" Erreur API Groq ({r.status_code}) : {err}"
     except requests.exceptions.Timeout:
         return "⏱️ Délai d’attente dépassé."
     except requests.exceptions.ConnectionError as e:
