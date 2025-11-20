@@ -2,15 +2,20 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
-
-from .models import DocumentTechnique
-from .forms import DocumentTechniqueUploadForm
 from .services.documents import extract_text_from_file
 from .services.ai_summary import summarize_document
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 from reportlab.pdfbase import pdfmetrics
+from .models import DocumentTechnique, TechnicalProject
+from .forms import (
+    DocumentTechniqueUploadForm,
+    TechnicalProjectCreateForm,
+    TechnicalProjectFinanceForm,
+)
+
+
 
 @login_required
 def documents_list(request):
@@ -199,6 +204,144 @@ def document_resume_pdf(request, pk):
     section("Conditions suspensives", doc.conditions_suspensives)
     section("Pénalités", doc.penalites)
     section("Délais", doc.delais)
+
+    p.showPage()
+    p.save()
+    return response
+
+
+
+
+
+@login_required
+def financial_overview(request):
+    """
+    Formulaire
+    """
+    projects = TechnicalProject.objects.all().order_by("name")
+
+    if request.method == "POST":
+        form = TechnicalProjectCreateForm(request.POST)
+        if form.is_valid():
+            project = form.save()
+            messages.success(request, "Projet créé avec succès.")
+            return redirect("technique_financial_overview")
+    else:
+        form = TechnicalProjectCreateForm()
+
+    return render(
+        request,
+        "technique/vue_financiere_list.html",
+        {"projects": projects, "form": form},
+    )
+
+
+@login_required
+def financial_project_detail(request, pk):
+    """
+    Saisie des données financières + graphiques
+    """
+    project = get_object_or_404(TechnicalProject, pk=pk)
+
+    if request.method == "POST":
+        form = TechnicalProjectFinanceForm(request.POST, instance=project)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Données financières mises à jour.")
+            return redirect("technique_financial_project_detail", pk=project.pk)
+    else:
+        form = TechnicalProjectFinanceForm(instance=project)
+
+    context = {
+        "project": project,
+        "form": form,
+        "frais_engages": project.frais_engages,
+        "frais_payes": project.frais_payes,
+        "frais_restants": project.frais_restants,
+        "total_estime": project.total_estimated,
+    }
+    return render(request, "technique/vue_financiere.html", context)
+
+
+@login_required
+def financial_project_pdf(request, pk):
+    """
+    PDF de la vue financière
+    """
+    project = get_object_or_404(TechnicalProject, pk=pk)
+
+    response = HttpResponse(content_type="application/pdf")
+    filename = f"vue_financiere_{project.reference}.pdf"
+    response["Content-Disposition"] = f'attachment; filename=\"{filename}\"'
+
+    p = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+
+    x_margin = 2 * cm
+    y = height - 2 * cm
+    max_line_width = width - 2 * x_margin
+
+    def wrap_text(text: str, font: str = "Helvetica", size: int = 10):
+        lines_out = []
+        if not text:
+            return lines_out
+
+        p.setFont(font, size)
+
+        for raw_line in str(text).split("\n"):
+            line = raw_line.rstrip()
+            if not line:
+                lines_out.append("")
+                continue
+
+            words = line.split(" ")
+            current = ""
+
+            for w in words:
+                candidate = (current + " " + w).strip()
+                w_width = pdfmetrics.stringWidth(candidate, font, size)
+                if w_width <= max_line_width:
+                    current = candidate
+                else:
+                    if current:
+                        lines_out.append(current)
+                    current = w
+            if current:
+                lines_out.append(current)
+
+        return lines_out
+
+    def write_line(text, font="Helvetica", size=10, leading=14):
+        nonlocal y
+        if text is None:
+            return
+
+        lines = wrap_text(str(text), font=font, size=size)
+
+        for line in lines:
+            if not line.strip():
+                continue
+            if y < 2 * cm:
+                p.showPage()
+                y = height - 2 * cm
+                p.setFont(font, size)
+            p.setFont(font, size)
+            p.drawString(x_margin, y, line)
+            y -= leading
+
+    # Titre
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(x_margin, y, "Vue financière projetée")
+    y -= 20
+
+    write_line(f"Projet : {project.name} ({project.reference})", size=11)
+    y -= 10
+
+    write_line(f"Frais engagés : {project.frais_engages} €", size=11)
+    write_line(f"Frais déjà payés : {project.frais_payes} €", size=11)
+    write_line(f"Frais restants à régler : {project.frais_restants} €", size=11)
+    write_line(f"Total estimé du projet : {project.total_estimated} €", size=11)
+    write_line(f"Reste à engager : {project.reste_a_engager} €", size=11)
 
     p.showPage()
     p.save()

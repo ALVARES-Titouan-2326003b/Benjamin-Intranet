@@ -1,183 +1,250 @@
-/* ==== Layout global ==== */
+/* =========================================
+   MODULE SIGNATURE - STYLE HARMONISÉ
+   ========================================= */
+.topbar {
+    background: #1a2f5a;
+    padding: 20px 40px;
+    margin: -20px -20px 30px -20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
-body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: #f4f5f7;
-    margin: 0;
-    padding: 0;
-    color: #1f2933;
+    /* le truc important : */
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
+
+/* Conteneur global de la page de signature */
 .sig-page {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px 16px 40px;
+    max-width: 1100px;
+    margin: 32px auto;
+    padding: 20px 24px 32px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    color: #f5f5f5;
 }
 
+/* Header de la page (titre + actions) */
 .sig-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 24px;
+    gap: 12px;
+    margin-bottom: 18px;
 }
 
 .sig-title {
-    font-size: 24px;
+    font-size: 1.7rem;
     font-weight: 600;
     margin: 0;
+    letter-spacing: 0.03em;
+    color: #ffffff;
 }
 
 .sig-subtitle {
     margin-top: 4px;
-    font-size: 14px;
-    color: #6b7280;
+    font-size: 0.95rem;
+    color: #d0d7de;
 }
 
+/* Petite nav à droite (onglets / liens) */
 .sig-nav {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .sig-nav a {
-    font-size: 13px;
-    padding: 6px 10px;
+    font-size: 0.85rem;
+    padding: 6px 12px;
     border-radius: 999px;
-    border: 1px solid #d1d5db;
+    border: 1px solid #d0d7de;
     text-decoration: none;
-    color: #374151;
-    background: #fff;
+    color: #ffffff;
+    background: rgba(255,255,255,0.08);
+    transition: 0.15s;
 }
 
 .sig-nav a:hover {
-    border-color: #4f46e5;
-    color: #111827;
+    background: #f5f5f5;
+    color: #1e3c72;
+    border-color: #f5f5f5;
 }
 
-/* ==== Cartes & blocs ==== */
+/* =========================================
+   CARTES & BLOCS
+   ========================================= */
 
 .sig-card {
-    background: #ffffff;
-    border-radius: 10px;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+    background: rgba(255,255,255,0.98);
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
     padding: 16px 18px;
     margin-bottom: 16px;
+    color: #2c3e50;
+    border: 1px solid #dde3f0;
 }
 
 .sig-card-title {
-    font-size: 16px;
+    font-size: 1.1rem;
     font-weight: 600;
-    margin: 0 0 12px;
+    margin: 0 0 10px;
+    color: #1e3c72;
 }
 
-/* ==== Tableau de documents ==== */
+/* =========================================
+   TABLEAU DE DOCUMENTS
+   ========================================= */
 
 .sig-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 14px;
+    margin-top: 4px;
+    background: rgba(255,255,255,0.97);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 0.9rem;
+    color: #2c3e50;
+}
+
+.sig-table thead {
+    background: #f3f6fb;
 }
 
 .sig-table th,
 .sig-table td {
-    padding: 10px 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e1e6f0;
     text-align: left;
-    border-bottom: 1px solid #e5e7eb;
 }
 
 .sig-table th {
-    background: #f9fafb;
     font-weight: 600;
-    font-size: 13px;
-    color: #4b5563;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #1e3c72;
 }
 
-.sig-table tr:hover td {
-    background: #f3f4ff;
+.sig-table tbody tr:last-child td {
+    border-bottom: none;
 }
 
-/* ==== Badges de statut ==== */
+.sig-table tbody tr:nth-child(even) {
+    background: #f9fbff;
+}
+
+.sig-table tbody tr:hover td {
+    background: #edf3ff;
+}
+
+/* Lien dans le tableau (ID doc, etc.) */
+.sig-table td a {
+    color: #1e3c72;
+    font-weight: 600;
+}
+
+/* =========================================
+   BADGES DE STATUT
+   ========================================= */
 
 .sig-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
+    display: inline-block;
+    padding: 4px 10px;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 500;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #fff;
 }
 
+/* Uploadé / en attente d’envoi */
 .sig-badge-upload {
-    background: #e5f3ff;
-    color: #1d4ed8;
+    background: #2980b9;
 }
 
+/* En attente de signature */
 .sig-badge-attente {
-    background: #fff7e6;
-    color: #92400e;
+    background: #f1c40f;
+    color: #333;
 }
 
+/* Signé */
 .sig-badge-signe {
-    background: #e6f9f0;
-    color: #047857;
+    background: #27ae60;
 }
 
+/* Refusé */
 .sig-badge-refuse {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: #e74c3c;
 }
 
+/* Erreur */
 .sig-badge-erreur {
-    background: #fef3c7;
-    color: #92400e;
+    background: #8e44ad;
 }
 
-/* ==== Boutons ==== */
+/* =========================================
+   BOUTONS DU MODULE
+   ========================================= */
 
 .sig-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border-radius: 8px;
-    font-size: 14px;
-    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    padding: 7px 14px;
     border: 1px solid transparent;
     cursor: pointer;
     text-decoration: none;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s, border-color 0.15s, transform 0.1s;
 }
 
+/* bouton principal */
 .sig-btn-primary {
-    background: #4f46e5;
+    background-color: #0d6efd;
     color: #ffffff;
-    border-color: #4f46e5;
+    border-color: #0d6efd;
 }
 
 .sig-btn-primary:hover {
-    background: #4338ca;
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+    box-shadow: 0 8px 18px rgba(13, 110, 253, 0.3);
+    transform: translateY(-1px);
 }
 
+/* bouton "ghost" */
 .sig-btn-outline {
     background: #ffffff;
-    color: #374151;
-    border-color: #d1d5db;
+    color: #495057;
+    border-color: #dee2e6;
 }
 
 .sig-btn-outline:hover {
-    border-color: #4f46e5;
-    color: #111827;
+    background: #f8f9fa;
+    border-color: #ced4da;
 }
 
-/* ==== Formulaires ==== */
+/* =========================================
+   FORMULAIRES DU MODULE
+   ========================================= */
 
 .sig-form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
 .sig-form label {
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1e3c72;
 }
 
 .sig-form input[type="text"],
@@ -186,24 +253,28 @@ body {
 .sig-form textarea {
     width: 100%;
     padding: 8px 10px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
-    font-size: 14px;
+    border-radius: 8px;
+    border: 1px solid #cbd4e3;
+    font-size: 0.9rem;
     box-sizing: border-box;
+    margin-top: 2px;
 }
 
 .sig-form textarea {
     min-height: 80px;
+    resize: vertical;
 }
 
 .sig-form input:focus,
 .sig-form textarea:focus {
     outline: none;
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
+    border-color: #1e3c72;
+    box-shadow: 0 0 0 2px rgba(30,60,114,0.12);
 }
 
-/* ==== Historique (timeline) ==== */
+/* =========================================
+   HISTORIQUE (TIMELINE)
+   ========================================= */
 
 .sig-timeline {
     list-style: none;
@@ -215,15 +286,16 @@ body {
     display: flex;
     gap: 10px;
     padding: 6px 0;
-    font-size: 13px;
+    font-size: 0.9rem;
+    color: #34495e;
 }
 
 .sig-timeline-dot {
-    width: 8px;
-    height: 8px;
-    margin-top: 6px;
+    width: 10px;
+    height: 10px;
+    margin-top: 5px;
     border-radius: 999px;
-    background: #9ca3af;
+    background: #1e3c72;
     flex-shrink: 0;
 }
 
@@ -231,23 +303,28 @@ body {
     flex: 1;
 }
 
-/* ==== Zone de placement (PDF + bloc) ==== */
+/* =========================================
+   ZONE PDF + BLOC SIGNATURE
+   ========================================= */
 
 .sig-pdf-wrapper {
-    margin-top: 12px;
+    margin-top: 14px;
 }
 
+/* Conteneur de la page PDF */
 #page {
     position: relative;
     width: 900px;
     height: 1200px;
-    border-radius: 10px;
-    border: 1px solid #d1d5db;
+    border-radius: 14px;
+    border: 1px solid #dde3f0;
     background: #ffffff;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.25);
     overflow: hidden;
+    margin: 0 auto;
 }
 
+/* iframe / canvas PDF */
 #pdf-preview {
     position: absolute;
     width: 100%;
@@ -256,26 +333,49 @@ body {
     z-index: 1;
 }
 
+/* Bloc signature draggable */
 #sig-block {
     position: absolute;
     width: 220px;
     height: 130px;
-    border: 2px dashed #4f46e5;
-    background: rgba(79, 70, 229, 0.12);
+    border: 2px dashed #0d6efd;
+    background: rgba(13,110,253,0.12);
     cursor: grab;
-    border-radius: 8px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #1e3a8a;
-    font-size: 14px;
+    color: #0b3c8c;
+    font-size: 0.95rem;
     font-weight: 600;
     z-index: 10;
-    transition: box-shadow .15s, transform .1s;
+    transition: box-shadow 0.15s, transform 0.1s, background 0.15s, border-color 0.15s;
+}
+
+#sig-block:hover {
+    background: rgba(13,110,253,0.18);
 }
 
 #sig-block:active {
     cursor: grabbing;
-    box-shadow: 0 0 14px rgba(79, 70, 229, 0.4);
+    box-shadow: 0 0 16px rgba(13,110,253,0.45);
     transform: scale(1.01);
+}
+
+
+/* Forcer les textes standard du formulaire à être visibles */
+.sig-card,
+.sig-card label,
+.sig-card input,
+.sig-card select,
+.sig-card textarea,
+.sig-card p,
+.sig-card a {
+    color: #2c3e50 !important;
+}
+
+/* Spécifique au texte "Actuellement: xxx.png" */
+.sig-card strong,
+.sig-card span {
+    color: #2c3e50 !important;
 }
