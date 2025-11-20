@@ -49,8 +49,14 @@ class DocumentTechnique(models.Model):
 
 
 class TechnicalProject(models.Model):
-    name = models.CharField("Nom du projet", max_length=255)
-    reference = models.CharField("Référence projet", max_length=50, unique=True)
+    DOSSIER_TYPES = [
+        ("Client", "Client"),
+        ("juridique", "Juridique"),
+    ]
+
+    reference = models.CharField("Référence projet", max_length=50, unique=True, db_column='reference')
+    name = models.CharField("Nom du projet", max_length=255, db_column='nom')
+    type = models.TextField(choices=DOSSIER_TYPES, default="client")
 
     # Saisis de l'utilisateur
     engaged_amount = models.DecimalField(
@@ -58,23 +64,26 @@ class TechnicalProject(models.Model):
         max_digits=12,
         decimal_places=2,
         default=0,
+        db_column='frais_eng',
     )
     paid_amount = models.DecimalField(
         "Frais déjà payés",
         max_digits=12,
         decimal_places=2,
         default=0,
+        db_column='frais_payes',
     )
     total_estimated = models.DecimalField(
         "Total estimé du projet",
         max_digits=12,
         decimal_places=2,
         default=0,
+        db_column='total_estim',
     )
 
     class Meta:
-        verbose_name = "Projet technique"
-        verbose_name_plural = "Projets techniques"
+        managed = False
+        db_table = 'Dossier'
 
     def __str__(self):
         return f"{self.reference} - {self.name}"
