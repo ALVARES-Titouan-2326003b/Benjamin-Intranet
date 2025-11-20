@@ -478,3 +478,104 @@ header .current-date{
         min-width: 100%;
     }
 }
+
+/*TOOLTIP POUR LES ACTIVITÉS DU CALENDRIER*/
+.activity-tooltip {
+    position: fixed;
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    min-width: 280px;
+    max-width: 350px;
+    pointer-events: none; /* Le tooltip ne bloque pas les événements */
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border: 1px solid #e0e0e0;
+}
+
+.activity-tooltip.visible {
+    opacity: 1;
+}
+
+.activity-tooltip-header {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1e3c72;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.activity-tooltip-item {
+    padding: 10px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 4px solid #9b59b6;
+}
+
+.activity-tooltip-item:last-child {
+    margin-bottom: 0;
+}
+
+.activity-tooltip-type {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.activity-tooltip-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+}
+
+.activity-tooltip-type-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.activity-tooltip-dossier {
+    font-size: 0.85rem;
+    color: #555;
+    margin-left: 20px;
+}
+
+.activity-tooltip-description {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 6px;
+    font-style: italic;
+    margin-left: 20px;
+}
+
+/* Style spécifique pour chaque type d'activité */
+.activity-tooltip-item[data-type="vente"] {
+    border-left-color: #27ae60;
+}
+
+.activity-tooltip-item[data-type="location"] {
+    border-left-color: #3498db;
+}
+
+.activity-tooltip-item[data-type="compromis"] {
+    border-left-color: #e74c3c;
+}
+
+.activity-tooltip-item[data-type="visite"] {
+    border-left-color: #f39c12;
+}
+
+.activity-tooltip-item[data-type="relance"] {
+    border-left-color: #9b59b6;
+}
+
+.activity-tooltip-item[data-type="autre"] {
+    border-left-color: #95a5a6;
+}

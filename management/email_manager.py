@@ -273,9 +273,9 @@ def get_email_summary(message):
 
     return {
         'id': message.id,
-        'subject': message.subject,  # ⚠️ Peut contenir des caractères encodés
-        'from': message.from_header,  # ⚠️ Peut contenir des caractères encodés
-        'to': message.to_header,  # ⚠️ Peut contenir des caractères encodés
+        'subject': message.subject,
+        'from': message.from_header,
+        'to': message.to_header,
         'date': message.processed,
         'body_text': body_text,
         'body_html': body_html,

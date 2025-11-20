@@ -1,11 +1,10 @@
 /**
- * Calendrier avec activités - Version simplifiée
- * Encercle les dates qui ont des activités (comme la date actuelle)
+ * Calendrier avec activités - Version avec Tooltips
  */
 
 (function() {
     // ========================================================================
-    // CONFIGURATION VERSION FINALE
+    // CONFIGURATION
     // ========================================================================
 
     const TYPES_CONFIG = {
@@ -38,6 +37,101 @@
     const currentDate = document.querySelector(".current-date");
     const prevNextIcon = document.querySelectorAll(".icons span");
 
+    // Tooltip
+    let tooltipElement = null;
+
+    // ========================================================================
+    // CRÉATION DU TOOLTIP
+    // ========================================================================
+
+    function createTooltip() {
+        if (tooltipElement) return;
+
+        tooltipElement = document.createElement('div');
+        tooltipElement.className = 'activity-tooltip';
+        document.body.appendChild(tooltipElement);
+    }
+
+    function showTooltip(dateStr, mouseEvent) {
+        if (!tooltipElement) createTooltip();
+
+        // Récupère les activités filtrées pour cette date
+        const activites = getActivitiesForDate(dateStr);
+
+        if (activites.length === 0) {
+            hideTooltip();
+            return;
+        }
+
+        // Construit le HTML du tooltip
+        let html = `<div class="activity-tooltip-header">`;
+        html += `📅 ${formatDateForDisplay(dateStr)} - ${activites.length} activité${activites.length > 1 ? 's' : ''}`;
+        html += `</div>`;
+
+        activites.forEach(act => {
+            const config = TYPES_CONFIG[act.type] || TYPES_CONFIG['autre'];
+
+            html += `<div class="activity-tooltip-item" data-type="${act.type}">`;
+            html += `<div class="activity-tooltip-type">`;
+            html += `<span class="activity-tooltip-color" style="background: ${config.couleur}"></span>`;
+            html += `<span class="activity-tooltip-type-label">${config.nom}</span>`;
+            html += `</div>`;
+            html += `<div class="activity-tooltip-dossier">📁 ${act.dossier}</div>`;
+
+            if (act.description) {
+                html += `<div class="activity-tooltip-description">${act.description}</div>`;
+            }
+
+            html += `</div>`;
+        });
+
+        tooltipElement.innerHTML = html;
+
+        // Positionne le tooltip près de la souris
+        positionTooltip(mouseEvent);
+
+        // Affiche le tooltip
+        tooltipElement.classList.add('visible');
+    }
+
+    function positionTooltip(mouseEvent) {
+        if (!tooltipElement) return;
+
+        const tooltipRect = tooltipElement.getBoundingClientRect();
+        const padding = 15;
+
+        let left = mouseEvent.clientX + padding;
+        let top = mouseEvent.clientY + padding;
+
+        // Ajuste si le tooltip dépasse à droite
+        if (left + tooltipRect.width > window.innerWidth) {
+            left = mouseEvent.clientX - tooltipRect.width - padding;
+        }
+
+        // Ajuste si le tooltip dépasse en bas
+        if (top + tooltipRect.height > window.innerHeight) {
+            top = mouseEvent.clientY - tooltipRect.height - padding;
+        }
+
+        // Empêche de sortir à gauche ou en haut
+        left = Math.max(padding, left);
+        top = Math.max(padding, top);
+
+        tooltipElement.style.left = `${left}px`;
+        tooltipElement.style.top = `${top}px`;
+    }
+
+    function hideTooltip() {
+        if (tooltipElement) {
+            tooltipElement.classList.remove('visible');
+        }
+    }
+
+    function formatDateForDisplay(dateStr) {
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+    }
+
     // ========================================================================
     // CHARGEMENT DES ACTIVITÉS
     // ========================================================================
@@ -59,12 +153,8 @@
             if (data.success) {
                 state.activites = data.activites;
                 console.log(`✅ ${data.activites.length} activités chargées`);
-                console.log('Activités:', state.activites);
 
-                // Initialiser les filtres
                 initFilters();
-
-                // Rendre le calendrier
                 renderCalendar();
             } else {
                 console.error('❌ Erreur API:', data.message);
@@ -83,13 +173,9 @@
     // ========================================================================
 
     function initFilters() {
-        // Extraire les types uniques
         const typesUniques = [...new Set(state.activites.map(a => a.type))];
-
-        // Extraire les dossiers uniques
         const dossiersUniques = [...new Set(state.activites.map(a => a.dossier))];
 
-        // Initialiser tous les filtres à true
         state.filtresTypes = {};
         typesUniques.forEach(type => {
             state.filtresTypes[type] = true;
@@ -100,15 +186,10 @@
             state.filtresDossiers[dossier] = true;
         });
 
-        console.log('Filtres types:', state.filtresTypes);
-        console.log('Filtres dossiers:', state.filtresDossiers);
-
-        // Rendre les filtres
         renderFilters(typesUniques, dossiersUniques);
     }
 
     function renderFilters(types, dossiers) {
-        // Trouver le conteneur des filtres (doit exister dans le HTML)
         let filtersContainer = document.querySelector('.calendar-filters');
 
         if (!filtersContainer) {
@@ -116,7 +197,6 @@
             return;
         }
 
-        // Construire le HTML des filtres
         let filtersHTML = '<div class="filters-content">';
 
         // Section Types
@@ -165,8 +245,6 @@
         filtersHTML += '</div>';
 
         filtersContainer.innerHTML = filtersHTML;
-
-        // Attacher les événements
         attachFilterEvents();
     }
 
@@ -179,50 +257,32 @@
                 const value = this.dataset.value;
                 const isChecked = this.checked;
 
-                console.log(`Filtre ${filterType}:${value} = ${isChecked}`);
-
                 if (filterType === 'type') {
                     state.filtresTypes[value] = isChecked;
                 } else if (filterType === 'dossier') {
                     state.filtresDossiers[value] = isChecked;
                 }
 
-                // Rerendre le calendrier
                 renderCalendar();
             });
         });
     }
 
     // ========================================================================
-    // VÉRIFIER SI UNE DATE A DES ACTIVITÉS FILTRÉES
+    // RÉCUPÉRATION DES ACTIVITÉS POUR UNE DATE
     // ========================================================================
 
-    function hasActivities(dateStr) {
-        console.log(`🔍 Vérification activités pour ${dateStr}`);
-
-        const activites = state.activites.filter(act => {
-            // Date correspond ?
-            if (act.date !== dateStr) {
-                return false;
-            }
-
-            // Type filtré ?
-            if (!state.filtresTypes[act.type]) {
-                console.log(`  ❌ Type ${act.type} filtré`);
-                return false;
-            }
-
-            // Dossier filtré ?
-            if (!state.filtresDossiers[act.dossier]) {
-                console.log(`  ❌ Dossier ${act.dossier} filtré`);
-                return false;
-            }
-
+    function getActivitiesForDate(dateStr) {
+        return state.activites.filter(act => {
+            if (act.date !== dateStr) return false;
+            if (!state.filtresTypes[act.type]) return false;
+            if (!state.filtresDossiers[act.dossier]) return false;
             return true;
         });
+    }
 
-        console.log(`  ✅ ${activites.length} activités trouvées`);
-        return activites.length > 0;
+    function hasActivities(dateStr) {
+        return getActivitiesForDate(dateStr).length > 0;
     }
 
     // ========================================================================
@@ -285,8 +345,6 @@
         }
 
         currentDate.innerText = `${MOIS[state.currMonth]} ${state.currYear}`;
-
-        console.log('✅ Calendrier rendu');
     }
 
     function createDayElement(day, isInactive, monthOffset) {
@@ -299,23 +357,31 @@
                 changeMonth(state.currMonth + monthOffset);
             });
         } else {
-            // Construire la date au format YYYY-MM-DD
             const dateStr = `${state.currYear}-${String(state.currMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-            console.log(`Jour ${day}: dateStr = ${dateStr}`);
 
             // Vérifier si c'est aujourd'hui
             if (day === state.date.getDate() &&
                 state.currMonth === new Date().getMonth() &&
                 state.currYear === new Date().getFullYear()) {
                 li.classList.add("current");
-                console.log(`  → Aujourd'hui`);
             }
 
             // Vérifier si cette date a des activités
             if (hasActivities(dateStr)) {
                 li.classList.add("has-activity");
-                console.log(`  → A des activités`);
+
+                // **AJOUT DES ÉVÉNEMENTS POUR LE TOOLTIP**
+                li.addEventListener("mouseenter", (e) => {
+                    showTooltip(dateStr, e);
+                });
+
+                li.addEventListener("mousemove", (e) => {
+                    positionTooltip(e);
+                });
+
+                li.addEventListener("mouseleave", () => {
+                    hideTooltip();
+                });
             }
 
             li.addEventListener("click", () => {
@@ -343,7 +409,7 @@
             state.date = new Date();
         }
 
-        // Recharger les activités
+        hideTooltip(); // Cache le tooltip lors du changement de mois
         loadActivities(state.currMonth, state.currYear);
     }
 
@@ -351,9 +417,12 @@
     // INITIALISATION
     // ========================================================================
 
-    console.log('🚀 Initialisation du calendrier');
+    console.log('🚀 Initialisation du calendrier avec tooltips');
 
-    // Charger les activités au démarrage
+    // Créer le tooltip au démarrage
+    createTooltip();
+
+    // Charger les activités
     loadActivities(state.currMonth, state.currYear);
 
     // Attacher les événements de navigation
@@ -363,5 +432,8 @@
             changeMonth(state.currMonth);
         });
     });
+
+    // Cacher le tooltip si on scroll
+    window.addEventListener('scroll', hideTooltip);
 
 })();
