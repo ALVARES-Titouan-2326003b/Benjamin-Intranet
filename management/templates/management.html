@@ -2,88 +2,100 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Pôle Administratif - Benjamin Immobilier</title>
-    <link rel="stylesheet" href="{% static '/css/management.css' %}" />
-	
-	<!-- Google Font Link for Icons -->
-	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pôle Administratif - Benjamin Immobilier</title>
+    <link rel="stylesheet" href="{% static '/css/management.css' %}?v=4" />
+
+    <!-- Google Font Link for Icons -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
 </head>
 <body>
-	<div class="main-header">
-		<div class="logo">
-			BENJAMIN
-			<span>IMMOBILIER</span>
-		</div>
-	</div>
+    <div class="main-header">
+       <div class="logo">
+          BENJAMIN
+          <span>IMMOBILIER</span>
+       </div>
+    </div>
 
-	<div class="content-wrapper">
-		<div class="card">
-			<h2>Calendrier & Suivi</h2>
-			{% include 'calendar.html' %}
-		</div>
+    <div class="content-wrapper">
+       <div class="card">
+          <h2>Calendrier & Suivi</h2>
 
-		<div class="card">
-			<h2>Relance automatique</h2>
+          <!-- Filtres du calendrier (conteneur séparé, au-dessus) -->
+          <div class="calendar-filters">
+             <!-- Les filtres seront générés dynamiquement par JavaScript -->
 
-			<!-- Menu déroulant pour sélectionner un email -->
-			<div class="reply-selector">
-				<label for="email-select">Répondre à un email :</label>
-				<select id="email-select" onchange="showReplyForm()">
-					<option value="">-- Sélectionner un email --</option>
-					{% for email in emails %}
-						{% if email.status == 'pending' %}
-							<option value="{{ email.id }}"
-								data-from="{{ email.from }}"
-								data-subject="{{ email.subject|default:'(Sans objet)' }}">
-								{{ email.subject|default:"(Sans objet)"|truncatewords:8 }}
-							</option>
-						{% endif %}
-					{% endfor %}
-				</select>
-			</div>
+          </div>
+              <!-- Calendrier (en-dessous) -->
+              {% include 'calendar.html' %}
+       </div>
 
-			<!-- Formulaire de réponse (caché par défaut) -->
-			<div id="reply-form" style="display: none;">
-				<div class="reply-info">
-					<p><strong>À :</strong> <span id="reply-to"></span></p>
-					<p><strong>Sujet :</strong> <span id="reply-subject"></span></p>
-				</div>
+       <div class="card">
+          <h2>Relance automatique</h2>
 
-				<textarea id="reply-message" placeholder="Écrivez votre message ici..."></textarea>
+          <!-- Menu déroulant pour sélectionner un email -->
+          <div class="reply-selector">
+             <label for="email-select">Répondre à un email :</label>
+             <select id="email-select" onchange="showReplyForm()">
+                <option value="">-- Sélectionner un email --</option>
+                {% for email in emails %}
+                   {% if email.status == 'pending' %}
+                      <option value="{{ email.id }}"
+                         data-from="{{ email.from }}"
+                         data-subject="{{ email.subject|default:'(Sans objet)' }}">
+                         {{ email.subject|default:"(Sans objet)"|truncatewords:8 }}
+                      </option>
+                   {% endif %}
+                {% endfor %}
+             </select>
+          </div>
 
-				<button onclick="sendReply()" class="send-btn">Envoyer 📨</button>
+          <!-- Formulaire de réponse (caché par défaut) -->
+          <div id="reply-form" style="display: none;">
+             <div class="reply-info">
+                <p><strong>À :</strong> <span id="reply-to"></span></p>
+                <p><strong>Sujet :</strong> <span id="reply-subject"></span></p>
+             </div>
 
-				<div id="reply-status" style="display: none;"></div>
-			</div>
+                <!-- Bouton Auto-générer -->
+                <button onclick="autoGenerate()" class="auto-btn" type="button">
+                    🤖 Auto-générer le message
+                </button>
 
-			<!-- Liste des emails -->
-			{% if emails %}
-				<div class="emails-list">
-					{% for email in emails %}
-						<div class="email-item {% if email.status == 'replied' %}email-replied{% endif %}">
-							<div class="email-header">
-								<div>
-									<span class="status-badge">{{ email.status_emoji }} {{ email.status_text }}</span>
-									<strong>{{ email.subject|default:"(Sans objet)" }}</strong>
-								</div>
-								<span class="email-date">{{ email.date|date:"d/m/Y H:i" }}</span>
-							</div>
-							<div class="email-from">De: {{ email.from }}</div>
-							<div class="email-preview">{{ email.body_text|truncatewords:20 }}</div>
-						</div>
-					{% endfor %}
-				</div>
-			{% else %}
-				<p style="color: #666; text-align: center; margin-top: 50px;">
-					Aucun email pour le moment. Rechargez la page pour synchroniser.
-				</p>
-			{% endif %}
-		</div>
-	</div>
+             <textarea id="reply-message" placeholder="Écrivez votre message ici..."></textarea>
 
-    <script src="{% static '/js/mails.js' %}"></script>
-    <script src="{% static '/js/calendar.js' %}"></script>
+             <button onclick="sendReply()" class="send-btn">Envoyer 📨</button>
+
+             <div id="reply-status" style="display: none;"></div>
+          </div>
+
+          <!-- Liste des emails -->
+          {% if emails %}
+             <div class="emails-list">
+                {% for email in emails %}
+                   <div class="email-item {% if email.status == 'replied' %}email-replied{% endif %}">
+                      <div class="email-header">
+                         <div>
+                            <span class="status-badge">{{ email.status_emoji }} {{ email.status_text }}</span>
+                            <strong>{{ email.subject|default:"(Sans objet)" }}</strong>
+                         </div>
+                         <span class="email-date">{{ email.date|date:"d/m/Y H:i" }}</span>
+                      </div>
+                      <div class="email-from">A: {{ email.to }}</div>
+                      <div class="email-preview">{{ email.body_text|truncatewords:20 }}</div>
+                   </div>
+                {% endfor %}
+             </div>
+          {% else %}
+             <p style="color: #666; text-align: center; margin-top: 50px;">
+                Aucun email pour le moment. Rechargez la page pour synchroniser.
+             </p>
+          {% endif %}
+       </div>
+    </div>
+
+    <script src="{% static '/js/mails.js' %}?v=4"></script>
+    <script src="{% static '/js/calendar.js' %}?v=4"></script>
 </body>
 </html>

@@ -195,6 +195,37 @@ body {
     border-color: #9B59B6;
 }
 
+/* Bouton Auto-générer */
+.auto-btn {
+    width: 100%;
+    padding: 12px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 15px;
+    transition: all 0.3s;
+}
+
+.auto-btn:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+.auto-btn:active {
+    transform: scale(0.98);
+}
+
+.auto-btn:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .send-btn {
     width: 100%;
     padding: 12px;
@@ -241,13 +272,13 @@ body {
 .wrapper{
     width: 100%;
     max-width: 450px;
-    background: #fff;
+    background: #fff !important;
     border-radius: 1em;
 }
 .wrapper header{
     display: flex;
     align-items: center;
-    padding: 0 30px;
+    padding: 25px 30px 10px;
     justify-content: space-between;
 }
 header .icons{
@@ -328,4 +359,223 @@ header .current-date{
 }
 .days li:not(.active):hover::before{
     background: #f2f2f2;
+}
+
+/* Conteneur des filtres au-dessus du calendrier */
+.calendar-filters {
+    background: white;
+    padding: 20px;
+    margin-bottom: 0;  /* Pas de marge en bas */
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.calendar-filters .wrapper {
+    background: transparent !important;
+    margin-top: 20px;
+    box-shadow: none;
+    border-radius: 0;
+}
+
+/* Séparateur entre les filtres et le calendrier */
+.calendar-filters .filters-content {
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 15px;
+}
+
+.filters-content {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    flex: 1;
+    min-width: 250px;
+}
+
+.filter-group h4 {
+    color: #1e3c72;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.filter-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.filter-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: #f8f9fa;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+    font-size: 0.85rem;
+}
+
+.filter-checkbox:hover {
+    background: #e9ecef;
+    transform: translateY(-1px);
+}
+
+.filter-checkbox input[type="checkbox"] {
+    cursor: pointer;
+    margin: 0;
+}
+
+.filter-color {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+}
+
+.filter-label {
+    font-size: 0.85rem;
+    color: #333;
+}
+/* Date avec activité = cercle bleu (comme aujourd'hui) */
+.calendar .days li.has-activity::before {
+    position: absolute;
+    content: "";
+    width: 40px;
+    height: 40px;
+    top: 50%;
+    left: 50%;
+    z-index: -1;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: #1e3c72;  /* Bleu pour activité */
+}
+
+.calendar .days li.has-activity {
+    color: #f2f2f2;  /* Texte en blanc */
+    font-weight: 600;
+}
+
+/* Si une date a une activité ET c'est aujourd'hui = dégradé */
+.calendar .days li.current.has-activity::before {
+    background: linear-gradient(135deg, #9b59b6 50%, #1e3c72 50%);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .filters-content {
+        flex-direction: column;
+    }
+
+    .filter-group {
+        min-width: 100%;
+    }
+}
+
+/*TOOLTIP POUR LES ACTIVITÉS DU CALENDRIER*/
+.activity-tooltip {
+    position: fixed;
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    min-width: 280px;
+    max-width: 350px;
+    pointer-events: none; /* Le tooltip ne bloque pas les événements */
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border: 1px solid #e0e0e0;
+}
+
+.activity-tooltip.visible {
+    opacity: 1;
+}
+
+.activity-tooltip-header {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1e3c72;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.activity-tooltip-item {
+    padding: 10px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 4px solid #9b59b6;
+}
+
+.activity-tooltip-item:last-child {
+    margin-bottom: 0;
+}
+
+.activity-tooltip-type {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.activity-tooltip-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+}
+
+.activity-tooltip-type-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.activity-tooltip-dossier {
+    font-size: 0.85rem;
+    color: #555;
+    margin-left: 20px;
+}
+
+.activity-tooltip-description {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 6px;
+    font-style: italic;
+    margin-left: 20px;
+}
+
+/* Style spécifique pour chaque type d'activité */
+.activity-tooltip-item[data-type="vente"] {
+    border-left-color: #27ae60;
+}
+
+.activity-tooltip-item[data-type="location"] {
+    border-left-color: #3498db;
+}
+
+.activity-tooltip-item[data-type="compromis"] {
+    border-left-color: #e74c3c;
+}
+
+.activity-tooltip-item[data-type="visite"] {
+    border-left-color: #f39c12;
+}
+
+.activity-tooltip-item[data-type="relance"] {
+    border-left-color: #9b59b6;
+}
+
+.activity-tooltip-item[data-type="autre"] {
+    border-left-color: #95a5a6;
 }

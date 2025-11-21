@@ -30,6 +30,8 @@ dist/
 build/
 develop-eggs/
 .installed.cfg
+celerybeat-schedule
+django_celery_results
 
 # ==========================
 # DJANGO SPECIFIQUE
