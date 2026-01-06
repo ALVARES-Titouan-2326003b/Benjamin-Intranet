@@ -5,11 +5,13 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities
 from technique import views as technique_views
+from home.views import dashboard_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('administratif/', administratif_view, name='admin'),
-
+    path('', dashboard_view, name='home'),
+    path('administratif/', administratif_view, name='admin_view'), # Renamed for clarity if needed, or keep 'admin' but carefully
+    
     # API pour l'envoi d'emails
     path('api/send-reply/', send_reply_view, name='send_reply'),
     # API pour la génération automatique de messages
@@ -19,7 +21,7 @@ urlpatterns = [
     path('accounts/login/', auth_views.LoginView.as_view(), name='login'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('chatbot/', include('chatbot.urls')),
-    path('', include('invoices.urls')),
+    path('finance/factures/', include('invoices.urls')),
     path('gestion-des-candidatures/', include('recrutement.urls')),
     path('pole-technique/documents/', include('technique.urls')),
     path('signatures/', include('signatures.urls')),

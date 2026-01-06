@@ -1,9 +1,37 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h2>Connexion</h2>
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Se connecter</button>
-</form>
+<div style="max-width: 400px; margin: 4rem auto;">
+  <div class="card">
+    <div class="card-title" style="justify-content: center; flex-direction: column; gap: 0.5rem;">
+      <h2 style="margin: 0;">Connexion</h2>
+      <p style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 400;">Benjamin Immobilier Intranet</p>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+
+      {% if form.errors %}
+      <div class="alert alert-danger"
+        style="background: var(--bg-body); padding: 10px; border-radius: var(--radius-sm); margin-bottom: 1rem; color: #dc2626; font-size: 0.9rem;">
+        Identifiants invalides.
+      </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label class="form-label">Nom d'utilisateur</label>
+        <input type="text" name="username" class="form-control" autofocus required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mot de passe</label>
+        <input type="password" name="password" class="form-control" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+        Se connecter
+      </button>
+    </form>
+  </div>
+</div>
 {% endblock %}

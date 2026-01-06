@@ -1,50 +1,132 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="recruitment-container">
+<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+  <div>
+    <a href="{% url 'recrutement:dashboard' %}"
+      style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+      <i class="bi bi-arrow-left"></i> Retour au tableau de bord
+    </a>
+    <h2>{{ fiche.titre }}</h2>
+    <div style="font-size: 0.9rem; color: var(--text-secondary);">
+      <i class="bi bi-calendar"></i> Créé le {{ fiche.created_at|date:"d/m/Y" }}
+    </div>
+  </div>
+</div>
 
-  <h2>{{ fiche.titre }}</h2>
-  <p class="job-meta"><b>Compétences clés :</b> {{ fiche.competences_clees|default:"—" }}</p>
-  <div class="job-description">{{ fiche.description }}</div>
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
 
-  <h3>Candidatures</h3>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Candidat</th>
-        <th>Email</th>
-        <th class="score">Score</th>
-        <th class="resume-col">Résumé</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for c in candidatures %}
-        <tr>
-          <td>{{ c.candidat.nom }}</td>
-          <td>{{ c.candidat.email|default:"—" }}</td>
-          <td class="score">
-            {% if c.score != None %}{{ c.score|floatformat:0 }} / 100{% else %}—{% endif %}
-          </td>
-          <td class="resume-col">
-            <div class="recruitment-resume">
-              {{ c.explication|default:"—" }}
-            </div>
-          </td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="4">Aucune candidature.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <!-- Left Column: Details & Candidatures -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
 
-  <h3>Ajouter un CV</h3>
-  <form class="form-card"
-        method="post"
-        action="{% url 'recrutement:upload_cv' fiche.pk %}"
-        enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ upload_form.as_p }}
-    <button class="btn" type="submit">Déposer le CV</button>
-  </form>
+    <!-- Job Description -->
+    <div class="card">
+      <div class="card-title">Description du poste</div>
+      <div style="margin-bottom: 1rem;">
+        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Compétences clés</label>
+        <div style="background: #f1f5f9; padding: 0.5rem 1rem; border-radius: 6px; display: inline-block;">{{
+          fiche.competences_clees|default:"—" }}</div>
+      </div>
+      <div>
+        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Description détaillée</label>
+        <div style="white-space: pre-wrap; line-height: 1.6;">{{ fiche.description }}</div>
+      </div>
+    </div>
+
+    <!-- Candidates List -->
+    <div class="card">
+      <div class="card-title">
+        Candidatures reçues <span class="badge" style="background: var(--bg-secondary); margin-left: 0.5rem;">{{
+          candidatures|length }}</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Candidat</th>
+              <th>Email</th>
+              <th class="text-center">Score</th>
+              <th>Résumé IA</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in candidatures %}
+            <tr>
+              <td>
+                <div style="font-weight: 500;">{{ c.candidat.nom }}</div>
+              </td>
+              <td>{{ c.candidat.email|default:"—" }}</td>
+              <td class="text-center">
+                {% if c.score != None %}
+                <span class="badge"
+                  style="background: {% if c.score >= 70 %}#dcfce7{% elif c.score >= 50 %}#fef9c3{% else %}#fee2e2{% endif %}; 
+                                             color: {% if c.score >= 70 %}#166534{% elif c.score >= 50 %}#854d0e{% else %}#991b1b{% endif %};">
+                  {{ c.score|floatformat:0 }} / 100
+                </span>
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if c.explication %}
+                <div
+                  style="font-size: 0.85rem; color: var(--text-secondary); max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                  title="{{ c.explication }}">
+                  {{ c.explication }}
+                </div>
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4" class="text-center text-muted" style="padding: 2rem;">Aucune candidature pour le moment.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Upload CV Action -->
+  <div class="card" style="position: sticky; top: 2rem;">
+    <div class="card-title">Ajouter un candidat</div>
+    <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+      Importez un CV (PDF) pour analyser automatiquement le profil d'un candidat pour ce poste.
+    </p>
+
+    <form method="post" action="{% url 'recrutement:upload_cv' fiche.pk %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="margin-bottom: 1rem;">
+        {{ upload_form.as_p }}
+      </div>
+      <button class="btn btn-primary" style="width: 100%; justify-content: center;" type="submit">
+        <i class="bi bi-upload"></i> Déposer & Analyser
+      </button>
+    </form>
+  </div>
 
 </div>
+
+<style>
+  /* Local fix for form rendering */
+  form p label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+  form p input[type="file"] {
+    display: block;
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px dashed #cbd5e1;
+    background: #f8fafc;
+    border-radius: 6px;
+  }
+</style>
 {% endblock %}

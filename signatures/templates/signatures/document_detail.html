@@ -1,96 +1,136 @@
-{% extends "base_signatures.html" %}
+{% extends "base.html" %}
 
 {% block title %}{{ doc.titre }}{% endblock %}
-{% block header_title %}{{ doc.titre }}{% endblock %}
 
 {% block content %}
-<div class="sig-card">
-    <h2 class="sig-card-title">Document</h2>
-    <p><strong>Titre :</strong> {{ doc.titre }}</p>
-
-    <p>
-        <strong>Fichier original :</strong>
-        <a href="{{ doc.fichier.url }}" target="_blank">Ouvrir</a>
-    </p>
-
-    {% if doc.fichier_signe %}
-        <p>
-            <strong>Fichier signé :</strong>
-            <a href="{{ doc.fichier_signe.url }}" target="_blank">Télécharger</a>
-        </p>
-    {% endif %}
+<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+    <div>
+        <a href="{% url 'signatures:document_list' %}"
+            style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <i class="bi bi-arrow-left"></i> Retour à la liste
+        </a>
+        <h2>{{ doc.titre }}</h2>
+        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+            <i class="bi bi-calendar"></i> Ajouté le {{ doc.date_upload|date:"d/m/Y H:i" }}
+        </div>
+    </div>
 </div>
 
-<div class="sig-card">
-    <h2 class="sig-card-title">Workflow</h2>
-    <ul class="sig-timeline">
-        {% for h in historiques %}
-            <li class="sig-timeline-item">
-                <div class="sig-timeline-dot"></div>
-                <div class="sig-timeline-content">
-                    <div><strong>{{ h.date_action }}</strong></div>
-                    <div>
-                        {{ h.statut }}{% if h.commentaire %} – {{ h.commentaire }}{% endif %}
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+
+    <!-- Left Column: Document & Actions -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+        <div class="card">
+            <div class="card-title">Fichiers</div>
+
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <div
+                    style="flex: 1; padding: 1rem; background: #f8fafc; border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+                    <div style="font-weight: 500; margin-bottom: 0.5rem;">Fichier original</div>
+                    <a href="{{ doc.fichier.url }}" target="_blank" class="btn btn-sm btn-ghost"
+                        style="color: var(--primary);">
+                        <i class="bi bi-eye"></i> Ouvrir
+                    </a>
+                </div>
+
+                {% if doc.fichier_signe %}
+                <div
+                    style="flex: 1; padding: 1rem; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md);">
+                    <div style="font-weight: 500; margin-bottom: 0.5rem; color: #166534;">Fichier signé</div>
+                    <a href="{{ doc.fichier_signe.url }}" target="_blank" class="btn btn-sm btn-ghost"
+                        style="color: #166534;">
+                        <i class="bi bi-download"></i> Télécharger
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Actions requises</div>
+
+            {% if is_signed %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill"></i> Ce document a été signé avec succès.
+            </div>
+
+            {% elif is_ceo %}
+            {% if pending_request %}
+            <div class="alert alert-warning">
+                <h4 style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">Demande de signature en attente
+                </h4>
+                <p style="font-size: 0.9rem; margin-bottom: 1rem;">
+                    Demandée par <strong>{{
+                        pending_request.requested_by.get_full_name|default:pending_request.requested_by.username
+                        }}</strong>
+                    le {{ pending_request.created_at|date:"d/m/Y H:i" }}.
+                </p>
+                <a href="{% url 'signatures:signature_approval' pending_request.token %}" class="btn btn-primary">
+                    <i class="bi bi-pen"></i> Ouvrir la demande et signer
+                </a>
+            </div>
+            {% else %}
+            <div>
+                <p style="margin-bottom: 1rem;">Vous pouvez signer ce document directement sans demande préalable.</p>
+                <a href="{% url 'signatures:placer_signature' doc.pk %}" class="btn btn-primary">
+                    <i class="bi bi-pen"></i> Signer ce document
+                </a>
+            </div>
+            {% endif %}
+
+            {% else %}
+            {% if pending_request %}
+            <div class="alert alert-info">
+                <i class="bi bi-hourglass-split"></i>
+                Une demande de signature est en attente auprès du CEO (créée le {{
+                pending_request.created_at|date:"d/m/Y" }}).
+                <br>Vous serez notifié une fois la signature effectuée.
+            </div>
+            {% else %}
+            <div>
+                <p style="margin-bottom: 1rem;">
+                    Vous pouvez préparer le document en plaçant l'emplacement du tampon et de la signature, puis
+                    l'envoyer au CEO pour validation.
+                </p>
+                <a href="{% url 'signatures:placer_signature' doc.pk %}" class="btn btn-primary">
+                    <i class="bi bi-send"></i> Demander la signature du CEO
+                </a>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Column: Timeline -->
+    <div class="card">
+        <div class="card-title">Historique</div>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            {% for h in historiques %}
+            <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                <div
+                    style="width: 2px; background: var(--border-light); align-self: stretch; position: relative; margin-left: 0.5rem;">
+                    <div
+                        style="width: 10px; height: 10px; background: var(--primary); border-radius: 50%; position: absolute; left: -4px; top: 4px;">
                     </div>
                 </div>
-            </li>
-        {% empty %}
-            <li>Aucune action pour le moment.</li>
-        {% endfor %}
-    </ul>
-</div>
+                <div style="padding-bottom: 1rem; width: 100%;">
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ h.date_action|date:"d/m/Y H:i" }}
+                    </div>
+                    <div style="font-weight: 500;">{{ h.statut }}</div>
+                    {% if h.commentaire %}
+                    <div
+                        style="font-size: 0.9rem; background: #f8fafc; padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem;">
+                        "{{ h.commentaire }}"
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div style="color: var(--text-secondary); font-size: 0.9rem;">Aucune activité enregistrée.</div>
+            {% endfor %}
+        </div>
+    </div>
 
-<div class="sig-card">
-    <h2 class="sig-card-title">Actions</h2>
-
-    {% if is_signed %}
-        <p>✅ Ce document est déjà signé.</p>
-
-    {% elif is_ceo %}
-        {% if pending_request %}
-            <p>
-                Une demande de signature est en attente pour ce document
-                (créée par
-                {{ pending_request.requested_by.get_full_name|default:pending_request.requested_by.username }}
-                le {{ pending_request.created_at }}).
-            </p>
-            <p>
-                <a href="{% url 'signatures:signature_approval' pending_request.token %}"
-                   class="sig-btn sig-btn-primary">
-                    Ouvrir la demande et signer
-                </a>
-            </p>
-        {% else %}
-            <p>
-                Vous pouvez signer ce document directement.
-            </p>
-            <p>
-                <a href="{% url 'signatures:placer_signature' doc.pk %}"
-                   class="sig-btn sig-btn-primary">
-                    Signer ce document
-                </a>
-            </p>
-        {% endif %}
-
-    {% else %}
-        {% if pending_request %}
-            <p>
-                ⏳ Une demande de signature est déjà en attente auprès du CEO
-                (créée le {{ pending_request.created_at }}).
-                Vous ne pouvez plus modifier le placement.
-            </p>
-        {% else %}
-            <p>
-                Vous pouvez placer le bloc tampon + signature et envoyer
-                une demande de signature au CEO.
-            </p>
-            <p>
-                <a href="{% url 'signatures:placer_signature' doc.pk %}"
-                   class="sig-btn sig-btn-primary">
-                    Demander la signature du CEO
-                </a>
-            </p>
-        {% endif %}
-    {% endif %}
 </div>
 {% endblock %}

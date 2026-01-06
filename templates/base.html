@@ -1,0 +1,130 @@
+{% load static %}
+<!doctype html>
+<html lang="fr">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Benjamin Immobilier{% endblock %}</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+  <!-- New Design System -->
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        Benjamin
+        <span>Immobilier</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      
+      <!-- LIENS GLOBAUX -->
+      <a href="{% url 'home' %}" class="nav-item {% if request.path == '/' %}active{% endif %}">
+        <i class="bi bi-grid-1x2"></i> Tableau de bord
+      </a>
+
+      <!-- MENU FINANCE & RH -->
+      {% if '/finance/' in request.path or '/signatures/' in request.path or '/gestion-des-candidatures/' in request.path %}
+        <div class="nav-section-label">FINANCE & RH</div>
+        <a href="{% url 'invoices:list' %}" class="nav-item {% if '/finance/' in request.path %}active{% endif %}">
+          <i class="bi bi-receipt"></i> Factures
+        </a>
+        <a href="{% url 'signatures:ceo_dashboard' %}" class="nav-item {% if '/signatures/' in request.path %}active{% endif %}">
+          <i class="bi bi-pen"></i> Signatures
+        </a>
+        <a href="{% url 'recrutement:dashboard' %}" class="nav-item {% if '/gestion-des-candidatures/' in request.path %}active{% endif %}">
+          <i class="bi bi-person-badge"></i> Candidatures
+        </a>
+      {% endif %}
+
+      <!-- MENU TECHNIQUE -->
+      {% if '/pole-technique/' in request.path or '/chatbot/' in request.path %}
+        <div class="nav-section-label">TECHNIQUE</div>
+        <a href="{% url 'technique_financial_overview' %}" class="nav-item {% if '/vue-financiere/' in request.path %}active{% endif %}">
+          <i class="bi bi-graph-up"></i> Vue Financière
+        </a>
+        <a href="{% url 'technique:documents_list' %}" class="nav-item {% if '/documents/' in request.path %}active{% endif %}">
+          <i class="bi bi-folder"></i> Documents
+        </a>
+      {% endif %}
+
+      <!-- MENU ADMINISTRATIF -->
+      {% if '/administratif/' in request.path or '/admin/' in request.path %}
+        <div class="nav-section-label">ADMINISTRATIF</div>
+        <a href="{% url 'admin_view' %}" class="nav-item {% if '/administratif/' in request.path %}active{% endif %}">
+          <i class="bi bi-speedometer2"></i> Vue d'ensemble
+        </a>
+      {% endif %}
+
+    </nav>
+  </aside>
+
+  <!-- Main Wrapper -->
+  <div class="app-main">
+
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-search">
+        <i class="bi bi-search"></i>
+        <input type="text" placeholder="Rechercher un document, client, facture...">
+      </div>
+
+      <div class="header-user">
+        {% if user.is_authenticated %}
+        <div class="user-info">
+          <span class="user-name">{{ user.username|title }}</span>
+          <span class="user-role">Administrateur</span> <!-- Dynamic role if needed -->
+        </div>
+        <div class="user-avatar">
+          {{ user.username|first|upper }}
+        </div>
+
+        <form action="{% url 'logout' %}" method="post" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm"
+            style="background:none; border:none; padding: 5px; color: var(--text-secondary);" title="Déconnexion">
+            <i class="bi bi-box-arrow-right" style="font-size: 1.2rem;"></i>
+          </button>
+        </form>
+        {% else %}
+        <a href="{% url 'login' %}" class="btn btn-primary">Se connecter</a>
+        {% endif %}
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main class="page-content">
+      {% if messages %}
+      <div class="messages">
+        {% for message in messages %}
+        <div class="alert {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+  </div>
+
+  {% include 'chatbot/widget.html' %}
+  {% block extra_js %}{% endblock %}
+</body>
+
+</html>

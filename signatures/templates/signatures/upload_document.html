@@ -1,18 +1,65 @@
-{% extends "base_signatures.html" %}
+{% extends "base.html" %}
 
 {% block title %}Ajouter un document{% endblock %}
-{% block header_title %}Ajouter un document{% endblock %}
 
 {% block content %}
-<div class="sig-card">
-    <h2 class="sig-card-title">Nouveau document</h2>
+<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+    <div>
+        <a href="{% url 'signatures:document_list' %}"
+            style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <i class="bi bi-arrow-left"></i> Retour à la liste
+        </a>
+        <h2>Nouveau document</h2>
+    </div>
+</div>
 
-    <form method="post" enctype="multipart/form-data" class="sig-form">
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <div class="card-title">Importer un document PDF</div>
+
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="sig-btn sig-btn-primary">
-            Uploader
-        </button>
+        <div class="form-grid">
+            {{ form.as_p }}
+        </div>
+
+        <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-cloud-upload"></i> Uploader
+            </button>
+        </div>
     </form>
 </div>
+
+<style>
+    /* Reuse form styling */
+    .form-grid p {
+        margin-bottom: 1.2rem;
+    }
+
+    .form-grid label {
+        display: block;
+        margin-bottom: 0.4rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: var(--text-main);
+    }
+
+    .form-grid input,
+    .form-grid textarea,
+    .form-grid select {
+        display: block;
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 0.95rem;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--radius-sm);
+        background-color: white;
+    }
+
+    .form-grid input[type="file"] {
+        padding: 0.4rem;
+        border: 1px dashed #cbd5e1;
+        background: #f8fafc;
+    }
+</style>
 {% endblock %}

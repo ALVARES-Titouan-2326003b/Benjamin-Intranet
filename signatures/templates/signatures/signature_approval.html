@@ -1,80 +1,107 @@
-{% extends "base_signatures.html" %}
+{% extends "base.html" %}
 
 {% block title %}Approbation CEO – {{ doc.titre }}{% endblock %}
-{% block header_title %}Approbation de la signature{% endblock %}
 
 {% block content %}
-<div class="sig-card">
-    <h2 class="sig-card-title">{{ doc.titre }}</h2>
-    <p>
-        Une demande de signature a été effectuée par
-        <strong>{{ demande.requested_by.get_full_name|default:demande.requested_by.username }}</strong>
-        le {{ demande.created_at }}.
-    </p>
-    <p>
-        Vous voyez ci-dessous le document tel qu'il sera signé, avec le tampon et la signature
-        positionnés à l'endroit choisi.
+<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+    <div>
+        <a href="{% url 'signatures:ceo_dashboard' %}"
+            style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <i class="bi bi-arrow-left"></i> Retour au tableau de bord
+        </a>
+        <h2>Approbation de signature</h2>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-title">{{ doc.titre }}</div>
+    <div class="alert alert-info" style="margin-bottom: 1.5rem;">
+        <i class="bi bi-person-circle"></i> Demande effectuée par <strong>{{
+            demande.requested_by.get_full_name|default:demande.requested_by.username }}</strong> le {{
+        demande.created_at|date:"d/m/Y à H:i" }}.
+    </div>
+
+    <p style="margin-bottom: 1rem;">
+        Vérifiez l'emplacement de la signature ci-dessous avant d'approuver.
     </p>
 
-    <div class="sig-pdf-wrapper">
-        <div id="page">
-            <embed
-                id="pdf-preview"
-                src="{{ doc.fichier.url }}#page=1&zoom=page-width&toolbar=0&navpanes=0"
-                type="application/pdf"
-            >
+    <div id="sig-pdf-wrapper"
+        style="position: relative; border: 1px solid var(--border-light); background: #525659; padding: 1rem; overflow: auto; max-width: 100%;">
+        <div id="page" style="position: relative; display: inline-block;">
+            <embed id="pdf-preview" src="{{ doc.fichier.url }}#page=1&zoom=page-width&toolbar=0&navpanes=0"
+                type="application/pdf" width="100%" height="600px" style="display: block;">
 
-            <div id="sig-block"
-                 data-pos-x="{{ demande.pos_x_pct }}"
-                 data-pos-y="{{ demande.pos_y_pct }}">
+            <div id="sig-block" data-pos-x="{{ demande.pos_x_pct }}" data-pos-y="{{ demande.pos_y_pct }}"
+                style="position: absolute; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.1); color: #dc2626; padding: 10px; font-weight: bold; pointer-events: none; white-space: nowrap;">
                 Tampon + Signature (aperçu)
             </div>
         </div>
     </div>
+</div>
 
-    <form method="post" style="margin-top: 16px;">
+<div class="card">
+    <div class="card-title">Validation</div>
+    <form method="post">
         {% csrf_token %}
-        <p>
-            <label for="commentaire">Commentaire (optionnel) :</label><br>
-            <textarea id="commentaire" name="commentaire" rows="3" style="width:100%;"></textarea>
-        </p>
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label for="commentaire" class="form-label">Commentaire (optionnel) :</label>
+            <textarea id="commentaire" name="commentaire" rows="3" class="form-control"
+                placeholder="Ajouter une note..."></textarea>
+        </div>
 
-        <button type="submit" name="action" value="approve" class="sig-btn sig-btn-primary">
-            Approuver et signer
-        </button>
-        <button type="submit" name="action" value="refuse" class="sig-btn sig-btn-outline">
-            Refuser
-        </button>
+        <div style="display: flex; gap: 1rem;">
+            <button type="submit" name="action" value="approve" class="btn btn-primary">
+                <i class="bi bi-check-lg"></i> Approuver et signer
+            </button>
+            <button type="submit" name="action" value="refuse" class="btn btn-danger"
+                style="background-color: #dc2626; color: white;">
+                <i class="bi bi-x-lg"></i> Refuser
+            </button>
+        </div>
     </form>
 </div>
 
 <script>
-    (function() {
+    (function () {
         const page = document.getElementById("page");
         const block = document.getElementById("sig-block");
+        // Update embed size if needed or handle resizing
 
         function positionnerBloc() {
+            if (!page || !block) return;
             const pageRect = page.getBoundingClientRect();
-            const blockRect = block.getBoundingClientRect();
+
+            // Note: embed might not give correct rect if not fully loaded.
+            // Using a somewhat fixed sizing approach or relative percentages.
+            // The original logic relied on pageRect.width. width of embed is 100%.
 
             const posX = parseFloat(block.dataset.posX);
             const posY = parseFloat(block.dataset.posY);
 
             if (isNaN(posX) || isNaN(posY)) return;
 
+            // Simplified positioning based on % of container
+            block.style.left = posX + "%";
+            block.style.bottom = posY + "%";
+            // Warning: Original logic used (posY / 100) * pageRect.height => Bottom distance ?
+            // Original: topPx = pageRect.height - bottomPx - blockRect.height;
+            // Let's try to stick to % if possible for responsiveness, OR replicate the logic exactly if layout is fixed.
+
+            // Replicating original exact pixel logic for safety, assuming pageRect is valid:
             const leftPx = (posX / 100) * pageRect.width;
             const bottomPx = (posY / 100) * pageRect.height;
-
-            const topPx = pageRect.height - bottomPx - blockRect.height;
+            const topPx = pageRect.height - bottomPx - block.offsetHeight; // Use offsetHeight
 
             block.style.left = leftPx + "px";
             block.style.top = topPx + "px";
         }
 
-        // on attend un micro instant que le layout soit prêt
-        window.addEventListener("load", function() {
-            setTimeout(positionnerBloc, 200);
+        window.addEventListener("load", function () {
+            // Need to wait for PDF to load slightly, or container to size.
+            setTimeout(positionnerBloc, 500);
         });
+
+        window.addEventListener("resize", positionnerBloc);
     })();
 </script>
 {% endblock %}

@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'technique',
     'signatures',
     'django_celery_results',
+    'home',
 ]
 
 MIDDLEWARE = [
@@ -67,7 +68,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR, 'invoices/templates', 'management/templates', 'chatbot/templates', 'recrutement/templates', "technique/templates", "signatures/templates"]
+        'DIRS': [BASE_DIR / 'templates', 'invoices/templates', 'management/templates', 'chatbot/templates', 'recrutement/templates', "technique/templates", "signatures/templates"]
         ,
         'APP_DIRS': True,
         'OPTIONS': {
@@ -81,7 +82,7 @@ TEMPLATES = [
 ]
 
 STATICFILES_DIRS = [
-    BASE_DIR,
+    BASE_DIR / "static",
     "chatbot/static",
     "invoices/static",
     "management/static",
@@ -142,7 +143,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = '/admin'
+LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = 'login'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

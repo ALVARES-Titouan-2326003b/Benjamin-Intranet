@@ -1,57 +1,81 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h2>Documents techniques</h2>
+<div class="d-flex justify-between align-center mb-4"
+  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <h2>Documents techniques</h2>
+  <a class="btn btn-primary" href="{% url 'technique:documents_upload' %}">
+    <i class="bi bi-upload"></i> Importer un document
+  </a>
+</div>
 
-<p>
-  <a class="btn" href="{% url 'technique:documents_upload' %}">+ Importer un document</a>
-</p>
+<div class="card">
+  <form method="get"
+    style="display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+    <div style="flex: 1;">
+      <input type="text" name="projet" class="form-control" placeholder="Rechercher par projet..." value="{{ projet }}"
+        style="margin: 0;">
+    </div>
+    <button type="submit" class="btn btn-secondary">
+      <i class="bi bi-filter"></i> Filtrer
+    </button>
+    {% if projet %}
+    <a href="{% url 'technique:documents_list' %}" class="btn btn-ghost"
+      style="text-decoration: none; color: var(--text-secondary);">
+      <i class="bi bi-x-circle"></i> Réinitialiser
+    </a>
+    {% endif %}
+  </form>
 
-<form method="get" style="margin-bottom:1rem;">
-  <input type="text" name="projet" placeholder="Filtrer par projet" value="{{ projet }}">
-  <button type="submit">Filtrer</button>
-  {% if projet %}
-    <a href="{% url 'technique:documents_list' %}">Réinitialiser</a>
-  {% endif %}
-</form>
-
-<table class="table">
-  <thead>
-    <tr>
-      <th>Projet</th>
-      <th>Titre</th>
-      <th>Type</th>
-      <th>Créé le</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for doc in documents %}
-      <tr>
-        <td>{{ doc.projet|default:"—" }}</td>
-        <td>
-          <a href="{% url 'technique:documents_detail' doc.pk %}">
-            {{ doc.titre }}
-          </a>
-        </td>
-        <td>{{ doc.get_type_document_display }}</td>
-        <td>{{ doc.created_at|date:"d/m/Y H:i" }}</td>
-        <td>
-          <a href="{% url 'technique:documents_detail' doc.pk %}">Voir</a>
-
-          {# Bouton de téléchargement du résumé PDF #}
-          {% if doc.resume %}
-            &nbsp;|&nbsp;
-            <a href="{% url 'technique:document_resume_pdf' doc.pk %}"
-               class="download-icon"
-               title="Télécharger le résumé PDF">
-               <i class="bi bi-download"></i>
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>Projet</th>
+          <th>Titre</th>
+          <th>Type</th>
+          <th>Créé le</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in documents %}
+        <tr>
+          <td>
+            <span style="font-weight: 500; color: var(--text-main);">{{ doc.projet|default:"—" }}</span>
+          </td>
+          <td>
+            <a href="{% url 'technique:documents_detail' doc.pk %}"
+              style="color: var(--accent); text-decoration: none; font-weight: 500;">
+              {{ doc.titre }}
             </a>
-          {% endif %}
-        </td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="5">Aucun document.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+          </td>
+          <td>
+            <span class="badge" style="background: #e0f2fe; color: #0284c7;">{{ doc.get_type_document_display }}</span>
+          </td>
+          <td style="color: var(--text-secondary);">{{ doc.created_at|date:"d/m/Y H:i" }}</td>
+          <td class="text-right">
+            <a href="{% url 'technique:documents_detail' doc.pk %}" class="btn btn-sm btn-ghost"
+              title="Voir les détails">
+              <i class="bi bi-eye"></i>
+            </a>
+
+            {# Bouton de téléchargement du résumé PDF #}
+            {% if doc.resume %}
+            <a href="{% url 'technique:document_resume_pdf' doc.pk %}" class="btn btn-sm btn-ghost text-danger"
+              title="Télécharger le résumé PDF">
+              <i class="bi bi-file-pdf"></i>
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center text-muted" style="padding: 2rem;">Aucun document trouvé.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

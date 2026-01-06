@@ -1,129 +1,187 @@
 {% extends "base.html" %}
 {% load static %}
+
 {% block content %}
-<h2>Factures</h2>
-
-<form method="get" class="filters">
-  <input type="text"
-         name="fournisseur"
-         value="{{ request.GET.fournisseur }}"
-         placeholder="Fournisseur">
-
-  <input type="text"
-         name="client"
-         value="{{ request.GET.client }}"
-         placeholder="Client">
-
-  <input type="number"
-         step="0.01"
-         name="min_amount"
-         value="{{ request.GET.min_amount }}"
-         placeholder="Montant min">
-
-  <input type="number"
-         step="0.01"
-         name="max_amount"
-         value="{{ request.GET.max_amount }}"
-         placeholder="Montant max">
-
-  <input type="text"
-         name="statut"
-         value="{{ request.GET.statut }}"
-         placeholder="Statut (Reçue, En cours, Payée, Refusée, Archivée)">
-
-  <input type="text"
-         name="pole"
-         value="{{ request.GET.pole }}"
-         placeholder="Service / Pôle">
-
-  <div class="date-range-onebox">
-    <span>Du</span>
-    <input type="date" id="date_from" name="echeance_min" value="{{ request.GET.echeance_min }}">
-    <span>au</span>
-    <input type="date" id="date_to" name="echeance_max" value="{{ request.GET.echeance_max }}">
+<div class="d-flex justify-between align-center mb-4"
+    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <h2>Factures</h2>
+    {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
+    <a class="btn btn-primary" href="{% url 'invoices:create' %}">
+        <i class="bi bi-plus-lg"></i> Nouvelle facture
+    </a>
+    {% endif %}
 </div>
 
+<!-- Filters Card -->
+<div class="card">
+    <div class="card-title">
+        <span><i class="bi bi-funnel"></i> Filtres</span>
+        <a href="{% url 'invoices:list' %}" class="btn btn-sm btn-secondary"
+            style="font-size: 0.8rem; padding: 0.25rem 0.75rem;">
+            Réinitialiser
+        </a>
+    </div>
 
-  <button type="submit">Filtrer</button>
-  <a href="{% url 'invoices:list' %}">Réinitialiser</a>
-</form>
+    <form method="get"
+        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; align-items: end;">
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Fournisseur</label>
+            <input type="text" name="fournisseur" value="{{ request.GET.fournisseur }}" class="form-control"
+                placeholder="Rech...">
+        </div>
 
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Client</label>
+            <input type="text" name="client" value="{{ request.GET.client }}" class="form-control"
+                placeholder="Rech...">
+        </div>
 
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Montant (Min)</label>
+            <input type="number" step="0.01" name="min_amount" value="{{ request.GET.min_amount }}" class="form-control"
+                placeholder="0.00">
+        </div>
 
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Montant (Max)</label>
+            <input type="number" step="0.01" name="max_amount" value="{{ request.GET.max_amount }}" class="form-control"
+                placeholder="0.00">
+        </div>
 
-{% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
-  <p>
-    <a class="btn" href="{% url 'invoices:create' %}">+ Nouvelle facture</a>
-  </p>
-{% endif %}
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Statut</label>
+            <select name="statut" class="form-control">
+                <option value="">Tous</option>
+                <option value="Reçue" {% if request.GET.statut == 'Reçue' %}selected{% endif %}>Reçue</option>
+                <option value="En cours" {% if request.GET.statut == 'En cours' %}selected{% endif %}>En cours</option>
+                <option value="Payée" {% if request.GET.statut == 'Payée' %}selected{% endif %}>Payée</option>
+                <option value="Refusée" {% if request.GET.statut == 'Refusée' %}selected{% endif %}>Refusée</option>
+                <option value="Archivée" {% if request.GET.statut == 'Archivée' %}selected{% endif %}>Archivée</option>
+            </select>
+        </div>
 
-<table class="table">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Fournisseur</th>
-      <th>Client</th>
-      <th>Montant</th>
-      <th>Statut</th>
-      <th>Échéance</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for invoice in object_list %}
-    <tr>
-      <td><a href="{% url 'invoices:detail' invoice.pk %}">{{ invoice.id }}</a></td>
-      <td>{{ invoice.fournisseur|default:"—" }}</td>
-      <td>{{ invoice.client.nom|default:invoice.client_id|default:"—" }}</td>
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Pôle</label>
+            <input type="text" name="pole" value="{{ request.GET.pole }}" class="form-control" placeholder="Service...">
+        </div>
 
-      <td>
-        {% if invoice.montant %}
-          {{ invoice.montant }} €
-        {% else %}
-          —
-        {% endif %}
-      </td>
+        <div class="form-group" style="margin: 0; grid-column: span 2;">
+            <label class="form-label" style="font-size: 0.8rem;">Échéance (Période)</label>
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="date" name="echeance_min" value="{{ request.GET.echeance_min }}" class="form-control">
+                <input type="date" name="echeance_max" value="{{ request.GET.echeance_max }}" class="form-control">
+            </div>
+        </div>
 
-      <td>
-        {% if invoice.statut %}
-          <span class="status-badge status-{{ invoice.statut|slugify }}">
-            {{ invoice.statut }}
-          </span>
-        {% else %}
-          —
-        {% endif %}
-      </td>
+        <div class="form-group" style="margin: 0;">
+            <button type="submit" class="btn btn-secondary" style="width: 100%;">
+                <i class="bi bi-search"></i> Filtrer
+            </button>
+        </div>
+    </form>
+</div>
 
-      <td>
-        {% if invoice.echeance %}
-          {{ invoice.echeance|date:"d/m/Y" }}
-        {% else %}
-          —
-        {% endif %}
-      </td>
-    </tr>
-  {% empty %}
-    <tr><td colspan="6">Aucune facture.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<!-- Invoices Table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+        <table class="table">
+            <thead style="background: #f8fafc;">
+                <tr>
+                    <th style="padding-left: 1.5rem;">ID</th>
+                    <th>Fournisseur</th>
+                    <th>Client</th>
+                    <th>Montant</th>
+                    <th>Statut</th>
+                    <th>Échéance</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invoice in object_list %}
+                <tr>
+                    <td style="padding-left: 1.5rem;">
+                        <a href="{% url 'invoices:detail' invoice.pk %}"
+                            style="font-weight: 600; color: var(--accent);">
+                            #{{ invoice.id }}
+                        </a>
+                    </td>
+                    <td>{{ invoice.fournisseur|default:"—" }}</td>
+                    <td>
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-weight: 500;">{{ invoice.client.nom|default:"—" }}</span>
+                            {% if invoice.client_id and invoice.client_id != invoice.client.nom %}
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ invoice.client_id
+                                }}</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td style="font-family: monospace; font-size: 0.95rem;">
+                        {% if invoice.montant %}
+                        {{ invoice.montant }} €
+                        {% else %}
+                        <span style="color: #ccc;">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if invoice.statut %}
+                        {% with s=invoice.statut %}
+                        {% if 'Payée' in s %}<span class="badge badge-success">Payée</span>
+                        {% elif 'En cours' in s %}<span class="badge badge-info text-dark">En cours</span>
+                        {% elif 'Retard' in s or 'Refusée' in s %}<span class="badge badge-danger">{{ s }}</span>
+                        {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ s }}</span>
+                        {% endif %}
+                        {% endwith %}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if invoice.echeance %}
+                        {{ invoice.echeance|date:"d M Y" }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'invoices:detail' invoice.pk %}" class="btn btn-sm btn-secondary"
+                            style="padding: 0.2rem 0.6rem; font-size: 0.8rem;">
+                            Voir
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucune
+                        facture
+                        trouvée.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
+<!-- Pagination -->
 {% if page_obj.has_previous or page_obj.has_next %}
-<div class="pagination">
-  {% if page_obj.has_previous %}
-    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">
-      Précédent
+<div class="d-flex justify-center"
+    style="display: flex; justify-content: flex-end; align-items: center; gap: 1rem; margin-top: 1rem;">
+    {% if page_obj.has_previous %}
+    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}"
+        class="btn btn-secondary">
+        Précédent
     </a>
-  {% endif %}
+    {% endif %}
 
-  <span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    <span style="font-size: 0.9rem; color: var(--text-secondary);">Page {{ page_obj.number }} / {{
+        page_obj.paginator.num_pages }}</span>
 
-  {% if page_obj.has_next %}
-    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">
-      Suivant
+    {% if page_obj.has_next %}
+    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}"
+        class="btn btn-secondary">
+        Suivant
     </a>
-  {% endif %}
+    {% endif %}
 </div>
 {% endif %}
 
-{% include 'chatbot/widget.html' %}
 {% endblock %}

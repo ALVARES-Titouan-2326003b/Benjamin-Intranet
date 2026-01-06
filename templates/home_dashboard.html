@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tableau de bord – Benjamin Immobilier{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto; padding-top: 2rem;">
+
+    <div style="text-align: center; margin-bottom: 3rem;">
+        <h1 style="font-size: 2.5rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem;">
+            Bienvenue sur l'Intranet
+        </h1>
+        <p style="font-size: 1.1rem; color: var(--text-secondary);">
+            Sélectionnez votre pôle pour accéder à vos outils.
+        </p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+
+        <!-- PÔLE FINANCE & RH -->
+        <a href="{% url 'invoices:list' %}" class="pole-card">
+            <div class="pole-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                <i class="bi bi-briefcase"></i>
+            </div>
+            <h2 class="pole-title">Finance & RH</h2>
+            <p class="pole-desc">
+                Gestion des factures fournisseurs, suivi des candidatures et signatures RH.
+            </p>
+            <span class="pole-link">Accéder <i class="bi bi-arrow-right"></i></span>
+        </a>
+
+        <!-- PÔLE TECHNIQUE -->
+        <a href="{% url 'technique_financial_overview' %}" class="pole-card">
+            <div class="pole-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                <i class="bi bi-tools"></i>
+            </div>
+            <h2 class="pole-title">Technique</h2>
+            <p class="pole-desc">
+                Suivi financier des projets, gestion des documents techniques.
+            </p>
+            <span class="pole-link">Accéder <i class="bi bi-arrow-right"></i></span>
+        </a>
+
+        <!-- PÔLE ADMINISTRATIF -->
+        <a href="{% url 'admin_view' %}" class="pole-card">
+            <div class="pole-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                <i class="bi bi-building"></i>
+            </div>
+            <h2 class="pole-title">Administratif</h2>
+            <p class="pole-desc">
+                Tableau de bord général, calendrier et gestion administrative.
+            </p>
+            <span class="pole-link">Accéder <i class="bi bi-arrow-right"></i></span>
+        </a>
+
+    </div>
+</div>
+
+<style>
+    .pole-card {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        text-decoration: none;
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--border-light);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .pole-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--primary);
+    }
+
+    .pole-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .pole-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-bottom: 0.75rem;
+    }
+
+    .pole-desc {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+    }
+
+    .pole-link {
+        font-weight: 600;
+        color: var(--primary);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: auto;
+    }
+</style>
+{% endblock %}

@@ -1,77 +1,130 @@
-{% extends "base_signatures.html" %}
+{% extends "base.html" %}
 
 {% block title %}Demandes de signature{% endblock %}
-{% block header_title %}Tableau de bord des signatures (CEO){% endblock %}
 
 {% block content %}
-<div class="sig-card">
-    <h2 class="sig-card-title">Demandes en attente</h2>
-
-    {% if pending_requests %}
-        <table class="sig-table">
-            <thead>
-            <tr>
-                <th>Document</th>
-                <th>Demandé par</th>
-                <th>Date de demande</th>
-                <th>Position</th>
-                <th></th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for d in pending_requests %}
-                <tr>
-                    <td>{{ d.document.titre }}</td>
-                    <td>
-                        {{ d.requested_by.get_full_name|default:d.requested_by.username }}
-                    </td>
-                    <td>{{ d.created_at }}</td>
-                    <td>{{ d.pos_x_pct|floatformat:1 }}% / {{ d.pos_y_pct|floatformat:1 }}%</td>
-                    <td>
-                        <a class="sig-btn sig-btn-primary"
-                           href="{% url 'signatures:signature_approval' d.token %}">
-                            Voir &amp; signer
-                        </a>
-                    </td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>Aucune demande de signature en attente</p>
-    {% endif %}
+<div class="mb-4" style="margin-bottom: 1.5rem;">
+    <h2>Tableau de bord des signatures (CEO)</h2>
+    <p style="color: var(--text-secondary); margin-top: 0.5rem;">Gérez ici les demandes de signatures en attente.</p>
 </div>
 
-<div class="sig-card">
-    <h2 class="sig-card-title">Historique des demandes (50 dernières)</h2>
+<div style="display: grid; gap: 2rem;">
 
-    {% if all_requests %}
-        <table class="sig-table">
-            <thead>
-            <tr>
-                <th>Document</th>
-                <th>Demandé par</th>
-                <th>Date</th>
-                <th>Statut</th>
-                <th>Décision le</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for d in all_requests %}
-                <tr>
-                    <td>{{ d.document.titre }}</td>
-                    <td>
-                        {{ d.requested_by.get_full_name|default:d.requested_by.username }}
-                    </td>
-                    <td>{{ d.created_at }}</td>
-                    <td>{{ d.get_statut_display }}</td>
-                    <td>{{ d.decided_at|default:"-" }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>Aucune demande enregistrée.</p>
-    {% endif %}
+    <!-- Pending Requests -->
+    <div class="card">
+        <div class="card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+            <i class="bi bi-hourglass-split" style="color: #f59e0b;"></i> Demandes en attente
+            {% if pending_requests %}
+            <span class="badge" style="background: #fef3c7; color: #d97706;">{{ pending_requests|length }}</span>
+            {% endif %}
+        </div>
+
+        {% if pending_requests %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Document</th>
+                        <th>Demandé par</th>
+                        <th>Date de demande</th>
+                        <th>Position</th>
+                        <th class="text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in pending_requests %}
+                    <tr>
+                        <td>
+                            <span style="font-weight: 500; color: var(--text-main);">{{ d.document.titre }}</span>
+                        </td>
+                        <td>
+                            {{ d.requested_by.get_full_name|default:d.requested_by.username }}
+                        </td>
+                        <td>{{ d.created_at|date:"d/m/Y H:i" }}</td>
+                        <td>{{ d.pos_x_pct|floatformat:1 }}% / {{ d.pos_y_pct|floatformat:1 }}%</td>
+                        <td class="text-right">
+                            <a class="btn btn-sm btn-primary" href="{% url 'signatures:signature_approval' d.token %}">
+                                <i class="bi bi-pen"></i> Voir &amp; signer
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted" style="padding: 2rem;">
+            Aucune demande de signature en attente.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- History -->
+    <div class="card">
+        <div class="card-title">Historique des demandes (50 dernières)</div>
+
+        {% if all_requests %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Document</th>
+                        <th>Demandé par</th>
+                        <th>Date</th>
+                        <th>Statut</th>
+                        <th>Décision le</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in all_requests %}
+                    <tr>
+                        <td>{{ d.document.titre }}</td>
+                        <td>
+                            {{ d.requested_by.get_full_name|default:d.requested_by.username }}
+                        </td>
+                        <td>{{ d.created_at|date:"d/m/Y" }}</td>
+                        <td>
+                            <span
+                                class="badge 
+                                {% if d.statut == 'signed' %}status-payee{% elif d.statut == 'rejected' %}status-refusee{% else %}status-encours{% endif %}"
+                                style="background: var(--bg-secondary);">
+                                {{ d.get_statut_display }}
+                            </span>
+                        </td>
+                        <td>{{ d.decided_at|date:"d/m/Y H:i"|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted" style="padding: 2rem;">
+            Aucune demande enregistrée.
+        </div>
+        {% endif %}
+    </div>
+
 </div>
+
+<style>
+    /* Mapping legacy status to our variable-based colors if needed, or use inline styles */
+    .status-payee {
+        background: #dcfce7 !important;
+        color: #166534 !important;
+    }
+
+    /* Green */
+    .status-refusee {
+        background: #fee2e2 !important;
+        color: #991b1b !important;
+    }
+
+    /* Red */
+    .status-encours {
+        background: #e0f2fe !important;
+        color: #0284c7 !important;
+    }
+
+    /* Blue */
+</style>
 {% endblock %}

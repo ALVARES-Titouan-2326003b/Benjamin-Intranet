@@ -1,62 +1,114 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>{{ document.titre }}</h2>
-
-<p><b>Projet :</b> {{ document.projet|default:"—" }}</p>
-<p><b>Type de document :</b> {{ document.get_type_document_display }}</p>
-
-<p>
-  <b>Fichier original :</b>
-  {% if document.fichier %}
-    <a href="{{ document.fichier.url }}" target="_blank" rel="noopener">Télécharger</a>
-  {% else %}
-    —
-  {% endif %}
-</p>
-
-<p><b>Créé le :</b> {{ document.created_at|date:"d/m/Y H:i" }}</p>
-
-{# Bouton de téléchargement du résumé PDF  #}
-{% if document.resume %}
-  <p style="margin-top:1rem;">
-    <a href="{% url 'technique:document_resume_pdf' document.pk %}"
-       class="download-icon"
-       title="Télécharger le résumé PDF">
-       <i class="bi bi-download"></i>
+<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+  <div>
+    <a href="{% url 'technique:documents_list' %}"
+      style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+      <i class="bi bi-arrow-left"></i> Retour à la liste
     </a>
-  </p>
-{% endif %}
+    <h2>{{ document.titre }}</h2>
+  </div>
+  {% if document.resume %}
+  <a href="{% url 'technique:document_resume_pdf' document.pk %}" class="btn btn-secondary">
+    <i class="bi bi-file-pdf"></i> Résumé PDF
+  </a>
+  {% endif %}
+</div>
 
-<hr style="margin:1.5rem 0;">
+<div class="card" style="max-width: 900px;">
+  <div class="card-title">Détails du document</div>
 
-{% if document.resume %}
-  <h3>Résumé global</h3>
-  <p style="white-space:pre-wrap;">{{ document.resume }}</p>
-{% endif %}
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+    <div>
+      <div style="margin-bottom: 1rem;">
+        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Projet associé</label>
+        <div style="font-weight: 500; font-size: 1.1rem;">{{ document.projet|default:"—" }}</div>
+      </div>
 
-{% if document.prix and document.prix != "—" %}
-  <h3>Prix / montants</h3>
-  <p style="white-space:pre-wrap;">{{ document.prix }}</p>
-{% endif %}
+      <div style="margin-bottom: 1rem;">
+        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Type</label>
+        <span class="badge" style="background: #e0f2fe; color: #0284c7; font-size: 0.9rem;">{{
+          document.get_type_document_display }}</span>
+      </div>
+    </div>
 
-{% if document.dates and document.dates != "—" %}
-  <h3>Dates clés</h3>
-  <p style="white-space:pre-wrap;">{{ document.dates }}</p>
-{% endif %}
+    <div>
+      <div style="margin-bottom: 1rem;">
+        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Fichier original</label>
+        {% if document.fichier %}
+        <a href="{{ document.fichier.url }}" target="_blank" class="btn btn-sm btn-ghost"
+          style="color: var(--primary);">
+          <i class="bi bi-download"></i> Télécharger le fichier
+        </a>
+        {% else %}
+        <span style="color: var(--text-secondary);">Aucun fichier</span>
+        {% endif %}
+      </div>
 
-{% if document.conditions_suspensives and document.conditions_suspensives != "—" %}
-  <h3>Conditions suspensives</h3>
-  <p style="white-space:pre-wrap;">{{ document.conditions_suspensives }}</p>
-{% endif %}
+      <div>
+        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Date d'ajout</label>
+        <div>{{ document.created_at|date:"d M Y à H:i" }}</div>
+      </div>
+    </div>
+  </div>
 
-{% if document.penalites and document.penalites != "—" %}
-  <h3>Pénalités</h3>
-  <p style="white-space:pre-wrap;">{{ document.penalites }}</p>
-{% endif %}
+  <hr style="border: 0; border-top: 1px solid var(--border-light); margin: 2rem 0;">
 
-{% if document.delais and document.delais != "—" %}
-  <h3>Délais</h3>
-  <p style="white-space:pre-wrap;">{{ document.delais }}</p>
-{% endif %}
+  <div style="display: grid; gap: 2rem;">
+    {% if document.resume %}
+    <div>
+      <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main);">Résumé global</h3>
+      <div
+        style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light); white-space: pre-wrap; color: var(--text-secondary);">
+        {{ document.resume }}</div>
+    </div>
+    {% endif %}
 
+    {% if document.prix and document.prix != "—" %}
+    <div>
+      <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main);">Prix / Montants</h3>
+      <div
+        style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light); white-space: pre-wrap;">
+        {{ document.prix }}</div>
+    </div>
+    {% endif %}
+
+    {% if document.dates and document.dates != "—" %}
+    <div>
+      <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main);">Dates clés</h3>
+      <div
+        style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light); white-space: pre-wrap;">
+        {{ document.dates }}</div>
+    </div>
+    {% endif %}
+
+    {% if document.conditions_suspensives and document.conditions_suspensives != "—" %}
+    <div>
+      <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main);">Conditions suspensives</h3>
+      <div
+        style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light); white-space: pre-wrap;">
+        {{ document.conditions_suspensives }}</div>
+    </div>
+    {% endif %}
+
+    {% if document.penalites and document.penalites != "—" %}
+    <div>
+      <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main);">Pénalités</h3>
+      <div
+        style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light); white-space: pre-wrap;">
+        {{ document.penalites }}</div>
+    </div>
+    {% endif %}
+
+    {% if document.delais and document.delais != "—" %}
+    <div>
+      <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main);">Délais</h3>
+      <div
+        style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light); white-space: pre-wrap;">
+        {{ document.delais }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
 {% endblock %}
