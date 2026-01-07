@@ -11,7 +11,7 @@ from home.views import dashboard_view
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', dashboard_view, name='home'),
-    path('administratif/', administratif_view, name='admin_view'), # Renamed for clarity if needed, or keep 'admin' but carefully
+    path('administratif/', administratif_view, name='admin_view'),
     
     # On met ceci AVANT les autres pour être sûr que les URLs de login sont prioritaires
     path('', include('config.urls_custom_2fa')),
