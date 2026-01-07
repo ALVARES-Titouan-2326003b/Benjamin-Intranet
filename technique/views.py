@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -76,6 +77,7 @@ def documents_upload(request):
             ]
             obj.penalites = (summary.get("penalites") or "")[:20000]
             obj.delais = (summary.get("delais") or "")[:20000]
+            obj.clauses_importantes = json.dumps((summary.get("clauses_importantes") or [])[:50000])
 
             obj.save()
 
