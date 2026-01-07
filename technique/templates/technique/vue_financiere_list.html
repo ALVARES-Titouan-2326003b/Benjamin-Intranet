@@ -3,71 +3,68 @@
 
 {% block title %}Vue financière – Pôle technique{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'technique/css/technique.css' %}">
-{% endblock %}
-
 {% block content %}
-<div class="finance-page">
+<div class="d-flex justify-between align-center mb-4"
+    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+        <h2>Vue financière – Pôle technique</h2>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+            Suivi des budgets, frais engagés et paiements projet par projet.
+        </p>
+    </div>
+    <button class="btn btn-primary" id="showCreateFormBtn">
+        <i class="bi bi-plus-lg"></i> Créer un projet
+    </button>
+</div>
 
-    <!-- HEADER -->
-    <div class="finance-header">
-        <div>
-            <h1 class="finance-title">Vue financière – Pôle technique</h1>
-            <p class="finance-subtitle">
-                Suivi des budgets, frais engagés et paiements projet par projet.
-            </p>
+<!-- Formulaire Création (Hidden by default) -->
+<div class="card mb-4" id="createProjectForm" style="display: none; margin-bottom: 1.5rem;">
+    <div class="card-title">Créer un nouveau projet</div>
+    <form method="post">
+        {% csrf_token %}
+        <div
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+            {{ form.as_p }}
         </div>
-    </div>
-
-    <!-- BOUTON CREATION -->
-    <div style="margin-bottom: 20px;">
-        <button class="btn btn-primary" id="showCreateFormBtn">
-            + Créer un projet
-        </button>
-    </div>
-
-    <!-- FORMULAIRE CREATION-->
-    <section class="finance-card" id="createProjectForm" style="display: none;">
-        <h2 class="finance-card-title">Créer un nouveau projet</h2>
-
-        <form method="post" class="finance-form">
-            {% csrf_token %}
-            <div class="finance-form-grid">
-                {{ form.as_p }}
-            </div>
+        <div style="display: flex; justify-content: flex-end;">
             <button type="submit" class="btn btn-primary">Créer le projet</button>
-        </form>
-    </section>
-
-    <!-- LISTE DES PROJETS -->
-    <section class="finance-card finance-card-main">
-
-        <div class="finance-card-header">
-            <h2 class="finance-card-title">Projets techniques</h2>
-            <span class="finance-badge">
-                {{ projects|length }} projet{% if projects|length > 1 %}s{% endif %}
-            </span>
         </div>
+    </form>
+</div>
 
-        {% if projects %}
-        <table class="finance-table-list">
+<!-- Liste des projets -->
+<div class="card">
+    <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Projets techniques</span>
+        <span class="badge" style="background: var(--bg-secondary); color: var(--text-secondary);">
+            {{ projects|length }} projet{% if projects|length > 1 %}s{% endif %}
+        </span>
+    </div>
+
+    {% if projects %}
+    <div class="table-responsive">
+        <table class="table table-hover">
             <thead>
                 <tr>
                     <th>Référence</th>
                     <th>Nom</th>
                     <th>Total estimé</th>
-                    <th>Actions</th>
+                    <th class="text-right">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in projects %}
                 <tr>
-                    <td>{{ p.reference }}</td>
-                    <td>{{ p.name }}</td>
-                    <td>{{ p.total_estimated }} €</td>
                     <td>
-                        <a href="{% url 'technique_financial_project_detail' p.pk %}" class="btn btn-primary">
+                        <span style="font-weight: 600; color: var(--text-main);">{{ p.reference }}</span>
+                    </td>
+                    <td>{{ p.name }}</td>
+                    <td>
+                        <span class="badge" style="background: #e0f2fe; color: #0284c7;">{{ p.total_estimated }}
+                            €</span>
+                    </td>
+                    <td class="text-right">
+                        <a href="{% url 'technique_financial_project_detail' p.pk %}" class="btn btn-sm btn-ghost">
                             Voir / éditer
                         </a>
                     </td>
@@ -75,19 +72,44 @@
                 {% endfor %}
             </tbody>
         </table>
-        {% else %}
-            <p>Aucun projet technique pour le moment.</p>
-        {% endif %}
-    </section>
-
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+        <i class="bi bi-folder-x" style="font-size: 2rem; display: block; margin-bottom: 1rem;"></i>
+        Aucun projet technique pour le moment.
+    </div>
+    {% endif %}
 </div>
 
-<!-- Affichage du formulaire -->
 <script>
-document.getElementById("showCreateFormBtn").addEventListener("click", function () {
-    const form = document.getElementById("createProjectForm");
-    form.style.display = (form.style.display === "none") ? "block" : "none";
-});
+    document.getElementById("showCreateFormBtn").addEventListener("click", function () {
+        const form = document.getElementById("createProjectForm");
+        form.style.display = (form.style.display === "none") ? "block" : "none";
+    });
 </script>
 
+<style>
+    /* Quick fix for form.as_p rendering */
+    #createProjectForm p {
+        margin-bottom: 0;
+    }
+
+    #createProjectForm input,
+    #createProjectForm select,
+    #createProjectForm textarea {
+        display: block;
+        width: 100%;
+        padding: 0.5rem;
+        font-size: 0.95rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        margin-top: 0.25rem;
+    }
+
+    #createProjectForm label {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: var(--text-main);
+    }
+</style>
 {% endblock %}

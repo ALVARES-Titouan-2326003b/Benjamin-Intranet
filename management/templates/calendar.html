@@ -1,37 +1,22 @@
-<!--
-  STRUCTURE HTML POUR LE CALENDRIER AVEC FILTRES
-  À placer dans management/templates/management.html
--->
-
-<!-- SECTION CALENDRIER -->
-<section class="section">
-    <h2>Calendrier & Suivi</h2>
-
-    <!-- FILTRES (au-dessus du calendrier, dans leur propre conteneur) -->
-    <div class="calendar-filters">
-        <!-- Les filtres seront générés dynamiquement par JavaScript -->
-    </div>
-
-    <!-- CALENDRIER (conteneur séparé) -->
-    <div class="calendar">
-        <header>
-            <h3 class="current-date"></h3>
-            <div class="icons">
-                <span id="prev" class="material-symbols-outlined">chevron_left</span>
-                <span id="next" class="material-symbols-outlined">chevron_right</span>
-            </div>
-        </header>
-        <div class="calendar-inner">
-            <ul class="weeks">
-                <li>Lun</li>
-                <li>Mar</li>
-                <li>Mer</li>
-                <li>Jeu</li>
-                <li>Ven</li>
-                <li>Sam</li>
-                <li>Dim</li>
-            </ul>
-            <div class="days"></div>
+<!-- CALENDRIER (conteneur séparé) -->
+<div class="calendar" style="padding: 0; margin-top: 1rem;">
+    <header style="padding: 10px 0; border: none; align-items: center;">
+        <h3 class="current-date" style="font-size: 1.2rem; margin: 0; color: var(--text-main);"></h3>
+        <div class="icons">
+            <span id="prev" class="material-symbols-outlined" style="color: var(--text-secondary);">chevron_left</span>
+            <span id="next" class="material-symbols-outlined" style="color: var(--text-secondary);">chevron_right</span>
         </div>
+    </header>
+    <div class="calendar-inner">
+        <ul class="weeks" style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+            <li>Lun</li>
+            <li>Mar</li>
+            <li>Mer</li>
+            <li>Jeu</li>
+            <li>Ven</li>
+            <li>Sam</li>
+            <li>Dim</li>
+        </ul>
+        <div class="days" style="font-size: 0.95rem;"></div>
     </div>
-</section>
+</div>

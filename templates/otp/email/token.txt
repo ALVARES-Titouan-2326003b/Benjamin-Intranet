@@ -1,0 +1,11 @@
+Bonjour,
+
+Voici votre code de vérification pour accéder à l'intranet :
+
+{{ token }}
+
+Ce code est valide pendant quelques minutes.
+Ne le communiquez à personne.
+
+Cordialement,
+L'équipe Benjamin Immobilier

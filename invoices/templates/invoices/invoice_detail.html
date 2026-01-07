@@ -1,51 +1,122 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div class="invoice-detail">
-
-  <h2>Détails facture #{{ object.id }}</h2>
-
-  <p><b>Fournisseur :</b> {{ object.fournisseur|default:"—" }}</p>
-  <p><b>Client :</b> {{ object.client.nom|default:object.client_id|default:"—" }}</p>
-  <p><b>Montant :</b> {{ object.montant|default_if_none:"—" }}{% if object.montant %} €{% endif %}</p>
-  <p><b>Pôle :</b> {{ object.pole|default:"—" }}</p>
-  <p>
-    <b>Statut :</b>
-    {% if object.statut %}
-      <span class="status-badge status-{{ object.statut|slugify }}">
-        {{ object.statut }}
-      </span>
-    {% else %}
-      —
-    {% endif %}
-  </p>
-  <p><b>Échéance :</b>
-    {% if object.echeance %}{{ object.echeance|date:"d/m/Y" }}{% else %}—{% endif %}
-  </p>
-  <p><b>Titre :</b> {{ object.titre|default:"—" }}</p>
-
-  <h3>Pièces jointes</h3>
-  {% with pieces=object.piecejointe_set.all %}
-    {% if pieces %}
-      <ul>
-        {% for pj in pieces %}
-          <li>
-            <a href="{{ pj.fichier.url }}" target="_blank" rel="noopener">
-              Télécharger la facture (PDF) – {{ pj.fichier.name|slice:"8:" }}
-            </a>
-            <small> — {{ pj.uploaded_at|date:"d/m/Y H:i" }}</small>
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p>— Aucune pièce jointe.</p>
-    {% endif %}
-  {% endwith %}
+<div class="d-flex justify-between align-center mb-4"
+  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <div>
+    <a href="{% url 'invoices:list' %}"
+      style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+      <i class="bi bi-arrow-left"></i> Retour aux factures
+    </a>
+    <h2>Facture #{{ object.id }}</h2>
+  </div>
 
   {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
-    <p class="invoice-actions">
-      <a class="btn" href="{% url 'invoices:edit' object.pk %}">Modifier</a>
-    </p>
+  <a class="btn btn-primary" href="{% url 'invoices:edit' object.pk %}">
+    <i class="bi bi-pencil"></i> Modifier
+  </a>
   {% endif %}
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+
+  <!-- Main Info Card -->
+  <div class="card">
+    <div class="card-title">Informations Générales</div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Fournisseur</label>
+        <div style="font-weight: 500;">{{ object.fournisseur|default:"—" }}</div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Client</label>
+        <div style="font-weight: 500;">{{ object.client.nom|default:object.client_id|default:"—" }}</div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Montant</label>
+        <div style="font-weight: 600; font-size: 1.1rem;">
+          {{ object.montant|default_if_none:"—" }}{% if object.montant %} €{% endif %}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Pôle / Service</label>
+        <div>{{ object.pole|default:"—" }}</div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Statut</label>
+        <div>
+          {% if object.statut %}
+          {% with s=object.statut %}
+          {% if 'Payée' in s %}<span class="badge badge-success">Payée</span>
+          {% elif 'En cours' in s %}<span class="badge badge-info text-dark">En cours</span>
+          {% elif 'Retard' in s or 'Refusée' in s %}<span class="badge badge-danger">{{ s }}</span>
+          {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ s }}</span>
+          {% endif %}
+          {% endwith %}
+          {% else %}
+          —
+          {% endif %}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Date d'échéance</label>
+        <div>
+          {% if object.echeance %}
+          {{ object.echeance|date:"d F Y" }}
+          {% else %}
+          —
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="grid-column: span 2;">
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Titre / Objet</label>
+        <div>{{ object.titre|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attachments Card -->
+  <div class="card">
+    <div class="card-title">Pièces Jointes</div>
+
+    {% with pieces=object.piecejointe_set.all %}
+    {% if pieces %}
+    <ul style="list-style: none; padding: 0; margin: 0;">
+      {% for pj in pieces %}
+      <li
+        style="padding: 0.75rem; border-bottom: 1px solid var(--border-light); display: flex; align-items: flex-start; gap: 0.75rem;">
+        <i class="bi bi-file-earmark-pdf" style="font-size: 1.5rem; color: #dc2626;"></i>
+        <div style="flex: 1; overflow: hidden;">
+          <a href="{{ pj.fichier.url }}" target="_blank" rel="noopener"
+            style="display: block; font-weight: 500; color: var(--text-main); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            {{ pj.fichier.name|slice:"8:" }}
+          </a>
+          <small style="color: var(--text-secondary);">Ajouté le {{ pj.uploaded_at|date:"d/m/Y" }}</small>
+        </div>
+        <a href="{{ pj.fichier.url }}" download class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.5rem;"
+          title="Télécharger">
+          <i class="bi bi-download"></i>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div
+      style="text-align: center; padding: 2rem; color: var(--text-secondary); border: 1px dashed var(--border-light); border-radius: var(--radius-md);">
+      <i class="bi bi-paperclip" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem; opacity: 0.5;"></i>
+      Aucune pièce jointe
+    </div>
+    {% endif %}
+    {% endwith %}
+  </div>
 
 </div>
+
 {% endblock %}

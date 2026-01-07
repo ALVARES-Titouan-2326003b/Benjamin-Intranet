@@ -2,85 +2,132 @@
 {% load static l10n %}
 {% block title %}Vue financière – {{ project.reference }}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'technique/css/technique.css' %}">
-{% endblock %}
 {% block content %}
-<div class="finance-page">
-
-    <div class="finance-header">
-        <div>
-            <h1 class="finance-title">
-                Vue financière – {{ project.name }} ({{ project.reference }})
-            </h1>
-            <p class="finance-subtitle">
-                Synthèse des montants engagés, payés et restants à régler pour ce projet.
-            </p>
-        </div>
-        <div class="finance-header-actions">
-            <a href="{% url 'technique_financial_overview' %}" class="btn btn-ghost">
-                ← Retour aux projets
-            </a>
-            <a href="{% url 'technique_financial_project_pdf' project.pk %}" class="btn btn-primary">
-                Exporter en PDF
-            </a>
+<div class="d-flex justify-between align-center mb-4"
+    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+        <h2>Vue financière – {{ project.name }}</h2>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+            <span class="badge" style="background: var(--bg-secondary);">{{ project.reference }}</span>
+            <span style="color: var(--text-secondary); font-size: 0.9rem;">Synthèse des montants engagés, payés et
+                restants.</span>
         </div>
     </div>
-
-    <div class="finance-layout">
-        <section class="finance-card finance-card-main">
-            <h2 class="finance-card-title">Données financières</h2>
-
-            <form method="post" class="finance-form">
-                {% csrf_token %}
-                <div class="finance-form-grid">
-                    {{ form.as_p }}
-                </div>
-                <button type="submit" class="btn btn-primary">Enregistrer</button>
-            </form>
-
-            <div class="finance-summary">
-                <div class="finance-item">
-                    <span class="finance-label">Frais engagés</span>
-                    <span class="finance-value">{{ frais_engages }} €</span>
-                </div>
-                <div class="finance-item">
-                    <span class="finance-label">Frais déjà payés</span>
-                    <span class="finance-value">{{ frais_payes }} €</span>
-                </div>
-                <div class="finance-item">
-                    <span class="finance-label">Frais restants à régler</span>
-                    <span class="finance-value">{{ frais_restants }} €</span>
-                </div>
-                <div class="finance-item finance-item-total">
-                    <span class="finance-label">Total estimé du projet</span>
-                    <span class="finance-value">{{ total_estime }} €</span>
-                </div>
-            </div>
-        </section>
-
-        <section class="finance-card finance-card-side">
-            <h2 class="finance-card-title">Visualisation graphique</h2>
-
-            <div class="chart-wrapper">
-                <canvas id="barChart"></canvas>
-            </div>
-            <p class="chart-legend">
-                Comparatif des montants engagés, payés, restants et du budget total estimé.
-            </p>
-        </section>
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="{% url 'technique_financial_overview' %}" class="btn btn-ghost">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+        <a href="{% url 'technique_financial_project_pdf' project.pk %}" class="btn btn-secondary">
+            <i class="bi bi-file-pdf"></i> Exporter PDF
+        </a>
     </div>
 </div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+
+    <!-- Left Column: Form & Data -->
+    <section class="card">
+        <div class="card-title">Données financières</div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                {{ form.as_p }}
+            </div>
+            <div style="border-top: 1px solid var(--border-light); padding-top: 1rem; text-align: right;">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> Enregistrer les modifications
+                </button>
+            </div>
+        </form>
+
+        <div
+            style="background: #f8fafc; border-radius: var(--radius-md); padding: 1.5rem; margin-top: 2rem; border: 1px solid var(--border-light);">
+            <h3
+            style="font-size: 1rem; color: var(--text-secondary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px;"
+            >Synthèse</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div>
+                    <span style="display: block; font-size: 0.85rem; color: var(--text-secondary);">Frais engagés</span>
+                    <span style="display: block; font-size: 1.2rem; font-weight: 600; color: var(--text-main);"
+                    >{{ frais_engages }} €</span>
+                </div>
+                <div>
+                    <span style="display: block; font-size: 0.85rem; color: var(--text-secondary);"
+                    >Frais déjà payés</span>
+                    <span style="display: block; font-size: 1.2rem; font-weight: 600; color: #10b981;"
+                    >{{ frais_payes }} €</span>
+                </div>
+                <div>
+                    <span style="display: block; font-size: 0.85rem; color: var(--text-secondary);"
+                    >Restant à régler</span>
+                    <span style="display: block; font-size: 1.2rem; font-weight: 600; color: #f59e0b;"
+                    >{{ frais_restants }} €</span>
+                </div>
+                <div>
+                    <span style="display: block; font-size: 0.85rem; color: var(--text-secondary);">Total estimé</span>
+                    <span style="display: block; font-size: 1.2rem; font-weight: 600; color: var(--primary);"
+                    >{{ total_estime }} €</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Right Column: Chart -->
+    <section class="card">
+        <div class="card-title">Visualisation graphique</div>
+        <div class="chart-wrapper" style="position: relative; height: 300px; width: 100%;">
+            <canvas id="barChart"></canvas>
+        </div>
+        <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary); text-align: center;">
+            Comparatif des montants pour le projet.
+        </p>
+    </section>
+</div>
+
+<style>
+    /* Styling for form elements generated by as_p */
+    form p {
+        margin-bottom: 0;
+    }
+
+    form p label {
+        display: block;
+        margin-bottom: 0.4rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: var(--text-main);
+    }
+
+    form p input,
+    form p select,
+    form p textarea {
+        display: block;
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 0.95rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background-color: white;
+        transition: border-color 0.2s;
+    }
+
+    form p input:focus,
+    form p select:focus {
+        border-color: var(--primary);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+</style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{% static 'technique/js/vue_financiere.js' %}"></script>
 <script>
     initFinanceCharts({
-        fraisEngages: {{ frais_engages|unlocalize }},
-        fraisPayes: {{ frais_payes|unlocalize }},
-        fraisRestants: {{ frais_restants|unlocalize }},
-        totalEstime: {{ total_estime|unlocalize }}
+        fraisEngages: {{ frais_engages| unlocalize }},
+        fraisPayes: {{ frais_payes| unlocalize }},
+        fraisRestants: {{ frais_restants| unlocalize }},
+        totalEstime: {{ total_estime| unlocalize }}
     });
 </script>
 {% endblock %}
-

@@ -1,55 +1,66 @@
-{% extends "base_signatures.html" %}
+{% extends "base.html" %}
 
 {% block title %}Placer la signature – {{ doc.titre }}{% endblock %}
-{% block header_title %}Placer la signature sur le document{% endblock %}
 
 {% block content %}
-<div class="sig-card">
-    <h2 class="sig-card-title">{{ doc.titre }}</h2>
-    <p>
+<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+    <div>
+        <a href="{% url 'signatures:document_detail' doc.pk %}"
+            style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <i class="bi bi-arrow-left"></i> Annuler
+        </a>
+        <h2>Placer la signature</h2>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">Document : {{ doc.titre }}</div>
+    <div class="alert alert-info" style="margin-bottom: 1.5rem;">
+        <i class="bi bi-info-circle"></i>
         {% if is_ceo %}
-            Déplace le bloc “Tampon + Signature” à l’endroit souhaité, puis signe le document.
+        Déplacez le bloc <strong>“Tampon + Signature”</strong> (cadre rouge) à l’endroit souhaité sur le document, puis
+        cliquez sur <strong>Signer</strong>.
         {% else %}
-            Déplace le bloc “Tampon + Signature” à l’endroit souhaité, puis envoie une
-            demande de signature au CEO.
+        Déplacez le bloc <strong>“Tampon + Signature”</strong> (cadre rouge) à l’endroit souhaité, puis cliquez sur
+        <strong>Demander la signature</strong>.
         {% endif %}
-    </p>
+    </div>
 
-    <div class="sig-pdf-wrapper">
-        <div id="page">
-            <embed
-                id="pdf-preview"
-                src="{{ doc.fichier.url }}#page=1&zoom=page-width&toolbar=0&navpanes=0"
-                type="application/pdf"
-            >
+    <!-- PDF & Drag Area -->
+    <div id="sig-pdf-wrapper"
+        style="position: relative; border: 1px solid var(--border-light); background: #525659; padding: 1rem; overflow: auto; max-width: 100%; margin-bottom: 1.5rem;">
+        <div id="page" style="position: relative; display: inline-block;">
+            <embed id="pdf-preview" src="{{ doc.fichier.url }}#page=1&zoom=page-width&toolbar=0&navpanes=0"
+                type="application/pdf" width="100%" height="600px" style="display: block;">
 
-            <div id="sig-block">
-                Tampon + Signature
+            <div id="sig-block"
+                style="position: absolute; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.1); color: #dc2626; padding: 10px; font-weight: bold; cursor: move; white-space: nowrap; user-select: none;">
+                <i class="bi bi-arrows-move"></i> Tampon + Signature
             </div>
         </div>
     </div>
 
-    <form method="post">
+    <form method="post" style="display: flex; justify-content: flex-end; gap: 1rem; align-items: center;">
         {% csrf_token %}
         <input type="hidden" name="pos_x_pct" id="pos_x_pct">
         <input type="hidden" name="pos_y_pct" id="pos_y_pct">
-        <button type="submit" class="sig-btn sig-btn-primary">
+
+        <a href="{{ doc.fichier.url }}" target="_blank" class="btn btn-ghost">
+            <i class="bi bi-eye"></i> Voir le PDF original
+        </a>
+
+        <button type="submit" class="btn btn-primary">
             {% if is_ceo %}
-                Signer à cet endroit
+            <i class="bi bi-pen"></i> Signer à cet endroit
             {% else %}
-                Demander la signature à cet endroit
+            <i class="bi bi-send"></i> Demander la signature à cet endroit
             {% endif %}
         </button>
     </form>
-
-    <p style="margin-top: 10px;">
-        <a href="{{ doc.fichier.url }}" target="_blank">Ouvrir le PDF dans un nouvel onglet</a> ·
-        <a href="{% url 'signatures:document_detail' doc.pk %}">Annuler</a>
-    </p>
 </div>
 
 <script>
-    (function() {
+    (function () {
         const page = document.getElementById("page");
         const block = document.getElementById("sig-block");
         const inputX = document.getElementById("pos_x_pct");
@@ -60,14 +71,17 @@
         let dragging = false;
 
         function initPosition() {
+            if (!page || !block) return;
             const pageRect = page.getBoundingClientRect();
             const blockRect = block.getBoundingClientRect();
 
+            // Default center/bottom placement attempt
+            // Note: pageRect might be 0 if PDF not loaded or embed weirdness.
             const left = (pageRect.width - blockRect.width) / 2;
-            const top = pageRect.height - blockRect.height - 40;
+            const top = pageRect.height - blockRect.height - 50;
 
-            block.style.left = left + "px";
-            block.style.top = top + "px";
+            block.style.left = (left > 0 ? left : 50) + "px";
+            block.style.top = (top > 0 ? top : 50) + "px";
             updateHiddenInputs();
         }
 
@@ -75,32 +89,46 @@
             const pageRect = page.getBoundingClientRect();
             const blockRect = block.getBoundingClientRect();
 
-            const leftPx = blockRect.left - pageRect.left;
-            const topPx = blockRect.top - pageRect.top;
-            const blockHeight = blockRect.height;
+            // Percentages relative to the container 'page'
+            // We use standard Top-Left coords for logic, but backend might expect something else.
+            // Existing backend logic:
+            // xPct = (left / width)
+            // yPct = (bottom / height) ?? 
+            // Previous code: yPct = (bottomPx / pageRect.height) * 100; where bottomPx = height - (top + blockHeight)
+            // This means yPct is distance from bottom.
 
-            const xPct = (leftPx / pageRect.width) * 100;
-            const bottomPx = pageRect.height - (topPx + blockHeight);
-            const yPct = (bottomPx / pageRect.height) * 100;
+            const leftPx = block.offsetLeft; // Use offsetLeft relative to parent 'page'
+            const topPx = block.offsetTop;   // Use offsetTop relative to parent 'page'
+
+            const xPct = (leftPx / page.offsetWidth) * 100;
+            const bottomPx = page.offsetHeight - (topPx + block.offsetHeight);
+            const yPct = (bottomPx / page.offsetHeight) * 100;
 
             inputX.value = xPct.toFixed(2);
             inputY.value = yPct.toFixed(2);
         }
 
-        block.addEventListener("mousedown", function(e) {
+        block.addEventListener("mousedown", function (e) {
             dragging = true;
+            // Calculate click offset within the block
+            // e.clientX is global. block.getBoundingClientRect().left is global.
             const blockRect = block.getBoundingClientRect();
             offsetX = e.clientX - blockRect.left;
             offsetY = e.clientY - blockRect.top;
+            block.style.opacity = "0.8";
         });
 
-        document.addEventListener("mousemove", function(e) {
+        document.addEventListener("mousemove", function (e) {
             if (!dragging) return;
+            e.preventDefault(); // Prevent text selection etc
 
+            // We need to calculate the new Left/Top relative to 'page'
             const pageRect = page.getBoundingClientRect();
+
             let newLeft = e.clientX - pageRect.left - offsetX;
             let newTop = e.clientY - pageRect.top - offsetY;
 
+            // Boundaries
             const maxLeft = pageRect.width - block.offsetWidth;
             const maxTop = pageRect.height - block.offsetHeight;
 
@@ -115,11 +143,20 @@
             updateHiddenInputs();
         });
 
-        document.addEventListener("mouseup", function() {
-            dragging = false;
+        document.addEventListener("mouseup", function () {
+            if (dragging) {
+                dragging = false;
+                block.style.opacity = "1";
+            }
         });
 
-        initPosition();
+        // Initialize after a short delay to allow PDF embed to render layout
+        window.addEventListener("load", function () {
+            setTimeout(initPosition, 500);
+        });
+        window.addEventListener("resize", function () {
+            // Ideally re-adjust if container resizes, but keeping simple for now
+        });
     })();
 </script>
 {% endblock %}
