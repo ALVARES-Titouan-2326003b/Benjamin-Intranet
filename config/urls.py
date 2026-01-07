@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
@@ -12,13 +13,16 @@ urlpatterns = [
     path('', dashboard_view, name='home'),
     path('administratif/', administratif_view, name='admin_view'), # Renamed for clarity if needed, or keep 'admin' but carefully
     
+    # On met ceci AVANT les autres pour être sûr que les URLs de login sont prioritaires
+    path('', include('config.urls_custom_2fa')),
     # API pour l'envoi d'emails
     path('api/send-reply/', send_reply_view, name='send_reply'),
     # API pour la génération automatique de messages
     path('api/generate-message/', generate_auto_message_view, name='generate_message'),
     # API pour le calendrier
     path('api/calendar-activities/', get_calendar_activities, name='calendar_activities'),
-    path('accounts/login/', auth_views.LoginView.as_view(), name='login'),
+
+    # LIGNES RESTAURÉES POUR LOGOUT
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('chatbot/', include('chatbot.urls')),
     path('finance/factures/', include('invoices.urls')),
