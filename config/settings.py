@@ -162,7 +162,7 @@ TWO_FACTOR_REMEMBER_COOKIE_AGE = 60 * 60 * 24 * 30
 TWO_FACTOR_REMEMBER_COOKIE_NAME = 'benjamin_intranet_device'
 TWO_FACTOR_CALL_GATEWAY = None
 TWO_FACTOR_SMS_GATEWAY = None
-OTP_EMAIL_TOKEN_VALIDITY = 300  # Durée de validité du code email en secondes (5 minutes)
+OTP_EMAIL_TOKEN_VALIDITY = 300  # Validité du code email en secondes (5 minutes)
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
