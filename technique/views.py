@@ -1,3 +1,5 @@
+import json
+from reportlab.lib import colors
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -76,6 +78,7 @@ def documents_upload(request):
             ]
             obj.penalites = (summary.get("penalites") or "")[:20000]
             obj.delais = (summary.get("delais") or "")[:20000]
+            obj.clauses_importantes = json.dumps((summary.get("clauses_importantes") or [])[:50000])
 
             obj.save()
 
@@ -152,22 +155,57 @@ def document_resume_pdf(request, pk):
 
         return lines_out
 
-    def write_line(text, font="Helvetica", size=10, leading=14):
+    def find_all_occurrences(text: str, sub: str):
+        start = 0
+        while True:
+            idx = text.find(sub, start)
+            if idx == -1:
+                break
+            yield idx
+            start = idx + len(sub)
+
+    def write_line(text, font="Helvetica", size=10, leading=14, highlight_clauses=None):
         #Eviter les lignes vides et aussi les espaces inutiles
         nonlocal y
         if not text:
             return
 
         lines = wrap_text(text, font=font, size=size)
+        p.setFont(font, size)
 
         for line in lines:
             if not line.strip():
                 continue
+
             if y < 2 * cm:
                 p.showPage()
                 y = height - 2 * cm
                 p.setFont(font, size)
-            p.setFont(font, size)
+
+            # Surligne
+            if highlight_clauses:
+                for clause in highlight_clauses:
+                    if not clause:
+                        continue
+                    print(clause)
+
+                    for idx in find_all_occurrences(line, clause):
+                        prefix = line[:idx]
+                        text_before_width = pdfmetrics.stringWidth(prefix, font, size)
+                        clause_width = pdfmetrics.stringWidth(clause, font, size)
+
+                        p.setFillColor(colors.yellow)
+                        p.rect(
+                            x_margin + text_before_width - 1,
+                            y - 2,
+                            clause_width + 2,
+                            leading,
+                            fill=1,
+                            stroke=0,
+                        )
+                        p.setFillColor(colors.black)
+
+            # Texte
             p.drawString(x_margin, y, line)
             y -= leading
 
@@ -182,7 +220,7 @@ def document_resume_pdf(request, pk):
     y -= 10 
 
     # Sections – si aucune donnée : "—"
-    def section(titre, contenu):
+    def section(titre, contenu, highlight=False):
         nonlocal y
         contenu = (contenu or "").strip()
         if not contenu or contenu == "—":
@@ -191,14 +229,15 @@ def document_resume_pdf(request, pk):
         if y < 2 * cm:
             p.showPage()
             y = height - 2 * cm
+
         p.setFont("Helvetica-Bold", 12)
         p.drawString(x_margin, y, titre)
         y -= 16
         # Contenu
-        write_line(contenu)
+        write_line(contenu, highlight_clauses=json.loads(doc.clauses_importantes or "[]") if highlight else None)
         y -= 4
 
-    section("Résumé global", doc.resume)
+    section("Résumé global", doc.resume, highlight=True)
     section("Prix / montants", doc.prix)
     section("Dates clés", doc.dates)
     section("Conditions suspensives", doc.conditions_suspensives)

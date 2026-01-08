@@ -58,7 +58,7 @@
     {% if document.resume %}
     <div>
       <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main);">Résumé global</h3>
-      <div
+      <div id="resume"
         style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light); white-space: pre-wrap; color: var(--text-secondary);"
         >{{ document.resume }}</div>
     </div>
@@ -111,4 +111,20 @@
   </div>
 
 </div>
+<script data-clauses="{{ document.clauses_importantes }}">
+    const htmlElement = document.getElementById("resume");
+    if (htmlElement) {
+        let resume = htmlElement.innerHTML;
+        const clauses = document.currentScript.dataset.clauses ?? "[]";
+        JSON.parse(clauses === "" ? "[]" : clauses).forEach(clause => {
+            resume = resume.replaceAll(clause, `<mark class="highlight">${clause}</mark>`)
+        })
+        htmlElement.innerHTML = resume;
+    }
+</script>
+<style>
+    .highlight {
+        background-color: yellow;
+    }
+</style>
 {% endblock %}
