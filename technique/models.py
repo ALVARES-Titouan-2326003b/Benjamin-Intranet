@@ -31,6 +31,7 @@ class DocumentTechnique(models.Model):
     conditions_suspensives = models.TextField("Conditions suspensives", blank=True)
     penalites = models.TextField("Pénalités", blank=True)
     delais = models.TextField("Délais", blank=True)
+    clauses_importantes = models.TextField("Clauses importantes", blank=True)
 
     created_by = models.ForeignKey(
         User,

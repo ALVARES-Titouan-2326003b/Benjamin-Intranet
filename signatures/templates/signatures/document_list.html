@@ -1,48 +1,61 @@
-{% extends "base_signatures.html" %}
+{% extends "base.html" %}
 
 {% block title %}Documents à signer{% endblock %}
-{% block header_title %}Documents à signer{% endblock %}
 
 {% block content %}
-<div class="sig-card">
-    <h2 class="sig-card-title">Liste des documents</h2>
+<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+    <div>
+        <h2>Documents à signer</h2>
+    </div>
+    <a href="{% url 'signatures:upload_document' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Ajouter un document
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-title">Liste des documents</div>
 
     {% if documents %}
-        <table class="sig-table">
+    <div class="table-responsive">
+        <table class="table table-hover">
             <thead>
-            <tr>
-                <th>Titre</th>
-                <th>Date d’upload</th>
-                <th>Statut</th>
-                <th></th>
-            </tr>
+                <tr>
+                    <th>Titre</th>
+                    <th>Date d’upload</th>
+                    <th>Statut</th>
+                    <th class="text-right">Action</th>
+                </tr>
             </thead>
             <tbody>
-            {% for doc in documents %}
+                {% for doc in documents %}
                 <tr>
-                    <td>{{ doc.titre }}</td>
-                    <td>{{ doc.date_upload }}</td>
+                    <td>
+                        <span style="font-weight: 500; color: var(--text-main);">{{ doc.titre }}</span>
+                    </td>
+                    <td>{{ doc.date_upload|date:"d/m/Y H:i" }}</td>
                     <td>
                         {% if doc.status_label %}
-                            <span class="sig-badge {{ doc.status_css }}">
-                                {{ doc.status_label }}
-                            </span>
+                        <span class="badge {{ doc.status_css }}">
+                            {{ doc.status_label }}
+                        </span>
                         {% else %}
-                            -
+                        -
                         {% endif %}
                     </td>
-                    <td>
-                        <a class="sig-btn sig-btn-outline"
-                           href="{% url 'signatures:document_detail' doc.pk %}">
-                            Voir
+                    <td class="text-right">
+                        <a class="btn btn-sm btn-ghost" href="{% url 'signatures:document_detail' doc.pk %}">
+                            Voir détails
                         </a>
                     </td>
                 </tr>
-            {% endfor %}
+                {% endfor %}
             </tbody>
         </table>
+    </div>
     {% else %}
-        <p>Aucun document pour le moment.</p>
+    <div class="text-center text-muted" style="padding: 2rem;">
+        Aucun document pour le moment.
+    </div>
     {% endif %}
 </div>
 {% endblock %}

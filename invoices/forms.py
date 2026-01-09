@@ -76,10 +76,10 @@ def ensure_dossier_exists(reference: str) -> None:
             return
         cur.execute(
             '''
-            INSERT INTO "Dossier"(reference, type, frais_eng, fais_payes, frais_rest, total_estim, pdf)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO "Dossier"(reference, type, frais_eng, frais_payes, frais_rest, total_estim)
+            VALUES (%s, %s, %s, %s, %s, %s)
             ''',
-            [reference, type_value, 0, 0, 0, 0, '']
+            [reference, type_value, 0, 0, 0, 0]
         )
 
 
@@ -119,18 +119,19 @@ class FactureForm(forms.ModelForm):
             preferred = best_match("Comptabilite et Finance", pole_labels)
             self.fields["pole"].initial = preferred or pole_labels[0]
 
-        # Pré-remplit les champs d'appoint en édition
-        if self.instance and self.instance.pk:
-            self.fields["fournisseur_input"].initial = self.instance.fournisseur
-            if self.instance.client:
-                self.fields["client_input"].initial = self.instance.client.nom or self.instance.client_id
-            # Pré-remplir l'échéance avec la date existante
+        # Pré-remplir l'échéance avec la date existante
             if self.instance.echeance:
                 try:
                     current = timezone.localtime(self.instance.echeance)
                 except Exception:
                     current = self.instance.echeance
                 self.fields["echeance"].initial = current.date()
+
+        # Add CSS class to all fields
+        for field_name, field in self.fields.items():
+            current_class = field.widget.attrs.get('class', '')
+            field.widget.attrs['class'] = f"{current_class} form-control".strip()
+
 
     def save(self, commit=True):
         inst = super().save(commit=False)
@@ -211,6 +212,11 @@ class PieceJointeForm(forms.ModelForm):
     class Meta:
         model = PieceJointe
         fields = ["fichier"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-control'
 
     def clean_fichier(self):
         f = self.cleaned_data.get("fichier")

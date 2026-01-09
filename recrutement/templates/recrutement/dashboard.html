@@ -1,54 +1,101 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="recruitment-container">
 
-  <div class="page-header">
-    <h2>Gestion des candidatures</h2>
-    <div class="page-header-actions">
-      <a class="btn" href="{% url 'recrutement:fiche_create' %}">+ Nouvelle fiche de poste</a>
+{% block content %}
+<div class="d-flex justify-between align-center mb-4"
+  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <h2>Gestion des candidatures</h2>
+  <a class="btn btn-primary" href="{% url 'recrutement:fiche_create' %}">
+    <i class="bi bi-plus-lg"></i> Nouvelle fiche de poste
+  </a>
+</div>
+
+<div style="display: grid; gap: 2rem;">
+
+  <!-- Fiches de poste -->
+  <div class="card">
+    <div class="card-title">Fiches de poste</div>
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Titre</th>
+            <th>Créée le</th>
+            <th class="text-center">Candidatures</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in fiches %}
+          <tr>
+            <td>
+              <a href="{% url 'recrutement:fiche_detail' f.pk %}"
+                style="font-weight: 500; color: var(--text-main); text-decoration: none;">
+                {{ f.titre }}
+              </a>
+            </td>
+            <td style="color: var(--text-secondary);">{{ f.created_at|date:"d/m/Y H:i" }}</td>
+            <td class="text-center">
+              <span class="badge" style="background: #e2e8f0; color: #475569;">{{ f.candidatures.count }}</span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="3" class="text-center text-muted">Aucune fiche de poste.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <h3>Fiches de poste</h3>
-  <table class="table">
-    <thead>
-      <tr><th>Titre</th><th>Créée le</th><th>Candidatures</th></tr>
-    </thead>
-    <tbody>
-      {% for f in fiches %}
-        <tr>
-          <td><a href="{% url 'recrutement:fiche_detail' f.pk %}">{{ f.titre }}</a></td>
-          <td>{{ f.created_at|date:"d/m/Y H:i" }}</td>
-          <td>{{ f.candidatures.count }}</td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="3">Aucune fiche.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <h3>Dernières évaluations</h3>
-  <table class="table">
-    <thead>
-      <tr><th>Poste</th><th>Candidat</th><th class="score">Score</th><th>Statut</th></tr>
-    </thead>
-    <tbody>
-      {% for c in candidatures %}
-        <tr>
-          <td><a href="{% url 'recrutement:fiche_detail' c.fiche.pk %}">{{ c.fiche.titre }}</a></td>
-          <td>{{ c.candidat.nom }}</td>
-          <td class="score">
-            {% if c.score != None %}{{ c.score|floatformat:0 }} / 100{% else %}—{% endif %}
-          </td>
-          <td>
-            <span class="badge badge-{{ c.statut }}">{{ c.get_statut_display }}</span>
-          </td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="4">Aucune candidature.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <!-- Dernières évaluations -->
+  <div class="card">
+    <div class="card-title">Dernières évaluations</div>
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Poste</th>
+            <th>Candidat</th>
+            <th class="text-center">Score</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in candidatures %}
+          <tr>
+            <td>
+              <a href="{% url 'recrutement:fiche_detail' c.fiche.pk %}"
+                style="font-weight: 500; color: var(--accent); text-decoration: none;">
+                {{ c.fiche.titre }}
+              </a>
+            </td>
+            <td>{{ c.candidat.nom }}</td>
+            <td class="text-center">
+              {% if c.score != None %}
+              <span
+                style="font-weight: 600; color: {% if c.score >= 70 %}#16a34a{% elif c.score >= 50 %}#ca8a04{% else %}#dc2626{% endif %};">
+                {{ c.score|floatformat:0 }}
+              </span>
+              <small class="text-muted">/ 100</small>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge badge-{{ c.statut }}">
+                {{ c.get_statut_display }}
+              </span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="text-center text-muted">Aucune candidature récente.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
 </div>
 {% endblock %}

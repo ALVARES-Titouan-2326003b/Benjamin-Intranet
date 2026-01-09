@@ -51,6 +51,15 @@ INSTALLED_APPS = [
     'signatures',
     'django_celery_results',
     'django_celery_beat',
+    'home',
+    # --- AJOUT A2F ---
+    'django_otp',
+    'django_otp.plugins.otp_static',
+    'django_otp.plugins.otp_totp',
+    'django_otp.plugins.otp_email',
+    'two_factor',
+    'two_factor.plugins.phonenumber',
+    'two_factor.plugins.email',
 ]
 
 MIDDLEWARE = [
@@ -61,6 +70,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # --- AJOUT A2F ---
+    'django_otp.middleware.OTPMiddleware',
+    'two_factor.middleware.threadlocals.ThreadLocals',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -68,7 +80,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR, 'invoices/templates', 'management/templates', 'chatbot/templates', 'recrutement/templates', "technique/templates", "signatures/templates"]
+        'DIRS': [BASE_DIR / 'templates', 'invoices/templates', 'management/templates', 'chatbot/templates', 'recrutement/templates', "technique/templates", "signatures/templates"]
         ,
         'APP_DIRS': True,
         'OPTIONS': {
@@ -82,12 +94,10 @@ TEMPLATES = [
 ]
 
 STATICFILES_DIRS = [
-    BASE_DIR,
+    BASE_DIR / "static",
     "chatbot/static",
-    "invoices/static",
     "management/static",
     "technique/static",
-    "signatures/static",
 
 ]
 
@@ -142,9 +152,19 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = '/admin'
-LOGOUT_REDIRECT_URL = 'login'
+# Configuration 2FA
+LOGIN_URL = 'two_factor:login'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = 'two_factor:login'
+
+# "SE SOUVENIR DE MOI" (Trusted Device)
+# 30 jours (en secondes) : 60s * 60m * 24h * 30j
+TWO_FACTOR_REMEMBER_COOKIE_AGE = 60 * 60 * 24 * 30
+TWO_FACTOR_REMEMBER_COOKIE_NAME = 'benjamin_intranet_device'
+TWO_FACTOR_CALL_GATEWAY = None
+TWO_FACTOR_SMS_GATEWAY = None
+OTP_EMAIL_TOKEN_VALIDITY = 300  # Validité du code email en secondes (5 minutes)
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 

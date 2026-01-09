@@ -1,68 +1,6 @@
 /* style général de management.html */
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    min-height: 100vh;
-    padding: 20px;
-}
-
-.main-header {
-    background: #1a2f5a;
-    padding: 20px 40px;
-    margin: -20px -20px 30px -20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-}
-
-.logo {
-    color: white;
-    font-size: 1.8rem;
-    font-weight: bold;
-    letter-spacing: 2px;
-}
-
-.logo span {
-    font-size: 0.9rem;
-    font-weight: normal;
-    display: block;
-    margin-top: 5px;
-    letter-spacing: 4px;
-}
-
-.content-wrapper {
-    max-width: 1400px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
-    padding: 20px;
-}
-
-.card {
-    background: #f0f0f0;
-    border-radius: 1.2em;
-    padding: 30px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-}
-
-.card h2 {
-    color: #1e3c72;
-    font-size: 1.8rem;
-    margin-bottom: 25px;
-    font-weight: 600;
-}
-
-@media (max-width: 1024px) {
-    .content-wrapper {
-        grid-template-columns: 1fr;
-    }
-}
+/* .emails-list starts here */
 
 .emails-list {
     max-height: 600px;
@@ -85,7 +23,7 @@ body {
 
 .email-item:hover {
     transform: translateX(5px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .email-header {
@@ -96,7 +34,7 @@ body {
     gap: 10px;
 }
 
-.email-header > div {
+.email-header>div {
     display: flex;
     flex-direction: column;
     gap: 5px;
@@ -269,22 +207,25 @@ body {
 
 /* style de calendar.html */
 
-.wrapper{
+.wrapper {
     width: 100%;
     max-width: 450px;
     background: #fff !important;
     border-radius: 1em;
 }
-.wrapper header{
+
+.wrapper header {
     display: flex;
     align-items: center;
     padding: 25px 30px 10px;
     justify-content: space-between;
 }
-header .icons{
+
+header .icons {
     display: flex;
 }
-header .icons span{
+
+header .icons span {
     height: 38px;
     width: 38px;
     cursor: pointer;
@@ -296,17 +237,21 @@ header .icons span{
     justify-content: center;
     align-items: center;
 }
-header .icons span:hover{
+
+header .icons span:hover {
     background: #f2f2f2;
 }
-header .current-date{
+
+header .current-date {
     font-size: 1.45rem;
     font-weight: 500;
 }
-.calendar{
+
+.calendar {
     padding: 0 20px;
 }
-.calendar ul{
+
+.calendar ul {
     display: flex;
     flex-wrap: wrap;
     list-style: none;
@@ -314,16 +259,19 @@ header .current-date{
     padding: 0;
     justify-content: space-between;
 }
+
 .calendar li {
     color: #333;
     width: calc(100% / 7);
     font-size: 1.07rem;
 }
-.calendar .weeks li{
+
+.calendar .weeks li {
     font-weight: 500;
     cursor: default;
 }
-.calendar .days li{
+
+.calendar .days li {
     z-index: 1;
     cursor: pointer;
     position: relative;
@@ -334,16 +282,20 @@ header .current-date{
     align-items: center;
     margin: 0.2em;
 }
-.days li.inactive{
+
+.days li.inactive {
     color: #aaa;
 }
-.days li.active{
+
+.days li.active {
     color: #fff;
 }
-.days li.current{
+
+.days li.current {
     font-weight: 600;
 }
-.days li::before{
+
+.days li::before {
     position: absolute;
     content: "";
     width: 100%;
@@ -351,13 +303,16 @@ header .current-date{
     z-index: -1;
     border-radius: 100%;
 }
-.days li.active::before{
+
+.days li.active::before {
     background: #9B59B6;
 }
-.days li.current::before{
+
+.days li.current::before {
     box-shadow: 0 0 0 1px #9B59B6;
 }
-.days li:not(.active):hover::before{
+
+.days li:not(.active):hover::before {
     background: #f2f2f2;
 }
 
@@ -365,7 +320,8 @@ header .current-date{
 .calendar-filters {
     background: white;
     padding: 20px;
-    margin-bottom: 0;  /* Pas de marge en bas */
+    margin-bottom: 0;
+    /* Pas de marge en bas */
     border-radius: 8px;
     border: 1px solid #e0e0e0;
 }
@@ -437,13 +393,14 @@ header .current-date{
     height: 10px;
     border-radius: 50%;
     border: 2px solid white;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .filter-label {
     font-size: 0.85rem;
     color: #333;
 }
+
 /* Date avec activité = cercle bleu (comme aujourd'hui) */
 .calendar .days li.has-activity::before {
     position: absolute;
@@ -455,11 +412,13 @@ header .current-date{
     z-index: -1;
     border-radius: 50%;
     transform: translate(-50%, -50%);
-    background: #1e3c72;  /* Bleu pour activité */
+    background: #1e3c72;
+    /* Bleu pour activité */
 }
 
 .calendar .days li.has-activity {
-    color: #f2f2f2;  /* Texte en blanc */
+    color: #f2f2f2;
+    /* Texte en blanc */
     font-weight: 600;
 }
 
@@ -489,7 +448,8 @@ header .current-date{
     z-index: 1000;
     min-width: 280px;
     max-width: 350px;
-    pointer-events: none; /* Le tooltip ne bloque pas les événements */
+    pointer-events: none;
+    /* Le tooltip ne bloque pas les événements */
     opacity: 0;
     transition: opacity 0.2s ease;
     border: 1px solid #e0e0e0;
@@ -532,7 +492,7 @@ header .current-date{
     height: 12px;
     border-radius: 50%;
     border: 2px solid white;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .activity-tooltip-type-label {
