@@ -272,7 +272,7 @@ def get_calendar_activities(request):
         year = int(request.GET.get('year', now.year))
 
         print(f"\n{'=' * 60}")
-        print(f"📅 API Calendar Activities - Requête pour {month}/{year}")
+        print(f" API Calendar Activities - Requête pour {month}/{year}")
         print(f"{'=' * 60}")
 
         # Calculer les dates de début et fin du mois
@@ -284,7 +284,7 @@ def get_calendar_activities(request):
         else:
             end_date = datetime(year, month + 1, 1)
 
-        print(f"📆 Période : {start_date.date()} → {end_date.date()}")
+        print(f" Période : {start_date.date()} → {end_date.date()}")
 
         # Récupérer les activités du mois depuis la BD
         activites = Activites.objects.filter(

@@ -194,16 +194,16 @@ def check_and_send_activite_reminders():
 
 
     logger.info("\n" + "=" * 60)
-    logger.info("📅 DÉBUT - Vérification des rappels d'activités")
+    logger.info(" DÉBUT - Vérification des rappels d'activités")
     logger.info("=" * 60)
 
     now = datetime.now()
     today = now.date()
-    logger.info(f"📅 Date actuelle : {today}")
+    logger.info(f" Date actuelle : {today}")
 
     # Date limite : dans 10 jours
     date_limite = today + timedelta(days=10)
-    logger.info(f"📆 Date limite : {date_limite} (dans 10 jours)")
+    logger.info(f" Date limite : {date_limite} (dans 10 jours)")
 
     # Récupérer toutes les activités dans les 10 prochains jours
     activites = Activites.objects.filter(
@@ -236,9 +236,9 @@ def check_and_send_activite_reminders():
 
             if jours_restants in [1, 4, 7, 10]:
                 should_send = True
-                logger.info(f"   ✅ Rappel nécessaire (J-{jours_restants})")
+                logger.info(f"    Rappel nécessaire (J-{jours_restants})")
             else:
-                logger.info(f"   ⏭️  Pas de rappel pour J-{jours_restants}")
+                logger.info(f"     Pas de rappel pour J-{jours_restants}")
 
             if should_send:
                 # Construire le message

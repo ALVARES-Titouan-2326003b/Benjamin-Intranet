@@ -43,15 +43,15 @@ def fetch_new_emails():
 
     try:
         # 1. RÉCUPÈRE LES EMAILS REÇUS (INBOX) - pour avoir les réponses
-        print("\n📥 Récupération des emails reçus (INBOX)...")
+        print("\n Récupération des emails reçus (INBOX)...")
         inbox_messages = list(mailbox.get_new_mail())
-        print(f"✅ {len(inbox_messages)} nouveaux emails reçus (INBOX)")
+        print(f" {len(inbox_messages)} nouveaux emails reçus (INBOX)")
         total_fetched += len(inbox_messages)
 
         # 2. RÉCUPÈRE ET STOCKE LES EMAILS ENVOYÉS (SENT)
-        print("\n📤 Récupération des emails envoyés (SENT)...")
+        print("\n Récupération des emails envoyés (SENT)...")
         sent_count = fetch_sent_emails(mailbox)
-        print(f"✅ {sent_count} emails envoyés récupérés et stockés")
+        print(f" {sent_count} emails envoyés récupérés et stockés")
         total_fetched += sent_count
 
         print(f"\n📊 Total: {total_fetched} emails synchronisés")
@@ -89,13 +89,13 @@ def fetch_sent_emails(mailbox):
                 status, _ = imap.select(f'"{folder_name}"', readonly=True)
                 if status == 'OK':
                     sent_folder = folder_name
-                    print(f"✅ Dossier trouvé: {folder_name}")
+                    print(f"Dossier trouvé: {folder_name}")
                     break
             except Exception:
                 continue
 
         if not sent_folder:
-            print("⚠️ Aucun dossier SENT trouvé")
+            print(" Aucun dossier SENT trouvé")
             imap.logout()
             return 0
 
@@ -108,12 +108,12 @@ def fetch_sent_emails(mailbox):
                 email_body = msg_data[0][1]
                 email_message = email_lib.message_from_bytes(email_body)
 
-                # ⚠️ EXTRACTION DES HEADERS SANS DÉCODAGE
+                # EXTRACTION DES HEADERS
                 # On récupère les valeurs brutes, telles quelles
                 message_id = email_message.get('Message-ID', '').strip()
-                subject = email_message.get('Subject', '')  # ⚠️ BRUT, potentiellement encodé
-                from_header = email_message.get('From', '')  # ⚠️ BRUT, potentiellement encodé
-                to_header = email_message.get('To', '')  # ⚠️ BRUT, potentiellement encodé
+                subject = email_message.get('Subject', '')
+                from_header = email_message.get('From', '')
+                to_header = email_message.get('To', '')
                 date_str = email_message.get('Date', '')
 
                 # Génère un message_id si absent
@@ -122,7 +122,7 @@ def fetch_sent_emails(mailbox):
                     unique_string = f"{subject}-{from_header}-{to_header}-{date_str}"
                     unique_hash = hashlib.md5(unique_string.encode()).hexdigest()
                     message_id = f"<generated-{unique_hash}@benjaminmail.alwaysdata.net>"
-                    print(f"   ⚠️ Message-ID absent, généré : {message_id}")
+                    print(f"    Message-ID absent, généré : {message_id}")
 
                 # Parse le corps du message
                 body_text = ''
@@ -141,23 +141,23 @@ def fetch_sent_emails(mailbox):
                 # Vérifie si le message existe déjà
                 message_exists = Message.objects.filter(message_id=message_id).exists()
 
-                print(f"\n📧 Email #{num}")
-                print(f"   Sujet (BRUT): {subject[:80]}...")  # ⚠️ Affiche potentiellement encodé
+                print(f"\n Email #{num}")
+                print(f"   Sujet (BRUT): {subject[:80]}...")
                 print(f"   Message-ID: {message_id}")
-                print(f"   From (BRUT): {from_header}")  # ⚠️ Affiche potentiellement encodé
-                print(f"   To (BRUT): {to_header}")  # ⚠️ Affiche potentiellement encodé
+                print(f"   From (BRUT): {from_header}")
+                print(f"   To (BRUT): {to_header}")
                 print(f"   Existe déjà ? {message_exists}")
 
                 if not message_exists:
                     try:
                         # Crée l'objet Message dans la BD
-                        # ⚠️ Les headers peuvent être encodés (=?UTF-8?B?...)
+                        # Les headers peuvent être encodés (=?UTF-8?B?...)
                         created_msg = Message.objects.create(
                             mailbox=mailbox,
-                            subject=subject,  # ⚠️ Potentiellement encodé
+                            subject=subject,
                             message_id=message_id,
-                            from_header=from_header,  # ⚠️ Potentiellement encodé
-                            to_header=to_header,  # ⚠️ Potentiellement encodé
+                            from_header=from_header,
+                            to_header=to_header,
                             outgoing=True,
                             body=body_html,
                             encoded=False,
@@ -165,23 +165,23 @@ def fetch_sent_emails(mailbox):
                             read=timezone.now(),
                         )
                         sent_count += 1
-                        print(f"   ✅ Message créé avec succès (ID: {created_msg.id})")
+                        print(f"   Message créé avec succès (ID: {created_msg.id})")
                     except Exception as create_error:
-                        print(f"   ❌ ERREUR lors de la création: {create_error}")
+                        print(f"    ERREUR lors de la création: {create_error}")
                         import traceback
                         traceback.print_exc()
                 else:
-                    print(f"   ⏭️  Message déjà en BD, ignoré")
+                    print(f"     Message déjà en BD, ignoré")
 
             except Exception as e:
-                print(f"⚠️ Erreur sur un email: {e}")
+                print(f" Erreur sur un email: {e}")
                 continue
 
         imap.logout()
         return sent_count
 
     except Exception as e:
-        print(f"❌ Erreur lors de la récupération du dossier Sent: {e}")
+        print(f" Erreur lors de la récupération du dossier Sent: {e}")
         import traceback
         traceback.print_exc()
         return 0
@@ -227,7 +227,7 @@ def check_if_received_reply(sent_message):
         return reply_exists
 
     except Exception as e:
-        print(f"⚠️ Erreur dans check_if_received_reply: {e}")
+        print(f" Erreur dans check_if_received_reply: {e}")
         return False
 
 
@@ -244,11 +244,11 @@ def get_email_summary(message):
     has_received_reply = check_if_received_reply(message)
 
     if has_received_reply:
-        status_emoji = '✅'
+        status_emoji = ''
         status_text = 'A répondu'
         status = 'replied'
     else:
-        status_emoji = '⏳'
+        status_emoji = ''
         status_text = 'Pas de réponse'
         status = 'pending'
 
@@ -317,21 +317,21 @@ def send_email_reply(to_email, subject, message_text, original_message_id):
         dict: {'success': bool, 'message': str}
     """
     print("\n" + "=" * 60)
-    print("🚀 DÉBUT send_email_reply()")
+    print(" DÉBUT send_email_reply()")
     print(f"   to_email: {to_email}")
     print(f"   subject: {subject}")
     print(f"   original_message_id: {original_message_id}")
     print("=" * 60)
 
     try:
-        print("🔧 Récupération du message original...")
+        print(" Récupération du message original...")
         original_message = Message.objects.get(id=original_message_id)
-        print(f"✅ Message original trouvé : {original_message.subject}")
+        print(f" Message original trouvé : {original_message.subject}")
 
         if not subject.startswith('Re:'):
             subject = f"Re: {subject}"
 
-        print("\n💾 CRÉATION DE L'OBJET MESSAGE DANS LA BD")
+        print("\n CRÉATION DE L'OBJET MESSAGE DANS LA BD")
         print("-" * 60)
 
         from django.utils import timezone
@@ -360,10 +360,10 @@ def send_email_reply(to_email, subject, message_text, original_message_id):
             in_reply_to_id=original_message.id,
         )
 
-        print(f"✅✅✅ Message enregistré en BD ! ID: {sent_message.id}")
+        print(f" Message enregistré en BD ! ID: {sent_message.id}")
         print(f"       in_reply_to_id: {sent_message.in_reply_to_id}")
 
-        print("\n📮 ENVOI DE L'EMAIL VIA SMTP")
+        print("\n ENVOI DE L'EMAIL VIA SMTP")
         print("-" * 60)
 
         email = EmailMessage(
@@ -380,7 +380,7 @@ def send_email_reply(to_email, subject, message_text, original_message_id):
         }
 
         email.send()
-        print(f"✅ Email envoyé à {to_email}")
+        print(f" Email envoyé à {to_email}")
         print("=" * 60 + "\n")
 
         return {
@@ -389,13 +389,13 @@ def send_email_reply(to_email, subject, message_text, original_message_id):
         }
 
     except Message.DoesNotExist:
-        print("❌ Message original introuvable")
+        print(" Message original introuvable")
         return {
             'success': False,
             'message': 'Email original introuvable'
         }
     except Exception as e:
-        print(f"\n❌❌❌ ERREUR : {e}")
+        print(f"\n ERREUR : {e}")
         import traceback
         traceback.print_exc()
         print("=" * 60 + "\n")
@@ -423,7 +423,7 @@ def send_auto_relance(to_email, subject, message_text, objet_custom, original_me
         dict: {'success': bool, 'message': str}
     """
     print("\n" + "=" * 60)
-    print("🤖 DÉBUT send_auto_relance() - RELANCE AUTOMATIQUE")
+    print(" DÉBUT send_auto_relance() - RELANCE AUTOMATIQUE")
     print(f"   to_email: {to_email}")
     print(f"   subject: {subject}")
     print(f"   objet_custom: {objet_custom}")
@@ -432,9 +432,9 @@ def send_auto_relance(to_email, subject, message_text, objet_custom, original_me
 
     try:
         # Récupère le message original
-        print("📧 Récupération du message original...")
+        print(" Récupération du message original...")
         original_message = Message.objects.get(id=original_message_id)
-        print(f"✅ Message original trouvé : {original_message.subject}")
+        print(f" Message original trouvé : {original_message.subject}")
 
         # Format de l'objet : "[sujet original]: relance automatique"
         # Si objet_custom existe, on l'utilise comme base
@@ -448,7 +448,7 @@ def send_auto_relance(to_email, subject, message_text, objet_custom, original_me
         final_subject = f"{base_subject}: relance automatique"
 
         # 1. CRÉER L'OBJET MESSAGE DANS LA BD D'ABORD
-        print("\n💾 CRÉATION DE L'OBJET MESSAGE DANS LA BD")
+        print("\n CRÉATION DE L'OBJET MESSAGE DANS LA BD")
         print("-" * 60)
 
         mailbox = get_or_create_mailbox()
@@ -476,11 +476,11 @@ def send_auto_relance(to_email, subject, message_text, objet_custom, original_me
             in_reply_to_id=original_message.id,
         )
 
-        print(f"✅✅✅ Message enregistré en BD ! ID: {sent_message.id}")
+        print(f" Message enregistré en BD ! ID: {sent_message.id}")
         print(f"       in_reply_to_id: {sent_message.in_reply_to_id}")
 
         # 2. ENVOYER L'EMAIL VIA SMTP
-        print("\n📮 ENVOI DE LA RELANCE AUTOMATIQUE VIA SMTP")
+        print("\n ENVOI DE LA RELANCE AUTOMATIQUE VIA SMTP")
         print("-" * 60)
 
         email = EmailMessage(
@@ -499,7 +499,7 @@ def send_auto_relance(to_email, subject, message_text, objet_custom, original_me
         }
 
         email.send()
-        print(f"✅ Relance automatique envoyée à {to_email}")
+        print(f" Relance automatique envoyée à {to_email}")
         print("=" * 60 + "\n")
 
         return {
@@ -508,13 +508,13 @@ def send_auto_relance(to_email, subject, message_text, objet_custom, original_me
         }
 
     except Message.DoesNotExist:
-        print("❌ Message original introuvable")
+        print(" Message original introuvable")
         return {
             'success': False,
             'message': 'Email original introuvable'
         }
     except Exception as e:
-        print(f"\n❌❌❌ ERREUR : {e}")
+        print(f"\n ERREUR : {e}")
         import traceback
         traceback.print_exc()
         print("=" * 60 + "\n")
