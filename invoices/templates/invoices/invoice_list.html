@@ -5,11 +5,16 @@
 <div class="d-flex justify-between align-center mb-4"
     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
     <h2>Factures</h2>
-    {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
-    <a class="btn btn-primary" href="{% url 'invoices:create' %}">
-        <i class="bi bi-plus-lg"></i> Nouvelle facture
-    </a>
-    {% endif %}
+    <div style="display: flex; gap: 0.5rem;">
+        <a class="btn btn-secondary" href="{% url 'invoices:dashboard' %}">
+            <i class="bi bi-bar-chart-fill"></i> Tableau de bord
+        </a>
+        {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
+        <a class="btn btn-primary" href="{% url 'invoices:create' %}">
+            <i class="bi bi-plus-lg"></i> Nouvelle facture
+        </a>
+        {% endif %}
+    </div>
 </div>
 
 <!-- Filters Card -->

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h2>Tableau de Bord Financier</h2>
+    <p style="color: var(--text-secondary);">Vue d'ensemble de la santé financière et des retards.</p>
+</div>
+
+<div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <div class="card" style="border-left: 4px solid var(--primary);">
+        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Total Facturé</div>
+        <div style="font-size: 1.5rem; font-weight: 700;">{{ kpi.total_amount|floatformat:2 }} €</div>
+        <div style="font-size: 0.8rem;">{{ kpi.total_count }} factures</div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid var(--success);">
+        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Payé</div>
+        <div style="font-size: 1.5rem; font-weight: 700;">{{ kpi.paid_amount|floatformat:2 }} €</div>
+        <div style="font-size: 0.8rem;">{{ kpi.paid_percent|floatformat:0 }}% du total</div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid var(--warning);">
+        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">En attente</div>
+        <div style="font-size: 1.5rem; font-weight: 700;">{{ kpi.pending_amount|floatformat:2 }} €</div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid var(--danger);">
+        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Retard Critique</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--danger);">{{ kpi.overdue_amount|floatformat:2 }} €
+        </div>
+        <div style="font-size: 0.8rem; color: var(--danger);">{{ kpi.overdue_count }} factures échues</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; margin-bottom: 2rem;">
+    <div class="card">
+        <h3>Statuts des Factures</h3>
+        <div style="height: 300px; display: flex; justify-content: center;">
+            <canvas id="statusChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Évolution Mensuelle (Échéances)</h3>
+        <div style="height: 300px;">
+            <canvas id="monthlyChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Fournisseurs à Risque (Top 5 Retards)</h3>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Fournisseur</th>
+                    <th>Montant en Retard</th>
+                    <th>Nombre de Factures</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for supplier in risky_suppliers %}
+                <tr>
+                    <td style="font-weight: 600;">{{ supplier.fournisseur }}</td>
+                    <td style="color: var(--danger);">{{ supplier.total_retard|floatformat:2 }} €</td>
+                    <td>{{ supplier.count_retard }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" style="text-align: center; color: var(--text-secondary);">Aucun fournisseur à risque
+                        détecté.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{ chart_status.labels|json_script:"status-labels-data" }}
+{{ chart_status.data|json_script:"status-values-data" }}
+{{ chart_monthly.labels|json_script:"monthly-labels-data" }}
+{{ chart_monthly.data|json_script:"monthly-values-data" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+        // Fonction pour récupérer les données JSON proprement
+        function getDjangoData(id) {
+            const element = document.getElementById(id);
+            if (!element) return [];
+            return JSON.parse(element.textContent);
+        }
+
+        // Récupération des données
+        const statusLabels = getDjangoData('status-labels-data');
+        const statusData = getDjangoData('status-values-data');
+        const monthLabels = getDjangoData('monthly-labels-data');
+        const monthData = getDjangoData('monthly-values-data');
+
+        // --- Statut facture ---
+        const ctxStatusElement = document.getElementById('statusChart');
+        if (ctxStatusElement) {
+            new Chart(ctxStatusElement.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: statusLabels,
+                    datasets: [{
+                        data: statusData,
+                        backgroundColor: [
+                            '#10b981', // Payée
+                            '#3b82f6', // En cours
+                            '#ef4444', // Retard
+                            '#f59e0b', // Autre
+                            '#64748b'  // Gris
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        // --- Barre mensuelle ---
+        const ctxMonthElement = document.getElementById('monthlyChart');
+        if (ctxMonthElement) {
+            new Chart(ctxMonthElement.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: monthLabels,
+                    datasets: [{
+                        label: 'Montant à Payer (€)',
+                        data: monthData,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}
