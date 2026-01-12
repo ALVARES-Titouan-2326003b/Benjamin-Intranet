@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.views import View
 from django.utils.decorators import method_decorator
 from django_filters.views import FilterView
 from django.views.generic import DetailView, CreateView, UpdateView
@@ -103,37 +104,46 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
 
 # ================== Relance Manuelle ==================
 
-from django.views import View
-
-
 @method_decorator([login_required, user_passes_test(is_finance)], name='dispatch')
 class ManualInvoiceRemindersView(View):
     """
-    Vue pour déclencher manuellement les relances de factures
-    Lance la tâche check_and_send_invoice_reminders de tasks.py
+    Vue pour déclencher manuellement les relances de factures.
+    Récupère le délai de relance depuis le formulaire et le passe
+    à la fonction tasks.check_and_send_invoice_reminders()
     """
 
     def post(self, request, *args, **kwargs):
-        # Importer la tâche Celery
+        # Récupérer le délai de relance depuis le formulaire
+        try:
+            delai_relance = int(request.POST.get('delai_relance', 1))
+
+            # Validation : minimum 1 jour
+            if delai_relance < 1:
+                messages.error(request, "❌ Le délai de relance doit être au minimum de 1 jour.")
+                return redirect('invoices:list')
+
+        except (ValueError, TypeError):
+            messages.error(request, "❌ Délai de relance invalide.")
+            return redirect('invoices:list')
+
+        # Importer la tâche et l'exécuter avec le délai
         from .tasks import check_and_send_invoice_reminders
 
-        # Exécuter la tâche de manière synchrone (pas via Celery)
-        # Pour exécution immédiate sans passer par la queue
-        result = check_and_send_invoice_reminders()
+        result = check_and_send_invoice_reminders(delai_relance=delai_relance)
 
         # Préparer le message de feedback
         if result.get('success'):
             if result.get('relances_envoyees', 0) > 0:
                 messages.success(
                     request,
-                    f"Relance manuelle terminée ! "
+                    f"Relance manuelle terminée avec délai de {delai_relance} jour(s) ! "
                     f"{result['relances_envoyees']} email(s) envoyé(s) sur "
                     f"{result['factures_traitees']} facture(s) traitée(s)."
                 )
             else:
                 messages.info(
                     request,
-                    f"Aucune relance à envoyer pour le moment. "
+                    f"Aucune relance à envoyer pour le moment (délai : {delai_relance} jour(s)). "
                     f"{result['factures_traitees']} facture(s) vérifiée(s)."
                 )
         else:
@@ -142,5 +152,4 @@ class ManualInvoiceRemindersView(View):
                 f"Erreur lors de la relance : {result.get('message', 'Erreur inconnue')}"
             )
 
-        # Rediriger vers la liste des factures
         return redirect('invoices:list')
