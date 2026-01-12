@@ -311,3 +311,31 @@ LOGGING = {
         }
     },
 }
+
+# --- CONFIGURATION PRODUCTION (OWASP A02 & A04) ---
+# Ces paramètres s'activent UNIQUEMENT si DJANGO_ENV=production dans le .env
+# Cela permet de sécuriser le site une fois en ligne sans casser le développement local.
+
+if os.getenv('DJANGO_ENV') == 'production':
+    # 1. Désactiver le mode Debug (CRITIQUE pour A10 - ne rien afficher en cas d'erreur)
+    DEBUG = False
+
+    # 2. Forcer le HTTPS (CRITIQUE pour A04 - Cryptographie)
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+    # 3. Sécuriser les Cookies (Empêche le vol de session)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # 4. HSTS (Empêche les navigateurs de tenter du HTTP insécurisé)
+    SECURE_HSTS_SECONDS = 31536000  # 1 an
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # 5. Sécuriser les Hosts (Attention à bien configurer ceci en prod)
+    ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'benjamin-intranet.fr').split(',')
+    
+    print("\n🔒 MODE PRODUCTION ACTIVÉ : HTTPS forcé, Cookies sécurisés, Debug OFF.\n")
+else:
+    print("\n⚠️ MODE DÉVELOPPEMENT : HTTPS désactivé, Debug ON.\n")
