@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
     <div>
-        <a href="{% url 'signatures:document_list' %}"
+        <a href="{% if is_ceo %}{% url 'signatures:ceo_dashboard' %}{% else %}{% url 'signatures:document_list' %}{% endif %}"
             style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
             <i class="bi bi-arrow-left"></i> Retour à la liste
         </a>
@@ -61,10 +61,8 @@
                 <h4 style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">Demande de signature en attente
                 </h4>
                 <p style="font-size: 0.9rem; margin-bottom: 1rem;">
-                    Demandée par <strong>{{
-                        pending_request.requested_by.get_full_name|default:pending_request.requested_by.username
-                        }}</strong>
-                    le {{ pending_request.created_at|date:"d/m/Y H:i" }}.
+                    Demandée par <strong>{{ requester_name }}</strong>
+                    le {{ request_date|date:"d/m/Y H:i" }}.
                 </p>
                 <a href="{% url 'signatures:signature_approval' pending_request.token %}" class="btn btn-primary">
                     <i class="bi bi-pen"></i> Ouvrir la demande et signer
@@ -83,8 +81,7 @@
             {% if pending_request %}
             <div class="alert alert-info">
                 <i class="bi bi-hourglass-split"></i>
-                Une demande de signature est en attente auprès du CEO (créée le {{
-                pending_request.created_at|date:"d/m/Y" }}).
+                Une demande de signature est en attente auprès du CEO (créée le {{ request_date|date:"d/m/Y" }}).
                 <br>Vous serez notifié une fois la signature effectuée.
             </div>
             {% else %}

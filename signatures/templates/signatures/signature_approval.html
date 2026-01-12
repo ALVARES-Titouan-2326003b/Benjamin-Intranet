@@ -16,9 +16,9 @@
 <div class="card" style="margin-bottom: 2rem;">
     <div class="card-title">{{ doc.titre }}</div>
     <div class="alert alert-info" style="margin-bottom: 1.5rem;">
-        <i class="bi bi-person-circle"></i> Demande effectuée par <strong>{{
-            demande.requested_by.get_full_name|default:demande.requested_by.username }}</strong> le {{
-        demande.created_at|date:"d/m/Y à H:i" }}.
+        <i class="bi bi-person-circle"></i>
+        <span>Demande effectuée par <strong>{{ requester_name }}</strong></span>
+        <span>le {{ formatted_date }}.</span>
     </div>
 
     <p style="margin-bottom: 1rem;">

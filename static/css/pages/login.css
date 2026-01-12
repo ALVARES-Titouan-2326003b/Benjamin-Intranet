@@ -1,0 +1,316 @@
+/* Login Page Styles */
+
+/* Reset & Layout overrides */
+.page-content {
+    padding: 0 !important;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.app-header,
+.app-sidebar {
+    display: none !important;
+}
+
+.app-main {
+    margin-left: 0 !important;
+}
+
+.login-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Left Panel - Branding */
+.login-brand {
+    flex: 1;
+    background-color: #0f172a;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    padding: 2rem;
+}
+
+.login-brand::before {
+    content: '';
+    position: absolute;
+    width: 150%;
+    height: 150%;
+    background: radial-gradient(circle at center, rgba(37, 99, 235, 0.2) 0%, transparent 60%);
+    top: -25%;
+    left: -25%;
+    pointer-events: none;
+}
+
+.login-brand::after {
+    /* Subtle grid pattern */
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 30px 30px;
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.brand-content {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+}
+
+.brand-logo {
+    font-size: 3.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    color: white;
+    text-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.brand-logo .highlight {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.brand-subtitle {
+    font-size: 1.5rem;
+    font-weight: 300;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 1rem;
+    display: inline-block;
+    width: 100%;
+}
+
+/* Right Panel - Form */
+.login-form-panel {
+    flex: 0 0 500px;
+    /* Fixed width for form styling stability */
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 4rem;
+    position: relative;
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.05);
+    z-index: 20;
+}
+
+.login-form-wrapper {
+    width: 100%;
+    max-width: 380px;
+}
+
+.login-header {
+    margin-bottom: 2.5rem;
+    text-align: left;
+    /* Aligned left looks cleaner with inputs */
+}
+
+.login-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+}
+
+.login-header p {
+    color: #64748b;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.5rem;
+}
+
+.input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 1rem;
+    color: #94a3b8;
+    font-size: 1.2rem;
+    transition: color 0.2s ease;
+    pointer-events: none;
+}
+
+.form-control {
+    width: 100%;
+    padding: 1rem 1rem 1rem 3rem;
+    /* Space for icon */
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #1e293b;
+    background-color: #f1f5f9;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.form-control:hover {
+    background-color: #e2e8f0;
+}
+
+.form-control:focus {
+    background-color: #ffffff;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    outline: none;
+}
+
+.form-control:focus+.input-icon,
+.input-container:focus-within .input-icon {
+    color: #3b82f6;
+}
+
+/* Button */
+.btn-login {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 1rem;
+    margin-top: 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    background: #0f172a;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.1), 0 2px 4px -1px rgba(15, 23, 42, 0.06);
+}
+
+.btn-login:hover {
+    background: #1e293b;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.15), 0 4px 6px -2px rgba(15, 23, 42, 0.1);
+}
+
+.btn-login:active {
+    transform: translateY(0);
+}
+
+.btn-login i {
+    margin-left: 0.5rem;
+    transition: transform 0.2s ease;
+}
+
+.btn-login:hover i {
+    transform: translateX(4px);
+}
+
+/* Secondary Actions */
+.login-footer {
+    margin-top: 2rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: color 0.2s;
+    text-decoration: none;
+    padding: 0.5rem;
+}
+
+.btn-link:hover {
+    color: #0f172a;
+    text-decoration: underline;
+}
+
+.copyright {
+    margin-top: 3rem;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #cbd5e1;
+}
+
+/* Errors */
+.alert-error {
+    background-color: #fef2f2;
+    border: 1px solid #fee2e2;
+    color: #ef4444;
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+/* Mobile Responsive */
+@media (max-width: 900px) {
+    .login-container {
+        flex-direction: column;
+    }
+
+    .login-brand {
+        flex: 0 0 200px;
+        padding: 1.5rem;
+    }
+
+    .brand-logo {
+        font-size: 2.5rem;
+    }
+
+    .brand-subtitle {
+        font-size: 1rem;
+    }
+
+    .login-form-panel {
+        flex: 1;
+        width: 100%;
+        max-width: 100%;
+        border-top-left-radius: 30px;
+        border-top-right-radius: 30px;
+        margin-top: -30px;
+        padding: 2.5rem 1.5rem;
+    }
+
+    .login-form-wrapper {
+        max-width: 100%;
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+}
