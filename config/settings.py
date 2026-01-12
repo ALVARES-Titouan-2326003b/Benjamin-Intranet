@@ -152,6 +152,9 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Base URL for email links
+SITE_URL = env("SITE_URL", default="http://127.0.0.1:8000")
+
 # Configuration 2FA
 LOGIN_URL = 'two_factor:login'
 LOGIN_REDIRECT_URL = '/'

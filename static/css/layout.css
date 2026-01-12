@@ -93,6 +93,10 @@ body {
     /* Prevent flex overflow */
 }
 
+.app-main.auth-mode {
+    margin-left: 0;
+}
+
 /* Header */
 .app-header {
     height: var(--header-height);

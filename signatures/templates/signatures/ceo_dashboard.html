@@ -3,9 +3,15 @@
 {% block title %}Demandes de signature{% endblock %}
 
 {% block content %}
-<div class="mb-4" style="margin-bottom: 1.5rem;">
-    <h2>Tableau de bord des signatures (CEO)</h2>
-    <p style="color: var(--text-secondary); margin-top: 0.5rem;">Gérez ici les demandes de signatures en attente.</p>
+<div class="mb-4 d-flex justify-between align-center" style="margin-bottom: 1.5rem;">
+    <div>
+        <h2>Tableau de bord des signatures (CEO)</h2>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">Gérez ici les demandes de signatures en attente.
+        </p>
+    </div>
+    <a href="{% url 'signatures:upload_document' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Ajouter un document
+    </a>
 </div>
 
 <div style="display: grid; gap: 2rem;">
@@ -27,7 +33,7 @@
                         <th>Document</th>
                         <th>Demandé par</th>
                         <th>Date de demande</th>
-                        <th>Position</th>
+
                         <th class="text-right">Action</th>
                     </tr>
                 </thead>
@@ -41,7 +47,7 @@
                             {{ d.requested_by.get_full_name|default:d.requested_by.username }}
                         </td>
                         <td>{{ d.created_at|date:"d/m/Y H:i" }}</td>
-                        <td>{{ d.pos_x_pct|floatformat:1 }}% / {{ d.pos_y_pct|floatformat:1 }}%</td>
+
                         <td class="text-right">
                             <a class="btn btn-sm btn-primary" href="{% url 'signatures:signature_approval' d.token %}">
                                 <i class="bi bi-pen"></i> Voir &amp; signer
@@ -63,35 +69,39 @@
     <div class="card">
         <div class="card-title">Historique des demandes (50 dernières)</div>
 
-        {% if all_requests %}
-        <div class="table-responsive">
+        {% if documents_history %}
+        <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
             <table class="table table-hover">
                 <thead>
                     <tr>
                         <th>Document</th>
                         <th>Demandé par</th>
-                        <th>Date</th>
+                        <th>Dernière action</th>
                         <th>Statut</th>
-                        <th>Décision le</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for d in all_requests %}
+                    {% for doc in documents_history %}
                     <tr>
-                        <td>{{ d.document.titre }}</td>
                         <td>
-                            {{ d.requested_by.get_full_name|default:d.requested_by.username }}
+                            <a href="{% url 'signatures:document_detail' doc.pk %}"
+                                style="font-weight: 500; color: var(--text-main);">
+                                {{ doc.titre }}
+                            </a>
                         </td>
-                        <td>{{ d.created_at|date:"d/m/Y" }}</td>
                         <td>
-                            <span
-                                class="badge 
-                                {% if d.statut == 'signed' %}status-payee{% elif d.statut == 'rejected' %}status-refusee{% else %}status-encours{% endif %}"
-                                style="background: var(--bg-secondary);">
-                                {{ d.get_statut_display }}
+                            {% if doc.requester_name %}
+                            {{ doc.requester_name }}
+                            {% else %}
+                            <span class="text-muted">Direct / CEO</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ doc.last_action_date|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <span class="badge {{ doc.status_css }}" style="background: var(--bg-secondary);">
+                                {{ doc.status_label }}
                             </span>
                         </td>
-                        <td>{{ d.decided_at|date:"d/m/Y H:i"|default:"-" }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -99,7 +109,7 @@
         </div>
         {% else %}
         <div class="text-center text-muted" style="padding: 2rem;">
-            Aucune demande enregistrée.
+            Aucun document dans l'historique.
         </div>
         {% endif %}
     </div>
