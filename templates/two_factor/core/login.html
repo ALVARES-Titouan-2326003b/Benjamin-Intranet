@@ -1,138 +1,124 @@
-{% extends "base.html" %}
-{% load i18n two_factor_tags %}
+﻿{% extends "base.html" %}
+{% load i18n two_factor_tags static %}
 
-{% block title %}{% trans "Connexion" %}{% endblock %}
+{% block title %}{% trans "Connexion Intranet" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/pages/login.css' %}">
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-center align-center" style="min-height: 80vh;">
-    <div class="card" style="width: 100%; max-width: 450px; padding: 2rem;">
-        <div class="text-center mb-4">
-            <h1 class="logo" style="color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem;">
-                BENJAMIN <span style="font-size: 1rem; color: var(--text-secondary); letter-spacing: 2px;">INTRA</span>
-            </h1>
-            <h2 style="font-size: 1.5rem; color: var(--text-main); margin-bottom: 1.5rem;">
-                {% block h1 %}{% trans "Connexion sécurisée" %}{% endblock %}
-            </h2>
+<div class="login-container">
+    <!-- Brand Panel -->
+    <div class="login-brand">
+        <div class="brand-content">
+            <div class="brand-logo">
+                BENJAMIN
+            </div>
+            <div class="brand-subtitle">INTRANET</div>
         </div>
+    </div>
 
-        {% if wizard.steps.current == 'auth' %}
-        <p class="text-center text-muted mb-4">
-            {% trans "Veuillez vous identifier pour accéder à l'intranet." %}
-        </p>
-        {% elif wizard.steps.current == 'token' %}
-        <p class="text-center text-muted mb-4">
-            {% if device.method == 'call' %}
-            {% trans "Nous vous appelons..." %}
-            {% elif device.method == 'sms' %}
-            {% trans "Nous vous avons envoyé un SMS." %}
-            {% else %}
-            {% trans "Veuillez entrer le code reçu par email." %}
-            {% endif %}
-        </p>
-        {% elif wizard.steps.current == 'backup' %}
-        <p class="text-center text-muted mb-4">
-            {% trans "Utilisez l'un de vos codes de secours." %}
-        </p>
-        {% endif %}
-
-        <form action="" method="post">
-            {% csrf_token %}
-            {{ wizard.management_form }}
-
-            {% if wizard.form.non_field_errors %}
-            <div class="alert alert-danger"
-                style="background: #fee2e2; border: 1px solid #fecaca; color: #b91c1c; padding: 0.75rem; border-radius: 6px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                <i class="bi bi-exclamation-circle-fill"></i>
-                <div style="font-size: 0.9rem;">
-                    {% for error in wizard.form.non_field_errors %}
-                    {{ error }}<br>
-                    {% endfor %}
-                </div>
+    <!-- Form Panel -->
+    <div class="login-form-panel">
+        <div class="login-form-wrapper">
+            
+            <div class="login-header">
+                <h1>{% trans "Bonjour" %}</h1>
+                <p>{% trans "Connectez-vous pour accéder à votre espace." %}</p>
             </div>
-            {% endif %}
 
-            {% if wizard.form.forms %}
-            {{ wizard.form.management_form }}
-            {% for form in wizard.form.forms %}
-            {{ form.as_p }}
-            {% endfor %}
-            {% else %}
-            <div class="form-group">
-                {% for field in wizard.form %}
-                <div class="mb-3">
-                    <label class="form-label">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}
-                    <small class="form-text text-muted">{{ field.help_text }}</small>
+            <form action="" method="post">
+                {% csrf_token %}
+                {{ wizard.management_form }}
+
+                <!-- Errors -->
+                {% if wizard.form.non_field_errors %}
+                <div class="alert-error">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                    <div>
+                        {% for error in wizard.form.non_field_errors %}
+                        <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Fields -->
+                {% if wizard.form.forms %}
+                    {{ wizard.form.management_form }}
+                    {% for form in wizard.form.forms %}
+                        {% for field in form %}
+                            <div class="form-group">
+                                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                <div class="input-container">
+                                    {{ field }}
+                                    {% if 'username' in field.name or 'client' in field.name %}<i class="bi bi-person input-icon"></i>{% endif %}
+                                    {% if 'password' in field.name %}<i class="bi bi-lock input-icon"></i>{% endif %}
+                                    {% if 'token' in field.name %}<i class="bi bi-shield-lock input-icon"></i>{% endif %}
+                                </div>
+                                {% for error in field.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    {% for field in wizard.form %}
+                    <div class="form-group">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        <div class="input-container">
+                            {% if 'username' in field.name or field.label|lower == 'utilisateur' or field.label|lower == 'identifiant' %}<i class="bi bi-person input-icon"></i>{% endif %}
+                            
+                            {% if 'password' in field.name or field.label|lower == 'mot de passe' %}<i class="bi bi-lock input-icon"></i>{% endif %}
+                            
+                            {% if 'token' in field.name %}<i class="bi bi-shield-lock input-icon"></i>{% endif %}
+                            
+                            {{ field }}
+                        </div>
+                        {% if field.help_text %}
+                        <small class="text-secondary d-block mt-1">{{ field.help_text }}</small>
+                        {% endif %}
+                        {% for error in field.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <button type="submit" class="btn-login">
+                    {% trans "Se connecter" %} <i class="bi bi-arrow-right"></i>
+                </button>
+
+                <!-- Navigation -->
+                {% if wizard.steps.prev %}
+                <div class="login-footer">
+                    {% if wizard.steps.current == 'token' and 'backup' in other_devices %}
+                    <button name="wizard_goto_step" type="submit" value="backup" class="btn-link">
+                        {% trans "Utiliser un code de secours" %}
+                    </button>
                     {% endif %}
-                    {% for error in field.errors %}
-                    <div class="text-danger small">{{ error }}</div>
-                    {% endfor %}
+                    
+                    <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}" class="btn-link">
+                        {% trans "Retour" %}
+                    </button>
                 </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-
-
-            <div class="d-grid mt-4">
-                <button type="submit" class="btn btn-primary btn-block" style="width: 100%; justify-content: center;">
-                    {% trans "Suivant" %}
-                </button>
-            </div>
-
-            {% if wizard.steps.prev %}
-            <div class="text-center mt-3">
-                {% if wizard.steps.current == 'token' %}
-                {% if 'backup' in other_devices %}
-                <button name="wizard_goto_step" type="submit" value="backup" class="btn btn-link btn-sm">
-                    {% trans "Utiliser un code de secours" %}
-                </button>
-                {% endif %}
                 {% endif %}
 
-                <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}"
-                    class="btn btn-ghost btn-sm">
-                    {% trans "Retour" %}
-                </button>
-            </div>
-            {% endif %}
-        </form>
-
-        <div class="text-center mt-4">
-            <small class="text-muted">
+            </form>
+            
+            <div class="copyright">
                 &copy; {% now "Y" %} Benjamin Immobilier
-            </small>
+            </div>
+
         </div>
     </div>
 </div>
 
-<style>
-    .form-control {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid var(--border-light);
-        border-radius: var(--radius-sm);
-        margin-top: 0.25rem;
-    }
-
-    .form-control:focus {
-        border-color: var(--primary);
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-    }
-
-    input[type="text"],
-    input[type="password"],
-    input[type="number"] {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-    }
-
-    .btn-block {
-        display: flex;
-        width: 100%;
-    }
-</style>
+<script>
+    // Add form-control class to all inputs generated by Django if they don't have it
+    document.querySelectorAll(".login-form-wrapper input, .login-form-wrapper select").forEach(el => {
+        el.classList.add("form-control");
+    });
+</script>
 {% endblock %}
