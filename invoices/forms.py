@@ -127,6 +127,14 @@ class FactureForm(forms.ModelForm):
                     current = self.instance.echeance
                 self.fields["echeance"].initial = current.date()
 
+        # Pré-remplir les champs input (Edit)
+        if self.instance.pk:
+            if self.instance.fournisseur:
+                self.fields["fournisseur_input"].initial = self.instance.fournisseur
+            if self.instance.client:
+                # client est une ForeignKey vers Entreprise(id=CharField)
+                self.fields["client_input"].initial = self.instance.client.id
+
         # Add CSS class to all fields
         for field_name, field in self.fields.items():
             current_class = field.widget.attrs.get('class', '')
