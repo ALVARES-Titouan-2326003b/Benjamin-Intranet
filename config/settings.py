@@ -15,6 +15,12 @@ import os
 import environ
 import logging
 
+# Admins who receive error emails (500)
+ADMINS = [
+    ('Administrateur', os.getenv("DEFAULT_FROM_EMAIL", "support@benjamin-immobilier.fr")),
+]
+MANAGERS = ADMINS
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -237,3 +243,71 @@ AXES_LOCKOUT_PARAMETERS = ["ip_address", "username"]
 AXES_LOCKOUT_CALLABLE = 'authentication.axes_handlers.custom_lockout_response'
 AXES_USERNAME_CALLABLE = 'authentication.axes_handlers.get_axes_username'
 AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
+
+# --- LOGGING CONFIGURATION (OWASP A09) ---
+# En production, cela permet de :
+# 1. Sauvegarder les erreurs dans un fichier 'django_errors.log' à la racine
+# 2. Envoyer un mail aux ADMINS en cas d'erreur 500 (CRITICAL)
+
+# --- LOGGING CONFIGURATION (OWASP A09 & A01) ---
+# Fichier unique par jour contenant TOUT (Erreurs + Sécurité)
+
+# Fichier unique par jour contenant TOUT (Erreurs + Sécurité)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        # Format complet pour tout avoir
+        'standard': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+        # Fichier nommé exactement "AAAA-MM-JJ.log" avec rotation auto SANS redémarrage
+        'daily_file': {
+            'level': 'INFO', 
+            'class': 'config.log_handlers.DailyDateFileHandler',
+            'log_dir': BASE_DIR / 'logs',
+            'formatter': 'standard',
+            'encoding': 'utf-8',
+        },
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+            'include_html': True, 
+        },
+    },
+    'loggers': {
+        # Django (catch-all)
+        'django': {
+            'handlers': ['console', 'daily_file', 'mail_admins'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        # Sécurité spécifique
+        'django.security': {
+            'handlers': ['daily_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Axes
+        'axes': {
+            'handlers': ['daily_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Audit métier
+        'audit': {
+            'handlers': ['daily_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        }
+    },
+}
