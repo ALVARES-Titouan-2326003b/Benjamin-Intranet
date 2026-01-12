@@ -98,6 +98,14 @@ def document_detail(request, pk):
     # ✅ CORRECTION ICI : on teste la présence réelle d'un fichier
     is_signed = bool(doc.fichier_signe)
 
+    is_signed = bool(doc.fichier_signe)
+
+    requester_name = None
+    request_date = None
+    if pending_request:
+        requester_name = pending_request.requested_by.get_full_name() or pending_request.requested_by.username
+        request_date = pending_request.created_at
+
     return render(
         request,
         "signatures/document_detail.html",
@@ -105,6 +113,8 @@ def document_detail(request, pk):
             "doc": doc,
             "historiques": historiques,
             "pending_request": pending_request,
+            "requester_name": requester_name,
+            "request_date": request_date,
             "is_ceo": is_ceo,
             "is_signed": is_signed,
         },
@@ -411,6 +421,8 @@ def signature_approval(request, token):
     context = {
         "doc": doc,
         "demande": demande,
+        "requester_name": demande.requested_by.get_full_name() or demande.requested_by.username,
+        "formatted_date": demande.created_at.strftime("%d/%m/%Y à %H:%M"),
     }
     return render(request, "signatures/signature_approval.html", context)
 
@@ -419,8 +431,9 @@ def signature_approval(request, token):
 @user_passes_test(lambda u: u.is_superuser)
 def ceo_dashboard(request):
     """
-    Tableau de bord du CEO : liste des demandes de signature
-    (en attente + historique).
+    Tableau de bord du CEO :
+    - Demandes en attente (actionnable)
+    - Historique global des 50 derniers documents (tout confondu : signés direct ou via demande)
     """
     pending_requests = (
         SignatureRequest.objects.filter(
@@ -431,17 +444,62 @@ def ceo_dashboard(request):
         .order_by("-created_at")
     )
 
-    all_requests = (
-        SignatureRequest.objects.filter(approver=request.user)
-        .select_related("document", "requested_by")
-        .order_by("-created_at")[:50]
+    # Historique global : on prend les Documents directement
+    documents_history = (
+        Document.objects.all()
+        .order_by("-date_upload")[:50]
+        .prefetch_related("historique", "demandes_signature__requested_by")
     )
+
+    # Réutilisation de la logique de statut de document_list
+    STATUS_CONFIG = {
+        "upload": ("Ajouté", "sig-badge-upload"),
+        "en_attente": ("En attente de signature", "sig-badge-attente"),
+        "signe": ("Signé", "status-payee"),  # mapping vers classe CSS existante ou nouvelle
+        "refuse": ("Refusé", "status-refusee"),
+        "erreur": ("Erreur", "sig-badge-erreur"),
+    }
+
+    for doc in documents_history:
+        last = doc.historique.order_by("-date_action").first()
+
+        if doc.fichier_signe:
+            key = "signe"
+        elif doc.demandes_signature.filter(statut="pending").exists():
+            key = "en_attente"
+        elif last:
+            key = last.statut
+        else:
+            key = "upload"
+
+        label, css = STATUS_CONFIG.get(key, (key, ""))
+        doc.status_key = key
+        doc.status_label = label
+        # Utilisation des classes CSS du dashboard si possible, sinon fallback
+        if key == "signe":
+            doc.status_css = "status-payee"
+        elif key == "refuse":
+            doc.status_css = "status-refusee"
+        elif key == "en_attente":
+            doc.status_css = "status-encours"
+        else:
+            doc.status_css = "status-encours" # Default/Upload
+
+        # Tenter de trouver le demandeur (le plus récent)
+        last_request = doc.demandes_signature.order_by("-created_at").first()
+        doc.last_request = last_request
+        doc.last_action_date = last.date_action if last else doc.date_upload
+        
+        if last_request:
+            doc.requester_name = last_request.requested_by.get_full_name() or last_request.requested_by.username
+        else:
+            doc.requester_name = None
 
     return render(
         request,
         "signatures/ceo_dashboard.html",
         {
             "pending_requests": pending_requests,
-            "all_requests": all_requests,
+            "documents_history": documents_history,
         },
     )

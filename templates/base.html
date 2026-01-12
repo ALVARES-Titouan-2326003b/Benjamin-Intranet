@@ -42,7 +42,8 @@
         <i class="bi bi-receipt"></i> Factures
       </a>
 
-      <a href="{% url 'signatures:ceo_dashboard' %}" class="nav-item {% if '/signatures/' in p %}active{% endif %}">
+      <a href="{% if user.is_superuser %}{% url 'signatures:ceo_dashboard' %}{% else %}{% url 'signatures:document_list' %}{% endif %}"
+        class="nav-item {% if '/signatures/' in p %}active{% endif %}">
         <i class="bi bi-pen"></i> Signatures
       </a>
 
