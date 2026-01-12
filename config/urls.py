@@ -4,12 +4,14 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
+from django.views.generic import RedirectView
 from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities
 from technique import views as technique_views
 from home.views import dashboard_view, global_search
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'img/favicon.png', permanent=True)),
     path('', dashboard_view, name='home'),
     path('recherche/', global_search, name='global_search'),
     path('administratif/', administratif_view, name='admin_view'),

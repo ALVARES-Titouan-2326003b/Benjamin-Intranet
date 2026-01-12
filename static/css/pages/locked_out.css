@@ -1,0 +1,22 @@
+/* Specific overrides for the locked out page */
+.locked-out-icon {
+    font-size: 3rem;
+    color: var(--danger-color, #ef4444);
+    margin-bottom: 1rem;
+}
+
+.locked-out-message {
+    color: var(--text-secondary, #64748b);
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+}
+
+.cooloff-timer {
+    background-color: #fef2f2;
+    color: #b91c1c;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+    border: 1px solid #fecaca;
+}
