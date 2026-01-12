@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+{% load l10n %}
+
+{% block title %}
+{% trans "Compte Verrouillé" %} - Benjamin Immobilier
+{% endblock title %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/pages/login.css' %}">
+<link rel="stylesheet" href="{% static 'css/pages/locked_out.css' %}">
+{% endblock extra_css %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-brand">
+        <div class="brand-content">
+            <div class="brand-logo">
+                BENJAMIN<br>
+                <span style="font-size: 0.6em; letter-spacing: 0.2em;">IMMOBILIER</span>
+            </div>
+            <div class="brand-subtitle">INTRANET</div>
+        </div>
+    </div>
+
+    <div class="login-form-panel">
+        <div class="login-form-wrapper" style="text-align: center;">
+            <i class="bi bi-shield-lock-fill locked-out-icon"></i>
+
+            <div class="login-header" style="margin-bottom: 1rem;">
+                <h1>Accès Temporairement Bloqué</h1>
+            </div>
+
+            <p class="locked-out-message">
+                Trop de tentatives de connexion échouées. Par mesure de sécurité, votre accès a été temporairement
+                suspendu.
+            </p>
+
+            {% if cooloff_time %}
+            <div class="cooloff-timer">
+                {% if remaining_seconds %}
+                Veuillez réessayer dans <span id="countdown-timer"
+                    data-seconds="{{ remaining_seconds|unlocalize }}">...</span>.
+                {% else %}
+                Veuillez réessayer dans {{ cooloff_time|cut:"PT"|cut:"H" }} heure(s).
+                {% endif %}
+            </div>
+
+            {% if remaining_seconds %}
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    const timerElement = document.getElementById('countdown-timer');
+                    let totalSeconds = parseInt(timerElement.dataset.seconds, 10);
+                    const loginUrl = "{% url 'two_factor:login' %}";
+
+                    console.log("Timer started with seconds:", totalSeconds);
+
+                    if (!isNaN(totalSeconds) && totalSeconds > 0) {
+                        const updateTimer = function () {
+                            if (totalSeconds <= 0) {
+                                window.location.href = loginUrl;
+                                return;
+                            }
+
+                            const hours = Math.floor(totalSeconds / 3600);
+                            const minutes = Math.floor((totalSeconds % 3600) / 60);
+                            const seconds = totalSeconds % 60;
+
+                            let text = "";
+                            if (hours > 0) {
+                                text += hours + " heure(s) ";
+                            }
+                            // afficher le timeur si supérieur à 0
+                            if (minutes > 0 || hours > 0) {
+                                text += minutes + " minute(s) ";
+                            }
+                            text += seconds + " seconde(s)";
+
+                            timerElement.innerText = text;
+                            totalSeconds--;
+                        };
+                        updateTimer();
+                        setInterval(updateTimer, 1000);
+                    }
+                });
+            </script>
+            {% endif %}
+            {% endif %}
+
+            <div class="login-footer" style="justify-content: center;">
+                <a href="{% url 'two_factor:login' %}" class="btn-link" style="color: var(--primary-color);">
+                    <i class="bi bi-arrow-left"></i> {% trans "Retour à l'accueil" %}
+                </a>
+            </div>
+
+            <div class="copyright">
+                &copy; {% now "Y" %} Benjamin Immobilier
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
