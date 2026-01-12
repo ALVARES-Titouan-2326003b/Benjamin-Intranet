@@ -6,11 +6,12 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities
 from technique import views as technique_views
-from home.views import dashboard_view
+from home.views import dashboard_view, global_search
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', dashboard_view, name='home'),
+    path('recherche/', global_search, name='global_search'),
     path('administratif/', administratif_view, name='admin_view'),
     
     # On met ceci AVANT les autres pour être sûr que les URLs de login sont prioritaires

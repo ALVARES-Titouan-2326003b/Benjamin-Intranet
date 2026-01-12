@@ -83,8 +83,11 @@
 
     <header class="app-header">
       <div class="header-search">
-        <i class="bi bi-search"></i>
-        <input type="text" placeholder="Rechercher un document, client, facture...">
+        <form action="{% url 'global_search' %}" method="get" style="display: flex; align-items: center; width: 100%;">
+          <i class="bi bi-search"></i>
+          <input type="text" name="q" placeholder="Rechercher un document, client, facture..."
+            value="{{ query|default:'' }}">
+        </form>
       </div>
 
       <div class="header-user">

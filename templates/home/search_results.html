@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Résultats de recherche - Benjamin Immobilier{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2>Résultats pour "{{ query }}"</h2>
+    <p class="text-secondary">{{ results_count }} résultat(s) trouvé(s)</p>
+</div>
+
+{% if not results_count %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> Aucun résultat trouvé pour cette recherche.
+</div>
+{% else %}
+
+<!-- FACTURES -->
+{% if factures %}
+<div class="card mb-4">
+    <div class="card-title">
+        <i class="bi bi-receipt"></i> Factures ({{ factures|length }})
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>N°</th>
+                    <th>Titre</th>
+                    <th>Tiers</th>
+                    <th>Montant</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in factures %}
+                <tr>
+                    <td>{{ f.id }}</td>
+                    <td>{{ f.titre|default:"-" }}</td>
+                    <td>{{ f.fournisseur }} / {{ f.client.nom }}</td>
+                    <td>{{ f.montant }} €</td>
+                    <td><a href="{% url 'invoices:detail' f.pk %}" class="btn btn-sm btn-outline-primary">Voir</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- SIGNATURES (Documents) -->
+{% if documents %}
+<div class="card mb-4">
+    <div class="card-title">
+        <i class="bi bi-pen"></i> Documents & Signatures ({{ documents|length }})
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for d in documents %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ d.titre }} <small class="text-secondary">({{ d.date_upload|date:"d/m/Y" }})</small></span>
+            <a href="{% url 'signatures:document_detail' d.pk %}" class="btn btn-sm btn-outline-primary">Voir</a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- CANDIDATS -->
+{% if candidats %}
+<div class="card mb-4">
+    <div class="card-title">
+        <i class="bi bi-person-badge"></i> Candidats ({{ candidats|length }})
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for c in candidats %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ c.nom }} <small>({{ c.email }})</small></span>
+            <!-- Pas de lien direct simple vers fiche candidat unique, peut-être via candidature -->
+            <span class="badge bg-secondary">Candidat</span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- PROJETS TECHNIQUES -->
+{% if projets %}
+<div class="card mb-4">
+    <div class="card-title">
+        <i class="bi bi-building"></i> Projets Techniques ({{ projets|length }})
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for p in projets %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ p.reference }} - {{ p.name }}</span>
+            <a href="{% url 'technique_financial_project_detail' p.pk %}"
+                class="btn btn-sm btn-outline-primary">Voir</a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- DOCUMENTS TECHNIQUES -->
+{% if docs_tech %}
+<div class="card mb-4">
+    <div class="card-title">
+        <i class="bi bi-file-earmark-text"></i> Documents Techniques ({{ docs_tech|length }})
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for dt in docs_tech %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ dt.titre }} <small>({{ dt.projet }})</small></span>
+            {% if dt.fichier %}
+            <a href="{{ dt.fichier.url }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i
+                    class="bi bi-download"></i></a>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
