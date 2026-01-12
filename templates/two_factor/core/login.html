@@ -13,7 +13,7 @@
     <div class="login-brand">
         <div class="brand-content">
             <div class="brand-logo">
-                BENJAMIN
+                BENJAMIN IMMOBILIER
             </div>
             <div class="brand-subtitle">INTRANET</div>
         </div>
@@ -22,7 +22,7 @@
     <!-- Form Panel -->
     <div class="login-form-panel">
         <div class="login-form-wrapper">
-            
+
             <div class="login-header">
                 <h1>{% trans "Bonjour" %}</h1>
                 <p>{% trans "Connectez-vous pour accéder à votre espace." %}</p>
@@ -46,44 +46,47 @@
 
                 <!-- Fields -->
                 {% if wizard.form.forms %}
-                    {{ wizard.form.management_form }}
-                    {% for form in wizard.form.forms %}
-                        {% for field in form %}
-                            <div class="form-group">
-                                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                <div class="input-container">
-                                    {{ field }}
-                                    {% if 'username' in field.name or 'client' in field.name %}<i class="bi bi-person input-icon"></i>{% endif %}
-                                    {% if 'password' in field.name %}<i class="bi bi-lock input-icon"></i>{% endif %}
-                                    {% if 'token' in field.name %}<i class="bi bi-shield-lock input-icon"></i>{% endif %}
-                                </div>
-                                {% for error in field.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endfor %}
-                    {% endfor %}
-                {% else %}
-                    {% for field in wizard.form %}
-                    <div class="form-group">
-                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                        <div class="input-container">
-                            {% if 'username' in field.name or field.label|lower == 'utilisateur' or field.label|lower == 'identifiant' %}<i class="bi bi-person input-icon"></i>{% endif %}
-                            
-                            {% if 'password' in field.name or field.label|lower == 'mot de passe' %}<i class="bi bi-lock input-icon"></i>{% endif %}
-                            
-                            {% if 'token' in field.name %}<i class="bi bi-shield-lock input-icon"></i>{% endif %}
-                            
-                            {{ field }}
-                        </div>
-                        {% if field.help_text %}
-                        <small class="text-secondary d-block mt-1">{{ field.help_text }}</small>
-                        {% endif %}
-                        {% for error in field.errors %}
-                        <div class="text-danger small mt-1">{{ error }}</div>
-                        {% endfor %}
+                {{ wizard.form.management_form }}
+                {% for form in wizard.form.forms %}
+                {% for field in form %}
+                <div class="form-group">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    <div class="input-container">
+                        {{ field }}
+                        {% if 'username' in field.name or 'client' in field.name %}<i
+                            class="bi bi-person input-icon"></i>{% endif %}
+                        {% if 'password' in field.name %}<i class="bi bi-lock input-icon"></i>{% endif %}
+                        {% if 'token' in field.name %}<i class="bi bi-shield-lock input-icon"></i>{% endif %}
                     </div>
+                    {% for error in field.errors %}
+                    <div class="text-danger small mt-1">{{ error }}</div>
                     {% endfor %}
+                </div>
+                {% endfor %}
+                {% endfor %}
+                {% else %}
+                {% for field in wizard.form %}
+                <div class="form-group">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    <div class="input-container">
+                        {% if 'username' in field.name or field.label|lower == 'utilisateur' or field.label|lower ==
+                        'identifiant' %}<i class="bi bi-person input-icon"></i>{% endif %}
+
+                        {% if 'password' in field.name or field.label|lower == 'mot de passe' %}<i
+                            class="bi bi-lock input-icon"></i>{% endif %}
+
+                        {% if 'token' in field.name %}<i class="bi bi-shield-lock input-icon"></i>{% endif %}
+
+                        {{ field }}
+                    </div>
+                    {% if field.help_text %}
+                    <small class="text-secondary d-block mt-1">{{ field.help_text }}</small>
+                    {% endif %}
+                    {% for error in field.errors %}
+                    <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
                 {% endif %}
 
                 <button type="submit" class="btn-login">
@@ -93,12 +96,22 @@
                 <!-- Navigation -->
                 {% if wizard.steps.prev %}
                 <div class="login-footer">
-                    {% if wizard.steps.current == 'token' and 'backup' in other_devices %}
+                    {% if wizard.steps.current == 'token' %}
+                    <!-- Resend Button (Timer managed by JS) -->
+                    {% if 'backup' not in device.name %} <!-- Hide if using backup tokens -->
+                    <button id="resend-code-btn" name="resend_code" type="submit" value="1" class="btn-link"
+                        style="color: #3b82f6; font-weight: 500;">
+                        {% trans "Renvoyer un code" %}
+                    </button>
+                    {% endif %}
+
+                    {% if 'backup' in other_devices %}
                     <button name="wizard_goto_step" type="submit" value="backup" class="btn-link">
                         {% trans "Utiliser un code de secours" %}
                     </button>
                     {% endif %}
-                    
+                    {% endif %}
+
                     <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}" class="btn-link">
                         {% trans "Retour" %}
                     </button>
@@ -106,7 +119,7 @@
                 {% endif %}
 
             </form>
-            
+
             <div class="copyright">
                 &copy; {% now "Y" %} Benjamin Immobilier
             </div>
@@ -116,9 +129,36 @@
 </div>
 
 <script>
-    // Add form-control class to all inputs generated by Django if they don't have it
+    // Add form-control class to all inputs
     document.querySelectorAll(".login-form-wrapper input, .login-form-wrapper select").forEach(el => {
         el.classList.add("form-control");
+    });
+
+    // Timer for Resend Button
+    document.addEventListener('DOMContentLoaded', function () {
+        const resendBtn = document.getElementById('resend-code-btn');
+        if (resendBtn) {
+            let timeLeft = 60; // 60 seconds
+            const originalText = resendBtn.innerText;
+
+            // Disable initially
+            resendBtn.disabled = true;
+            resendBtn.style.opacity = '0.5';
+            resendBtn.style.cursor = 'not-allowed';
+
+            const timer = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    resendBtn.disabled = false;
+                    resendBtn.innerText = originalText;
+                    resendBtn.style.opacity = '1';
+                    resendBtn.style.cursor = 'pointer';
+                } else {
+                    resendBtn.innerText = originalText + ' (' + timeLeft + 's)';
+                    timeLeft--;
+                }
+            }, 1000);
+        }
     });
 </script>
 {% endblock %}
