@@ -12,7 +12,32 @@
     {% endif %}
 </div>
 
+<!-- Messages flash Django -->
+{% if messages %}
+<div style="margin-bottom: 1.5rem;">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}" style="padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 <!-- Filters Card -->
+<!-- Bouton Relance Manuelle -->
+    {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
+    <div style="margin-bottom: 1.5rem;">
+        <form method="post" action="{% url 'invoices:manual_reminders' %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit"
+                    class="btn btn-warning"
+                    style="width: 100%; font-weight: 600; padding: 0.75rem;"
+                    onclick="return confirm('Voulez-vous lancer la vérification et l\'envoi des relances maintenant ?');">
+                Relance Manuelle
+            </button>
+        </form>
+    </div>
+    {% endif %}
 <div class="card">
     <div class="card-title">
         <span><i class="bi bi-funnel"></i> Filtres</span>

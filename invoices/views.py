@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django_filters.views import FilterView
@@ -98,3 +99,48 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
     def get_success_url(self):
         messages.success(self.request, "Facture mise à jour.")
         return reverse('invoices:detail', args=[self.object.pk])
+
+
+# ================== Relance Manuelle ==================
+
+from django.views import View
+
+
+@method_decorator([login_required, user_passes_test(is_finance)], name='dispatch')
+class ManualInvoiceRemindersView(View):
+    """
+    Vue pour déclencher manuellement les relances de factures
+    Lance la tâche check_and_send_invoice_reminders de tasks.py
+    """
+
+    def post(self, request, *args, **kwargs):
+        # Importer la tâche Celery
+        from .tasks import check_and_send_invoice_reminders
+
+        # Exécuter la tâche de manière synchrone (pas via Celery)
+        # Pour exécution immédiate sans passer par la queue
+        result = check_and_send_invoice_reminders()
+
+        # Préparer le message de feedback
+        if result.get('success'):
+            if result.get('relances_envoyees', 0) > 0:
+                messages.success(
+                    request,
+                    f"Relance manuelle terminée ! "
+                    f"{result['relances_envoyees']} email(s) envoyé(s) sur "
+                    f"{result['factures_traitees']} facture(s) traitée(s)."
+                )
+            else:
+                messages.info(
+                    request,
+                    f"Aucune relance à envoyer pour le moment. "
+                    f"{result['factures_traitees']} facture(s) vérifiée(s)."
+                )
+        else:
+            messages.error(
+                request,
+                f"Erreur lors de la relance : {result.get('message', 'Erreur inconnue')}"
+            )
+
+        # Rediriger vers la liste des factures
+        return redirect('invoices:list')

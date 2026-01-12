@@ -100,21 +100,15 @@ def check_and_send_invoice_reminders():
             echeance__lt=timezone.now()
         ).select_related('client')
 
-        print(f"\n📊 Nombre de factures 'En cours' avec échéance dépassée : {factures.count()}")
+        print(f"\nNombre de factures 'En cours' avec échéance dépassée : {factures.count()}")
 
         for facture in factures:
             factures_traitees += 1
 
             try:
-                if not facture.echeance:
-                    print(f"Facture {facture.id} : pas de date d'échéance, ignorée")
-                    continue
 
                 date_echeance = facture.echeance.date()
-                jours_retard = (today - date_echeance).days
-
-                if jours_retard <= 0:
-                    continue
+                jours_retard = (today.day - date_echeance.day)
 
                 try:
                     temps_relance = Temps_Relance.objects.get(id=facture.fournisseur)
@@ -122,8 +116,7 @@ def check_and_send_invoice_reminders():
                 except Temps_Relance.DoesNotExist:
                     continue
 
-                if jours_retard % intervalle != 0:
-                    continue
+
 
                 print(f"\nFACTURE À RELANCER DÉTECTÉE !")
                 print(f"   Facture ID: {facture.id}")
