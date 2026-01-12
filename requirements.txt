@@ -16,3 +16,4 @@ SQLAlchemy==2.0.44
 django-two-factor-auth[call,sms]
 phonenumbers
 django-otp
+django-axes
