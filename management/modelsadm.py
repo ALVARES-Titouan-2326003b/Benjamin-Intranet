@@ -79,3 +79,46 @@ class Activites(models.Model):
 
     def __str__(self):
         return f"{self.type} - {self.dossier} ({self.date.strftime('%Y-%m-%d')})"
+
+
+class OAuthToken(models.Model):
+    """
+    Stocke les tokens OAuth2 pour l'accès aux boîtes mail des utilisateurs
+    """
+    user = models.OneToOneField(
+        'auth.User',
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name='oauth_token'
+    )
+
+    # Fournisseur email (google, microsoft, etc.)
+    provider = models.CharField(max_length=50, default='google')
+
+    # Email autorisé (celui de la boîte mail)
+    email = models.EmailField()
+
+    # Tokens OAuth2
+    access_token = models.TextField()
+    refresh_token = models.TextField()
+
+    # Expiration du access_token
+    token_expiry = models.DateTimeField()
+
+    # Métadonnées
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'oauth_tokens'
+        verbose_name = 'Token OAuth'
+        verbose_name_plural = 'Tokens OAuth'
+        managed = True
+
+    def __str__(self):
+        return f"OAuth {self.provider} - {self.user.username} ({self.email})"
+
+    def is_token_expired(self):
+        """Vérifie si l'access_token est expiré"""
+        from django.utils import timezone
+        return timezone.now() >= self.token_expiry
