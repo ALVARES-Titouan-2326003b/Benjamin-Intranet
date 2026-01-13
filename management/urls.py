@@ -17,4 +17,5 @@ urlpatterns = [
     path('api/generate-message/', generate_auto_message_view, name='generate_message'),
     # API pour le calendrier
     path('api/calendar-activities/', get_calendar_activities, name='calendar_activities'),
+
 ]

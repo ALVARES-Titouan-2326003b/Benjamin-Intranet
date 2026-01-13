@@ -25,6 +25,7 @@ urlpatterns = [
 
     # LIGNES RESTAURÉES POUR LOGOUT
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('oauth/', include('management.urls_oauth')),
     path('chatbot/', include('chatbot.urls')),
     path('finance/factures/', include('invoices.urls')),
     path('gestion-des-candidatures/', include('recrutement.urls')),
