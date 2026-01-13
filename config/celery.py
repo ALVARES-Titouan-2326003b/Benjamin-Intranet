@@ -23,19 +23,19 @@ app.autodiscover_tasks()
 # ============================================================================
 
 app.conf.beat_schedule = {
-    # Tâche de relance automatique
     'check-and-send-auto-relances': {
         'task': 'management.tasks.check_and_send_auto_relances',
-
-        # ⏰ FRÉQUENCE : Toutes les 5 minutes
         'schedule': crontab(minute='*/5'),
     },
     'check-activite-reminders-daily': {
         'task': 'management.tasks.check_and_send_activite_reminders',
         'schedule': crontab(minute='*/5'),
     },
+    'check-and-send-invoice-reminders': {
+        'task': 'invoices.tasks.check_and_send_invoice_reminders',
+        'schedule': crontab(minute='*/5'),
+    },
 }
-# Configuration du fuseau horaire
 app.conf.timezone = 'Europe/Paris'
 
 

@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     FactureListView, FactureDetailView,
-    FactureCreateView, FactureUpdateView,
+    FactureCreateView, FactureUpdateView, ManualInvoiceRemindersView,
 )
 
 from .views_dashboard import DashboardView
@@ -14,4 +14,5 @@ urlpatterns = [
     path('finance/facture/new/', FactureCreateView.as_view(), name='create'),
     path('finance/facture/<str:pk>/edit/', FactureUpdateView.as_view(), name='edit'),
     path('finance/facture/<str:pk>/', FactureDetailView.as_view(), name='detail'),
+    path('finance/manual-reminders/', ManualInvoiceRemindersView.as_view(), name='manual_reminders'),
 ]

@@ -1,5 +1,6 @@
 """
 Vues pour la partie administrative - Gestion des emails et relances
+VERSION OAUTH2 : Passe request.user aux fonctions email_manager
 """
 from datetime import timezone
 
@@ -19,7 +20,6 @@ TEMP_USERS = {
         'password': '1234',
         'pole': 'administratif'
     },
-    # Ajouter d'autres utilisateurs de test si nécessaire
 }
 
 
@@ -48,6 +48,7 @@ def login_view(request):
 def administratif_view(request):
     """
     Page du pôle administratif - LOGIQUE INVERSÉE : affiche les emails ENVOYÉS
+    VERSION OAUTH2 : Récupère les emails de l'utilisateur connecté
     """
     # Vérifications de session désactivées pour le développement
     # if 'user_pole' not in request.session:
@@ -55,11 +56,16 @@ def administratif_view(request):
     # if request.session['user_pole'] != 'administratif':
     #     return redirect('login')
 
+    # ⭐ MODIFICATION OAUTH2 : Récupère l'utilisateur connecté
+    user = request.user
+
     # Récupération des emails à chaque chargement de page
-    fetch_new_emails()
+    # ⭐ MODIFICATION OAUTH2 : Passe user à fetch_new_emails
+    fetch_new_emails(user)
 
     # Récupère les 20 derniers emails ENVOYÉS (au lieu des emails reçus)
-    emails = get_sent_emails(limit=20)
+    # ⭐ MODIFICATION OAUTH2 : Passe user à get_sent_emails
+    emails = get_sent_emails(user, limit=20)
 
     # Formate les emails pour l'affichage
     emails_data = [get_email_summary(email) for email in emails]
@@ -74,7 +80,7 @@ def administratif_view(request):
 def send_reply_view(request):
     """
     API endpoint pour envoyer une relance à un destinataire
-    Adapté pour les emails ENVOYÉS (on relance le destinataire original)
+    VERSION OAUTH2 : N'utilise plus Message.objects car les IDs sont des IDs Gmail (strings)
     Retourne une réponse JSON
     """
     try:
@@ -83,6 +89,8 @@ def send_reply_view(request):
 
         email_id = data.get('email_id')
         message_text = data.get('message')
+        to_email = data.get('to_email')
+        subject = data.get('subject')
 
         if not email_id or not message_text:
             return JsonResponse({
@@ -90,40 +98,43 @@ def send_reply_view(request):
                 'message': 'Données manquantes'
             }, status=400)
 
-        # Récupère l'email original (qu'on a envoyé)
-        from django_mailbox.models import Message
-        original_email = Message.objects.get(id=email_id)
+        if not to_email or not subject:
+            return JsonResponse({
+                'success': False,
+                'message': 'Destinataire ou sujet manquant'
+            }, status=400)
 
-        # CHANGEMENT : On relance le destinataire (to_header) au lieu de l'expéditeur (from_header)
-        to_email = original_email.to_header  # Le destinataire de notre email original
-        subject = original_email.subject or "(Sans objet)"
+        # ⭐ MODIFICATION OAUTH2 : Récupère l'utilisateur connecté
+        user = request.user
 
-        # Envoie la relance
+        # Envoie la relane
+        # ⭐ MODIFICATION OAUTH2 : Passe user à send_email_reply
         result = send_email_reply(
             to_email=to_email,
             subject=subject,
             message_text=message_text,
-            original_message_id=email_id
+            original_message_id=email_id,  # Gmail ID (pour référence uniquement)
+            user=user
         )
 
         return JsonResponse(result)
 
-    except Message.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'message': 'Email introuvable'
-        }, status=404)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
             'success': False,
-            'message': str(e)
+            'message': f'Erreur : {str(e)}'
         }, status=500)
+
+
 
 
 @require_http_methods(["POST"])
 def generate_auto_message_view(request):
     """
     Génère un message pré-rempli basé sur les infos de la table Modele_Relance
+    INCHANGÉ : Ne nécessite pas de modification pour OAuth2
 
     LOGIQUE DE LIAISON :
     1. Email.to_header → Utilisateur.email
@@ -256,6 +267,7 @@ def generate_auto_message_view(request):
 def get_calendar_activities(request):
     """
     API endpoint pour récupérer les activités du calendrier
+    INCHANGÉ : Ne nécessite pas de modification pour OAuth2
 
     Paramètres GET :
     - month : numéro du mois (1-12)
@@ -284,7 +296,7 @@ def get_calendar_activities(request):
         else:
             end_date = datetime(year, month + 1, 1)
 
-        print(f"📆 Période : {start_date.date()} → {end_date.date()}")
+        print(f"📊 Période : {start_date.date()} → {end_date.date()}")
 
         # Récupérer les activités du mois depuis la BD
         activites = Activites.objects.filter(

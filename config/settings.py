@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'technique',
     'signatures',
     'django_celery_results',
+    'django_celery_beat',
     'home',
     # --- AJOUT A2F ---
     'django_otp',
