@@ -13,6 +13,7 @@ from user_access.user_test_functions import (has_administratif_access,
 
 @login_required
 def dashboard_view(request):
+    print(request.user.groups.all)
     return render(request, 'home_dashboard.html', {'access_finance': has_finance_access(request.user),
                                                 'access_technique': has_technique_access(request.user),
                                                 'access_administratif': has_administratif_access(request.user),

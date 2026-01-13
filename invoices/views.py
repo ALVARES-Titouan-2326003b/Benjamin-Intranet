@@ -24,8 +24,10 @@ class FactureListView(FilterView):
         qs = super().get_queryset()
         return qs.select_related('client')
 
-    def get_extra_context(self):
-        return {"access_finance": has_finance_access(self.request.user)}
+    def get_context_data( self, *, object_list = ..., **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['access_finance'] = has_finance_access(self.request.user)
+        return context
 
 
 @method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
@@ -33,8 +35,10 @@ class FactureDetailView(DetailView):
     model = Facture
     template_name = 'invoices/invoice_detail.html'
 
-    def get_extra_context(self):
-        return {"access_finance": has_finance_access(self.request.user)}
+    def get_context_data(self, *, object_list=..., **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['access_finance'] = has_finance_access(self.request.user)
+        return context
 
 
 # ================== Pièce jointe ==================
