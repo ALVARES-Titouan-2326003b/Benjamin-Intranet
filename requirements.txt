@@ -13,7 +13,7 @@ pypdf==6.3.0
 psycopg2-binary==2.9.11
 celery==5.3.4
 SQLAlchemy==2.0.44
-django-two-factor-auth[call,sms]
-phonenumbers
-django-otp
-django-axes
+django-two-factor-auth[call,sms]==1.18.1
+phonenumbers==9.0.21
+django-otp==1.6.3
+django-axes==8.1.0
