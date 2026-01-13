@@ -17,17 +17,6 @@
     </div>
 </div>
 
-<!-- Messages flash Django -->
-{% if messages %}
-<div style="margin-bottom: 1.5rem;">
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags }}" style="padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
-        {{ message }}
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
-
 <!-- Filters Card -->
 <!-- Bouton Relance Manuelle avec champ délai -->
     {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}

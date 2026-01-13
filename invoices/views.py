@@ -136,15 +136,15 @@ class ManualInvoiceRemindersView(View):
             if result.get('relances_envoyees', 0) > 0:
                 messages.success(
                     request,
-                    f"Relance manuelle terminée avec délai de {delai_relance} jour(s) ! "
-                    f"{result['relances_envoyees']} email(s) envoyé(s) sur "
-                    f"{result['factures_traitees']} facture(s) traitée(s)."
+                    f"Relance manuelle terminée avec délai de {delai_relance} jour{['','s'][delai_relance>1]} ! "
+                    f"{result['relances_envoyees']} email{['','s'][result['relances_envoyees']>1]} envoyé{['','s'][result['relances_envoyees']>1]} sur "
+                    f"{result['factures_traitees']} facture{['','s'][result['factures_traitees']>1]} traitée{['','s'][result['factures_traitees']>1]}."
                 )
             else:
                 messages.info(
                     request,
-                    f"Aucune relance à envoyer pour le moment (délai : {delai_relance} jour(s)). "
-                    f"{result['factures_traitees']} facture(s) vérifiée(s)."
+                    f"Aucune relance à envoyer pour le moment (délai : {delai_relance} jour{['','s'][delai_relance>1]}). "
+                    f"{result['factures_traitees']} facture{['','s'][result['factures_traitees']>1]} vérifiée{['','s'][result['factures_traitees']>1]}."
                 )
         else:
             messages.error(
