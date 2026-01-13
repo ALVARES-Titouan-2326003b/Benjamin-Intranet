@@ -25,7 +25,7 @@ def global_search(request):
     context = {'query': query}
 
     if query:
-        if has_finance_access(request.user):
+        if can_read_facture(request.user):
             # 1. Factures (ID, Titre, Client, Fournisseur)
             factures = Facture.objects.filter(
                 Q(id__icontains=query) |
@@ -33,6 +33,7 @@ def global_search(request):
                 Q(fournisseur__icontains=query) |
                 Q(client__nom__icontains=query)
             )[:10]
+        if has_finance_access(request.user):
             # 2. Documents (Signatures) (Titre)
             documents = Document.objects.filter(
                 titre__icontains=query
@@ -44,7 +45,6 @@ def global_search(request):
                 Q(email__icontains=query)
             )[:10]
         else:
-            factures = []
             documents = []
             candidats = []
 

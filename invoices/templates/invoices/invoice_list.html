@@ -19,7 +19,7 @@
 
 <!-- Filters Card -->
 <!-- Bouton Relance Manuelle avec champ délai -->
-    {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
+    {% if access_finance%}
     <div style="margin-bottom: 1.5rem;">
         <form method="post" action="{% url 'invoices:manual_reminders' %}"
               style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
