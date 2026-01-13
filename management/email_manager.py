@@ -9,10 +9,6 @@ from django.utils import timezone
 from management.modelsadm import OAuthToken
 
 
-# ============================================================================
-# RÉCUPÉRATION DES EMAILS
-# ============================================================================
-
 def fetch_new_emails(user):
     """
     Récupère les nouveaux emails via Gmail API avec OAuth2
@@ -36,10 +32,10 @@ def fetch_new_emails(user):
 
         service = get_gmail_service(user)
 
-        # Récupérer les messages (derniers 50)
+        # Récupérer les messages
         results = service.users().messages().list(
             userId='me',
-            maxResults=50,
+            maxResults=100,
             labelIds=['INBOX']
         ).execute()
 
@@ -87,7 +83,6 @@ def get_sent_emails(user, limit=50):
 
         messages = results.get('messages', [])
 
-        # ⭐ Récupérer tous les Message-IDs répondus (optimisé)
         print(f"\nRécupération de {len(messages)} emails envoyés...")
         replied_message_ids = check_if_replies_exist(user)
 
@@ -109,14 +104,12 @@ def get_sent_emails(user, limit=50):
                 date_str = next((h['value'] for h in headers if h['name'] == 'Date'), '')
                 message_id = next((h['value'] for h in headers if h['name'] == 'Message-ID'), None)
 
-                # Parser la date
                 from email.utils import parsedate_to_datetime
                 try:
                     date = parsedate_to_datetime(date_str)
                 except:
                     date = timezone.now()
 
-                # Extraire le corps (simplifié)
                 body = ''
                 if 'parts' in msg_data['payload']:
                     for part in msg_data['payload']['parts']:
@@ -169,10 +162,6 @@ def get_sent_emails(user, limit=50):
         return []
 
 
-# ============================================================================
-# ENVOI D'EMAILS
-# ============================================================================
-
 def send_email_reply(to_email, subject, message_text, original_message_id, user):
     """
     Envoi un email via Gmail API avec OAuth2
@@ -203,13 +192,13 @@ def send_email_reply(to_email, subject, message_text, original_message_id, user)
         result = send_email_via_gmail_api(user, to_email, subject, message_text)
 
         if result['success']:
-            print(f"✅ Email envoyé avec succès depuis {oauth_token.email}")
+            print(f"Email envoyé avec succès depuis {oauth_token.email}")
             return {
                 'success': True,
                 'message': 'Email envoyé avec succès !'
             }
         else:
-            print(f"❌ Échec envoi : {result.get('error')}")
+            print(f"Échec envoi : {result.get('error')}")
             return {
                 'success': False,
                 'message': f"Erreur : {result.get('error')}"
@@ -221,7 +210,7 @@ def send_email_reply(to_email, subject, message_text, original_message_id, user)
             'message': 'Vous devez synchroniser votre boîte mail Gmail avant d\'envoyer des emails'
         }
     except Exception as e:
-        print(f"❌ Erreur : {e}")
+        print(f"Erreur : {e}")
         import traceback
         traceback.print_exc()
         return {
@@ -341,7 +330,7 @@ def check_if_received_reply(sent_message, user):
         return len(messages) > 0
 
     except Exception as e:
-        print(f"   ⚠️ Erreur check_if_received_reply: {e}")
+        print(f"   Erreur check_if_received_reply: {e}")
         return False
 
 

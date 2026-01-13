@@ -22,13 +22,13 @@ def initiate_oauth(request):
 
     URL : /oauth/gmail/
     """
-    # Construire l'URL de redirection
+
     redirect_uri = request.build_absolute_uri('/oauth/callback/')
 
-    # Générer l'URL d'autorisation Google
+
     authorization_url, state = get_authorization_url(redirect_uri)
 
-    # Stocker le state en session pour vérification
+
     request.session['oauth_state'] = state
 
     print(f"\n{'='*60}")
@@ -37,7 +37,7 @@ def initiate_oauth(request):
     print(f"   State: {state}")
     print(f"{'='*60}\n")
 
-    # Rediriger vers Google
+
     return redirect(authorization_url)
 
 
@@ -77,7 +77,7 @@ def oauth_callback(request):
         return redirect('/administratif/')  # ✅ CORRECTION : URL directe
 
     try:
-        # Échanger le code contre des tokens
+
         redirect_uri = request.build_absolute_uri('/oauth/callback/')
 
         print(f"Échange du code contre des tokens...")
@@ -89,7 +89,7 @@ def oauth_callback(request):
         print(f"   Refresh token: {'OUI' if tokens['refresh_token'] else 'NON'}")
         print(f"   Expiration: {tokens['token_expiry']}")
 
-        # Vérifier que l'email correspond à celui de l'utilisateur
+
         if tokens['email'] != request.user.email:
             messages.warning(
                 request,
