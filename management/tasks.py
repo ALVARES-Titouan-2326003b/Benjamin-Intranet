@@ -110,16 +110,14 @@ def check_and_send_auto_relances():
                         print(f"      └─ Date envoi: {date_envoi}")
                         print(f"      └─ Jours écoulés: {nb_jours}")
 
-                        # 🐛 CHECK 3 : Vérification nb_jours (LA LIGNE PROBLÉMATIQUE)
-                        print(f"      └─ Test: nb_jours >= 0 ? {nb_jours >= 0}")
-                        if nb_jours > 2:
+                        print(f"      └─ Test: nb_jours < 0 ? {nb_jours < 0}")
+                        if nb_jours < 1:
                             print(f"         ❌ BLOQUÉ : nb_jours >= 0 (ligne 105)")
                             blocked_at['nb_jours_check'] += 1
                             continue
 
                         print(f"      └─ ✅ Passé le check nb_jours")
 
-                        # CHECK 4 : Email destinataire
                         destinataire_email = email_data.get('to', '')
 
                         if not destinataire_email:
@@ -127,13 +125,11 @@ def check_and_send_auto_relances():
                             blocked_at['email_missing'] += 1
                             continue
 
-                        # Nettoyer l'email
                         if '<' in destinataire_email and '>' in destinataire_email:
                             destinataire_email = destinataire_email.split('<')[1].split('>')[0].strip()
 
                         print(f"      └─ Destinataire nettoyé: {destinataire_email}")
 
-                        # CHECK 5 : Utilisateur dans BD
                         try:
                             utilisateur = Utilisateur.objects.get(email=destinataire_email)
                             print(f"      └─ ✅ Utilisateur trouvé: {utilisateur.nom} (ID: {utilisateur.id})")
@@ -142,7 +138,6 @@ def check_and_send_auto_relances():
                             blocked_at['utilisateur_not_found'] += 1
                             continue
 
-                        # CHECK 6 : Temps_Relance
                         try:
                             temps_relance = Temps_Relance.objects.get(id=utilisateur.id)
                             intervalle = temps_relance.relance
@@ -152,13 +147,9 @@ def check_and_send_auto_relances():
                             blocked_at['temps_relance_not_found'] += 1
                             continue
 
-                        # 🐛 CHECK 7 : Modulo (FORCÉ À 1 dans le code actuel)
-                        nb_jours_test = 1  # Forcé ligne 136
-                        print(f"      └─ nb_jours forcé à: {nb_jours_test}")
-                        print(f"      └─ Test: {nb_jours_test} % {intervalle} = {nb_jours_test % intervalle}")
 
-                        if nb_jours_test % intervalle != 0:
-                            print(f"         ❌ BLOQUÉ : {nb_jours_test} n'est pas un multiple de {intervalle}")
+                        if nb_jours % intervalle != 0:
+                            print(f"         ❌ BLOQUÉ : {nb_jours} n'est pas un multiple de {intervalle}")
                             blocked_at['modulo_check'] += 1
                             continue
 
