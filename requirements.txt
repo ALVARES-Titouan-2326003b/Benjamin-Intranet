@@ -16,3 +16,8 @@ SQLAlchemy==2.0.44
 django-two-factor-auth[call,sms]
 phonenumbers
 django-otp
+google-auth==2.29.0
+google-auth-oauthlib==1.2.0
+google-api-python-client==2.122.0
+google-auth-httplib2==0.2.0
+requests==2.32.5
