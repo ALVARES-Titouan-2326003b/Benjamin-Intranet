@@ -13,6 +13,14 @@ pypdf==6.3.0
 psycopg2-binary==2.9.11
 celery==5.3.4
 SQLAlchemy==2.0.44
+django-two-factor-auth[call,sms]
+phonenumbers
+django-otp
+google-auth==2.29.0
+google-auth-oauthlib==1.2.0
+google-api-python-client==2.122.0
+google-auth-httplib2==0.2.0
+requests==2.32.5
 django-two-factor-auth[call,sms]==1.18.1
 phonenumbers==9.0.21
 django-otp==1.6.3

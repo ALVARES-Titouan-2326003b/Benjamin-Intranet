@@ -10,6 +10,20 @@
 {% endblock %}
 
 {% block content %}
+
+<!-- Statut de synchronisation OAuth -->
+<div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-title">
+        <span><i class="bi bi-envelope-check"></i> Synchronisation boîte mail</span>
+    </div>
+
+    <div id="oauth-status-container">
+        <div style="text-align: center; padding: 1rem; color: var(--text-secondary);">
+            <i class="bi bi-hourglass-split"></i> Chargement du statut...
+        </div>
+    </div>
+</div>
+
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
 
    <!-- Card Calendrier -->
@@ -36,7 +50,7 @@
             <option value="">-- Sélectionner un email --</option>
             {% for email in emails %}
             {% if email.status == 'pending' %}
-            <option value="{{ email.id }}" data-from="{{ email.from }}"
+            <option value="{{ email.id }}" data-to="{{ email.to }}"
                data-subject="{{ email.subject|default:'(Sans objet)' }}">
                {{ email.subject|default:"(Sans objet)"|truncatewords:8 }}
             </option>
@@ -54,7 +68,7 @@
          </div>
 
          <!-- Bouton Auto-générer -->
-         <button onclick="autoGenerate()" class="btn btn-primary" type="button"
+         <button onclick="autoGenerate()" class="btn btn-primary auto-btn" type="button"
             style="width: 100%; margin-bottom: 1rem;">
             <i class="bi bi-robot"></i> Auto-générer le message
          </button>
@@ -62,7 +76,7 @@
          <textarea id="reply-message" class="form-control" style="min-height: 150px; margin-bottom: 1rem;"
             placeholder="Écrivez votre message ici..."></textarea>
 
-         <button onclick="sendReply()" class="btn btn-success" style="width: 100%; justify-content: center;">Envoyer
+         <button onclick="sendReply()" class="btn btn-success send-btn" style="width: 100%; justify-content: center;">Envoyer
             📨</button>
 
          <div id="reply-status" style="display: none; margin-top: 1rem;"></div>
@@ -82,7 +96,7 @@
                </div>
                <span class="email-date" style="font-size: 0.8rem;">{{ email.date|date:"d/m/Y H:i" }}</span>
             </div>
-            <div class="email-from">De: {{ email.to }}</div>
+            <div class="email-from">A: {{ email.to }}</div>
             <!-- "to" because it's sent to us? or from? Check context. Original code said "A: {{ email.to }}" but variable is email.to. Assuming original logic. -->
             <div class="email-preview">{{ email.body_text|truncatewords:20 }}</div>
          </div>
@@ -100,4 +114,5 @@
 {% block extra_js %}
 <script src="{% static '/js/mails.js' %}?v=4"></script>
 <script src="{% static '/js/calendar.js' %}?v=4"></script>
+<script src="{% static '/js/oauth_status.js' %}?v=4"></script>
 {% endblock %}

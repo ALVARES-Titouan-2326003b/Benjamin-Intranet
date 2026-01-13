@@ -18,6 +18,41 @@
 </div>
 
 <!-- Filters Card -->
+<!-- Bouton Relance Manuelle avec champ délai -->
+    {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
+    <div style="margin-bottom: 1.5rem;">
+        <form method="post" action="{% url 'invoices:manual_reminders' %}"
+              style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+            {% csrf_token %}
+
+            <!-- Champ délai relance -->
+            <div class="form-group" style="margin: 0; flex: 0 0 200px;">
+                <label class="form-label" style="font-size: 0.9rem; margin-bottom: 0.5rem;">
+                    Délai relance (jours)
+                </label>
+                <input type="number"
+                       name="delai_relance"
+                       value="1"
+                       min="1"
+                       class="form-control"
+                       style="font-weight: 600;"
+                       required>
+            </div>
+
+            <!-- Bouton relance -->
+            <button type="submit"
+                    class="btn btn-warning"
+                    style="font-weight: 600; padding: 0.75rem 1.5rem; flex: 1; min-width: 200px;"
+                    onclick="return confirm('Cette action va lancer la relance manuelle.\n\nVoulez-vous continuer ?');">
+                Lancer la relance manuelle
+            </button>
+        </form>
+
+        <small style="display: block; margin-top: 0.5rem; color: var(--text-secondary); font-style: italic;">
+            Le délai sera appliqué à tous les fournisseurs
+        </small>
+    </div>
+    {% endif %}
 <div class="card">
     <div class="card-title">
         <span><i class="bi bi-funnel"></i> Filtres</span>

@@ -112,9 +112,7 @@ function autoGenerate() {
 
 /**
  * Envoie la relance à l'email sélectionné
- * Appelle l'API /api/send-reply/
  */
-
 function sendReply() {
     const select = document.getElementById('email-select');
     const message = document.getElementById('reply-message').value.trim();
@@ -125,6 +123,18 @@ function sendReply() {
         alert('Veuillez écrire un message');
         return;
     }
+
+    const selectedOption = select.options[select.selectedIndex];
+    const to_email = selectedOption.getAttribute('data-to');
+    const subject = selectedOption.getAttribute('data-subject');
+
+    if (!to_email || !subject) {
+        alert('Erreur : informations du destinataire manquantes');
+        console.error('to_email:', to_email, 'subject:', subject);
+        return;
+    }
+
+    console.log('Envoi email vers:', to_email, 'sujet:', subject);
 
     // Désactive le bouton pendant l'envoi
     btn.disabled = true;
@@ -141,7 +151,9 @@ function sendReply() {
         },
         body: JSON.stringify({
             email_id: select.value,
-            message: message
+            message: message,
+            to_email: to_email,
+            subject: subject
         })
     })
     .then(response => response.json())

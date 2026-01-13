@@ -1,524 +1,365 @@
 """
 Gestionnaire de récupération et traitement des emails
-LOGIQUE INVERSÉE : Affiche les emails ENVOYÉS et vérifie si on a reçu des réponses
-VERSION SANS decode_email_header() - POUR TEST
+VERSION OAUTH2 : Utilise Gmail API avec OAuth2 au lieu de IMAP/SMTP classique
+VERSION AVEC STATUTS : Détecte automatiquement si les emails ont été répondu
 """
-import hashlib
-
-from django_mailbox.models import Mailbox, Message
-from django.core.mail import EmailMessage
-from django.conf import settings
+import base64
+from email.mime.text import MIMEText
 from django.utils import timezone
-import imaplib
-import email as email_lib
-from celery import Celery
+from management.modelsadm import OAuthToken
 
 
-def get_or_create_mailbox():
+def fetch_new_emails(user):
     """
-    Récupère ou crée la mailbox configurée pour alwaysdata
+    Récupère les nouveaux emails via Gmail API avec OAuth2
+
+    Args:
+        user (User): L'utilisateur Django connecté
+
+    Returns:
+        int: Nombre d'emails récupérés
     """
-    mailbox, created = Mailbox.objects.get_or_create(
-        name='Benjamin Mail',
-        defaults={
-            'uri': 'imap+ssl://benjaminmail@alwaysdata.net:Arceus2004@imap-benjaminmail.alwaysdata.net:993',
-            'from_email': 'benjaminmail@alwaysdata.net',
-            'active': True,
-        }
-    )
+    try:
+        oauth_token = OAuthToken.objects.get(user=user)
+    except OAuthToken.DoesNotExist:
+        print(f"{user.username} n'a pas synchronisé sa boîte mail")
+        return 0
 
-    if created:
-        print(f"✅ Mailbox '{mailbox.name}' créée avec succès")
-
-    return mailbox
-
-
-def fetch_new_emails():
-    """
-    Récupère les nouveaux emails depuis le serveur (INBOX pour les réponses ET Sent pour nos envois)
-    Retourne le nombre d'emails récupérés
-    """
-    mailbox = get_or_create_mailbox()
-    total_fetched = 0
+    print(f"\nRécupération des emails pour {user.username} ({oauth_token.email})...")
 
     try:
-        # 1. RÉCUPÈRE LES EMAILS REÇUS (INBOX) - pour avoir les réponses
-        print("\n📥 Récupération des emails reçus (INBOX)...")
-        inbox_messages = list(mailbox.get_new_mail())
-        print(f"✅ {len(inbox_messages)} nouveaux emails reçus (INBOX)")
-        total_fetched += len(inbox_messages)
+        from management.oauth_utils import get_gmail_service
 
-        # 2. RÉCUPÈRE ET STOCKE LES EMAILS ENVOYÉS (SENT)
-        print("\n📤 Récupération des emails envoyés (SENT)...")
-        sent_count = fetch_sent_emails(mailbox)
-        print(f"✅ {sent_count} emails envoyés récupérés et stockés")
-        total_fetched += sent_count
+        service = get_gmail_service(user)
 
-        print(f"\n📊 Total: {total_fetched} emails synchronisés")
-        return total_fetched
+        # Récupérer les messages
+        results = service.users().messages().list(
+            userId='me',
+            maxResults=100,
+            labelIds=['INBOX']
+        ).execute()
+
+        messages = results.get('messages', [])
+
+        print(f"✅ {len(messages)} messages trouvés dans INBOX")
+
+        return len(messages)
 
     except Exception as e:
-        print(f"❌ Erreur lors de la récupération des emails: {e}")
+        print(f"Erreur récupération emails : {e}")
         import traceback
         traceback.print_exc()
         return 0
 
 
-def fetch_sent_emails(mailbox):
+def get_sent_emails(user, limit=50):
     """
-    Récupère les emails du dossier SENT et les stocke dans la base de données
-    VERSION SANS decode_email_header() - Récupère les headers BRUTS
+    Récupère les emails ENVOYÉS via Gmail API avec détection du statut (répondu/en attente)
 
     Args:
-        mailbox: Objet Mailbox de django-mailbox
+        user (User): L'utilisateur Django connecte
+        limit (int): Nombre maximum d'emails a retourner
 
     Returns:
-        int: Nombre d'emails envoyés récupérés
+        list: Liste des emails envoyés avec leurs détails et statut
     """
-    sent_count = 0
+    try:
+        oauth_token = OAuthToken.objects.get(user=user)
+    except OAuthToken.DoesNotExist:
+        print(f"❌ {user.username} n'a pas synchronisé sa boîte mail")
+        return []
 
     try:
-        # Connexion IMAP
-        imap = imaplib.IMAP4_SSL('imap-benjaminmail.alwaysdata.net', 993)
-        imap.login('benjaminmail@alwaysdata.net', 'Arceus2004')
+        from management.oauth_utils import get_gmail_service
 
-        # Essaye différents noms de dossier Sent
-        sent_folder = None
-        for folder_name in ['Sent', 'Sent Items', 'INBOX.Sent', 'Envoyés', 'Éléments envoyés']:
+        service = get_gmail_service(user)
+
+        # Récupérer les messages envoyés
+        results = service.users().messages().list(
+            userId='me',
+            maxResults=limit,
+            labelIds=['SENT']
+        ).execute()
+
+        messages = results.get('messages', [])
+
+        print(f"\nRécupération de {len(messages)} emails envoyés...")
+        replied_message_ids = check_if_replies_exist(user)
+
+        # Récupérer les détails de chaque message
+        detailed_messages = []
+
+        for msg in messages:
             try:
-                status, _ = imap.select(f'"{folder_name}"', readonly=True)
-                if status == 'OK':
-                    sent_folder = folder_name
-                    print(f"✅ Dossier trouvé: {folder_name}")
-                    break
-            except Exception:
-                continue
+                msg_data = service.users().messages().get(
+                    userId='me',
+                    id=msg['id'],
+                    format='full'
+                ).execute()
 
-        if not sent_folder:
-            print("⚠️ Aucun dossier SENT trouvé")
-            imap.logout()
-            return 0
+                # Extraire les headers
+                headers = msg_data['payload']['headers']
+                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '(Sans objet)')
+                to = next((h['value'] for h in headers if h['name'] == 'To'), '')
+                date_str = next((h['value'] for h in headers if h['name'] == 'Date'), '')
+                message_id = next((h['value'] for h in headers if h['name'] == 'Message-ID'), None)
 
-        # Liste les emails
-        _, message_numbers = imap.search(None, 'ALL')
+                from email.utils import parsedate_to_datetime
+                try:
+                    date = parsedate_to_datetime(date_str)
+                except:
+                    date = timezone.now()
 
-        for num in message_numbers[0].split():
-            try:
-                _, msg_data = imap.fetch(num, '(RFC822)')
-                email_body = msg_data[0][1]
-                email_message = email_lib.message_from_bytes(email_body)
+                body = ''
+                if 'parts' in msg_data['payload']:
+                    for part in msg_data['payload']['parts']:
+                        if part['mimeType'] == 'text/plain':
+                            if 'data' in part['body']:
+                                body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+                                break
+                elif 'body' in msg_data['payload'] and 'data' in msg_data['payload']['body']:
+                    body = base64.urlsafe_b64decode(msg_data['payload']['body']['data']).decode('utf-8')
 
-                # ⚠️ EXTRACTION DES HEADERS SANS DÉCODAGE
-                # On récupère les valeurs brutes, telles quelles
-                message_id = email_message.get('Message-ID', '').strip()
-                subject = email_message.get('Subject', '')  # ⚠️ BRUT, potentiellement encodé
-                from_header = email_message.get('From', '')  # ⚠️ BRUT, potentiellement encodé
-                to_header = email_message.get('To', '')  # ⚠️ BRUT, potentiellement encodé
-                date_str = email_message.get('Date', '')
+                thread_id = msg_data.get('threadId')
 
-                # Génère un message_id si absent
-                if not message_id:
-                    import hashlib
-                    unique_string = f"{subject}-{from_header}-{to_header}-{date_str}"
-                    unique_hash = hashlib.md5(unique_string.encode()).hexdigest()
-                    message_id = f"<generated-{unique_hash}@benjaminmail.alwaysdata.net>"
-                    print(f"   ⚠️ Message-ID absent, généré : {message_id}")
+                status = 'pending'
+                status_emoji = '⏳'
+                status_text = 'En attente'
 
-                # Parse le corps du message
-                body_text = ''
-                body_html = ''
+                if thread_id and thread_id in replied_message_ids:
+                    status = 'replied'
+                    status_emoji = '✅'
+                    status_text = 'Répondu'
 
-                if email_message.is_multipart():
-                    for part in email_message.walk():
-                        content_type = part.get_content_type()
-                        if content_type == 'text/plain':
-                            body_text = part.get_payload(decode=True).decode('utf-8', errors='ignore')
-                        elif content_type == 'text/html':
-                            body_html = part.get_payload(decode=True).decode('utf-8', errors='ignore')
-                else:
-                    body_text = email_message.get_payload(decode=True).decode('utf-8', errors='ignore')
-
-                # Vérifie si le message existe déjà
-                message_exists = Message.objects.filter(message_id=message_id).exists()
-
-                print(f"\n📧 Email #{num}")
-                print(f"   Sujet (BRUT): {subject[:80]}...")  # ⚠️ Affiche potentiellement encodé
-                print(f"   Message-ID: {message_id}")
-                print(f"   From (BRUT): {from_header}")  # ⚠️ Affiche potentiellement encodé
-                print(f"   To (BRUT): {to_header}")  # ⚠️ Affiche potentiellement encodé
-                print(f"   Existe déjà ? {message_exists}")
-
-                if not message_exists:
-                    try:
-                        # Crée l'objet Message dans la BD
-                        # ⚠️ Les headers peuvent être encodés (=?UTF-8?B?...)
-                        created_msg = Message.objects.create(
-                            mailbox=mailbox,
-                            subject=subject,  # ⚠️ Potentiellement encodé
-                            message_id=message_id,
-                            from_header=from_header,  # ⚠️ Potentiellement encodé
-                            to_header=to_header,  # ⚠️ Potentiellement encodé
-                            outgoing=True,
-                            body=body_html,
-                            encoded=False,
-                            processed=timezone.now(),
-                            read=timezone.now(),
-                        )
-                        sent_count += 1
-                        print(f"   ✅ Message créé avec succès (ID: {created_msg.id})")
-                    except Exception as create_error:
-                        print(f"   ❌ ERREUR lors de la création: {create_error}")
-                        import traceback
-                        traceback.print_exc()
-                else:
-                    print(f"   ⏭️  Message déjà en BD, ignoré")
-
+                detailed_messages.append({
+                    'id': msg['id'],
+                    'subject': subject,
+                    'to': to,
+                    'date': date,
+                    'body_text': body[:200] if body else '',
+                    'from': oauth_token.email,
+                    'status': status,
+                    'status_emoji': status_emoji,
+                    'status_text': status_text
+                })
             except Exception as e:
-                print(f"⚠️ Erreur sur un email: {e}")
+                print(f"Erreur sur le message {msg['id']}: {e}")
                 continue
 
-        imap.logout()
-        return sent_count
+        print(f"✅ {len(detailed_messages)} emails envoyés récupérés")
+
+        # Compter les statuts
+        replied_count = sum(1 for m in detailed_messages if m['status'] == 'replied')
+        pending_count = sum(1 for m in detailed_messages if m['status'] == 'pending')
+        print(f"   Statuts : {replied_count} répondus, {pending_count} en attente")
+
+        return detailed_messages
 
     except Exception as e:
-        print(f"❌ Erreur lors de la récupération du dossier Sent: {e}")
+        print(f"Erreur récupération emails envoyés : {e}")
         import traceback
         traceback.print_exc()
-        return 0
+        return []
 
 
-def get_sent_emails(limit=50):
+def send_email_reply(to_email, subject, message_text, original_message_id, user):
     """
-    Récupère tous les emails ENVOYÉS stockés dans la base de données
-
-    Args:
-        limit (int): Nombre maximum d'emails à retourner
-
-    Returns:
-        QuerySet: Liste des emails envoyés triés par date (plus récents en premier)
-    """
-    messages = Message.objects.filter(
-        outgoing=True
-    ).order_by('-processed')[:limit]
-
-    return messages
-
-
-def check_if_received_reply(sent_message):
-    """
-    LOGIQUE INVERSÉE : Vérifie si on a REÇU une réponse à un email qu'on a ENVOYÉ
-    Utilise la relation ForeignKey in_reply_to de django-mailbox
-
-    Args:
-        sent_message (Message): Email envoyé par nous
-
-    Returns:
-        bool: True si quelqu'un nous a répondu, False sinon
-    """
-    if not sent_message.message_id:
-        return False
-
-    try:
-        reply_exists = Message.objects.filter(
-            outgoing=False,
-            in_reply_to_id=sent_message.id
-        ).exists()
-
-        return reply_exists
-
-    except Exception as e:
-        print(f"⚠️ Erreur dans check_if_received_reply: {e}")
-        return False
-
-
-def get_email_summary(message):
-    """
-    Retourne un résumé formaté d'un email ENVOYÉ avec son statut de réponse
-
-    Args:
-        message (Message): Objet Message de django-mailbox (email envoyé)
-
-    Returns:
-        dict: Dictionnaire avec les infos principales de l'email
-    """
-    has_received_reply = check_if_received_reply(message)
-
-    if has_received_reply:
-        status_emoji = '✅'
-        status_text = 'A répondu'
-        status = 'replied'
-    else:
-        status_emoji = '⏳'
-        status_text = 'Pas de réponse'
-        status = 'pending'
-
-    # Récupération sécurisée du body_text
-    body_text = ''
-    try:
-        if message.text:
-            body_text = message.text[:200].decode('utf-8')
-    except Exception:
-        try:
-            if message.body:
-                body_text = str(message.body)[:200]
-        except Exception:
-            body_text = ''
-
-    # Récupération sécurisée du body_html
-    body_html = ''
-    try:
-        body_html = message.html if message.html else ''
-    except Exception:
-        body_html = ''
-
-    return {
-        'id': message.id,
-        'subject': message.subject,
-        'from': message.from_header,
-        'to': message.to_header,
-        'date': message.processed,
-        'body_text': body_text,
-        'body_html': body_html,
-        'read': message.read,
-        'status': status,
-        'status_emoji': status_emoji,
-        'status_text': status_text,
-    }
-
-
-def mark_as_read(message_id):
-    """
-    Marque un email comme lu
-
-    Args:
-        message_id (int): ID du message
-    """
-    try:
-        message = Message.objects.get(id=message_id)
-        message.read = True
-        message.save()
-        return True
-    except Message.DoesNotExist:
-        return False
-
-
-def send_email_reply(to_email, subject, message_text, original_message_id):
-    """
-    Envoie un email de réponse avec les headers appropriés
-    ET enregistre l'email envoyé dans la base de données
+    Envoi un email via Gmail API avec OAuth2
 
     Args:
         to_email (str): Adresse email du destinataire
-        subject (str): Sujet de l'email (avec "Re:" ajouté automatiquement si absent)
+        subject (str): Sujet de l'email
         message_text (str): Contenu du message
-        original_message_id (int): ID du message original auquel on répond
+        original_message_id (str): ID du message original (Gmail ID)
+        user (User): L'utilisateur Django connecté qui envoie le mail
 
     Returns:
         dict: {'success': bool, 'message': str}
     """
-    print("\n" + "=" * 60)
-    print("🚀 DÉBUT send_email_reply()")
-    print(f"   to_email: {to_email}")
-    print(f"   subject: {subject}")
-    print(f"   original_message_id: {original_message_id}")
-    print("=" * 60)
+    print(f"\nEnvoi email via Gmail API")
+    print(f"   User: {user.username}")
+    print(f"   To: {to_email}")
+    print(f"   Subject: {subject}")
 
     try:
-        print("🔧 Récupération du message original...")
-        original_message = Message.objects.get(id=original_message_id)
-        print(f"✅ Message original trouvé : {original_message.subject}")
+        oauth_token = OAuthToken.objects.get(user=user)
 
         if not subject.startswith('Re:'):
             subject = f"Re: {subject}"
 
-        print("\n💾 CRÉATION DE L'OBJET MESSAGE DANS LA BD")
-        print("-" * 60)
+        from management.oauth_utils import send_email_via_gmail_api
 
-        from django.utils import timezone
-        import hashlib
+        result = send_email_via_gmail_api(user, to_email, subject, message_text)
 
-        mailbox = get_or_create_mailbox()
+        if result['success']:
+            print(f"Email envoyé avec succès depuis {oauth_token.email}")
+            return {
+                'success': True,
+                'message': 'Email envoyé avec succès !'
+            }
+        else:
+            print(f"Échec envoi : {result.get('error')}")
+            return {
+                'success': False,
+                'message': f"Erreur : {result.get('error')}"
+            }
 
-        unique_id = hashlib.md5(f"{original_message_id}-{timezone.now()}".encode()).hexdigest()
-        generated_message_id = f"<sent-{unique_id}@benjaminmail.alwaysdata.net>"
-
-        print(f"   Mailbox: {mailbox.name} (ID: {mailbox.id})")
-        print(f"   Original message ID: {original_message.id}")
-        print(f"   Message-ID généré: {generated_message_id}")
-
-        sent_message = Message.objects.create(
-            mailbox=mailbox,
-            subject=subject,
-            message_id=generated_message_id,
-            from_header=settings.EMAIL_HOST_USER,
-            to_header=to_email,
-            outgoing=True,
-            body=message_text,
-            encoded=False,
-            processed=timezone.now(),
-            read=timezone.now(),
-            in_reply_to_id=original_message.id,
-        )
-
-        print(f"✅✅✅ Message enregistré en BD ! ID: {sent_message.id}")
-        print(f"       in_reply_to_id: {sent_message.in_reply_to_id}")
-
-        print("\n📮 ENVOI DE L'EMAIL VIA SMTP")
-        print("-" * 60)
-
-        email = EmailMessage(
-            subject=subject,
-            body=message_text,
-            from_email=settings.EMAIL_HOST_USER,
-            to=[to_email],
-        )
-
-        email.extra_headers = {
-            'In-Reply-To': original_message.message_id,
-            'References': original_message.message_id,
-            'Message-ID': generated_message_id,
-        }
-
-        email.send()
-        print(f"✅ Email envoyé à {to_email}")
-        print("=" * 60 + "\n")
-
-        return {
-            'success': True,
-            'message': 'Email envoyé avec succès !'
-        }
-
-    except Message.DoesNotExist:
-        print("❌ Message original introuvable")
+    except OAuthToken.DoesNotExist:
         return {
             'success': False,
-            'message': 'Email original introuvable'
+            'message': 'Vous devez synchroniser votre boîte mail Gmail avant d\'envoyer des emails'
         }
     except Exception as e:
-        print(f"\n❌❌❌ ERREUR : {e}")
+        print(f"Erreur : {e}")
         import traceback
         traceback.print_exc()
-        print("=" * 60 + "\n")
         return {
             'success': False,
             'message': f'Erreur : {str(e)}'
         }
 
 
-def send_auto_relance(to_email, subject, message_text, objet_custom, original_message_id):
+def send_auto_relance(to_email, subject, message_text, objet_custom, original_message_id, user):
     """
-    Envoie une RELANCE AUTOMATIQUE avec les headers appropriés
-    ET enregistre l'email envoyé dans la base de données
-
-    Différence avec send_email_reply : utilisé par la tâche Celery, pas l'interface manuelle
+    Envoie une RELANCE AUTOMATIQUE via Gmail API
 
     Args:
         to_email (str): Adresse email du destinataire
         subject (str): Sujet de l'email original
         message_text (str): Contenu du message personnalisé
-        objet_custom (str): Objet personnalisé depuis Modele_Relance (optionnel)
-        original_message_id (int): ID du message original auquel on répond
+        objet_custom (str): Objet personnalisé
+        original_message_id (str): ID du message original (Gmail ID)
+        user (User): L'utilisateur Django connecté
 
     Returns:
         dict: {'success': bool, 'message': str}
     """
-    print("\n" + "=" * 60)
-    print("🤖 DÉBUT send_auto_relance() - RELANCE AUTOMATIQUE")
-    print(f"   to_email: {to_email}")
-    print(f"   subject: {subject}")
-    print(f"   objet_custom: {objet_custom}")
-    print(f"   original_message_id: {original_message_id}")
-    print("=" * 60)
+    print(f"\nEnvoi relance automatique via Gmail API")
+    print(f"   User: {user.username}")
+    print(f"   To: {to_email}")
 
-    try:
-        # Récupère le message original
-        print("📧 Récupération du message original...")
-        original_message = Message.objects.get(id=original_message_id)
-        print(f"✅ Message original trouvé : {original_message.subject}")
-
-        # Format de l'objet : "[sujet original]: relance automatique"
-        # Si objet_custom existe, on l'utilise comme base
-        if objet_custom:
-            base_subject = objet_custom
-        else:
-            # Enlever "Re: " si présent dans le sujet original
-            base_subject = subject.replace('Re: ', '', 1) if subject.startswith('Re:') else subject
-
-        # Ajouter ": relance automatique"
+    if objet_custom:
+        final_subject = f"{objet_custom}: relance automatique"
+    else:
+        base_subject = subject.replace('Re: ', '', 1) if subject.startswith('Re:') else subject
         final_subject = f"{base_subject}: relance automatique"
 
-        # 1. CRÉER L'OBJET MESSAGE DANS LA BD D'ABORD
-        print("\n💾 CRÉATION DE L'OBJET MESSAGE DANS LA BD")
-        print("-" * 60)
+    # Envoyer comme un email normal
+    return send_email_reply(to_email, final_subject, message_text, original_message_id, user)
 
-        mailbox = get_or_create_mailbox()
 
-        # Génère un message_id unique
-        unique_id = hashlib.md5(f"auto-{original_message_id}-{timezone.now()}".encode()).hexdigest()
-        generated_message_id = f"<auto-relance-{unique_id}@benjaminmail.alwaysdata.net>"
+def check_if_replies_exist(user):
+    """
+    VERSION 2 : Utilise threadId pour détecter les conversations avec réponses
+    """
+    try:
+        from management.oauth_utils import get_gmail_service
 
-        print(f"   Mailbox: {mailbox.name} (ID: {mailbox.id})")
-        print(f"   Original message ID: {original_message.id}")
-        print(f"   Message-ID généré: {generated_message_id}")
-        print(f"   Sujet final: {final_subject}")
+        service = get_gmail_service(user)
 
-        sent_message = Message.objects.create(
-            mailbox=mailbox,
-            subject=final_subject,
-            message_id=generated_message_id,
-            from_header=settings.EMAIL_HOST_USER,
-            to_header=to_email,
-            outgoing=True,
-            body=message_text,
-            encoded=False,
-            processed=timezone.now(),
-            read=timezone.now(),
-            in_reply_to_id=original_message.id,
-        )
+        print(f"\nVérification des réponses (méthode threadId)...")
 
-        print(f"✅✅✅ Message enregistré en BD ! ID: {sent_message.id}")
-        print(f"       in_reply_to_id: {sent_message.in_reply_to_id}")
+        results = service.users().messages().list(
+            userId='me',
+            maxResults=100,
+            labelIds=['INBOX']
+        ).execute()
 
-        # 2. ENVOYER L'EMAIL VIA SMTP
-        print("\n📮 ENVOI DE LA RELANCE AUTOMATIQUE VIA SMTP")
-        print("-" * 60)
+        inbox_messages = results.get('messages', [])
+        print(f"   {len(inbox_messages)} messages dans INBOX")
 
-        email = EmailMessage(
-            subject=final_subject,
-            body=message_text,
-            from_email=settings.EMAIL_HOST_USER,
-            to=[to_email],
-        )
+        inbox_thread_ids = set()
+        for msg in inbox_messages:
+            thread_id = msg.get('threadId')
+            if thread_id:
+                inbox_thread_ids.add(thread_id)
 
-        # Ajoute les headers pour marquer comme réponse
-        email.extra_headers = {
-            'In-Reply-To': original_message.message_id,
-            'References': original_message.message_id,
-            'Message-ID': generated_message_id,
-            'X-Auto-Relance': 'true',  # Header custom pour identifier les relances auto
-        }
+        print(f"   {len(inbox_thread_ids)} threads trouvés dans INBOX")
 
-        email.send()
-        print(f"✅ Relance automatique envoyée à {to_email}")
-        print("=" * 60 + "\n")
+        return inbox_thread_ids
 
-        return {
-            'success': True,
-            'message': 'Relance automatique envoyée avec succès !'
-        }
-
-    except Message.DoesNotExist:
-        print("❌ Message original introuvable")
-        return {
-            'success': False,
-            'message': 'Email original introuvable'
-        }
     except Exception as e:
-        print(f"\n❌❌❌ ERREUR : {e}")
+        print(f"   Erreur check_if_replies_exist: {e}")
         import traceback
         traceback.print_exc()
-        print("=" * 60 + "\n")
-        return {
-            'success': False,
-            'message': f'Erreur : {str(e)}'
-        }
+        return set()
+
+
+def check_if_received_reply(sent_message, user):
+    """
+    Vérifie si un email ENVOYÉ a reçu une réponse
+
+    Args:
+        sent_message (dict): Email envoyé avec au minimum {'id': gmail_id}
+        user (User): Utilisateur Django
+
+    Returns:
+        bool: True si réponse reçue, False sinon
+    """
+    try:
+        from management.oauth_utils import get_gmail_service
+
+        service = get_gmail_service(user)
+
+        # Récupérer le Message-ID de l'email envoyé
+        msg_data = service.users().messages().get(
+            userId='me',
+            id=sent_message['id'],
+            format='metadata',
+            metadataHeaders=['Message-ID']
+        ).execute()
+
+        headers = msg_data['payload']['headers']
+        message_id = next((h['value'] for h in headers if h['name'] == 'Message-ID'), None)
+
+        if not message_id:
+            return False
+
+        clean_message_id = message_id.strip().strip('<>')
+
+        query = f'in:inbox (in-reply-to:{clean_message_id} OR references:{clean_message_id})'
+
+        results = service.users().messages().list(
+            userId='me',
+            q=query,
+            maxResults=1
+        ).execute()
+
+        messages = results.get('messages', [])
+
+        return len(messages) > 0
+
+    except Exception as e:
+        print(f"   Erreur check_if_received_reply: {e}")
+        return False
+
+
+
+
+def get_email_summary(email_dict):
+    """
+    Retourne un résumé formaté d'un email
+    (Déjà formaté par get_sent_emails, donc on le retourne tel quel)
+
+    Args:
+        email_dict (dict): Dictionnaire contenant les infos de l'email
+
+    Returns:
+        dict: Résumé de l'email formaté
+    """
+    # Si c'est déjà un dict, le retourner tel quel
+    if isinstance(email_dict, dict):
+        return email_dict
+
+    # Sinon, formater (fallback au cas où)
+    return {
+        'id': getattr(email_dict, 'id', ''),
+        'subject': getattr(email_dict, 'subject', '(Sans objet)'),
+        'from': getattr(email_dict, 'from_header', ''),
+        'to': getattr(email_dict, 'to_header', ''),
+        'date': getattr(email_dict, 'processed', timezone.now()),
+        'body_text': '',
+        'status': 'pending',
+        'status_emoji': '⏳',
+        'status_text': 'En attente'
+    }

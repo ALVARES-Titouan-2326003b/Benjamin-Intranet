@@ -83,3 +83,46 @@ class Dossier(models.Model):
     class Meta:
         managed = False
         db_table = '"Dossier"'
+
+
+class Utilisateur(models.Model):
+    id = models.TextField(primary_key=True)
+    mdp = models.TextField()
+    email = models.TextField()
+    nom = models.TextField(blank=True, null=True)
+    prenom = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'Utilisateurs'
+        managed = False
+
+    def __str__(self):
+        return f"{self.prenom} {self.nom} ({self.email})" if self.prenom and self.nom else self.email
+
+
+class Modele_Relance(models.Model):
+    utilisateur = models.TextField(primary_key=True)
+    metier = models.TextField()
+    pole = models.TextField()
+    message = models.TextField(blank=True, null=True)
+    objet = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'Modele_Relance'
+        managed = False
+
+    def __str__(self):
+        return f"Modèle relance pour utilisateur {self.utilisateur}"
+
+
+class Temps_Relance(models.Model):
+    id = models.TextField(primary_key=True)
+    pole = models.TextField()
+    relance = models.IntegerField()
+
+    class Meta:
+        db_table = 'Temps_Relance'
+        managed = False
+
+    def __str__(self):
+        return f"Relance tous les {self.relance} jours pour utilisateur {self.id}"
