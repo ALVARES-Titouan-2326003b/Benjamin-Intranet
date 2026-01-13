@@ -256,7 +256,7 @@ def get_email_summary(message):
     body_text = ''
     try:
         if message.text:
-            body_text = message.text[:200]
+            body_text = message.text[:200].decode('utf-8')
     except Exception:
         try:
             if message.body:
