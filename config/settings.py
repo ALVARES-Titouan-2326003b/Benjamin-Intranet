@@ -15,11 +15,6 @@ import os
 import environ
 import logging
 
-# Admins who receive error emails (500)
-ADMINS = [
-    ('Administrateur', os.getenv("DEFAULT_FROM_EMAIL", "support@benjamin-immobilier.fr")),
-]
-MANAGERS = ADMINS
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -78,6 +73,9 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    # --- AJOUT MIDDLEWARE AUDIT (Log Actions + IP) ---
+    'config.middleware.AuditLogMiddleware',
+    
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # --- AJOUT A2F ---
     'django_otp.middleware.OTPMiddleware',
@@ -120,7 +118,7 @@ STATICFILES_DIRS = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Database
+# Base de donnée
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
@@ -135,7 +133,7 @@ DATABASES = {
 }
 
 
-# Password validation
+# Valide mdp
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -168,16 +166,16 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Base URL for email links
+# url email
 SITE_URL = env("SITE_URL", default="http://127.0.0.1:8000")
 
-# Configuration 2FA
+# Configuration a2f
 LOGIN_URL = 'two_factor:login'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = 'two_factor:login'
 
-# "SE SOUVENIR DE MOI" (Trusted Device)
-# 30 jours (en secondes) : 60s * 60m * 24h * 30j
+# "SE SOUVENIR DE MOI"
+# 30 jours (en secondes)
 TWO_FACTOR_REMEMBER_COOKIE_AGE = 60 * 60 * 24 * 30
 TWO_FACTOR_REMEMBER_COOKIE_NAME = 'benjamin_intranet_device'
 TWO_FACTOR_CALL_GATEWAY = None
@@ -244,21 +242,13 @@ AXES_LOCKOUT_CALLABLE = 'authentication.axes_handlers.custom_lockout_response'
 AXES_USERNAME_CALLABLE = 'authentication.axes_handlers.get_axes_username'
 AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
 
-# --- LOGGING CONFIGURATION (OWASP A09) ---
-# En production, cela permet de :
-# 1. Sauvegarder les erreurs dans un fichier 'django_errors.log' à la racine
-# 2. Envoyer un mail aux ADMINS en cas d'erreur 500 (CRITICAL)
 
-# --- LOGGING CONFIGURATION (OWASP A09 & A01) ---
-# Fichier unique par jour contenant TOUT (Erreurs + Sécurité)
-
-# Fichier unique par jour contenant TOUT (Erreurs + Sécurité)
-
+# LOG 
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        # Format complet pour tout avoir
+        # Obtenir toute les données
         'standard': {
             'format': '[{asctime}] {levelname} {name}: {message}',
             'style': '{',
@@ -270,7 +260,7 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'standard',
         },
-        # Fichier nommé exactement "AAAA-MM-JJ.log" avec rotation auto SANS redémarrage
+        # Fichier nommé "AAAA-MM-JJ.log" 
         'daily_file': {
             'level': 'INFO', 
             'class': 'config.log_handlers.DailyDateFileHandler',
@@ -278,20 +268,15 @@ LOGGING = {
             'formatter': 'standard',
             'encoding': 'utf-8',
         },
-        'mail_admins': {
-            'level': 'ERROR',
-            'class': 'django.utils.log.AdminEmailHandler',
-            'include_html': True, 
-        },
     },
     'loggers': {
-        # Django (catch-all)
+        # Django
         'django': {
-            'handlers': ['console', 'daily_file', 'mail_admins'],
+            'handlers': ['console', 'daily_file'],
             'level': 'INFO',
             'propagate': True,
         },
-        # Sécurité spécifique
+        # Sécurité
         'django.security': {
             'handlers': ['daily_file', 'console'],
             'level': 'INFO',
@@ -312,28 +297,23 @@ LOGGING = {
     },
 }
 
-# --- CONFIGURATION PRODUCTION (OWASP A02 & A04) ---
-# Ces paramètres s'activent UNIQUEMENT si DJANGO_ENV=production dans le .env
-# Cela permet de sécuriser le site une fois en ligne sans casser le développement local.
+
 
 if os.getenv('DJANGO_ENV') == 'production':
-    # 1. Désactiver le mode Debug (CRITIQUE pour A10 - ne rien afficher en cas d'erreur)
     DEBUG = False
-
-    # 2. Forcer le HTTPS (CRITIQUE pour A04 - Cryptographie)
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-    # 3. Sécuriser les Cookies (Empêche le vol de session)
+    # Permet de séccuriser les cookies
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-    # 4. HSTS (Empêche les navigateurs de tenter du HTTP insécurisé)
+    # On empeche de faire des connexions http
     SECURE_HSTS_SECONDS = 31536000  # 1 an
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-    # 5. Sécuriser les Hosts (Attention à bien configurer ceci en prod)
+    # Permet de sécuriser les Hosts
     ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'benjamin-intranet.fr').split(',')
     
     print("\n🔒 MODE PRODUCTION ACTIVÉ : HTTPS forcé, Cookies sécurisés, Debug OFF.\n")
