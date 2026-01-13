@@ -21,3 +21,7 @@ google-auth-oauthlib==1.2.0
 google-api-python-client==2.122.0
 google-auth-httplib2==0.2.0
 requests==2.32.5
+django-two-factor-auth[call,sms]==1.18.1
+phonenumbers==9.0.21
+django-otp==1.6.3
+django-axes==8.1.0

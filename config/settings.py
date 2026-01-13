@@ -60,11 +60,15 @@ INSTALLED_APPS = [
     'two_factor',
     'two_factor.plugins.phonenumber',
     'two_factor.plugins.email',
+    'axes',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # --- AJOUT AXES (Protection Brute Force) ---
+    'axes.middleware.AxesMiddleware',
+
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -73,6 +77,13 @@ MIDDLEWARE = [
     # --- AJOUT A2F ---
     'django_otp.middleware.OTPMiddleware',
     'two_factor.middleware.threadlocals.ThreadLocals',
+]
+
+AUTHENTICATION_BACKENDS = [
+    # Axes doit être le PREMIER pour bloquer les intrus avant qu'ils ne testent le mot de passe
+    'axes.backends.AxesStandaloneBackend',
+    # backend de Django pour vérifier le mot de passe
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -211,3 +222,19 @@ CACHES = {
 
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
+# --- CONFIGURATION AXES (Brute Force) ---
+# Nombre d'échecs autorisés avant blocage
+AXES_FAILURE_LIMIT = 5
+
+# Durée du blocage en heures
+AXES_COOLOFF_TIME = 1
+
+# Réinitialise le compteur si la connexion réussit
+AXES_RESET_ON_SUCCESS = True
+
+# Ici On bloque la combinaison ip + nom d'utilisateur
+AXES_LOCKOUT_PARAMETERS = ["ip_address", ["username", "user_agent"]]
+AXES_LOCKOUT_PARAMETERS = ["ip_address", "username"]
+AXES_LOCKOUT_CALLABLE = 'authentication.axes_handlers.custom_lockout_response'
+AXES_USERNAME_CALLABLE = 'authentication.axes_handlers.get_axes_username'
+AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
