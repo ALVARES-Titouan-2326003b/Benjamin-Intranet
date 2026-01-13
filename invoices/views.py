@@ -5,7 +5,7 @@ from django.utils.decorators import method_decorator
 from django_filters.views import FilterView
 from django.views.generic import DetailView, CreateView, UpdateView
 
-from user_access.user_test_functions import has_finance_access, is_ceo
+from user_access.user_test_functions import has_finance_access, is_ceo, can_read_facture
 from .filters import FactureFilter
 from .forms import FactureForm, PieceJointeForm
 from .models import Facture, PieceJointe
@@ -13,7 +13,7 @@ from .models import Facture, PieceJointe
 
 # ================== Liste / Détail ==================
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name="dispatch")
+@method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
 class FactureListView(FilterView):
     model = Facture
     paginate_by = 20
@@ -24,11 +24,17 @@ class FactureListView(FilterView):
         qs = super().get_queryset()
         return qs.select_related('client')
 
+    def get_extra_context(self):
+        return {"access_finance": has_finance_access(self.request.user)}
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name="dispatch")
+
+@method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
 class FactureDetailView(DetailView):
     model = Facture
     template_name = 'invoices/invoice_detail.html'
+
+    def get_extra_context(self):
+        return {"access_finance": has_finance_access(self.request.user)}
 
 
 # ================== Pièce jointe ==================

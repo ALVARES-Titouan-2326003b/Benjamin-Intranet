@@ -8,13 +8,15 @@ from recrutement.models import Candidat
 from technique.models import TechnicalProject, DocumentTechnique
 from user_access.user_test_functions import (has_administratif_access,
                                              has_finance_access,
-                                             has_technique_access)
+                                             has_technique_access,
+                                             can_read_facture)
 
 @login_required
 def dashboard_view(request):
     return render(request, 'home_dashboard.html', {'access_finance': has_finance_access(request.user),
                                                 'access_technique': has_technique_access(request.user),
-                                                'access_administratif': has_administratif_access(request.user)})
+                                                'access_administratif': has_administratif_access(request.user),
+                                                'access_factures': can_read_facture(request.user)})
 
 @login_required
 def global_search(request):

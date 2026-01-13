@@ -16,3 +16,14 @@ def has_technique_access(user):
 def is_ceo(user):
     user = User.objects.get(username=user.username)
     return user.groups.filter(name="CEO").exists()
+
+def is_collaborateur(user):
+    user = User.objects.get(username=user.username)
+    return user.groups.filter(name="COLLABORATEUR").exists()
+
+def can_read_facture(user):
+    user = User.objects.get(username=user.username)
+    if has_finance_access(user) or is_collaborateur(user):
+        return True
+    else:
+        return False
