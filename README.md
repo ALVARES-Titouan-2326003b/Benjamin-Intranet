@@ -7,12 +7,12 @@ modules internes d’une organisation (authentification, gestion des employés, 
 
 ## Sommaire
 
-- À propos
-- Fonctionnalités principales
-- Structure du projet
-- Modules nécessaires
-- Installation & configuration
-- Lancement de l’application
+- [À propos](#à-propos)
+- [Fonctionnalités principales](#fonctionnalités-principales)
+- [Structure du projet](#structure-du-projet)
+- [Modules nécessaires](#modules-nécessaires)
+- [Installation & configuration](#installation--configuration)
+- [Lancement de l’application](#lancer-lapplication)
 
 ---
 
@@ -65,7 +65,7 @@ Benjamin-Intranet/
 
 ## Modules nécessaires
 
-Les modules ainsi que leur version sont tous disponibles dans le fichier requirements.txt à la racine du projet.
+Les modules ainsi que leur version sont tous disponibles dans le fichier `requirements.txt` à la racine du projet.
 
 | Package                          | Version  |
 |----------------------------------|----------|
