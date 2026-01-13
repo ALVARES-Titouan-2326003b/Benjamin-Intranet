@@ -1,0 +1,35 @@
+.error-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.error-message {
+    color: var(--text-secondary, #64748b);
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+}
+
+.error-code {
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+/* 404*/
+.error-type-404 .error-icon {
+    color: var(--warning-color, #f59e0b);
+}
+
+.error-type-404 .error-code {
+    color: var(--primary-color);
+}
+
+/* 500*/
+.error-type-500 .error-icon {
+    color: var(--danger-color, #ef4444);
+}
+
+.error-type-500 .error-code {
+    color: var(--danger-color, #ef4444);
+}
