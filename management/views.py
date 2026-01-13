@@ -20,7 +20,6 @@ TEMP_USERS = {
         'password': '1234',
         'pole': 'administratif'
     },
-    # Ajouter d'autres utilisateurs de test si nécessaire
 }
 
 

@@ -91,12 +91,12 @@ def exchange_code_for_tokens(code, redirect_uri):
 
     credentials = flow.credentials
 
-    # Récupérer l'email de l'utilisateur
+
     service = build('gmail', 'v1', credentials=credentials)
     profile = service.users().getProfile(userId='me').execute()
     user_email = profile['emailAddress']
 
-    # Calculer l'expiration (généralement 1 heure)
+
     token_expiry = timezone.now() + timedelta(seconds=credentials.expiry.timestamp() - timezone.now().timestamp())
 
     return {
@@ -131,10 +131,10 @@ def refresh_access_token(refresh_token):
         scopes=SCOPES
     )
 
-    # Renouveler le token
+
     credentials.refresh(Request())
 
-    # Calculer l'expiration
+
     token_expiry = timezone.now() + timedelta(seconds=3600)  # 1 heure
 
     return {
@@ -230,7 +230,7 @@ def send_email_via_gmail_api(user, to_email, subject, message_text):
 
     raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
 
-    # Envoyer
+
     try:
         sent_message = service.users().messages().send(
             userId='me',
