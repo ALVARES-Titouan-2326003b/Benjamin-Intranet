@@ -229,8 +229,8 @@ X_FRAME_OPTIONS = "SAMEORIGIN"
 # Nombre d'échecs autorisés avant blocage
 AXES_FAILURE_LIMIT = 5
 
-# Durée du blocage en heures
-AXES_COOLOFF_TIME = 1
+# Durée du blocage en heures(10 minutes)
+AXES_COOLOFF_TIME = 0.167
 
 # Réinitialise le compteur si la connexion réussit
 AXES_RESET_ON_SUCCESS = True
