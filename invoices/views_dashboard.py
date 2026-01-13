@@ -1,13 +1,17 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
+
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.utils.decorators import method_decorator
 from django.views.generic import TemplateView
-from django.db.models import Sum, Count, Q, F
+from django.db.models import Sum, Count, Q
 from django.utils import timezone
+
+from user_access.user_test_functions import has_finance_access
 from .models import Facture
-from django.contrib.auth.mixins import LoginRequiredMixin
-import datetime
 from django.db.models.functions import TruncMonth
 
-class DashboardView(LoginRequiredMixin, TemplateView):
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+class DashboardView(TemplateView):
     template_name = "invoices/dashboard.html"
 
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:

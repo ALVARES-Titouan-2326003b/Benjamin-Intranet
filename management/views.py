@@ -1,59 +1,25 @@
 """
 Vues pour la partie administrative - Gestion des emails et relances
 """
-from datetime import timezone
 
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
 from .email_manager import fetch_new_emails, get_sent_emails, get_email_summary, send_email_reply
-from .modelsadm import Utilisateur, Modele_Relance, Temps_Relance, Activites
+from .modelsadm import Utilisateur, Modele_Relance, Activites
 import json
-from celery import Celery
+from user_access.user_test_functions import has_administratif_access
 
 
-# Données temporaires pour l'authentification
-TEMP_USERS = {
-    'antoine': {
-        'password': '1234',
-        'pole': 'administratif'
-    },
-    # Ajouter d'autres utilisateurs de test si nécessaire
-}
 
 
-def login_view(request):
-    """Page de connexion"""
-    if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        password = request.POST.get('password', '')
-
-        # Vérification des credentials
-        if username in TEMP_USERS and TEMP_USERS[username]['password'] == password:
-            # Stockage du pôle en session
-            request.session['user_pole'] = TEMP_USERS[username]['pole']
-            request.session['username'] = username
-
-            # Redirection vers le pôle correspondant
-            pole = TEMP_USERS[username]['pole']
-            return redirect(pole)
-        else:
-            # Identifiants incorrects
-            return render(request, 'registration/login.html', {'error': 'Identifiants incorrects'})
-
-    return render(request, 'registration/login.html')
-
-
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def administratif_view(request):
     """
     Page du pôle administratif - LOGIQUE INVERSÉE : affiche les emails ENVOYÉS
     """
-    # Vérifications de session désactivées pour le développement
-    # if 'user_pole' not in request.session:
-    #     return redirect('login')
-    # if request.session['user_pole'] != 'administratif':
-    #     return redirect('login')
 
     # Récupération des emails à chaque chargement de page
     fetch_new_emails()
@@ -71,6 +37,8 @@ def administratif_view(request):
 
 
 @require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def send_reply_view(request):
     """
     API endpoint pour envoyer une relance à un destinataire
@@ -121,6 +89,8 @@ def send_reply_view(request):
 
 
 @require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def generate_auto_message_view(request):
     """
     Génère un message pré-rempli basé sur les infos de la table Modele_Relance
@@ -253,6 +223,8 @@ def generate_auto_message_view(request):
 
 
 @require_http_methods(["GET"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def get_calendar_activities(request):
     """
     API endpoint pour récupérer les activités du calendrier

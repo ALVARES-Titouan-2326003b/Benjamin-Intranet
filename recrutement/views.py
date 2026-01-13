@@ -1,13 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.urls import reverse
-from .models import FicheDePoste, Candidat, Candidature
+from .models import FicheDePoste, Candidature
 from .forms import FicheDePosteForm, CVUploadForm
 from .services.parsing import extract_text
 from .services.ai import score_cv
+from user_access.user_test_functions import has_finance_access
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def dashboard(request):
     fiches = FicheDePoste.objects.order_by("-created_at")
     recents = Candidature.objects.select_related("fiche", "candidat")[:20]
@@ -17,6 +18,7 @@ def dashboard(request):
     })
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def fiche_create(request):
     if request.method == "POST":
         form = FicheDePosteForm(request.POST)
@@ -31,6 +33,7 @@ def fiche_create(request):
     return render(request, "recrutement/job_form.html", {"form": form})
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def fiche_detail(request, pk):
     fiche = get_object_or_404(FicheDePoste, pk=pk)
     upload_form = CVUploadForm()
@@ -42,6 +45,7 @@ def fiche_detail(request, pk):
     })
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def upload_cv(request, pk):
     fiche = get_object_or_404(FicheDePoste, pk=pk)
     if request.method != "POST":
