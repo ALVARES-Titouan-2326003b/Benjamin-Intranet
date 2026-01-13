@@ -15,6 +15,7 @@ import os
 import environ
 import logging
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -73,6 +74,9 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    # --- AJOUT MIDDLEWARE AUDIT (Log Actions + IP) ---
+    'config.middleware.AuditLogMiddleware',
+    
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # --- AJOUT A2F ---
     'django_otp.middleware.OTPMiddleware',
@@ -115,7 +119,7 @@ STATICFILES_DIRS = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Database
+# Base de donnée
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
@@ -130,7 +134,7 @@ DATABASES = {
 }
 
 
-# Password validation
+# Valide mdp
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -163,16 +167,16 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Base URL for email links
+# url email
 SITE_URL = env("SITE_URL", default="http://127.0.0.1:8000")
 
-# Configuration 2FA
+# Configuration a2f
 LOGIN_URL = 'two_factor:login'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = 'two_factor:login'
 
-# "SE SOUVENIR DE MOI" (Trusted Device)
-# 30 jours (en secondes) : 60s * 60m * 24h * 30j
+# "SE SOUVENIR DE MOI"
+# 30 jours (en secondes)
 TWO_FACTOR_REMEMBER_COOKIE_AGE = 60 * 60 * 24 * 30
 TWO_FACTOR_REMEMBER_COOKIE_NAME = 'benjamin_intranet_device'
 TWO_FACTOR_CALL_GATEWAY = None
@@ -226,8 +230,8 @@ X_FRAME_OPTIONS = "SAMEORIGIN"
 # Nombre d'échecs autorisés avant blocage
 AXES_FAILURE_LIMIT = 5
 
-# Durée du blocage en heures
-AXES_COOLOFF_TIME = 1
+# Durée du blocage en heures(10 minutes)
+AXES_COOLOFF_TIME = 0.167
 
 # Réinitialise le compteur si la connexion réussit
 AXES_RESET_ON_SUCCESS = True
@@ -238,3 +242,81 @@ AXES_LOCKOUT_PARAMETERS = ["ip_address", "username"]
 AXES_LOCKOUT_CALLABLE = 'authentication.axes_handlers.custom_lockout_response'
 AXES_USERNAME_CALLABLE = 'authentication.axes_handlers.get_axes_username'
 AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
+
+
+# LOG 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        # Obtenir toute les données
+        'standard': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+        # Fichier nommé "AAAA-MM-JJ.log" 
+        'daily_file': {
+            'level': 'INFO', 
+            'class': 'config.log_handlers.DailyDateFileHandler',
+            'log_dir': BASE_DIR / 'logs',
+            'formatter': 'standard',
+            'encoding': 'utf-8',
+        },
+    },
+    'loggers': {
+        # Django
+        'django': {
+            'handlers': ['console', 'daily_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        # Sécurité
+        'django.security': {
+            'handlers': ['daily_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Axes
+        'axes': {
+            'handlers': ['daily_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Audit métier
+        'audit': {
+            'handlers': ['daily_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        }
+    },
+}
+
+
+
+if os.getenv('DJANGO_ENV') == 'production':
+    DEBUG = False
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+    # Permet de séccuriser les cookies
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # On empeche de faire des connexions http
+    SECURE_HSTS_SECONDS = 31536000  # 1 an
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # Permet de sécuriser les Hosts
+    ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'benjamin-intranet.fr').split(',')
+    
+    print("\n🔒 MODE PRODUCTION ACTIVÉ : HTTPS forcé, Cookies sécurisés, Debug OFF.\n")
+else:
+    print("\n⚠️ MODE DÉVELOPPEMENT : HTTPS désactivé, Debug ON.\n")
