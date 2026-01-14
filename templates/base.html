@@ -149,8 +149,11 @@
 
   </div>
 
+  {# Chatbot visible uniquement pour superusers et staff (pas les simples collaborateurs) #}
   {% if user.is_authenticated %}
+  {% if user.is_superuser or user.is_staff %}
   {% include 'chatbot/widget.html' %}
+  {% endif %}
   {% endif %}
   {% block extra_js %}{% endblock %}
 </body>
