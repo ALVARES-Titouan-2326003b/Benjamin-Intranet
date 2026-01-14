@@ -29,6 +29,7 @@ urlpatterns = [
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('chatbot/', include('chatbot.urls')),
     path('finance/factures/', include('invoices.urls')),
+    path('auth/', include('authentication.urls')),
     path('gestion-des-candidatures/', include('recrutement.urls')),
     path('pole-technique/documents/', include('technique.urls')),
     path('signatures/', include('signatures.urls')),

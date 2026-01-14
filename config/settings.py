@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'signatures',
     'django_celery_results',
     'home',
+    'authentication',
     # --- AJOUT A2F ---
     'django_otp',
     'django_otp.plugins.otp_static',
