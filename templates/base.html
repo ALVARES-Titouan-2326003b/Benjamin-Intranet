@@ -42,13 +42,13 @@
         {% if '/finance/' in p or '/signatures/' in p or '/gestion-des-candidatures/' in p %}
           <div class="nav-section-label">FINANCE & RH</div>
 
-            {% if "COLLABORATEUR" in  request.user.groups.all|escape or "POLE_FINANCIER" in  request.user.groups.all|escape %}
+            {% if user.is_superuser or user.is_staff or "COLLABORATEUR" in  request.user.groups.all|escape or "POLE_FINANCIER" in  request.user.groups.all|escape %}
                 <a href="{% url 'invoices:list' %}" class="nav-item {% if '/finance/' in p %}active{% endif %}">
                     <i class="bi bi-receipt"></i> Factures
                 </a>
             {% endif %}
 
-            {% if "POLE_FINANCIER" in  request.user.groups.all|escape %}
+            {% if user.is_superuser or user.is_staff or "POLE_FINANCIER" in  request.user.groups.all|escape %}
                 <a href="{% url 'signatures:document_list' %}"
                     class="nav-item {% if '/signatures/' in p %}active{% endif %}">
                     <i class="bi bi-pen"></i> Signatures
@@ -63,7 +63,7 @@
         <!-- POLE TECHNIQUE -->
         {% if '/pole-technique/' in p or '/chatbot/' in p %}
           <div class="nav-section-label">TECHNIQUE</div>
-            {% if "POLE_TECHNIQUE" in  request.user.groups.all|escape%}
+            {% if user.is_superuser or user.is_staff or "POLE_TECHNIQUE" in  request.user.groups.all|escape%}
                 <a href="{% url 'technique_financial_overview' %}"
                     class="nav-item {% if '/vue-financiere/' in request.path %}active{% endif %}">
                     <i class="bi bi-graph-up"></i> Vue Financière
@@ -79,7 +79,7 @@
         <!-- POLE ADMINISTRATIF -->
         {% if '/administratif/' in request.path or '/admin/' in request.path %}
           <div class="nav-section-label">ADMINISTRATIF</div>
-            {% if "POLE_ADMINISTRATIF" in  request.user.groups.all|escape%}
+            {% if user.is_superuser or user.is_staff or "POLE_ADMINISTRATIF" in  request.user.groups.all|escape%}
                 <a href="{% url 'admin_view' %}" class="nav-item {% if '/administratif/' in request.path %}active{% endif %}">
                     <i class="bi bi-speedometer2"></i> Vue d'ensemble
                 </a>

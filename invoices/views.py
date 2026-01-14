@@ -7,7 +7,7 @@ from django.utils.decorators import method_decorator
 from django_filters.views import FilterView
 from django.views.generic import DetailView, CreateView, UpdateView
 
-from user_access.user_test_functions import has_finance_access, is_ceo, can_read_facture
+from user_access.user_test_functions import has_finance_access, has_ceo_access, can_read_facture
 from .filters import FactureFilter
 from .forms import FactureForm, PieceJointeForm
 from .models import Facture, PieceJointe
@@ -97,7 +97,7 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
         return reverse('invoices:detail', args=[self.object.pk])
 
     def get_context_data(self, **kwargs):
-        return {"user_ceo": is_ceo(self.request.user)}
+        return {"user_ceo": has_ceo_access(self.request.user)}
 
 
 @method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
@@ -111,7 +111,7 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
         return reverse('invoices:detail', args=[self.object.pk])
 
     def get_context_data(self, **kwargs):
-        return {"user_ceo": is_ceo(self.request.user)}
+        return {"user_ceo": has_ceo_access(self.request.user)}
 
 # ================== Relance Manuelle ==================
 

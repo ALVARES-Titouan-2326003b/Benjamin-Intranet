@@ -25,7 +25,7 @@ from .services.workflow import (
     signer_document_avec_position,
 )
 from .services.email import envoyer_demande_signature
-from user_access.user_test_functions import (is_ceo, has_finance_access)
+from user_access.user_test_functions import (has_ceo_access, has_finance_access)
 
 
 @login_required
@@ -38,7 +38,7 @@ def document_list(request):
     - Sinon, dernier statut de l'historique
     """
 
-    if is_ceo(request.user):
+    if has_ceo_access(request.user):
         return redirect("signatures:ceo_dashboard")
 
     documents = (
@@ -120,7 +120,7 @@ def document_detail(request, pk):
             "pending_request": pending_request,
             "requester_name": requester_name,
             "request_date": request_date,
-            "is_ceo": is_ceo(request.user),
+            "is_ceo": has_ceo_access(request.user),
             "is_signed": is_signed,
         },
     )
@@ -166,7 +166,7 @@ def ma_signature(request):
 
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
-@user_passes_test(is_ceo, login_url="/", redirect_field_name=None)
+@user_passes_test(has_ceo_access, login_url="/", redirect_field_name=None)
 def tampon_edit(request):
     """
     Permet de créer/modifier le tampon numérique global.
@@ -235,7 +235,7 @@ def placer_signature(request, pk):
 
     # 2) Si employé (non-CEO) et qu'il existe déjà une demande pending → on bloque
     existing_pending = doc.demandes_signature.filter(statut="pending").first()
-    if not is_ceo(request.user) and existing_pending:
+    if not has_ceo_access(request.user) and existing_pending:
         messages.info(
             request,
             "Une demande de signature est déjà en attente pour ce document. "
@@ -252,7 +252,7 @@ def placer_signature(request, pk):
             return redirect("signatures:placer_signature", pk=doc.pk)
 
         # BRANCHE CEO : il signe directement
-        if is_ceo(request.user):
+        if has_ceo_access(request.user):
             try:
                 signer_document_avec_position(
                     document=doc,
@@ -351,14 +351,14 @@ def placer_signature(request, pk):
         "signatures/placer_signature.html",
         {
             "doc": doc,
-            "is_ceo": is_ceo,
+            "is_ceo": has_ceo_access,
         },
     )
 
 
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
-@user_passes_test(is_ceo, login_url="/", redirect_field_name=None)
+@user_passes_test(has_ceo_access, login_url="/", redirect_field_name=None)
 def signature_approval(request, token):
     """
     Page d'approbation CEO : le lien contient un token.
@@ -437,7 +437,7 @@ def signature_approval(request, token):
 
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
-@user_passes_test(is_ceo, login_url="/", redirect_field_name=None)
+@user_passes_test(has_ceo_access, login_url="/", redirect_field_name=None)
 def ceo_dashboard(request):
     """
     Tableau de bord du CEO :
