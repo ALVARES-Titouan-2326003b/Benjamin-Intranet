@@ -35,6 +35,7 @@ class Facture(models.Model):
     statut = models.CharField(max_length=50)
     echeance = models.DateTimeField(null=True, blank=True)
     titre = models.CharField(max_length=255, null=True, blank=True)
+    collaborateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, db_column='collaborateur_id', related_name='factures')
 
     class Meta:
         managed = False

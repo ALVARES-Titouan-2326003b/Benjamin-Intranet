@@ -23,8 +23,15 @@ class FactureListView(FilterView):
     template_name = 'invoices/invoice_list.html'
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        return qs.select_related('client')
+        qs = super().get_queryset().select_related('client', 'collaborateur')
+        user = self.request.user
+        
+        # Si Finance ou CEO -> Tout voir
+        if has_finance_access(user) or has_ceo_access(user):
+            return qs
+            
+        # Sinon -> Voir seulement ses factures
+        return qs.filter(collaborateur=user)
 
     def get_context_data( self, *, object_list = ..., **kwargs):
         context = super().get_context_data(**kwargs)
@@ -97,7 +104,9 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
         return reverse('invoices:detail', args=[self.object.pk])
 
     def get_context_data(self, **kwargs):
-        return {"user_ceo": has_ceo_access(self.request.user)}
+        context = super().get_context_data(**kwargs)
+        context["user_ceo"] = has_ceo_access(self.request.user)
+        return context
 
 
 @method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
@@ -111,7 +120,9 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
         return reverse('invoices:detail', args=[self.object.pk])
 
     def get_context_data(self, **kwargs):
-        return {"user_ceo": has_ceo_access(self.request.user)}
+        context = super().get_context_data(**kwargs)
+        context["user_ceo"] = has_ceo_access(self.request.user)
+        return context
 
 # ================== Relance Manuelle ==================
 
