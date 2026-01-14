@@ -3,7 +3,9 @@ from .views import (
     administratif_view,
     send_reply_view,
     generate_auto_message_view,
-    get_calendar_activities
+    get_calendar_activities,
+    create_activity_view,
+    delete_activity_view
 )
 
 app_name = 'management'
@@ -17,4 +19,10 @@ urlpatterns = [
     path('api/generate-message/', generate_auto_message_view, name='generate_message'),
     # API pour le calendrier
     path('api/calendar-activities/', get_calendar_activities, name='calendar_activities'),
+    # API pour supprimer une activité
+    path('api/delete-activity/', delete_activity_view, name='delete_activity'),
+    # API pour créer une activité
+    path('api/create-activity/', create_activity_view, name='create_activity'),
+
 ]
+

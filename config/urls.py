@@ -5,7 +5,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
-from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities
+from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities, create_activity_view, delete_activity_view
 from technique import views as technique_views
 from home.views import dashboard_view, global_search
 
@@ -24,6 +24,10 @@ urlpatterns = [
     path('api/generate-message/', generate_auto_message_view, name='generate_message'),
     # API pour le calendrier
     path('api/calendar-activities/', get_calendar_activities, name='calendar_activities'),
+    #API pour l'ajout d'activité
+    path('api/create-activity/', create_activity_view, name='create_activity'),
+    #API pour supprimer une activité
+    path('api/delete-activity/', delete_activity_view, name='delete_activity'),
 
     # LIGNES RESTAURÉES POUR LOGOUT
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
