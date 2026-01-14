@@ -7,18 +7,15 @@ from django.utils.decorators import method_decorator
 from django_filters.views import FilterView
 from django.views.generic import DetailView, CreateView, UpdateView
 
+from user_access.user_test_functions import has_finance_access, has_ceo_access, can_read_facture
 from .filters import FactureFilter
 from .forms import FactureForm, PieceJointeForm
 from .models import Facture, PieceJointe
 
 
-def is_finance(user):
-    return user.is_staff or user.groups.filter(name='POLE_FINANCIER').exists()
-
-
 # ================== Liste / Détail ==================
 
-@method_decorator(login_required, name='dispatch')
+@method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
 class FactureListView(FilterView):
     model = Facture
     paginate_by = 20
@@ -29,11 +26,20 @@ class FactureListView(FilterView):
         qs = super().get_queryset()
         return qs.select_related('client')
 
+    def get_context_data( self, *, object_list = ..., **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['access_finance'] = has_finance_access(self.request.user)
+        return context
 
-@method_decorator(login_required, name='dispatch')
+@method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
 class FactureDetailView(DetailView):
     model = Facture
     template_name = 'invoices/invoice_detail.html'
+
+    def get_context_data(self, *, object_list=..., **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['access_finance'] = has_finance_access(self.request.user)
+        return context
 
 
 # ================== Pièce jointe ==================
@@ -80,7 +86,7 @@ class _PieceJointeMixin:
 
 # ================== Create / Update ==================
 
-@method_decorator([login_required, user_passes_test(is_finance)], name='dispatch')
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
 class FactureCreateView(_PieceJointeMixin, CreateView):
     model = Facture
     form_class = FactureForm
@@ -90,8 +96,11 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
         messages.success(self.request, "Facture créée.")
         return reverse('invoices:detail', args=[self.object.pk])
 
+    def get_context_data(self, **kwargs):
+        return {"user_ceo": has_ceo_access(self.request.user)}
 
-@method_decorator([login_required, user_passes_test(is_finance)], name='dispatch')
+
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
 class FactureUpdateView(_PieceJointeMixin, UpdateView):
     model = Facture
     form_class = FactureForm
@@ -101,10 +110,12 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
         messages.success(self.request, "Facture mise à jour.")
         return reverse('invoices:detail', args=[self.object.pk])
 
+    def get_context_data(self, **kwargs):
+        return {"user_ceo": has_ceo_access(self.request.user)}
 
 # ================== Relance Manuelle ==================
 
-@method_decorator([login_required, user_passes_test(is_finance)], name='dispatch')
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
 class ManualInvoiceRemindersView(View):
     """
     Vue pour déclencher manuellement les relances de factures.

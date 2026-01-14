@@ -17,6 +17,7 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
 
+        {% if access_factures %}
         <!-- PÔLE FINANCE & RH -->
         <a href="{% url 'invoices:list' %}" class="pole-card">
             <div class="pole-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
@@ -28,7 +29,9 @@
             </p>
             <span class="pole-link">Accéder <i class="bi bi-arrow-right"></i></span>
         </a>
+        {% endif %}
 
+        {% if access_technique %}
         <!-- PÔLE TECHNIQUE -->
         <a href="{% url 'technique_financial_overview' %}" class="pole-card">
             <div class="pole-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
@@ -40,7 +43,9 @@
             </p>
             <span class="pole-link">Accéder <i class="bi bi-arrow-right"></i></span>
         </a>
+        {% endif %}
 
+        {%  if access_administratif %}
         <!-- PÔLE ADMINISTRATIF -->
         <a href="{% url 'admin_view' %}" class="pole-card">
             <div class="pole-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
@@ -52,6 +57,7 @@
             </p>
             <span class="pole-link">Accéder <i class="bi bi-arrow-right"></i></span>
         </a>
+        {% endif %}
 
         {% if request.user.is_superuser %}
         <!-- GESTION DES COMPTES (SuperUser) -->
