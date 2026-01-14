@@ -166,7 +166,7 @@ def ma_signature(request):
 
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
-@user_passes_test(has_ceo_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_ceo_access, login_url="/signatures", redirect_field_name=None)
 def tampon_edit(request):
     """
     Permet de créer/modifier le tampon numérique global.
@@ -217,7 +217,7 @@ def placer_signature(request, pk):
     """
     Page de placement du bloc tampon+signature.
 
-    - Si l'utilisateur est CEO (superuser) :
+    - Si l'utilisateur est CEO :
         → placement + signature immédiate du document.
     - Si l'utilisateur est un employé :
         → placement + création d'une SignatureRequest pour le CEO.
@@ -290,11 +290,11 @@ def placer_signature(request, pk):
         # BRANCHE EMPLOYÉ : création d'une demande pour le CEO
         User = get_user_model()
         # ceo = User.objects.filter(groups__name="CEO").first()
-        ceo = User.objects.filter(is_superuser=True).first()
+        ceo = User.groups.filter(name="CEO").first()
         if not ceo or not ceo.email:
             messages.error(
                 request,
-                "Aucun CEO (superuser avec email) configuré pour recevoir la demande.",
+                "Aucun CEO configuré pour recevoir la demande.",
             )
             return redirect("signatures:document_detail", pk=doc.pk)
 
@@ -358,7 +358,7 @@ def placer_signature(request, pk):
 
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
-@user_passes_test(has_ceo_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_ceo_access, login_url="/signatures", redirect_field_name=None)
 def signature_approval(request, token):
     """
     Page d'approbation CEO : le lien contient un token.
@@ -437,7 +437,7 @@ def signature_approval(request, token):
 
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
-@user_passes_test(has_ceo_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_ceo_access, login_url="/signatures", redirect_field_name=None)
 def ceo_dashboard(request):
     """
     Tableau de bord du CEO :
