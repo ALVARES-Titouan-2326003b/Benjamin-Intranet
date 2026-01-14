@@ -73,27 +73,27 @@ Benjamin-Intranet/
 
 Les modules ainsi que leur version sont tous disponibles dans le fichier `requirements.txt` à la racine du projet.
 
-| Package                          | Version  |
-|----------------------------------|----------|
-| django-celery-beat               | 2.5.0    |
-| django-celery-results            | 2.5.0    |
-| Django                           | 5.2.8    |
-| django_environ                   | 0.12.0   |
-| django_mailbox                   | 4.10.1   |
-| django-filter                    | 25.2     |
-| PyPDF2                           | 3.0.1    |
-| python_docx                      | 1.2.0    |
-| reportlab                        | 4.4.4    |
-| Requests                         | 2.32.5   |
-| Pillow                           | 12.0.0   |
-| pypdf                            | 6.3.0    |
-| psycopg2-binary                  | 2.9.11   |
-| celery                           | 5.3.4    |
-| SQLAlchemy                       | 2.0.44   |
-| django-two-factor-auth[call,sms] | 1.18.1   |
-| phonenumbers                     | 9.0.21   |
-| django-otp                       | 1.6.3    |
-| django-axes                      | 8.1.0    |
+| Package                          | Version |
+|----------------------------------|---------|
+| Django                           | 5.2.8   |
+| django-celery-beat               | 2.8.1   |
+| django-celery-results            | 2.5.0   |
+| django_environ                   | 0.12.0  |
+| django_mailbox                   | 4.10.1  |
+| django-filter                    | 25.2    |
+| PyPDF2                           | 3.0.1   |
+| python_docx                      | 1.2.0   |
+| reportlab                        | 4.4.4   |
+| Requests                         | 2.32.5  |
+| Pillow                           | 12.0.0  |
+| pypdf                            | 6.3.0   |
+| psycopg2-binary                  | 2.9.11  |
+| celery                           | 5.3.4   |
+| SQLAlchemy                       | 2.0.44  |
+| django-two-factor-auth[call,sms] | 1.18.1  |
+| phonenumbers                     | 9.0.21  |
+| django-otp                       | 1.6.3   |
+| django-axes                      | 8.1.0   |
 
 ---
 
