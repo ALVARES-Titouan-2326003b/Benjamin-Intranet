@@ -95,6 +95,7 @@
 
     {% if user.is_authenticated %}
     <header class="app-header">
+      {% if user.is_superuser or user.is_staff %}
       <div class="header-search">
         <form action="{% url 'global_search' %}" method="get" style="display: flex; align-items: center; width: 100%;">
           <i class="bi bi-search"></i>
@@ -102,6 +103,7 @@
             value="{{ query|default:'' }}">
         </form>
       </div>
+      {% endif %}
 
       <div class="header-user">
         {% if user.is_authenticated %}
