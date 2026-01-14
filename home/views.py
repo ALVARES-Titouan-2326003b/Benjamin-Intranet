@@ -9,7 +9,7 @@ from technique.models import TechnicalProject, DocumentTechnique
 from user_access.user_test_functions import (has_administratif_access,
                                              has_finance_access,
                                              has_technique_access,
-                                             can_read_facture)
+                                             has_collaborateur_access)
 
 def is_only_collaborator(user):
     """
@@ -35,7 +35,7 @@ def dashboard_view(request):
         'access_finance': has_finance_access(request.user),
         'access_technique': has_technique_access(request.user),
         'access_administratif': has_administratif_access(request.user),
-        'access_factures': can_read_facture(request.user),
+        'access_collaborator': has_collaborateur_access(request.user),
         'is_only_collaborator': is_only_collaborator(request.user)
     })
 
@@ -45,7 +45,7 @@ def global_search(request):
     context = {'query': query}
 
     if query:
-        if can_read_facture(request.user):
+        if has_finance_access(request.user):
             # 1. Factures (ID, Titre, Client, Fournisseur)
             factures = Facture.objects.filter(
                 Q(id__icontains=query) |
