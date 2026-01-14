@@ -95,7 +95,7 @@
 
     {% if user.is_authenticated %}
     <header class="app-header">
-      {% if user.is_superuser or user.is_staff %}
+      {% if not is_only_collaborator %}
       <div class="header-search">
         <form action="{% url 'global_search' %}" method="get" style="display: flex; align-items: center; width: 100%;">
           <i class="bi bi-search"></i>
@@ -151,9 +151,9 @@
 
   </div>
 
-  {# Chatbot visible uniquement pour superusers et staff (pas les simples collaborateurs) #}
+  {# Chatbot visible uniquement pour les utilisateurs avec d'autres rôles (pas les simples collaborateurs) #}
   {% if user.is_authenticated %}
-  {% if user.is_superuser or user.is_staff %}
+  {% if not is_only_collaborator %}
   {% include 'chatbot/widget.html' %}
   {% endif %}
   {% endif %}

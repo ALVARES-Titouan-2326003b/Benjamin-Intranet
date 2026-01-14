@@ -11,13 +11,33 @@ from user_access.user_test_functions import (has_administratif_access,
                                              has_technique_access,
                                              can_read_facture)
 
+def is_only_collaborator(user):
+    """
+    Retourne True si l'utilisateur est UNIQUEMENT collaborateur
+    (pas superuser, pas staff, et n'a que le groupe COLLABORATEUR ou aucun groupe)
+    """
+    if user.is_superuser or user.is_staff:
+        return False
+    
+    # Récupère tous les groupes de l'utilisateur
+    user_groups = set(user.groups.values_list('name', flat=True))
+    
+    # Si pas de groupe ou seulement COLLABORATEUR
+    if not user_groups or user_groups == {'COLLABORATEUR'}:
+        return True
+    
+    return False
+
 @login_required
 def dashboard_view(request):
     print(request.user.groups.all)
-    return render(request, 'home_dashboard.html', {'access_finance': has_finance_access(request.user),
-                                                'access_technique': has_technique_access(request.user),
-                                                'access_administratif': has_administratif_access(request.user),
-                                                'access_factures': can_read_facture(request.user)})
+    return render(request, 'home_dashboard.html', {
+        'access_finance': has_finance_access(request.user),
+        'access_technique': has_technique_access(request.user),
+        'access_administratif': has_administratif_access(request.user),
+        'access_factures': can_read_facture(request.user),
+        'is_only_collaborator': is_only_collaborator(request.user)
+    })
 
 @login_required
 def global_search(request):

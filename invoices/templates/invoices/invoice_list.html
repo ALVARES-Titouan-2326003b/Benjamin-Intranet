@@ -47,7 +47,7 @@
     </small>
 </div>
 {% endif %}
-{% if user.is_superuser or user.is_staff %}
+{% if not is_only_collaborator %}
 <div class="card">
     <div class="card-title">
         <span><i class="bi bi-funnel"></i> Filtres</span>
