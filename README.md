@@ -13,6 +13,8 @@ modules internes d’une organisation (authentification, gestion des employés, 
 - [Modules nécessaires](#modules-nécessaires)
 - [Installation & configuration](#installation--configuration)
 - [Lancement de l’application](#lancer-lapplication)
+- [Lancer le cron](#lancer-le-cron)
+- [Synchronisation mail](#synchronisation-mail)
 
 ---
 
@@ -71,7 +73,7 @@ Benjamin-Intranet/
 
 ## Modules nécessaires
 
-Les modules ainsi que leur version sont tous disponibles dans le fichier `requirements.txt` à la racine du projet.
+Les modules ainsi que leur version sont tous disponibles dans le fichier `requirements.txt` à la racine du dépôt.
 
 | Package                          | Version |
 |----------------------------------|---------|
@@ -101,12 +103,16 @@ Les modules ainsi que leur version sont tous disponibles dans le fichier `requir
 
 1. **Cloner le dépôt**
 
+Dans un terminal :
+
 ```bash
 git clone https://github.com/ALVARES-Titouan-2326003b/Benjamin-Intranet.git
 cd Benjamin-Intranet
 ```
 
 2. **Créer un environnement virtuel**
+
+Dans un terminal, à la racine du projet :
 
 ```bash
 python -m venv .venv
@@ -116,11 +122,15 @@ source .venv/bin/activate   # macOS / Linux
 
 3. **Installer les dépendances**
 
+Dans un terminal, à la racine du projet :
+
 ```bash
 pip install -r requirements.txt
 ```
 
 4. **Créer les dossiers pour accueillir les fichiers uploadés et les logs**
+
+Dans un terminal, à la racine du projet :
 
 ````bash
 mkdir logs
@@ -130,12 +140,16 @@ mkdir media{documents,documents_tech,signatures,tampons}
 
 5. **Générer une clé secrète**
 
+Dans un terminal, à la racine du projet :
+
 ```bash
 python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
 >> cle_secrete
 ```
 
 6. **Configurer les variables d’environnement**
+
+Dans votre fichier `.env` placé à la racine du projet :
 
 ```env
 # Les valeurs n'ont pas besoin d'être entre guillemets à part
@@ -193,6 +207,8 @@ SECRET_KEY_FALLBACKS=
 
 7. **Appliquer les migrations**
 
+Dans un terminal, à la racine du projet :
+
 ```bash
 python manage.py makemigrations
 python manage.py migrate
@@ -202,8 +218,42 @@ python manage.py migrate
 
 ## Lancer l’application
 
+Dans un terminal, à la racine du projet :
+
 ```bash
 python manage.py runserver
 ```
 
 Accès : http://127.0.0.1:8000/
+
+---
+
+## Lancer le cron
+
+Les tâches cron permettent au serveur de réaliser des tâches à interval régulier automatiquement, c'est-à-dire sans intervention humaine.
+
+Il existe pour ce projet **trois systèmes de relance** :
+- la relance factures
+- la relance activités
+- la relance mail
+
+Après, et seulement après avoir démarré le serveur, faîtes ces commandes dans le terminal à la racine du projet pour lancer le cron.
+
+```bash
+celery -A config worker --loglevel=info
+celery -A config beat --loglevel=info
+```
+
+---
+
+## Synchronisation mail
+
+De par la nature de la relance mail, la mise en place d’une boite mail est nécessaire. **Le domaine du client est hébergé par
+Microsoft**, nous utilisons donc l’api `Microsoft Graph` avec l’outil `Entra`
+(nécessite de rejoindre le Microsoft 365 Developer Program).  
+Depuis `Entra`, nous ajoutons le projet parmi les applications du compte, le paramétrons
+en fonction des besoins puis donnons les permissions aux utilisateurs du tenant.  
+Or, pour ce projet, **n’ayant pas eu accès au tenant du client en tant qu’administrateur, nous n’avons pas pu définir d’autorisations
+ou ajouter notre projet**. Cela **reste donc à implémenter** ; à noter que la synchronisation boîte mail par Microsoft est fonctionnelle
+mais que toute fonctionnalité au-delà de cette étape n’a pas pu être testée,
+telles que la récupération de la boîte "Éléments envoyés" et "Boîte de réception" de l’adresse mail.
