@@ -50,7 +50,13 @@ Benjamin-Intranet/
 ├── config/
 ├── home/
 ├── invoices/
+├── logs/           # contient les fichiers logs (1 par jour)
 ├── management/
+├── media/          # contient les fichiers uploadés catégorisés
+│   ├── documents/
+│   ├── documents_tech/
+│   ├── signatures/
+│   └── tampons/
 ├── recrutement/
 ├── signatures/
 ├── static/
@@ -103,9 +109,9 @@ cd Benjamin-Intranet
 2. **Créer un environnement virtuel**
 
 ```bash
-python -m venv venv
-source venv/bin/activate   # macOS / Linux
-venv\Scripts\activate      # Windows
+python -m venv .venv
+source .venv/bin/activate   # macOS / Linux
+.venv\Scripts\activate      # Windows
 ```
 
 3. **Installer les dépendances**
@@ -114,11 +120,27 @@ venv\Scripts\activate      # Windows
 pip install -r requirements.txt
 ```
 
-4. **Configurer les variables d’environnement**
+4. **Créer les dossiers pour accueillir les fichiers uploadés et les logs**
+
+````bash
+mkdir logs
+mkdir media
+mkdir media{documents,documents_tech,signatures,tampons}
+````
+
+5. **Générer une clé secrète**
+
+```bash
+python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+>> cle_secrete
+```
+
+6. **Configurer les variables d’environnement**
 
 ```env
-# Pour l'API Groq
-GROQ_API_KEY=votre_cle_groq
+# Les valeurs n'ont pas besoin d'être entre guillemets à part
+# si elles contiennent au moins un espace
+
 
 # Pour la connexion à votre base de données PostgreSQL
 POSTGRES_DB=votre_bd_psql
@@ -127,6 +149,19 @@ POSTGRES_PASSWORD=votre_mdp
 POSTGRES_HOST=votre_serveur
 POSTGRES_PORT=votre_port
 
+# Pour l'API Groq
+GROQ_API_KEY=votre_cle_groq
+
+# Pour le chatbot
+LEGIFRANCE_CLIENT_ID=votre_id_legifrance_api
+LEGIFRANCE_CLIENT_SECRET=votre_cle_secrete_legifrance_api
+LEGIFRANCE_ENV=sandbox
+
+# API Google
+GOOGLE_CLIENT_ID=votre_id_google_api
+GOOGLE_CLIENT_SECRET=votre_cle_secrete_google_api
+GOOGLE_REDIRECT_URI=url_redirection_apres_synchro # exemple : http://localhost:8000/oauth/callback/
+
 # Pour la connexion à votre serveur de mail
 EMAIL_HOST=votre_serveur_mail
 EMAIL_PORT=votre_port_mail
@@ -134,9 +169,29 @@ EMAIL_USE_TLS=connexion_tls # True ou False
 EMAIL_HOST_USER=votre_adresse_mail_serveur
 EMAIL_HOST_PASSWORD=votre_mdp_mail_serveur
 DEFAULT_FROM_EMAIL=adresse_mail_serveur_par_defaut # pour la communication avec le système par exemple
+
+
+# force le HTTPS et désactive le debug
+# laisser vide quand vous êtes en dev
+# -> désactivera le HTTPS et activera le debug
+DJANGO_ENV=production
+
+# autorise votre machine à se connecter en localhost
+# remplacer par votre vrai nom de domaine lors de la mise en ligne
+# exemple :
+# ALLOWED_HOSTS=benjamin-intranet.fr,www.benjamin-intranet.fr
+ALLOWED_HOSTS=127.0.0.1,localhost
+
+
+SECRET_KEY=cle_secrete_generee_a_letape_5
+
+# liste des précédentes valeurs n'étant plus utilisées de SECRET_KEY séparées par des virgules
+# exemple :
+# SECRET_KEY_FALLBACKS=cle_secrete1,cle_secrete2,cle_secrete3
+SECRET_KEY_FALLBACKS=
 ```
 
-5. **Appliquer les migrations**
+7. **Appliquer les migrations**
 
 ```bash
 python manage.py makemigrations
