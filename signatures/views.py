@@ -25,9 +25,11 @@ from .services.workflow import (
     signer_document_avec_position,
 )
 from .services.email import envoyer_demande_signature
+from user_access.user_test_functions import (has_ceo_access, has_finance_access)
 
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def document_list(request):
     """
     Liste des documents avec un statut "intelligent" :
@@ -35,6 +37,10 @@ def document_list(request):
     - En attente de signature si une demande pending existe
     - Sinon, dernier statut de l'historique
     """
+
+    if has_ceo_access(request.user):
+        return redirect("signatures:ceo_dashboard")
+
     documents = (
         Document.objects
         .order_by("-date_upload")
@@ -74,6 +80,7 @@ def document_list(request):
 
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def upload_document(request):
     if request.method == "POST":
         form = DocumentUploadForm(request.POST, request.FILES)
@@ -89,14 +96,12 @@ def upload_document(request):
 
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def document_detail(request, pk):
     doc = get_object_or_404(Document, pk=pk)
     historiques = doc.historique.order_by("-date_action")
 
     pending_request = doc.demandes_signature.filter(statut="pending").first()
-    is_ceo = request.user.is_superuser
-    # ✅ CORRECTION ICI : on teste la présence réelle d'un fichier
-    is_signed = bool(doc.fichier_signe)
 
     is_signed = bool(doc.fichier_signe)
 
@@ -115,13 +120,14 @@ def document_detail(request, pk):
             "pending_request": pending_request,
             "requester_name": requester_name,
             "request_date": request_date,
-            "is_ceo": is_ceo,
+            "is_ceo": has_ceo_access(request.user),
             "is_signed": is_signed,
         },
     )
 
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def envoyer_signature(request, pk):
     """
     Ancienne action "mettre en attente de signature".
@@ -134,6 +140,7 @@ def envoyer_signature(request, pk):
 
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def ma_signature(request):
     """
     Permet à l'utilisateur courant (ex : CEO) de déposer/modifier son image de signature.
@@ -157,12 +164,9 @@ def ma_signature(request):
     return render(request, "signatures/ma_signature.html", {"form": form})
 
 
-def is_staff(user):
-    return user.is_staff or user.is_superuser
-
-
 @login_required
-@user_passes_test(is_staff)
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_ceo_access, login_url="/", redirect_field_name=None)
 def tampon_edit(request):
     """
     Permet de créer/modifier le tampon numérique global.
@@ -183,6 +187,7 @@ def tampon_edit(request):
 
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def config_placement(request, pk):
     """
     (Optionnel) Permet de définir manuellement des positions en base.
@@ -207,6 +212,7 @@ def config_placement(request, pk):
 
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def placer_signature(request, pk):
     """
     Page de placement du bloc tampon+signature.
@@ -221,7 +227,6 @@ def placer_signature(request, pk):
     Si le document est déjà signé, plus personne ne peut accéder à cette page.
     """
     doc = get_object_or_404(Document, pk=pk)
-    is_ceo = request.user.is_superuser
 
     # 1) Si déjà signé → on bloque tout
     if doc.fichier_signe:
@@ -230,7 +235,7 @@ def placer_signature(request, pk):
 
     # 2) Si employé (non-CEO) et qu'il existe déjà une demande pending → on bloque
     existing_pending = doc.demandes_signature.filter(statut="pending").first()
-    if not is_ceo and existing_pending:
+    if not has_ceo_access(request.user) and existing_pending:
         messages.info(
             request,
             "Une demande de signature est déjà en attente pour ce document. "
@@ -247,7 +252,7 @@ def placer_signature(request, pk):
             return redirect("signatures:placer_signature", pk=doc.pk)
 
         # BRANCHE CEO : il signe directement
-        if is_ceo:
+        if has_ceo_access(request.user):
             try:
                 signer_document_avec_position(
                     document=doc,
@@ -284,6 +289,7 @@ def placer_signature(request, pk):
 
         # BRANCHE EMPLOYÉ : création d'une demande pour le CEO
         User = get_user_model()
+        # ceo = User.objects.filter(groups__name="CEO").first()
         ceo = User.objects.filter(is_superuser=True).first()
         if not ceo or not ceo.email:
             messages.error(
@@ -345,12 +351,14 @@ def placer_signature(request, pk):
         "signatures/placer_signature.html",
         {
             "doc": doc,
-            "is_ceo": is_ceo,
+            "is_ceo": has_ceo_access,
         },
     )
 
 
 @login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_ceo_access, login_url="/", redirect_field_name=None)
 def signature_approval(request, token):
     """
     Page d'approbation CEO : le lien contient un token.
@@ -428,7 +436,8 @@ def signature_approval(request, token):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_ceo_access, login_url="/", redirect_field_name=None)
 def ceo_dashboard(request):
     """
     Tableau de bord du CEO :

@@ -1,7 +1,7 @@
 import json
 from reportlab.lib import colors
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import HttpResponse
 from .services.documents import extract_text_from_file
@@ -16,10 +16,11 @@ from .forms import (
     TechnicalProjectCreateForm,
     TechnicalProjectFinanceForm,
 )
-
+from user_access.user_test_functions import has_technique_access
 
 
 @login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def documents_list(request):
     qs = DocumentTechnique.objects.all()
     projet = request.GET.get("projet", "").strip()
@@ -37,6 +38,7 @@ def documents_list(request):
 
 
 @login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def documents_upload(request):
     if request.method == "POST":
         form = DocumentTechniqueUploadForm(request.POST, request.FILES)
@@ -94,6 +96,7 @@ def documents_upload(request):
 
 
 @login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def documents_detail(request, pk):
     doc = get_object_or_404(DocumentTechnique, pk=pk)
     return render(
@@ -106,6 +109,7 @@ def documents_detail(request, pk):
 
 
 @login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def document_resume_pdf(request, pk):
     """
     Génère un PDF simple avec le résumé et les sections structurées.
@@ -253,6 +257,7 @@ def document_resume_pdf(request, pk):
 
 
 @login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def financial_overview(request):
     """
     Formulaire
@@ -276,6 +281,7 @@ def financial_overview(request):
 
 
 @login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def financial_project_detail(request, pk):
     """
     Saisie des données financières + graphiques
@@ -303,6 +309,7 @@ def financial_project_detail(request, pk):
 
 
 @login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def financial_project_pdf(request, pk):
     """
     PDF de la vue financière

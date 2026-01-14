@@ -102,7 +102,6 @@ class OAuthToken(models.Model):
     access_token = models.TextField()
     refresh_token = models.TextField()
 
-
     token_expiry = models.DateTimeField()
 
 

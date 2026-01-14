@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Activation du compte{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'authentication/css/activate_account.css' %}">
+<div class="container d-flex justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="card shadow-lg" style="max-width: 500px; width: 100%;">
+        <div class="card-body p-5 text-center">
+
+            {% if valid_link %}
+            <h2 class="mb-4 text-primary">Bienvenue !</h2>
+            <p class="text-muted mb-4">
+                Votre compte est presque prêt. Veuillez choisir votre identifiant et votre mot de passe pour finaliser
+                l'inscription.
+            </p>
+
+            <form method="post" class="text-start">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">{{ form.username.label }}</label>
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                    <div class="text-danger small">{{ form.username.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">{{ form.password.label }}</label>
+                    {{ form.password }}
+                    {% if form.password.errors %}
+                    <div class="text-danger small">{{ form.password.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">{{ form.password_confirm.label }}</label>
+                    {{ form.password_confirm }}
+                    {% if form.password_confirm.errors %}
+                    <div class="text-danger small">{{ form.password_confirm.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        Activer mon compte
+                    </button>
+                </div>
+            </form>
+
+            {% else %}
+            <div class="text-danger mb-3">
+                <i class="bi bi-x-circle" style="font-size: 4rem;"></i>
+            </div>
+            <h3>Lien invalide ou expiré</h3>
+            <p class="text-muted">
+                Ce lien d'activation n'est plus valide. Veuillez contacter l'administrateur pour recevoir une nouvelle
+                invitation.
+            </p>
+            <a href="{% url 'two_factor:login' %}" class="btn btn-outline-primary mt-3">
+                Retour à l'accueil
+            </a>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}

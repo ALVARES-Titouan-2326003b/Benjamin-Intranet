@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'django_celery_results',
     'django_celery_beat',
     'home',
+    'authentication',
     # --- AJOUT A2F ---
     'django_otp',
     'django_otp.plugins.otp_static',

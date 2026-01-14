@@ -6,10 +6,10 @@
     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
     <h2>Factures</h2>
     <div style="display: flex; gap: 0.5rem;">
+        {% if access_finance%}
         <a class="btn btn-secondary" href="{% url 'invoices:dashboard' %}">
             <i class="bi bi-bar-chart-fill"></i> Tableau de bord
         </a>
-        {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
         <a class="btn btn-primary" href="{% url 'invoices:create' %}">
             <i class="bi bi-plus-lg"></i> Nouvelle facture
         </a>
@@ -19,7 +19,7 @@
 
 <!-- Filters Card -->
 <!-- Bouton Relance Manuelle avec champ délai -->
-    {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
+    {% if access_finance%}
     <div style="margin-bottom: 1.5rem;">
         <form method="post" action="{% url 'invoices:manual_reminders' %}"
               style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">

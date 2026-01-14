@@ -30,6 +30,7 @@ urlpatterns = [
     path('oauth/', include('management.urls_oauth')),
     path('chatbot/', include('chatbot.urls')),
     path('finance/factures/', include('invoices.urls')),
+    path('auth/', include('authentication.urls')),
     path('gestion-des-candidatures/', include('recrutement.urls')),
     path('pole-technique/documents/', include('technique.urls')),
 

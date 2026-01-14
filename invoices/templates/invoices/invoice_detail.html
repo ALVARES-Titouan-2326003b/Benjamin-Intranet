@@ -11,7 +11,7 @@
     <h2>Facture #{{ object.id }}</h2>
   </div>
 
-  {% if user.is_staff or user.groups.all.0.name == 'POLE_FINANCIER' %}
+  {%if access_finance %}
   <a class="btn btn-primary" href="{% url 'invoices:edit' object.pk %}">
     <i class="bi bi-pencil"></i> Modifier
   </a>
