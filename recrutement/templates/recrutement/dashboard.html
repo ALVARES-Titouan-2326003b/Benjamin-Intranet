@@ -14,10 +14,20 @@
   <!-- Fiches de poste -->
   <div class="card">
     <div class="card-title">Fiches de poste</div>
-    <div class="table-responsive">
+    
+<!-- Bouton suppression fiches -->
+<form method="post" action="{% url 'recrutement:bulk_delete_fiches' %}" id="bulkDeleteFichesForm" style="margin-bottom: 1rem;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger" id="deleteFichesBtn" style="display: none;" 
+            onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer les fiches sélectionnées ? Cette action est irréversible.');">
+        <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedFichesCount">0</span>)
+    </button>
+
+<div class="table-responsive">
       <table class="table table-hover">
         <thead>
           <tr>
+            <th style="width: 40px;"><input type="checkbox" id="selectAllFiches" title="Tout sélectionner"></th>
             <th>Titre</th>
             <th>Créée le</th>
             <th class="text-center">Candidatures</th>
@@ -26,6 +36,7 @@
         <tbody>
           {% for f in fiches %}
           <tr>
+            <td><input type="checkbox" class="fiche-checkbox" name="fiche_ids" value="{{ f.id }}"></td>
             <td>
               <a href="{% url 'recrutement:fiche_detail' f.pk %}"
                 style="font-weight: 500; color: var(--text-main); text-decoration: none;">
@@ -44,16 +55,27 @@
           {% endfor %}
         </tbody>
       </table>
+</form>
     </div>
   </div>
 
   <!-- Dernières évaluations -->
   <div class="card">
     <div class="card-title">Dernières évaluations</div>
+
+<!-- Bouton suppression candidatures -->
+<form method="post" action="{% url 'recrutement:bulk_delete_candidatures' %}" id="bulkDeleteCandidaturesForm" style="margin-bottom: 1rem;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger" id="deleteCandidaturesBtn" style="display: none;" 
+            onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer les candidatures sélectionnées ? Cette action est irréversible.');">
+        <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedCandidaturesCount">0</span>)
+    </button>
+
     <div class="table-responsive">
       <table class="table table-hover">
         <thead>
           <tr>
+            <th style="width: 40px;"><input type="checkbox" id="selectAllCandidatures" title="Tout sélectionner"></th>
             <th>Poste</th>
             <th>Candidat</th>
             <th class="text-center">Score</th>
@@ -63,6 +85,7 @@
         <tbody>
           {% for c in candidatures %}
           <tr>
+            <td><input type="checkbox" class="candidature-checkbox" name="candidature_ids" value="{{ c.id }}"></td>
             <td>
               <a href="{% url 'recrutement:fiche_detail' c.fiche.pk %}"
                 style="font-weight: 500; color: var(--accent); text-decoration: none;">
@@ -94,8 +117,67 @@
           {% endfor %}
         </tbody>
       </table>
+</form>
     </div>
   </div>
 
 </div>
+
+<script>
+// Gestion de la sélection multiple pour les fiches
+document.addEventListener('DOMContentLoaded', function() {
+    // FICHES
+    const selectAllFiches = document.getElementById('selectAllFiches');
+    const deleteFichesBtn = document.getElementById('deleteFichesBtn');
+    const selectedFichesCount = document.getElementById('selectedFichesCount');
+    
+    if (selectAllFiches) {
+        selectAllFiches.addEventListener('change', function() {
+            document.querySelectorAll('.fiche-checkbox').forEach(cb => cb.checked = this.checked);
+            updateFichesButton();
+        });
+        
+        document.querySelectorAll('.fiche-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateFichesButton);
+        });
+    }
+    
+    function updateFichesButton() {
+        const count = document.querySelectorAll('.fiche-checkbox:checked').length;
+        deleteFichesBtn.style.display = count > 0 ? 'inline-block' : 'none';
+        selectedFichesCount.textContent = count;
+        if (selectAllFiches) {
+            const total = document.querySelectorAll('.fiche-checkbox').length;
+            selectAllFiches.checked = total > 0 && count === total;
+        }
+    }
+    
+    // CANDIDATURES
+    const selectAllCandidatures = document.getElementById('selectAllCandidatures');
+    const deleteCandidaturesBtn = document.getElementById('deleteCandidaturesBtn');
+    const selectedCandidaturesCount = document.getElementById('selectedCandidaturesCount');
+    
+    if (selectAllCandidatures) {
+        selectAllCandidatures.addEventListener('change', function() {
+            document.querySelectorAll('.candidature-checkbox').forEach(cb => cb.checked = this.checked);
+            updateCandidaturesButton();
+        });
+        
+        document.querySelectorAll('.candidature-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateCandidaturesButton);
+        });
+    }
+    
+    function updateCandidaturesButton() {
+        const count = document.querySelectorAll('.candidature-checkbox:checked').length;
+        deleteCandidaturesBtn.style.display = count > 0 ? 'inline-block' : 'none';
+        selectedCandidaturesCount.textContent = count;
+        if (selectAllCandidatures) {
+            const total = document.querySelectorAll('.candidature-checkbox').length;
+            selectAllCandidatures.checked = total > 0 && count === total;
+        }
+    }
+});
+</script>
+
 {% endblock %}

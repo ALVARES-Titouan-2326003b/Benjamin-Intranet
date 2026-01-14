@@ -27,10 +27,20 @@
     {% endif %}
   </form>
 
-  <div class="table-responsive">
+  
+<!-- Bouton suppression documents -->
+<form method="post" action="{% url 'technique:bulk_delete_documents' %}" id="bulkDeleteDocsForm" style="margin-bottom: 1rem;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger" id="deleteDocsBtn" style="display: none;" 
+            onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer les documents sélectionnés ? Cette action est irréversible.');">
+        <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedDocsCount">0</span>)
+    </button>
+
+<div class="table-responsive">
     <table class="table table-hover">
       <thead>
         <tr>
+          <th style="width: 40px;"><input type="checkbox" id="selectAllDocs" title="Tout sélectionner"></th>
           <th>Projet</th>
           <th>Titre</th>
           <th>Type</th>
@@ -41,6 +51,7 @@
       <tbody>
         {% for doc in documents %}
         <tr>
+          <td><input type="checkbox" class="doc-checkbox" name="document_ids" value="{{ doc.id }}"></td>
           <td>
             <span style="font-weight: 500; color: var(--text-main);">{{ doc.projet|default:"—" }}</span>
           </td>
@@ -71,11 +82,43 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="5" class="text-center text-muted" style="padding: 2rem;">Aucun document trouvé.</td>
+          <td colspan="6" class="text-center text-muted" style="padding: 2rem;">Aucun document trouvé.</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+</form>
   </div>
 </div>
+
+<script>
+// Gestion de la sélection multiple pour les documents
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllDocs = document.getElementById('selectAllDocs');
+    const deleteDocsBtn = document.getElementById('deleteDocsBtn');
+    const selectedDocsCount = document.getElementById('selectedDocsCount');
+    
+    if (selectAllDocs) {
+        selectAllDocs.addEventListener('change', function() {
+            document.querySelectorAll('.doc-checkbox').forEach(cb => cb.checked = this.checked);
+            updateDocsButton();
+        });
+        
+        document.querySelectorAll('.doc-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateDocsButton);
+        });
+    }
+    
+    function updateDocsButton() {
+        const count = document.querySelectorAll('.doc-checkbox:checked').length;
+        deleteDocsBtn.style.display = count > 0 ? 'inline-block' : 'none';
+        selectedDocsCount.textContent = count;
+        if (selectAllDocs) {
+            const total = document.querySelectorAll('.doc-checkbox').length;
+            selectAllDocs.checked = total > 0 && count === total;
+        }
+    }
+});
+</script>
+
 {% endblock %}

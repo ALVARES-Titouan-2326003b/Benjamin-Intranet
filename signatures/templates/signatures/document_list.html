@@ -1,6 +1,48 @@
 {% extends "base.html" %}
 
-{% block title %}Documents à signer{% endblock %}
+{% block title %}Documents à signer
+<script>
+    // Gestion de la sélection multiple
+    document.addEventListener('DOMContentLoaded', function () {
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const deleteBtn = document.getElementById('deleteSelectedBtn');
+        const selectedCountSpan = document.getElementById('selectedCount');
+
+        if (selectAllCheckbox) {
+            // "Tout sélectionner"
+            selectAllCheckbox.addEventListener('change', function () {
+                const checkboxes = document.querySelectorAll('.document-checkbox');
+                checkboxes.forEach(cb => cb.checked = this.checked);
+                updateDeleteButton();
+            });
+
+            // Mise à jour individuelle
+            document.querySelectorAll('.document-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateDeleteButton);
+            });
+        }
+
+        function updateDeleteButton() {
+            const checkedBoxes = document.querySelectorAll('.document-checkbox:checked');
+            const count = checkedBoxes.length;
+
+            if (count > 0) {
+                deleteBtn.style.display = 'inline-block';
+                selectedCountSpan.textContent = count;
+            } else {
+                deleteBtn.style.display = 'none';
+            }
+
+            // Mettre à jour l'état de "Tout sélectionner"
+            const allCheckboxes = document.querySelectorAll('.document-checkbox');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length > 0 && count === allCheckboxes.length;
+            }
+        }
+    });
+</script>
+
+{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
@@ -17,40 +59,54 @@
 
     {% if documents %}
     <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Titre</th>
-                    <th>Date d’upload</th>
-                    <th>Statut</th>
-                    <th class="text-right">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for doc in documents %}
-                <tr>
-                    <td>
-                        <span style="font-weight: 500; color: var(--text-main);">{{ doc.titre }}</span>
-                    </td>
-                    <td>{{ doc.date_upload|date:"d/m/Y H:i" }}</td>
-                    <td>
-                        {% if doc.status_label %}
-                        <span class="badge {{ doc.status_css }}">
-                            {{ doc.status_label }}
-                        </span>
-                        {% else %}
-                        -
-                        {% endif %}
-                    </td>
-                    <td class="text-right">
-                        <a class="btn btn-sm btn-ghost" href="{% url 'signatures:document_detail' doc.pk %}">
-                            Voir détails
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+
+        <!-- Bouton suppression (visible seulement pour finance/staff) -->
+        <form method="post" action="{% url 'signatures:bulk_delete' %}" id="bulkDeleteForm"
+            style="margin-bottom: 1rem;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger" id="deleteSelectedBtn" style="display: none;"
+                onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer les documents sélectionnés ? Cette action est irréversible.');">
+                <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedCount">0</span>)
+            </button>
+
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="selectAll" title="Tout sélectionner"></th>
+                        <th>Titre</th>
+                        <th>Date d’upload</th>
+                        <th>Statut</th>
+                        <th class="text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td><input type="checkbox" class="document-checkbox" name="document_ids" value="{{ doc.id }}">
+                        </td>
+                        <td>
+                            <span style="font-weight: 500; color: var(--text-main);">{{ doc.titre }}</span>
+                        </td>
+                        <td>{{ doc.date_upload|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% if doc.status_label %}
+                            <span class="badge {{ doc.status_css }}">
+                                {{ doc.status_label }}
+                            </span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <a class="btn btn-sm btn-ghost" href="{% url 'signatures:document_detail' doc.pk %}">
+                                Voir détails
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
     </div>
     {% else %}
     <div class="text-center text-muted" style="padding: 2rem;">
@@ -58,4 +114,46 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+    // Gestion de la sélection multiple
+    document.addEventListener('DOMContentLoaded', function () {
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const deleteBtn = document.getElementById('deleteSelectedBtn');
+        const selectedCountSpan = document.getElementById('selectedCount');
+
+        if (selectAllCheckbox) {
+            // "Tout sélectionner"
+            selectAllCheckbox.addEventListener('change', function () {
+                const checkboxes = document.querySelectorAll('.document-checkbox');
+                checkboxes.forEach(cb => cb.checked = this.checked);
+                updateDeleteButton();
+            });
+
+            // Mise à jour individuelle
+            document.querySelectorAll('.document-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateDeleteButton);
+            });
+        }
+
+        function updateDeleteButton() {
+            const checkedBoxes = document.querySelectorAll('.document-checkbox:checked');
+            const count = checkedBoxes.length;
+
+            if (count > 0) {
+                deleteBtn.style.display = 'inline-block';
+                selectedCountSpan.textContent = count;
+            } else {
+                deleteBtn.style.display = 'none';
+            }
+
+            // Mettre à jour l'état de "Tout sélectionner"
+            const allCheckboxes = document.querySelectorAll('.document-checkbox');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length > 0 && count === allCheckboxes.length;
+            }
+        }
+    });
+</script>
+
 {% endblock %}

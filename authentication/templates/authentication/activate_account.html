@@ -12,7 +12,8 @@
             {% if valid_link %}
             <h2 class="mb-4 text-primary">Bienvenue !</h2>
             <p class="text-muted mb-4">
-                Votre compte est presque prêt. Veuillez choisir votre identifiant et votre mot de passe pour finaliser
+                Votre compte est presque prêt. Veuillez renseigner votre nom, choisir votre identifiant et votre mot de
+                passe pour finaliser
                 l'inscription.
             </p>
 
@@ -24,6 +25,23 @@
                     {{ form.non_field_errors }}
                 </div>
                 {% endif %}
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">{{ form.first_name.label }}</label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                        <div class="text-danger small">{{ form.first_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">{{ form.last_name.label }}</label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                        <div class="text-danger small">{{ form.last_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-bold">{{ form.username.label }}</label>

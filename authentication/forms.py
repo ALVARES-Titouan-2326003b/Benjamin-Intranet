@@ -20,6 +20,8 @@ class UserInvitationForm(forms.Form):
         return email
 
 class AccountActivationForm(forms.Form):
+    first_name = forms.CharField(label="Prénom", max_length=150, required=True)
+    last_name = forms.CharField(label="Nom", max_length=150, required=True)
     username = forms.CharField(label="Nom d'utilisateur souhaité", max_length=150, required=True)
     password = forms.CharField(label="Mot de passe", widget=forms.PasswordInput, required=True)
     password_confirm = forms.CharField(label="Confirmer le mot de passe", widget=forms.PasswordInput, required=True)
