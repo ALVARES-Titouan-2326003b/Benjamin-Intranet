@@ -19,40 +19,35 @@
 
 <!-- Filters Card -->
 <!-- Bouton Relance Manuelle avec champ délai -->
-    {% if access_finance%}
-    <div style="margin-bottom: 1.5rem;">
-        <form method="post" action="{% url 'invoices:manual_reminders' %}"
-              style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-            {% csrf_token %}
+{% if access_finance%}
+<div style="margin-bottom: 1.5rem;">
+    <form method="post" action="{% url 'invoices:manual_reminders' %}"
+        style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        {% csrf_token %}
 
-            <!-- Champ délai relance -->
-            <div class="form-group" style="margin: 0; flex: 0 0 200px;">
-                <label class="form-label" style="font-size: 0.9rem; margin-bottom: 0.5rem;">
-                    Délai relance (jours)
-                </label>
-                <input type="number"
-                       name="delai_relance"
-                       value="1"
-                       min="1"
-                       class="form-control"
-                       style="font-weight: 600;"
-                       required>
-            </div>
+        <!-- Champ délai relance -->
+        <div class="form-group" style="margin: 0; flex: 0 0 200px;">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 0.5rem;">
+                Délai relance (jours)
+            </label>
+            <input type="number" name="delai_relance" value="1" min="1" class="form-control" style="font-weight: 600;"
+                required>
+        </div>
 
-            <!-- Bouton relance -->
-            <button type="submit"
-                    class="btn btn-warning"
-                    style="font-weight: 600; padding: 0.75rem 1.5rem; flex: 1; min-width: 200px;"
-                    onclick="return confirm('Cette action va lancer la relance manuelle.\n\nVoulez-vous continuer ?');">
-                Lancer la relance manuelle
-            </button>
-        </form>
+        <!-- Bouton relance -->
+        <button type="submit" class="btn btn-warning"
+            style="font-weight: 600; padding: 0.75rem 1.5rem; flex: 1; min-width: 200px;"
+            onclick="return confirm('Cette action va lancer la relance manuelle.\n\nVoulez-vous continuer ?');">
+            Lancer la relance manuelle
+        </button>
+    </form>
 
-        <small style="display: block; margin-top: 0.5rem; color: var(--text-secondary); font-style: italic;">
-            Le délai sera appliqué à tous les fournisseurs
-        </small>
-    </div>
-    {% endif %}
+    <small style="display: block; margin-top: 0.5rem; color: var(--text-secondary); font-style: italic;">
+        Le délai sera appliqué à tous les fournisseurs
+    </small>
+</div>
+{% endif %}
+{% if not is_only_collaborator %}
 <div class="card">
     <div class="card-title">
         <span><i class="bi bi-funnel"></i> Filtres</span>
@@ -92,11 +87,11 @@
             <label class="form-label" style="font-size: 0.8rem;">Statut</label>
             <select name="statut" class="form-control">
                 <option value="">Tous</option>
-                <option value="Reçue" {% if request.GET.statut == 'Reçue' %}selected{% endif %}>Reçue</option>
+                <option value="Recue" {% if request.GET.statut == 'Recue' %}selected{% endif %}>Reçue</option>
                 <option value="En cours" {% if request.GET.statut == 'En cours' %}selected{% endif %}>En cours</option>
-                <option value="Payée" {% if request.GET.statut == 'Payée' %}selected{% endif %}>Payée</option>
+                <option value="Payee" {% if request.GET.statut == 'Payee' %}selected{% endif %}>Payée</option>
                 <option value="Refusée" {% if request.GET.statut == 'Refusée' %}selected{% endif %}>Refusée</option>
-                <option value="Archivée" {% if request.GET.statut == 'Archivée' %}selected{% endif %}>Archivée</option>
+                <option value="Archivee" {% if request.GET.statut == 'Archivee' %}selected{% endif %}>Archivée</option>
             </select>
         </div>
 
@@ -120,6 +115,18 @@
         </div>
     </form>
 </div>
+{% endif %}
+
+
+<!-- Bouton suppression (visible seulement pour finance/staff) -->
+{% if access_finance %}
+<form method="post" action="{% url 'invoices:bulk_delete' %}" id="bulkDeleteForm" style="margin-bottom: 1rem;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger" id="deleteSelectedBtn" style="display: none;" 
+            onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer les factures sélectionnées ? Cette action est irréversible.');">
+        <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedCount">0</span>)
+    </button>
+{% endif %}
 
 <!-- Invoices Table -->
 <div class="card" style="padding: 0; overflow: hidden;">
@@ -127,7 +134,8 @@
         <table class="table">
             <thead style="background: #f8fafc;">
                 <tr>
-                    <th style="padding-left: 1.5rem;">ID</th>
+                    <th style="padding-left: 1.5rem; width: 40px;"><input type="checkbox" id="selectAll" title="Tout sélectionner"></th>
+                    <th>ID</th>
                     <th>Fournisseur</th>
                     <th>Client</th>
                     <th>Montant</th>
@@ -139,7 +147,8 @@
             <tbody>
                 {% for invoice in object_list %}
                 <tr>
-                    <td style="padding-left: 1.5rem;">
+                    <td style="padding-left: 1.5rem;"><input type="checkbox" class="invoice-checkbox" name="invoice_ids" value="{{ invoice.id }}"></td>
+                    <td>
                         <a href="{% url 'invoices:detail' invoice.pk %}"
                             style="font-weight: 600; color: var(--accent);">
                             #{{ invoice.id }}
@@ -201,6 +210,7 @@
     </div>
 </div>
 
+</form>
 <!-- Pagination -->
 {% if page_obj.has_previous or page_obj.has_next %}
 <div class="d-flex justify-center"
@@ -223,5 +233,48 @@
     {% endif %}
 </div>
 {% endif %}
+
+
+<script>
+// Gestion de la sélection multiple
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    const form = document.getElementById('bulkDeleteForm');
+    
+    if (selectAllCheckbox) {
+        // "Tout sélectionner"
+        selectAllCheckbox.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.invoice-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateDeleteButton();
+        });
+        
+        // Mise à jour individuelle
+        document.querySelectorAll('.invoice-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateDeleteButton);
+        });
+    }
+    
+    function updateDeleteButton() {
+        const checkedBoxes = document.querySelectorAll('.invoice-checkbox:checked');
+        const count = checkedBoxes.length;
+        
+        if (count > 0) {
+            deleteBtn.style.display = 'inline-block';
+            selectedCountSpan.textContent = count;
+        } else {
+            deleteBtn.style.display = 'none';
+        }
+        
+        // Mettre à jour l'état de "Tout sélectionner"
+        const allCheckboxes = document.querySelectorAll('.invoice-checkbox');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = allCheckboxes.length > 0 && count === allCheckboxes.length;
+        }
+    }
+});
+</script>
 
 {% endblock %}

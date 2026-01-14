@@ -125,9 +125,13 @@ def activate_account_view(request, uidb64, token):
             if form.is_valid():
                 new_username = form.cleaned_data['username']
                 password = form.cleaned_data['password']
+                first_name = form.cleaned_data['first_name']
+                last_name = form.cleaned_data['last_name']
                 
                 # Mise à jour de l'utilisateur
                 user.username = new_username
+                user.first_name = first_name
+                user.last_name = last_name
                 user.set_password(password)
                 user.is_active = True
                 user.save()

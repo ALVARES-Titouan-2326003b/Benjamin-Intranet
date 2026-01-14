@@ -23,8 +23,15 @@ class FactureListView(FilterView):
     template_name = 'invoices/invoice_list.html'
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        return qs.select_related('client')
+        qs = super().get_queryset().select_related('client', 'collaborateur')
+        user = self.request.user
+        
+        # Si Finance ou CEO -> Tout voir
+        if has_finance_access(user) or has_ceo_access(user):
+            return qs
+            
+        # Sinon -> Voir seulement ses factures
+        return qs.filter(collaborateur=user)
 
     def get_context_data( self, *, object_list = ..., **kwargs):
         context = super().get_context_data(**kwargs)
@@ -97,7 +104,9 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
         return reverse('invoices:detail', args=[self.object.pk])
 
     def get_context_data(self, **kwargs):
-        return {"user_ceo": has_ceo_access(self.request.user)}
+        context = super().get_context_data(**kwargs)
+        context["user_ceo"] = has_ceo_access(self.request.user)
+        return context
 
 
 @method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
@@ -111,7 +120,9 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
         return reverse('invoices:detail', args=[self.object.pk])
 
     def get_context_data(self, **kwargs):
-        return {"user_ceo": has_ceo_access(self.request.user)}
+        context = super().get_context_data(**kwargs)
+        context["user_ceo"] = has_ceo_access(self.request.user)
+        return context
 
 # ================== Relance Manuelle ==================
 
@@ -163,4 +174,33 @@ class ManualInvoiceRemindersView(View):
                 f"Erreur lors de la relance : {result.get('message', 'Erreur inconnue')}"
             )
 
+        return redirect('invoices:list')
+
+# ================== Suppression en masse ==================
+
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+class BulkDeleteInvoicesView(View):
+    """
+    Vue pour supprimer plusieurs factures en une seule action
+    """
+
+    def post(self, request, *args, **kwargs):
+        # Récupérer les IDs des factures sélectionnées
+        invoice_ids = request.POST.getlist('invoice_ids')
+        
+        if not invoice_ids:
+            messages.warning(request, "Aucune facture sélectionnée.")
+            return redirect('invoices:list')
+        
+        try:
+            # Supprimer les factures
+            deleted_count = Facture.objects.filter(id__in=invoice_ids).delete()[0]
+            
+            messages.success(
+                request,
+                f"✅ {deleted_count} facture{['','s'][deleted_count>1]} supprimée{['','s'][deleted_count>1]} avec succès."
+            )
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+        
         return redirect('invoices:list')

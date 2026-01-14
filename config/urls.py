@@ -51,6 +51,11 @@ urlpatterns = [
     technique_views.financial_project_pdf,
     name="technique_financial_project_pdf",
     ),
+    path(
+    "pole-technique/vue-financiere/bulk-delete/",
+    technique_views.bulk_delete_projects,
+    name="technique_bulk_delete_projects",
+    ),
     
 ]
 

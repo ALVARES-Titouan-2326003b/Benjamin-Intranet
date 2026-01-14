@@ -1,123 +1,212 @@
-{% extends "base.html" %}
-
-{% block content %}
-<div class="d-flex justify-between align-center mb-4"
-  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-  <div>
-    <a href="{% url 'invoices:list' %}"
-      style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-      <i class="bi bi-arrow-left"></i> Annuler
-    </a>
-    <h2>{% if object %}Modifier{% else %}Créer{% endif %} une facture</h2>
-  </div>
-</div>
-
-<div class="card" style="max-width: 800px;">
-
-  {% if form.errors or form.non_field_errors or piece_form.errors %}
-  <div class="alert alert-danger"
-    style="background: #fee2e2; border: 1px solid #fecaca; color: #991b1b; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
-    <strong style="display: block; margin-bottom: 0.5rem;">Veuillez corriger les erreurs suivantes :</strong>
-    <ul style="margin: 0; padding-left: 1.5rem;">
-      {% for err in form.non_field_errors %}
-      <li>{{ err }}</li>
-      {% endfor %}
-      {% for field in form %}
-      {% for err in field.errors %}
-      <li><b>{{ field.label }} :</b> {{ err }}</li>
-      {% endfor %}
-      {% endfor %}
-      {% for field in piece_form %}
-      {% for err in field.errors %}
-      <li><b>{{ field.label }} :</b> {{ err }}</li>
-      {% endfor %}
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-
-  <form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-      <div class="form-group">
-        <label class="form-label">{{ form.fournisseur_input.label }}</label>
-        {{ form.fournisseur_input }}
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">{{ form.client_input.label }}</label>
-        {{ form.client_input }}
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">{{ form.montant.label }}</label>
-        {{ form.montant }}
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">{{ form.statut.label }}</label>
-        {{ form.statut }}
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">{{ form.echeance.label }}</label>
-        {{ form.echeance }}
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">{{ form.pole.label }}</label>
-        {{ form.pole }}
-      </div>
-
-      <div class="form-group" style="grid-column: span 2;">
-        <label class="form-label">{{ form.titre.label }}</label>
-        {{ form.titre }}
-      </div>
-    </div>
-
-    <div style="margin-top: 2rem; border-top: 1px solid var(--border-light); padding-top: 1.5rem;">
-      <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">Pièces Jointes</h3>
-
-      <div class="form-group">
-        <label class="form-label">{{ piece_form.fichier.label }}</label>
-        {{ piece_form.fichier }}
-        <small style="display: block; color: var(--text-secondary); margin-top: 0.25rem;">Format PDF uniquement (max 10
-          Mo)</small>
-      </div>
-
-      {# Lister les pièces déjà présentes #}
-      {% if object %}
-      {% with pieces=object.piecejointe_set.all %}
-      {% if pieces %}
-      <div style="margin-top: 1rem; background: #f8fafc; padding: 1rem; border-radius: var(--radius-md);">
-        <label class="form-label" style="font-size: 0.9rem; margin-bottom: 0.5rem;">Fichiers actuels :</label>
-        <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-secondary);">
-          {% for pj in pieces %}
-          <li>
-            <a href="{{ pj.fichier.url }}" target="_blank" rel="noopener"
-              style="color: var(--accent); text-decoration: none;">
-              {{ pj.fichier.name|slice:"8:" }}
-            </a>
-            <span style="font-size: 0.85rem;">({{ pj.uploaded_at|date:"d/m/Y H:i" }})</span>
-          </li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% endif %}
-      {% endwith %}
-      {% endif %}
-    </div>
-
-    <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
-      <a href="{% if object %}{% url 'invoices:detail' object.pk %}{% else %}{% url 'invoices:list' %}{% endif %}"
-        class="btn btn-secondary">
-        Annuler
-      </a>
-      <button type="submit" class="btn btn-primary">
-        {% if object %}Enregistrer les modifications{% else %}Créer la facture{% endif %}
-      </button>
-    </div>
-  </form>
-</div>
+{% extends "base.html" %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-between align-center mb-4"
+  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+
+  <div>
+
+    <a href="{% url 'invoices:list' %}"
+      style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+
+      <i class="bi bi-arrow-left"></i> Annuler
+
+    </a>
+
+    <h2>{% if object %}Modifier{% else %}Créer{% endif %} une facture</h2>
+
+  </div>
+
+</div>
+
+
+
+<div class="card" style="max-width: 800px;">
+
+
+
+  {% if form.errors or form.non_field_errors or piece_form.errors %}
+
+  <div class="alert alert-danger"
+    style="background: #fee2e2; border: 1px solid #fecaca; color: #991b1b; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+
+    <strong style="display: block; margin-bottom: 0.5rem;">Veuillez corriger les erreurs suivantes :</strong>
+
+    <ul style="margin: 0; padding-left: 1.5rem;">
+
+      {% for err in form.non_field_errors %}
+
+      <li>{{ err }}</li>
+
+      {% endfor %}
+
+      {% for field in form %}
+
+      {% for err in field.errors %}
+
+      <li><b>{{ field.label }} :</b> {{ err }}</li>
+
+      {% endfor %}
+
+      {% endfor %}
+
+      {% for field in piece_form %}
+
+      {% for err in field.errors %}
+
+      <li><b>{{ field.label }} :</b> {{ err }}</li>
+
+      {% endfor %}
+
+      {% endfor %}
+
+    </ul>
+
+  </div>
+
+  {% endif %}
+
+
+
+  <form method="post" enctype="multipart/form-data">
+
+    {% csrf_token %}
+
+
+
+
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+      <div class="form-group">
+        <label class="form-label">{{ form.fournisseur_input.label }}</label>
+        {{ form.fournisseur_input }}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">{{ form.client_input.label }}</label>
+        {{ form.client_input }}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">{{ form.collaborateur.label }}</label>
+        {{ form.collaborateur }}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">{{ form.montant.label }}</label>
+        {{ form.montant }}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">{{ form.statut.label }}</label>
+        {{ form.statut }}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">{{ form.echeance.label }}</label>
+        {{ form.echeance }}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">{{ form.pole.label }}</label>
+        {{ form.pole }}
+      </div>
+
+      <div class="form-group" style="grid-column: span 2;">
+        <label class="form-label">{{ form.titre.label }}</label>
+        {{ form.titre }}
+      </div>
+    </div>
+
+
+
+    <div style="margin-top: 2rem; border-top: 1px solid var(--border-light); padding-top: 1.5rem;">
+
+      <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">Pièces Jointes</h3>
+
+
+
+      <div class="form-group">
+
+        <label class="form-label">{{ piece_form.fichier.label }}</label>
+
+        {{ piece_form.fichier }}
+
+        <small style="display: block; color: var(--text-secondary); margin-top: 0.25rem;">Format PDF uniquement (max 10
+
+          Mo)</small>
+
+      </div>
+
+
+
+      {# Lister les pièces déjà présentes #}
+
+      {% if object %}
+
+      {% with pieces=object.piecejointe_set.all %}
+
+      {% if pieces %}
+
+      <div style="margin-top: 1rem; background: #f8fafc; padding: 1rem; border-radius: var(--radius-md);">
+
+        <label class="form-label" style="font-size: 0.9rem; margin-bottom: 0.5rem;">Fichiers actuels :</label>
+
+        <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-secondary);">
+
+          {% for pj in pieces %}
+
+          <li>
+
+            <a href="{{ pj.fichier.url }}" target="_blank" rel="noopener"
+              style="color: var(--accent); text-decoration: none;">
+
+              {{ pj.fichier.name|slice:"8:" }}
+
+            </a>
+
+            <span style="font-size: 0.85rem;">({{ pj.uploaded_at|date:"d/m/Y H:i" }})</span>
+
+          </li>
+
+          {% endfor %}
+
+        </ul>
+
+      </div>
+
+      {% endif %}
+
+      {% endwith %}
+
+      {% endif %}
+
+    </div>
+
+
+
+    <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+
+      <a href="{% if object %}{% url 'invoices:detail' object.pk %}{% else %}{% url 'invoices:list' %}{% endif %}"
+        class="btn btn-secondary">
+
+        Annuler
+
+      </a>
+
+      <button type="submit" class="btn btn-primary">
+
+        {% if object %}Enregistrer les modifications{% else %}Créer la facture{% endif %}
+
+      </button>
+
+    </div>
+
+  </form>
+
+</div>
+
 {% endblock %}

@@ -84,10 +84,16 @@ def ensure_dossier_exists(reference: str) -> None:
 
 
 # --- Formulaire ------------------------------------------------------------------
+from django.contrib.auth.models import User
 
 class FactureForm(forms.ModelForm):
     fournisseur_input = forms.CharField(label="Fournisseur", required=True)
     client_input = forms.CharField(label="Client (Entreprise)", required=False)
+    collaborateur = forms.ModelChoiceField(
+        queryset=User.objects.filter(is_active=True, groups__name="COLLABORATEUR").order_by('last_name', 'first_name'),
+        required=False,
+        label="Collaborateur (Assigner)"
+    )
 
     echeance = forms.DateField(
         required=False,
@@ -101,7 +107,7 @@ class FactureForm(forms.ModelForm):
 
     class Meta:
         model = Facture
-        fields = ["montant", "statut", "pole", "echeance", "titre"]
+        fields = ["montant", "statut", "pole", "echeance", "titre", "collaborateur"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
