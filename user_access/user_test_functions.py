@@ -15,7 +15,7 @@ def has_technique_access(user):
 
 def has_ceo_access(user):
     user = User.objects.get(username=user.username)
-    return user.is_superuser or user.is_staff or user.groups.filter(name="CEO").exists()
+    return user.groups.filter(name="CEO").exists()
 
 def has_collaborateur_access(user):
     user = User.objects.get(username=user.username)
