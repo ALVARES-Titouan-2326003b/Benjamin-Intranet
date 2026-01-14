@@ -6,6 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from datetime import timedelta
+from django.utils import timezone
 
 from .oauth_utils import (
     get_authorization_url,
@@ -62,17 +64,7 @@ def oauth_callback(request):
     Note : Pas de @login_required car Microsoft redirige ici
     La verification d'authentification est faite manuellement
     """
-    # Verification manuelle de l'authentification
-    if not request.user.is_authenticated:
-        messages.error(
-            request,
-            "Votre session a expire. Veuillez vous reconnecter puis relancer la synchronisation."
-        )
-        print(f"\n[ERREUR] Callback OAuth : Utilisateur non authentifie")
-        print(f"   Session key: {request.session.session_key}")
-        print(f"   User: {request.user}\n")
-        # Rediriger vers la page de login avec next parameter
-        return redirect('/account/login/?next=/administratif/')
+
 
     # Recuperer les parametres du callback
     code = request.GET.get('code')
@@ -116,6 +108,7 @@ def oauth_callback(request):
         # Extraire les tokens
         access_token = token_response.get('access_token')
         refresh_token = token_response.get('refresh_token')
+        expires_in = token_response.get('expires_in', 3600)  # Par defaut 1h
 
         if not access_token or not refresh_token:
             raise Exception("Tokens manquants dans la reponse Microsoft")
@@ -123,6 +116,14 @@ def oauth_callback(request):
         print(f"Tokens recus avec succes !")
         print(f"   Access token: {access_token[:20]}...")
         print(f"   Refresh token: {'OUI' if refresh_token else 'NON'}")
+        print(f"   Expires in: {expires_in} secondes")
+
+        # Calculer la date d'expiration
+        from datetime import datetime, timedelta
+        from django.utils import timezone
+
+        token_expiry = timezone.now() + timedelta(seconds=expires_in)
+        print(f"   Token expiry: {token_expiry}")
 
         # Recuperer l'email de l'utilisateur Microsoft
         user_email = get_user_email(access_token)
@@ -144,9 +145,11 @@ def oauth_callback(request):
         oauth_token, created = OAuthToken.objects.update_or_create(
             user=request.user,
             defaults={
+                'provider': 'microsoft',  # AJOUTER
                 'email': user_email,
                 'access_token': access_token,
-                'refresh_token': refresh_token
+                'refresh_token': refresh_token,
+                'token_expiry': token_expiry  # AJOUTER
             }
         )
 
@@ -249,10 +252,7 @@ def oauth_status(request):
     Note : Pas de @login_required car doit retourner JSON meme si non connecte
     """
     # Si pas connecte, retourner directement synchronized: false
-    if not request.user.is_authenticated:
-        return JsonResponse({
-            'synchronized': False
-        })
+
 
     try:
         # Recuperer le token OAuth de l'utilisateur
