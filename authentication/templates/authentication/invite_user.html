@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Inviter un utilisateur{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'authentication/css/invite_user.css' %}">
+<div class="container mt-5" style="max-width: 600px;">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3 class="card-title mb-0">Inviter un nouvel utilisateur</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-4">
+                Saisissez l'email du futur collaborateur et sélectionnez ses droits d'accès.
+                Il recevra un lien unique valable 48h pour configurer son mot de passe.
+            </p>
+
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">{{ form.email.label }}</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                    <div class="text-danger small">{{ form.email.errors }}</div>
+                    {% endif %}
+                    <small class="form-text text-muted">L'adresse servira aussi d'identifiant temporaire.</small>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">{{ form.poles.label }}</label>
+                    <div class="d-flex flex-column gap-2">
+                        {% for checkbox in form.poles %}
+                        <div class="form-check">
+                            {{ checkbox.tag }}
+                            <label class="form-check-label" for="{{ checkbox.id_for_label }}">
+                                {{ checkbox.choice_label }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if form.poles.errors %}
+                    <div class="text-danger small">{{ form.poles.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-envelope-paper"></i> Envoyer l'invitation
+                    </button>
+                    <a href="{% url 'authentication:user_management' %}" class="btn btn-outline-secondary">
+                        Annuler
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

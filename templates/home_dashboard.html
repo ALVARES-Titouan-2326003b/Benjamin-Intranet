@@ -59,6 +59,20 @@
         </a>
         {% endif %}
 
+        {% if request.user.is_superuser %}
+        <!-- GESTION DES COMPTES (SuperUser) -->
+        <a href="{% url 'authentication:user_management' %}" class="pole-card" style="border-color: var(--primary);">
+            <div class="pole-icon" style="background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%);">
+                <i class="bi bi-person-badge"></i>
+            </div>
+            <h2 class="pole-title">Gestion des Comptes</h2>
+            <p class="pole-desc">
+                Créer des utilisateurs, inviter des collaborateurs et gérer les accès.
+            </p>
+            <span class="pole-link">Gérer <i class="bi bi-arrow-right"></i></span>
+        </a>
+        {% endif %}
+
     </div>
 </div>
 
