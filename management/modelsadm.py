@@ -112,7 +112,7 @@ class OAuthToken(models.Model):
         db_table = 'oauth_tokens'
         verbose_name = 'Token OAuth'
         verbose_name_plural = 'Tokens OAuth'
-        managed = True
+        managed = False
 
     def __str__(self):
         return f"OAuth {self.provider} - {self.user.username} ({self.email})"
