@@ -7,10 +7,10 @@ from . import oauth_views
 app_name = 'oauth'
 
 urlpatterns = [
-    # Initier le flux OAuth (redirection vers Google)
-    path('gmail/', oauth_views.initiate_oauth, name='initiate'),
+    # Initier le flux OAuth (redirection vers Microsoft)
+    path('microsoft/', oauth_views.initiate_oauth, name='initiate'),
 
-    # Callback OAuth (retour depuis Google)
+    # Callback OAuth (retour depuis Microsoft)
     path('callback/', oauth_views.oauth_callback, name='callback'),
 
     # Révoquer l'accès OAuth

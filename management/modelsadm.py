@@ -37,7 +37,7 @@ class Modele_Relance(models.Model):
     objet = models.TextField(blank=True, null=True)
 
     class Meta:
-        db_table = 'Modele_Relance'  e
+        db_table = 'Modele_Relance'
         managed = False
 
     def __str__(self):
@@ -102,7 +102,7 @@ class OAuthToken(models.Model):
     access_token = models.TextField()
     refresh_token = models.TextField()
 
-  n
+
     token_expiry = models.DateTimeField()
 
 

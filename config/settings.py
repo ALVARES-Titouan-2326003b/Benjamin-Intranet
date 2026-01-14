@@ -14,7 +14,7 @@ from pathlib import Path
 import os
 import environ
 import logging
-
+#from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -320,3 +320,21 @@ if os.getenv('DJANGO_ENV') == 'production':
     print("\n🔒 MODE PRODUCTION ACTIVÉ : HTTPS forcé, Cookies sécurisés, Debug OFF.\n")
 else:
     print("\n⚠️ MODE DÉVELOPPEMENT : HTTPS désactivé, Debug ON.\n")
+
+
+# Identifiants Microsoft Azure AD
+MICROSOFT_CLIENT_ID = os.getenv('MICROSOFT_CLIENT_ID')
+MICROSOFT_CLIENT_SECRET = os.getenv('MICROSOFT_CLIENT_SECRET')
+MICROSOFT_TENANT_ID = os.getenv('MICROSOFT_TENANT_ID')
+MICROSOFT_REDIRECT_URI = os.getenv('MICROSOFT_REDIRECT_URI')
+
+# Scopes (permissions) demandées à l'utilisateur
+MICROSOFT_SCOPES = [
+    'User.Read',           # Lire le profil utilisateur
+    'Mail.Read',           # Lire les emails
+    'Mail.ReadWrite',      # Lire et modifier les emails
+    'Mail.Send',           # Envoyer des emails
+]
+
+# Authority URL (pour l'authentification)
+MICROSOFT_AUTHORITY = f"https://login.microsoftonline.com/{MICROSOFT_TENANT_ID}"

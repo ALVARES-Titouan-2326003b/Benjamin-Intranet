@@ -1,274 +1,171 @@
 """
-Utilitaires OAuth2 pour l'authentification Gmail
+OAuth2 utilities pour Microsoft Graph API
+Gestion de l'authentification et des tokens d'accès
 """
-from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+import msal
+import requests
 from django.conf import settings
-from django.utils import timezone
-from datetime import timedelta
-import os
-
-# ============================================================================
-# CONFIGURATION OAUTH2
-# ============================================================================
-
-SCOPES = [
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/gmail.modify',
-]
+from .modelsadm import OAuthToken
 
 
-def get_oauth_flow(redirect_uri):
+def get_authorization_url():
     """
-    Crée le flux OAuth2 pour l'authentification Google
-
-    Args:
-        redirect_uri (str): URL de callback (ex: http://localhost:8000/oauth/callback/)
+    Génère l'URL d'autorisation Microsoft OAuth2
 
     Returns:
-        Flow: Objet Flow pour gérer l'authentification
+        tuple: (auth_url, state)
     """
-    client_config = {
-        "web": {
-            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [redirect_uri]
-        }
-    }
-
-    flow = Flow.from_client_config(
-        client_config=client_config,
-        scopes=SCOPES,
-        redirect_uri=redirect_uri
+    app = msal.ConfidentialClientApplication(
+        client_id=settings.MICROSOFT_CLIENT_ID,
+        client_credential=settings.MICROSOFT_CLIENT_SECRET,
+        authority=f"https://login.microsoftonline.com/{settings.MICROSOFT_TENANT_ID}"
     )
 
-    return flow
-
-
-def get_authorization_url(redirect_uri):
-    """
-    Génère l'URL d'autorisation Google OAuth2
-
-    Args:
-        redirect_uri (str): URL de callback
-
-    Returns:
-        tuple: (authorization_url, state)
-    """
-    flow = get_oauth_flow(redirect_uri)
-
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',  # Pour obtenir un refresh_token
-        include_granted_scopes='true',
-        prompt='consent'  # Force l'affichage de l'écran de consentement
+    auth_url = app.get_authorization_request_url(
+        scopes=settings.MICROSOFT_SCOPES,
+        redirect_uri=settings.MICROSOFT_REDIRECT_URI
     )
 
-    return authorization_url, state
+    # Extraire le state de l'URL pour validation ultérieure
+    state = auth_url.split('state=')[1].split('&')[0] if 'state=' in auth_url else None
+
+    return auth_url, state
 
 
-def exchange_code_for_tokens(code, redirect_uri):
+def exchange_code_for_token(authorization_code):
     """
-    Échange le code d'autorisation contre des tokens
+    Échange le code d'autorisation contre un access token et refresh token
 
     Args:
-        code (str): Code d'autorisation reçu depuis Google
-        redirect_uri (str): URL de callback
+        authorization_code (str): Code d'autorisation reçu du callback
 
     Returns:
-        dict: {
-            'access_token': str,
-            'refresh_token': str,
-            'token_expiry': datetime,
-            'email': str
-        }
+        dict: Token response contenant access_token, refresh_token, etc.
+
+    Raises:
+        Exception: Si l'échange échoue
     """
-    flow = get_oauth_flow(redirect_uri)
-    flow.fetch_token(code=code)
-
-    credentials = flow.credentials
-
-
-    service = build('gmail', 'v1', credentials=credentials)
-    profile = service.users().getProfile(userId='me').execute()
-    user_email = profile['emailAddress']
-
-
-    token_expiry = timezone.now() + timedelta(seconds=credentials.expiry.timestamp() - timezone.now().timestamp())
-
-    return {
-        'access_token': credentials.token,
-        'refresh_token': credentials.refresh_token,
-        'token_expiry': token_expiry,
-        'email': user_email
-    }
-
-
-def refresh_access_token(refresh_token):
-    """
-    Renouvelle l'access_token avec le refresh_token
-
-    Args:
-        refresh_token (str): Refresh token stocké en BD
-
-    Returns:
-        dict: {
-            'access_token': str,
-            'token_expiry': datetime
-        }
-    """
-    from google.auth.transport.requests import Request
-
-    credentials = Credentials(
-        token=None,
-        refresh_token=refresh_token,
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id=os.getenv("GOOGLE_CLIENT_ID"),
-        client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-        scopes=SCOPES
+    app = msal.ConfidentialClientApplication(
+        client_id=settings.MICROSOFT_CLIENT_ID,
+        client_credential=settings.MICROSOFT_CLIENT_SECRET,
+        authority=f"https://login.microsoftonline.com/{settings.MICROSOFT_TENANT_ID}"
     )
 
-
-    credentials.refresh(Request())
-
-
-    token_expiry = timezone.now() + timedelta(seconds=3600)  # 1 heure
-
-    return {
-        'access_token': credentials.token,
-        'token_expiry': token_expiry
-    }
-
-
-def get_valid_credentials(oauth_token):
-    """
-    Récupère des credentials valides, les renouvelle si nécessaire
-
-    Args:
-        oauth_token (OAuthToken): Instance du modèle OAuthToken
-
-    Returns:
-        Credentials: Credentials Google valides
-    """
-    if oauth_token.is_token_expired():
-        print(f"Token expiré pour {oauth_token.user.username}, renouvellement...")
-
-        new_tokens = refresh_access_token(oauth_token.refresh_token)
-
-        # Mettre à jour en BD
-        oauth_token.access_token = new_tokens['access_token']
-        oauth_token.token_expiry = new_tokens['token_expiry']
-        oauth_token.save()
-
-        print(f"Token renouvelé pour {oauth_token.user.username}")
-
-    credentials = Credentials(
-        token=oauth_token.access_token,
-        refresh_token=oauth_token.refresh_token,
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id=os.getenv("GOOGLE_CLIENT_ID"),
-        client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-        scopes=SCOPES
+    result = app.acquire_token_by_authorization_code(
+        code=authorization_code,
+        scopes=settings.MICROSOFT_SCOPES,
+        redirect_uri=settings.MICROSOFT_REDIRECT_URI
     )
 
-    return credentials
+    if "error" in result:
+        error_description = result.get("error_description", result.get("error"))
+        raise Exception(f"Erreur lors de l'échange du code: {error_description}")
+
+    return result
 
 
-def get_gmail_service(user):
+def get_access_token(user):
     """
-    Crée un service Gmail API pour l'utilisateur
+    Récupère un access token valide pour l'utilisateur
+    Rafraîchit automatiquement le token si nécessaire
 
     Args:
         user (User): Utilisateur Django
 
     Returns:
-        Resource: Service Gmail API
+        str: Access token valide
 
     Raises:
-        ValueError: Si l'utilisateur n'a pas de token OAuth
+        Exception: Si aucun token n'existe ou si le rafraîchissement échoue
     """
-    from management.modelsadm import OAuthToken
-
     try:
         oauth_token = OAuthToken.objects.get(user=user)
     except OAuthToken.DoesNotExist:
-        raise ValueError(
-            f"L'utilisateur {user.username} n'a pas synchronisé sa boîte mail. "
-            f"Cliquez sur 'Synchroniser boite mail' pour autoriser l'accès."
+        raise Exception("Aucun token OAuth trouvé pour cet utilisateur")
+
+    # Vérifier si le token est encore valide (optionnel, MSAL gère le cache)
+    # Pour simplifier, on tente toujours de rafraîchir via MSAL
+
+    app = msal.ConfidentialClientApplication(
+        client_id=settings.MICROSOFT_CLIENT_ID,
+        client_credential=settings.MICROSOFT_CLIENT_SECRET,
+        authority=f"https://login.microsoftonline.com/{settings.MICROSOFT_TENANT_ID}"
+    )
+
+    # Essayer d'acquérir un token silencieusement (cache)
+    accounts = app.get_accounts()
+
+    if accounts:
+        result = app.acquire_token_silent(
+            scopes=settings.MICROSOFT_SCOPES,
+            account=accounts[0]
+        )
+    else:
+        result = None
+
+    # Si échec, utiliser le refresh token
+    if not result or "access_token" not in result:
+        result = app.acquire_token_by_refresh_token(
+            refresh_token=oauth_token.refresh_token,
+            scopes=settings.MICROSOFT_SCOPES
         )
 
-    credentials = get_valid_credentials(oauth_token)
-    service = build('gmail', 'v1', credentials=credentials)
+        if "error" in result:
+            error_description = result.get("error_description", result.get("error"))
+            raise Exception(f"Erreur lors du rafraîchissement du token: {error_description}")
 
-    return service
+        # Mettre à jour le token en base de données
+        oauth_token.access_token = result['access_token']
+        if 'refresh_token' in result:
+            oauth_token.refresh_token = result['refresh_token']
+        oauth_token.save()
 
-def send_email_via_gmail_api(user, to_email, subject, message_text):
+    return result['access_token']
+
+
+def get_user_email(access_token):
     """
-    Envoie un email via Gmail API avec OAuth2
+    Récupère l'adresse email de l'utilisateur connecté
+
+    Args:
+        access_token (str): Access token Microsoft
+
+    Returns:
+        str: Adresse email de l'utilisateur
+
+    Raises:
+        Exception: Si la requête échoue
+    """
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.get(
+        'https://graph.microsoft.com/v1.0/me',
+        headers=headers
+    )
+
+    if response.status_code != 200:
+        raise Exception(f"Erreur lors de la récupération du profil: {response.text}")
+
+    user_data = response.json()
+    return user_data.get('mail') or user_data.get('userPrincipalName')
+
+
+def revoke_token(user):
+    """
+    Révoque le token OAuth de l'utilisateur (déconnexion)
 
     Args:
         user (User): Utilisateur Django
-        to_email (str): Destinataire
-        subject (str): Sujet
-        message_text (str): Corps du message
 
     Returns:
-        dict: Résultat de l'envoi
+        bool: True si succès, False sinon
     """
-    import base64
-    from email.mime.text import MIMEText
-
-    service = get_gmail_service(user)
-
-    message = MIMEText(message_text)
-    message['to'] = to_email
-    message['subject'] = subject
-    message['from'] = user.email
-
-    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
-
-
     try:
-        sent_message = service.users().messages().send(
-            userId='me',
-            body={'raw': raw_message}
-        ).execute()
-
-        print(f"✅ Email envoyé via Gmail API : {sent_message['id']}")
-
-        return {
-            'success': True,
-            'message_id': sent_message['id']
-        }
-    except Exception as e:
-        print(f"❌ Erreur envoi Gmail API : {e}")
-        return {
-            'success': False,
-            'error': str(e)
-        }
-
-
-def list_messages(user, max_results=10):
-    """
-    Liste les messages de la boîte mail de l'utilisateur
-
-    Args:
-        user (User): Utilisateur Django
-        max_results (int): Nombre max de messages
-
-    Returns:
-        list: Liste des messages
-    """
-    service = get_gmail_service(user)
-
-    results = service.users().messages().list(
-        userId='me',
-        maxResults=max_results
-    ).execute()
-
-    messages = results.get('messages', [])
-
-    return messages
+        oauth_token = OAuthToken.objects.get(user=user)
+        oauth_token.delete()
+        return True
+    except OAuthToken.DoesNotExist:
+        return False

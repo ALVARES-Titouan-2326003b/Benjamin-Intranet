@@ -14,7 +14,7 @@
 <!-- Statut de synchronisation OAuth -->
 <div class="card" style="margin-bottom: 1.5rem;">
     <div class="card-title">
-        <span><i class="bi bi-envelope-check"></i> Synchronisation boîte mail</span>
+        <span><i class="bi bi-envelope-check"></i> Synchronisation boite mail</span>
     </div>
 
     <div id="oauth-status-container">
@@ -32,7 +32,7 @@
 
       <!-- Filtres du calendrier -->
       <div class="calendar-filters">
-         <!-- Les filtres seront générés dynamiquement par JavaScript -->
+         <!-- Les filtres seront generes dynamiquement par JavaScript -->
       </div>
 
       <!-- Calendrier -->
@@ -43,11 +43,11 @@
    <div class="card" style="height: 100%; display: flex; flex-direction: column;">
       <div class="card-title">Relance automatique</div>
 
-      <!-- Menu déroulant pour sélectionner un email -->
+      <!-- Menu deroulant pour selectionner un email -->
       <div class="reply-selector" style="margin-bottom: 1rem;">
-         <label for="email-select" class="form-label">Répondre à un email :</label>
+         <label for="email-select" class="form-label">Repondre a un email :</label>
          <select id="email-select" onchange="showReplyForm()" class="form-control">
-            <option value="">-- Sélectionner un email --</option>
+            <option value="">-- Selectionner un email --</option>
             {% for email in emails %}
             {% if email.status == 'pending' %}
             <option value="{{ email.id }}" data-to="{{ email.to }}"
@@ -59,22 +59,22 @@
          </select>
       </div>
 
-      <!-- Formulaire de réponse (caché par défaut) -->
+      <!-- Formulaire de reponse (cache par defaut) -->
       <div id="reply-form"
          style="display: none; background: #f8fafc; border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--border-light);">
          <div class="reply-info" style="margin-bottom: 1rem; font-size: 0.9rem;">
-            <p><strong>À :</strong> <span id="reply-to"></span></p>
+            <p><strong>A :</strong> <span id="reply-to"></span></p>
             <p><strong>Sujet :</strong> <span id="reply-subject"></span></p>
          </div>
 
-         <!-- Bouton Auto-générer -->
+         <!-- Bouton Auto-generer -->
          <button onclick="autoGenerate()" class="btn btn-primary auto-btn" type="button"
             style="width: 100%; margin-bottom: 1rem;">
-            <i class="bi bi-robot"></i> Auto-générer le message
+            <i class="bi bi-robot"></i> Auto-generer le message
          </button>
 
          <textarea id="reply-message" class="form-control" style="min-height: 150px; margin-bottom: 1rem;"
-            placeholder="Écrivez votre message ici..."></textarea>
+            placeholder="Ecrivez votre message ici..."></textarea>
 
          <button onclick="sendReply()" class="btn btn-success send-btn" style="width: 100%; justify-content: center;">Envoyer
             📨</button>
@@ -97,7 +97,6 @@
                <span class="email-date" style="font-size: 0.8rem;">{{ email.date|date:"d/m/Y H:i" }}</span>
             </div>
             <div class="email-from">A: {{ email.to }}</div>
-            <!-- "to" because it's sent to us? or from? Check context. Original code said "A: {{ email.to }}" but variable is email.to. Assuming original logic. -->
             <div class="email-preview">{{ email.body_text|truncatewords:20 }}</div>
          </div>
          {% endfor %}
@@ -112,7 +111,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static '/js/mails.js' %}?v=4"></script>
+<script src="{% static '/js/mails.js' %}?v=6"></script>
 <script src="{% static '/js/calendar.js' %}?v=4"></script>
-<script src="{% static '/js/oauth_status.js' %}?v=4"></script>
+<script src="{% static '/js/oauth_status.js' %}?v=6"></script>
 {% endblock %}

@@ -1,17 +1,17 @@
 """
-VERSION DEBUG ULTRA-DÉTAILLÉ
-Cette version affiche EXACTEMENT où chaque email est bloqué
+VERSION DEBUG ULTRA-DETAILLE
+VERSION MICROSOFT GRAPH API
+Cette version affiche EXACTEMENT ou chaque email est bloque
 """
 import os
 from celery import shared_task
 from django.utils import timezone
 from django.contrib.auth.models import User
 from .modelsadm import Utilisateur, Modele_Relance, Temps_Relance, Activites, OAuthToken
-from .email_manager import send_auto_relance
+from .email_manager import send_auto_relance, get_sent_emails_for_celery
 from datetime import datetime, timedelta
 from django.core.mail import EmailMessage
 import logging
-from email.utils import parsedate_to_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +19,12 @@ logger = logging.getLogger(__name__)
 @shared_task
 def check_and_send_auto_relances():
     """
-    VERSION DEBUG ULTRA-DÉTAILLÉ
+    VERSION DEBUG ULTRA-DETAILLE
+    VERSION MICROSOFT GRAPH API
     """
     print("\n" + "=" * 80)
-    print("VERSION DEBUG ULTRA-DÉTAILLÉ")
-    print(f"Date d'exécution : {timezone.now()}")
+    print("VERSION DEBUG ULTRA-DETAILLE - MICROSOFT GRAPH API")
+    print(f"Date d'execution : {timezone.now()}")
     print("=" * 80)
 
     today = timezone.now().date()
@@ -50,7 +51,7 @@ def check_and_send_auto_relances():
         oauth_users = OAuthToken.objects.all()
 
         if oauth_users.count() == 0:
-            print("\nAucun utilisateur avec token OAuth trouvé")
+            print("\nAucun utilisateur avec token OAuth trouve")
             return {
                 'success': True,
                 'emails_traites': 0,
@@ -67,16 +68,17 @@ def check_and_send_auto_relances():
             print(f"{'='*70}")
 
             try:
+                # CHANGEMENT MICROSOFT : get_sent_emails_for_celery vient de email_manager.py
                 sent_emails = get_sent_emails_for_celery(user, limit=100)
 
-                print(f"   {len(sent_emails)} emails trouvés dans SENT")
+                print(f"   {len(sent_emails)} emails trouves dans SENT")
 
                 pending_count = sum(1 for e in sent_emails if e.get('status') == 'pending')
                 replied_count = sum(1 for e in sent_emails if e.get('status') == 'replied')
-                print(f"   └─ {pending_count} en attente, {replied_count} répondus")
+                print(f"   └─ {pending_count} en attente, {replied_count} repondus")
 
-                # DEBUG : Afficher les détails de chaque email
-                print(f"\n   ANALYSE DÉTAILLÉE DE CHAQUE EMAIL:")
+                # DEBUG : Afficher les details de chaque email
+                print(f"\n   ANALYSE DETAILLEE DE CHAQUE EMAIL:")
                 print(f"   {'─'*66}")
 
                 for idx, email_data in enumerate(sent_emails, 1):
@@ -92,14 +94,14 @@ def check_and_send_auto_relances():
                         print(f"      └─ Statut: {status}")
 
                         if status != 'pending':
-                            print(f"         BLOQUÉ : Email déjà répondu")
+                            print(f"         BLOQUE : Email deja repondu")
                             blocked_at['status_replied'] += 1
                             continue
 
                         # CHECK 2 : Date
                         date_envoi = email_data.get('date')
                         if not date_envoi:
-                            print(f"         BLOQUÉ : Pas de date d'envoi")
+                            print(f"         BLOQUE : Pas de date d'envoi")
                             blocked_at['date_missing'] += 1
                             continue
 
@@ -108,33 +110,33 @@ def check_and_send_auto_relances():
 
                         nb_jours = (today - date_envoi).days
                         print(f"      └─ Date envoi: {date_envoi}")
-                        print(f"      └─ Jours écoulés: {nb_jours}")
+                        print(f"      └─ Jours ecoules: {nb_jours}")
 
                         print(f"      └─ Test: nb_jours < 0 ? {nb_jours < 0}")
                         if nb_jours < 1:
-                            print(f"         BLOQUÉ : nb_jours >= 0 (ligne 105)")
+                            print(f"         BLOQUE : nb_jours < 1")
                             blocked_at['nb_jours_check'] += 1
                             continue
 
-                        print(f"      └─ Passé le check nb_jours")
+                        print(f"      └─ Passe le check nb_jours")
 
                         destinataire_email = email_data.get('to', '')
 
                         if not destinataire_email:
-                            print(f"         BLOQUÉ : Pas de destinataire")
+                            print(f"         BLOQUE : Pas de destinataire")
                             blocked_at['email_missing'] += 1
                             continue
 
                         if '<' in destinataire_email and '>' in destinataire_email:
                             destinataire_email = destinataire_email.split('<')[1].split('>')[0].strip()
 
-                        print(f"      └─ Destinataire nettoyé: {destinataire_email}")
+                        print(f"      └─ Destinataire nettoye: {destinataire_email}")
 
                         try:
                             utilisateur = Utilisateur.objects.get(email=destinataire_email)
-                            print(f"      └─ Utilisateur trouvé: {utilisateur.nom} (ID: {utilisateur.id})")
+                            print(f"      └─ Utilisateur trouve: {utilisateur.nom} (ID: {utilisateur.id})")
                         except Utilisateur.DoesNotExist:
-                            print(f"         BLOQUÉ : Utilisateur '{destinataire_email}' pas dans table Utilisateur")
+                            print(f"         BLOQUE : Utilisateur '{destinataire_email}' pas dans table Utilisateur")
                             blocked_at['utilisateur_not_found'] += 1
                             continue
 
@@ -143,38 +145,37 @@ def check_and_send_auto_relances():
                             intervalle = temps_relance.relance
                             print(f"      └─ Intervalle de relance: {intervalle} jours")
                         except Temps_Relance.DoesNotExist:
-                            print(f"         BLOQUÉ : Pas de Temps_Relance pour utilisateur ID {utilisateur.id}")
+                            print(f"         BLOQUE : Pas de Temps_Relance pour utilisateur ID {utilisateur.id}")
                             blocked_at['temps_relance_not_found'] += 1
                             continue
 
-
                         if nb_jours % intervalle != 0:
-                            print(f"         BLOQUÉ : {nb_jours} n'est pas un multiple de {intervalle}")
+                            print(f"         BLOQUE : {nb_jours} n'est pas un multiple de {intervalle}")
                             blocked_at['modulo_check'] += 1
                             continue
 
-                        print(f"      └─ Passé le check modulo")
+                        print(f"      └─ Passe le check modulo")
 
                         try:
                             modele_relance = Modele_Relance.objects.get(utilisateur=utilisateur.id)
                             message_relance = modele_relance.message
                             objet_relance = modele_relance.objet
-                            print(f"      └─ Modèle de relance trouvé")
+                            print(f"      └─ Modele de relance trouve")
                             print(f"         Objet: {objet_relance[:30] if objet_relance else 'N/A'}...")
                         except Modele_Relance.DoesNotExist:
-                            print(f"         BLOQUÉ : Pas de Modele_Relance pour utilisateur ID {utilisateur.id}")
+                            print(f"         BLOQUE : Pas de Modele_Relance pour utilisateur ID {utilisateur.id}")
                             blocked_at['modele_relance_not_found'] += 1
                             continue
 
                         # CHECK 9 : Message vide
                         if not message_relance:
-                            print(f"         BLOQUÉ : Message de relance vide")
+                            print(f"         BLOQUE : Message de relance vide")
                             blocked_at['message_empty'] += 1
                             continue
 
                         print(f"      └─ Message: {message_relance[:50]}...")
 
-                        print(f"\n      TOUS LES CHECKS PASSÉS ! ENVOI EN COURS...")
+                        print(f"\n      TOUS LES CHECKS PASSES ! ENVOI EN COURS...")
 
                         result = send_auto_relance(
                             to_email=destinataire_email,
@@ -186,11 +187,11 @@ def check_and_send_auto_relances():
                         )
 
                         if result['success']:
-                            print(f"         RELANCE ENVOYÉE !")
+                            print(f"         RELANCE ENVOYEE !")
                             blocked_at['sent_successfully'] += 1
                             relances_envoyees += 1
                         else:
-                            print(f"         ÉCHEC ENVOI : {result['message']}")
+                            print(f"         ECHEC ENVOI : {result['message']}")
                             blocked_at['send_failed'] += 1
                             erreurs += 1
 
@@ -207,25 +208,25 @@ def check_and_send_auto_relances():
                 traceback.print_exc()
                 continue
 
-
         print("\n" + "=" * 80)
-        print("RAPPORT DEBUG ULTRA-DÉTAILLÉ")
+        print(f"RÉSUMÉ DE L'EXÉCUTION")
         print("=" * 80)
-        print(f"Emails traités : {emails_traites}")
-        print(f"Relances envoyées : {relances_envoyees}")
-        print(f"Erreurs : {erreurs}")
-        print("\nDÉTAIL DES BLOCAGES :")
-        print(f"   ├─ Emails répondus (status != pending) : {blocked_at['status_replied']}")
+        print(f"📊 Statistiques globales :")
+        print(f"   ├─ Emails traites : {emails_traites}")
+        print(f"   ├─ Relances envoyees : {relances_envoyees}")
+        print(f"   └─ Erreurs : {erreurs}")
+        print(f"\n📋 Détail des blocages :")
+        print(f"   ├─ Emails repondus (status != pending) : {blocked_at['status_replied']}")
         print(f"   ├─ Date manquante : {blocked_at['date_missing']}")
-        print(f"   ├─ Bloqué par 'nb_jours >= 0' (ligne 105) : {blocked_at['nb_jours_check']}")
+        print(f"   ├─ Bloque par 'nb_jours < 1' : {blocked_at['nb_jours_check']}")
         print(f"   ├─ Email destinataire manquant : {blocked_at['email_missing']}")
         print(f"   ├─ Utilisateur pas dans BD : {blocked_at['utilisateur_not_found']}")
-        print(f"   ├─ Temps_Relance pas trouvé : {blocked_at['temps_relance_not_found']}")
-        print(f"   ├─ Bloqué par modulo (nb_jours % intervalle) : {blocked_at['modulo_check']}")
-        print(f"   ├─ Modele_Relance pas trouvé : {blocked_at['modele_relance_not_found']}")
+        print(f"   ├─ Temps_Relance pas trouve : {blocked_at['temps_relance_not_found']}")
+        print(f"   ├─ Bloque par modulo (nb_jours % intervalle) : {blocked_at['modulo_check']}")
+        print(f"   ├─ Modele_Relance pas trouve : {blocked_at['modele_relance_not_found']}")
         print(f"   ├─ Message de relance vide : {blocked_at['message_empty']}")
-        print(f"   ├─ Relances envoyées avec succès : {blocked_at['sent_successfully']}")
-        print(f"   └─ Échecs d'envoi : {blocked_at['send_failed']}")
+        print(f"   ├─ Relances envoyees avec succes : {blocked_at['sent_successfully']}")
+        print(f"   └─ Echecs d'envoi : {blocked_at['send_failed']}")
         print("=" * 80 + "\n")
 
         return {
@@ -248,86 +249,15 @@ def check_and_send_auto_relances():
         }
 
 
-def get_sent_emails_for_celery(user, limit=100):
-    """
-    Permet de récuperer les mails a la place de la bd
-    """
-    try:
-        from management.oauth_utils import get_gmail_service
-
-        service = get_gmail_service(user)
-
-        date_limite = timezone.now() - timedelta(days=90)
-        date_limite_str = date_limite.strftime('%Y/%m/%d')
-
-        query = f'in:sent after:{date_limite_str}'
-
-        results = service.users().messages().list(
-            userId='me',
-            maxResults=limit,
-            q=query
-        ).execute()
-
-        messages = results.get('messages', [])
-
-        from management.email_manager import check_if_replies_exist
-        replied_thread_ids = check_if_replies_exist(user)
-
-        detailed_messages = []
-
-        for msg in messages:
-            try:
-                msg_data = service.users().messages().get(
-                    userId='me',
-                    id=msg['id'],
-                    format='metadata',
-                    metadataHeaders=['Subject', 'To', 'Date']
-                ).execute()
-
-                thread_id = msg_data.get('threadId')
-                headers = msg_data['payload']['headers']
-
-                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '(Sans objet)')
-                to = next((h['value'] for h in headers if h['name'] == 'To'), '')
-                date_str = next((h['value'] for h in headers if h['name'] == 'Date'), '')
-
-                try:
-                    date = parsedate_to_datetime(date_str)
-                except:
-                    date = timezone.now()
-
-                status = 'pending'
-                if thread_id and thread_id in replied_thread_ids:
-                    status = 'replied'
-
-                detailed_messages.append({
-                    'id': msg['id'],
-                    'thread_id': thread_id,
-                    'subject': subject,
-                    'to': to,
-                    'date': date,
-                    'status': status
-                })
-
-            except Exception as e:
-                continue
-
-        return detailed_messages
-
-    except Exception as e:
-        print(f"   ❌ Erreur get_sent_emails_for_celery : {e}")
-        return []
-
-
 @shared_task
 def check_and_send_activite_reminders():
     """
-    Tâche périodique qui vérifie les activités à venir
-    et envoie des rappels 10, 7, 4 et 1 jour(s) avant la date prévue
-    INCHANGÉ : Ne nécessite pas de modification pour OAuth2
+    Tache periodique qui verifie les activites a venir
+    et envoie des rappels 10, 7, 4 et 1 jour(s) avant la date prevue
+    INCHANGE : Ne necessite pas de modification pour Microsoft Graph
     """
     logger.info("\n" + "=" * 60)
-    logger.info("DÉBUT - Vérification des rappels d'activités")
+    logger.info("DEBUT - Verification des rappels d'activites")
     logger.info("=" * 60)
 
     now = datetime.now()
@@ -338,13 +268,13 @@ def check_and_send_activite_reminders():
     date_limite = today + timedelta(days=10)
     logger.info(f"Date limite : {date_limite} (dans 10 jours)")
 
-    # Récupérer toutes les activités dans les 10 prochains jours
+    # Recuperer toutes les activites dans les 10 prochains jours
     activites = Activites.objects.filter(
         date__date__gt=today,
         date__date__lte=date_limite
     ).order_by('date')
 
-    logger.info(f"📊 Activités trouvées dans les 10 prochains jours : {activites.count()}")
+    logger.info(f"Activites trouvees dans les 10 prochains jours : {activites.count()}")
 
     activites_traitees = 0
     rappels_envoyes = 0
@@ -356,7 +286,7 @@ def check_and_send_activite_reminders():
             date_activite = activite.date.date()
             jours_restants = (date_activite - today).days
 
-            logger.info(f"\n📋 Activité #{activite.id}")
+            logger.info(f"\nActivite #{activite.id}")
             logger.info(f"   Dossier: {activite.dossier}")
             logger.info(f"   Type: {activite.type}")
             logger.info(f"   Date: {date_activite}")
@@ -366,34 +296,34 @@ def check_and_send_activite_reminders():
 
             if jours_restants in [1, 4, 7, 10]:
                 should_send = True
-                logger.info(f"   Rappel nécessaire (J-{jours_restants})")
+                logger.info(f"   Rappel necessaire (J-{jours_restants})")
             else:
                 logger.info(f"   Pas de rappel pour J-{jours_restants}")
 
             if should_send:
                 # Construire le message
-                objet = f"Rappel d'activité - J-{jours_restants}"
+                objet = f"Rappel d'activite - J-{jours_restants}"
 
                 message = f"""Bonjour,
 
-Ceci est un rappel automatique concernant l'activité suivante :
+Ceci est un rappel automatique concernant l'activite suivante :
 
 - Dossier : {activite.dossier}
 - Type : {activite.type}
-- Date prévue : {date_activite.strftime('%d/%m/%Y')}
-- Échéance : dans {jours_restants} jour(s)
+- Date prevue : {date_activite.strftime('%d/%m/%Y')}
+- Echeance : dans {jours_restants} jour(s)
 
 """
 
                 if activite.commentaire:
                     message += f"Commentaire : {activite.commentaire}\n\n"
 
-                message += f"""Merci de prendre les dispositions nécessaires.
+                message += f"""Merci de prendre les dispositions necessaires.
 
 Cordialement,
-Système de rappel Benjamin Immobilier"""
+Systeme de rappel Benjamin Immobilier"""
 
-                # Envoyer l'email à l'administrateur
+                # Envoyer l'email a l'administrateur
                 try:
                     email = EmailMessage(
                         subject=objet,
@@ -404,21 +334,21 @@ Système de rappel Benjamin Immobilier"""
 
                     email.send()
                     rappels_envoyes += 1
-                    logger.info(f"   Rappel envoyé avec succès")
+                    logger.info(f"   Rappel envoye avec succes")
                 except Exception as e:
                     logger.error(f"   Erreur envoi email : {e}")
 
         except Exception as e:
-            logger.error(f"Erreur traitement activité {activite.id}: {e}")
+            logger.error(f"Erreur traitement activite {activite.id}: {e}")
             import traceback
             traceback.print_exc()
             continue
 
     logger.info("\n" + "=" * 60)
-    logger.info(f"FIN - Rappels d'activités")
-    logger.info(f"📊 Résumé :")
-    logger.info(f"   - Activités traitées : {activites_traitees}")
-    logger.info(f"   - Rappels envoyés : {rappels_envoyes}")
+    logger.info(f"FIN - Rappels d'activites")
+    logger.info(f"Resume :")
+    logger.info(f"   - Activites traitees : {activites_traitees}")
+    logger.info(f"   - Rappels envoyes : {rappels_envoyes}")
     logger.info("=" * 60 + "\n")
 
     return {
