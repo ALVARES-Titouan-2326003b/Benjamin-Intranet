@@ -437,3 +437,207 @@
     window.addEventListener('scroll', hideTooltip);
 
 })();
+
+/**
+ * ============================================
+ * GESTION DU MODAL AJOUT ACTIVITÉ
+ * ============================================
+ */
+
+(function() {
+    console.log('🔧 Script modal activité chargé');
+
+    const modal = document.getElementById('activity-modal');
+    const openBtn = document.getElementById('add-activity-btn');
+    const closeBtn = document.getElementById('close-modal-btn');
+    const cancelBtn = document.getElementById('cancel-activity-btn');
+    const deleteBtn = document.getElementById('delete-activity-btn');  // 🆕
+    const form = document.getElementById('activity-form');
+    const statusDiv = document.getElementById('activity-form-status');
+
+    console.log('Modal:', modal);
+    console.log('Button:', openBtn);
+    console.log('Delete Button:', deleteBtn);  // 🆕
+    console.log('Form:', form);
+
+    if (!modal || !openBtn || !form || !deleteBtn) {  // 🆕
+        console.warn('⚠️ Éléments du modal activité non trouvés');
+        console.log('modal présent:', !!modal);
+        console.log('openBtn présent:', !!openBtn);
+        console.log('deleteBtn présent:', !!deleteBtn);  // 🆕
+        console.log('form présent:', !!form);
+        return;
+    }
+
+    console.log('✅ Tous les éléments trouvés, attachement des événements...');
+
+    // Ouvrir le modal
+    openBtn.addEventListener('click', function() {
+        console.log('🎯 Clic sur le bouton détecté !');
+        modal.style.display = 'flex';
+        // Définir la date/heure actuelle par défaut
+        const now = new Date();
+        const dateString = now.toISOString().slice(0, 16);
+        document.getElementById('activity-date').value = dateString;
+    });
+
+    // Fermer le modal
+    function closeModal() {
+        modal.style.display = 'none';
+        form.reset();
+        statusDiv.style.display = 'none';
+    }
+
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+
+    // Fermer si clic en dehors du modal
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // 🆕 BOUTON SUPPRIMER
+    deleteBtn.addEventListener('click', function() {
+        const formData = {
+            dossier: document.getElementById('activity-dossier').value.trim(),
+            type: document.getElementById('activity-type').value,
+            date: document.getElementById('activity-date').value,
+            commentaire: document.getElementById('activity-commentaire').value.trim()
+        };
+
+        // Validation
+        if (!formData.dossier || !formData.type || !formData.date) {
+            showStatus('Veuillez remplir tous les champs obligatoires pour supprimer', 'error');
+            return;
+        }
+
+        // Confirmation
+        if (!confirm(`⚠️ Êtes-vous sûr de vouloir supprimer l'activité correspondant à ces critères ?\n\nDossier: ${formData.dossier}\nType: ${formData.type}\nDate: ${formData.date}`)) {
+            return;
+        }
+
+        // Désactiver le bouton pendant l'envoi
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Suppression...';
+
+        // Récupérer le token CSRF
+        const csrftoken = getCookie('csrftoken');
+
+        // Envoyer la requête
+        fetch('/api/delete-activity/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '<i class="bi bi-trash"></i> Supprimer';
+
+            if (data.success) {
+                showStatus(`✅ ${data.deleted_count} activité(s) supprimée(s) avec succès !`, 'success');
+
+                // Recharger le calendrier après 1 seconde
+                setTimeout(() => {
+                    closeModal();
+                    location.reload();
+                }, 1000);
+            } else {
+                showStatus('❌ ' + (data.message || 'Erreur lors de la suppression'), 'error');
+            }
+        })
+        .catch(error => {
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '<i class="bi bi-trash"></i> Supprimer';
+            showStatus('❌ Erreur réseau : ' + error, 'error');
+            console.error('Erreur:', error);
+        });
+    });
+
+    // Soumettre le formulaire (ENREGISTRER)
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const formData = {
+            dossier: document.getElementById('activity-dossier').value.trim(),
+            type: document.getElementById('activity-type').value,
+            date: document.getElementById('activity-date').value,
+            commentaire: document.getElementById('activity-commentaire').value.trim()
+        };
+
+        // Validation
+        if (!formData.dossier || !formData.type || !formData.date) {
+            showStatus('Veuillez remplir tous les champs obligatoires', 'error');
+            return;
+        }
+
+        // Désactiver le bouton pendant l'envoi
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enregistrement...';
+
+        // Récupérer le token CSRF
+        const csrftoken = getCookie('csrftoken');
+
+        // Envoyer la requête
+        fetch('/api/create-activity/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Enregistrer';
+
+            if (data.success) {
+                showStatus('✅ Activité créée avec succès !', 'success');
+
+                // Recharger le calendrier après 1 seconde
+                setTimeout(() => {
+                    closeModal();
+                    location.reload();
+                }, 1000);
+            } else {
+                showStatus('❌ ' + (data.message || 'Erreur lors de la création'), 'error');
+            }
+        })
+        .catch(error => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Enregistrer';
+            showStatus('❌ Erreur réseau : ' + error, 'error');
+            console.error('Erreur:', error);
+        });
+    });
+
+    function showStatus(message, type) {
+        statusDiv.textContent = message;
+        statusDiv.className = type;
+        statusDiv.style.display = 'block';
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    console.log('✅ Événements attachés avec succès');
+})();
