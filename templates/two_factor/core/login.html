@@ -120,6 +120,15 @@
                     {% trans "Se connecter" %} <i class="bi bi-arrow-right"></i>
                 </button>
 
+                {% if wizard.steps.current == 'auth' %}
+                <div style="text-align: center; margin-top: 1rem;">
+                    <a href="{% url 'authentication:password_reset' %}"
+                        style="color: var(--text-secondary); text-decoration: none; font-size: 0.9em;">
+                        {% trans "Mot de passe oublié ?" %}
+                    </a>
+                </div>
+                {% endif %}
+
                 {% if wizard.steps.prev %}
                 <div class="login-footer">
                     {% if wizard.steps.current == "token" %}
