@@ -33,6 +33,8 @@ def global_search(request):
                 Q(fournisseur__icontains=query) |
                 Q(client__nom__icontains=query)
             )[:10]
+        else:
+            factures = []
         if has_finance_access(request.user):
             # 2. Documents (Signatures) (Titre)
             documents = Document.objects.filter(
