@@ -1,0 +1,7 @@
+/* Style minimal pour les champs input générés par Django qui n'auraient pas les classes Bootstrap par défaut */
+input[type="email"] {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+}
