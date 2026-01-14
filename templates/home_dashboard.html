@@ -19,7 +19,7 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
 
-        {% if access_factures %}
+        {% if access_finance %}
         <!-- PÔLE FINANCE & RH -->
         <a href="{% url 'invoices:list' %}" class="pole-card">
             <div class="pole-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
@@ -30,6 +30,19 @@
                 Gestion des factures fournisseurs, suivi des candidatures et signatures RH.
             </p>
             <span class="pole-link">Accéder <i class="bi bi-arrow-right"></i></span>
+        </a>
+
+        {% elif access_collaborator %}
+        <!-- Carte unique pour les collaborateurs -->
+        <a href="{% url 'invoices:list' %}" class="pole-card">
+            <div class="pole-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                <i class="bi bi-file-text"></i>
+            </div>
+            <h2 class="pole-title">Mes Factures</h2>
+            <p class="pole-desc">
+                Consultez les factures qui vous ont été assignées.
+            </p>
+            <span class="pole-link">Voir mes factures <i class="bi bi-arrow-right"></i></span>
         </a>
         {% endif %}
 
