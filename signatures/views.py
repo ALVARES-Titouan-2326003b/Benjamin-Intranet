@@ -512,3 +512,35 @@ def ceo_dashboard(request):
             "documents_history": documents_history,
         },
     )
+
+
+# ================== Suppression en masse ==================
+
+@login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+def bulk_delete_documents(request):
+    """
+    Vue pour supprimer plusieurs documents en une seule action
+    """
+    if request.method != "POST":
+        return redirect("signatures:document_list")
+    
+    # Récupérer les IDs des documents sélectionnés
+    document_ids = request.POST.getlist('document_ids')
+    
+    if not document_ids:
+        messages.warning(request, "Aucun document sélectionné.")
+        return redirect("signatures:document_list")
+    
+    try:
+        # Supprimer les documents
+        deleted_count = Document.objects.filter(id__in=document_ids).delete()[0]
+        
+        messages.success(
+            request,
+            f"✅ {deleted_count} document{'s' if deleted_count > 1 else ''} supprimé{'s' if deleted_count > 1 else ''} avec succès."
+        )
+    except Exception as e:
+        messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+    
+    return redirect("signatures:document_list")

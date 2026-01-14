@@ -42,10 +42,20 @@
     </div>
 
     {% if projects %}
+
+<!-- Bouton suppression projets -->
+<form method="post" action="{% url 'technique_bulk_delete_projects' %}" id="bulkDeleteProjectsForm" style="margin-bottom: 1rem;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger" id="deleteProjectsBtn" style="display: none;" 
+            onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer les projets sélectionnés ? Cette action est irréversible.');">
+        <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedProjectsCount">0</span>)
+    </button>
+
     <div class="table-responsive">
         <table class="table table-hover">
             <thead>
                 <tr>
+                    <th style="width: 40px;"><input type="checkbox" id="selectAllProjects" title="Tout sélectionner"></th>
                     <th>Référence</th>
                     <th>Nom</th>
                     <th>Total estimé</th>
@@ -55,6 +65,7 @@
             <tbody>
                 {% for p in projects %}
                 <tr>
+                    <td><input type="checkbox" class="project-checkbox" name="project_ids" value="{{ p.id }}"></td>
                     <td>
                         <span style="font-weight: 600; color: var(--text-main);">{{ p.reference }}</span>
                     </td>
@@ -72,6 +83,7 @@
                 {% endfor %}
             </tbody>
         </table>
+</form>
     </div>
     {% else %}
     <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
@@ -80,6 +92,36 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+// Gestion de la sélection multiple pour les projets
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllProjects = document.getElementById('selectAllProjects');
+    const deleteProjectsBtn = document.getElementById('deleteProjectsBtn');
+    const selectedProjectsCount = document.getElementById('selectedProjectsCount');
+    
+    if (selectAllProjects) {
+        selectAllProjects.addEventListener('change', function() {
+            document.querySelectorAll('.project-checkbox').forEach(cb => cb.checked = this.checked);
+            updateProjectsButton();
+        });
+        
+        document.querySelectorAll('.project-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateProjectsButton);
+        });
+    }
+    
+    function updateProjectsButton() {
+        const count = document.querySelectorAll('.project-checkbox:checked').length;
+        deleteProjectsBtn.style.display = count > 0 ? 'inline-block' : 'none';
+        selectedProjectsCount.textContent = count;
+        if (selectAllProjects) {
+            const total = document.querySelectorAll('.project-checkbox').length;
+            selectAllProjects.checked = total > 0 && count === total;
+        }
+    }
+});
+</script>
 
 <script>
     document.getElementById("showCreateFormBtn").addEventListener("click", function () {

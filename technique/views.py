@@ -392,3 +392,61 @@ def financial_project_pdf(request, pk):
     p.showPage()
     p.save()
     return response
+
+
+# ================== Suppression en masse ==================
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def bulk_delete_projects(request):
+    """
+    Vue pour supprimer plusieurs projets techniques en une seule action
+    """
+    if request.method != "POST":
+        return redirect("technique_financial_overview")
+    
+    project_ids = request.POST.getlist('project_ids')
+    
+    if not project_ids:
+        messages.warning(request, "Aucun projet sélectionné.")
+        return redirect("technique_financial_overview")
+    
+    try:
+        deleted_count = TechnicalProject.objects.filter(id__in=project_ids).delete()[0]
+        messages.success(
+            request,
+            f"✅ {deleted_count} projet{'s' if deleted_count > 1 else ''} supprimé{'s' if deleted_count > 1 else ''} avec succès."
+        )
+    except Exception as e:
+        messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+    
+    return redirect("technique_financial_overview")
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def bulk_delete_documents(request):
+    """
+    Vue pour supprimer plusieurs documents techniques en une seule action
+    """
+    if request.method != "POST":
+        return redirect("technique:documents_list")
+    
+    document_ids = request.POST.getlist('document_ids')
+    
+    if not document_ids:
+        messages.warning(request, "Aucun document sélectionné.")
+        return redirect("technique:documents_list")
+    
+    try:
+        deleted_count = DocumentTechnique.objects.filter(id__in=document_ids).delete()[0]
+        messages.success(
+            request,
+            f"✅ {deleted_count} document{'s' if deleted_count > 1 else ''} supprimé{'s' if deleted_count > 1 else ''} avec succès."
+        )
+    except Exception as e:
+        messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+    
+    return redirect("technique:documents_list")
+
+

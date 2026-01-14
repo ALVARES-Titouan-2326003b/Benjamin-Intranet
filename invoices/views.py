@@ -175,3 +175,32 @@ class ManualInvoiceRemindersView(View):
             )
 
         return redirect('invoices:list')
+
+# ================== Suppression en masse ==================
+
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+class BulkDeleteInvoicesView(View):
+    """
+    Vue pour supprimer plusieurs factures en une seule action
+    """
+
+    def post(self, request, *args, **kwargs):
+        # Récupérer les IDs des factures sélectionnées
+        invoice_ids = request.POST.getlist('invoice_ids')
+        
+        if not invoice_ids:
+            messages.warning(request, "Aucune facture sélectionnée.")
+            return redirect('invoices:list')
+        
+        try:
+            # Supprimer les factures
+            deleted_count = Facture.objects.filter(id__in=invoice_ids).delete()[0]
+            
+            messages.success(
+                request,
+                f"✅ {deleted_count} facture{['','s'][deleted_count>1]} supprimée{['','s'][deleted_count>1]} avec succès."
+            )
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+        
+        return redirect('invoices:list')

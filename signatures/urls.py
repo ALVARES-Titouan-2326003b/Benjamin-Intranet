@@ -18,4 +18,5 @@ urlpatterns = [
         name="signature_approval",
     ),
     path("ceo/", views.ceo_dashboard, name="ceo_dashboard"),
+    path("bulk-delete/", views.bulk_delete_documents, name="bulk_delete"),
 ]

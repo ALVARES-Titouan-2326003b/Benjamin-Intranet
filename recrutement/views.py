@@ -85,4 +85,61 @@ def upload_cv(request, pk):
 
     messages.success(request, f"CV déposé. Score: {cand.score if cand.score is not None else '—'}")
     return redirect("recrutement:fiche_detail", pk=pk)
+
+
+# ================== Suppression en masse ==================
+
+@login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+def bulk_delete_fiches(request):
+    """
+    Vue pour supprimer plusieurs fiches de poste en une seule action
+    """
+    if request.method != "POST":
+        return redirect("recrutement:dashboard")
+    
+    fiche_ids = request.POST.getlist('fiche_ids')
+    
+    if not fiche_ids:
+        messages.warning(request, "Aucune fiche sélectionnée.")
+        return redirect("recrutement:dashboard")
+    
+    try:
+        deleted_count = FicheDePoste.objects.filter(id__in=fiche_ids).delete()[0]
+        messages.success(
+            request,
+            f"✅ {deleted_count} fiche{'s' if deleted_count > 1 else ''} supprimée{'s' if deleted_count > 1 else ''} avec succès."
+        )
+    except Exception as e:
+        messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+    
+    return redirect("recrutement:dashboard")
+
+
+@login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+def bulk_delete_candidatures(request):
+    """
+    Vue pour supprimer plusieurs candidatures en une seule action
+    """
+    if request.method != "POST":
+        return redirect("recrutement:dashboard")
+    
+    candidature_ids = request.POST.getlist('candidature_ids')
+    
+    if not candidature_ids:
+        messages.warning(request, "Aucune candidature sélectionnée.")
+        return redirect("recrutement:dashboard")
+    
+    try:
+        deleted_count = Candidature.objects.filter(id__in=candidature_ids).delete()[0]
+        messages.success(
+            request,
+            f"✅ {deleted_count} candidature{'s' if deleted_count > 1 else ''} supprimée{'s' if deleted_count > 1 else ''} avec succès."
+        )
+    except Exception as e:
+        messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+    
+    return redirect("recrutement:dashboard")
+
   
