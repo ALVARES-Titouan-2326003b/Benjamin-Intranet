@@ -1,8 +1,5 @@
-"""
-Modèles pour la partie administrative - Gestion des relances
-"""
 from django.db import models
-from invoices.models import Contact, Dossier
+from tmp3 import Contact, Dossier
 from django.contrib.auth import get_user_model
 Utilisateur = get_user_model()
 

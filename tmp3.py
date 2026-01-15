@@ -129,7 +129,7 @@ class Facture(models.Model):
     id = models.CharField(primary_key=True)
     dossier = models.ForeignKey(Dossier, on_delete=models.CASCADE, db_column='dossier')
     fournisseur = models.ForeignKey(Fournisseur, on_delete=models.DO_NOTHING, db_column='fournisseur')
-    client = models.ForeignKey(Client, on_delete=models.DO_NOTHING, db_column='client')
+    client = models.ForeignKey(Entreprise, on_delete=models.DO_NOTHING, db_column='client')
     montant = models.FloatField(null=True)
     statut = models.TextField(choices=STATUS, default="ongoing")
     echeance = models.DateTimeField(null=True, blank=True)
