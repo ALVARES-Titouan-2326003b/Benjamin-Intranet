@@ -39,9 +39,14 @@ def administratif_view(request):
     # Formate les emails pour l'affichage
     emails_data = [get_email_summary(email) for email in emails]
 
+    # Récupérer les dossiers pour le menu déroulant
+    from invoices.models import Dossier
+    dossiers = Dossier.objects.all().order_by('reference')
+
     return render(request, 'management.html', {
         'pole_name': 'Administratif',
         'emails': emails_data,
+        'dossiers': dossiers,
     })
 
 
