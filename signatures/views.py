@@ -290,7 +290,7 @@ def placer_signature(request, pk):
         # BRANCHE EMPLOYÉ : création d'une demande pour le CEO
         User = get_user_model()
         # ceo = User.objects.filter(groups__name="CEO").first()
-        ceo = User.groups.filter(name="CEO").first()
+        ceo = User.objects.filter(groups__name="CEO").first()
         if not ceo or not ceo.email:
             messages.error(
                 request,
