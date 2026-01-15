@@ -2,6 +2,7 @@
 Tâches Celery pour les relances de factures impayées - VERSION AVEC DÉLAI PARAMÉTRABLE
 """
 from celery import shared_task
+from django.urls import reverse
 from django.utils import timezone
 from django.core.mail import EmailMessage
 from django.conf import settings
@@ -191,39 +192,40 @@ def check_and_send_invoice_reminders(delai_relance=None):
 
                 print(f"C'EST LE BON JOUR POUR RELANCER !")
 
-                # Récupérer utilisateur
-                print(f"Recherche Utilisateur pour id : {facture.fournisseur}")
+                # Récupérer collaborateur assigné
+                if not facture.collaborateur:
+                    print(f"IGNORÉE : Pas de collaborateur assigné à la facture")
+                    continue
+
+                to_email = facture.collaborateur.email
+                if not to_email:
+                    print(f"IGNORÉE : Le collaborateur {facture.collaborateur} n'a pas d'adresse email")
+                    continue
+
+                print(f"Collaborateur trouvé : {facture.collaborateur} ({to_email})")
+
+                # Construction du lien et du message
                 try:
-                    utilisateur = Utilisateur.objects.get(id=facture.fournisseur)
-                    print(f"Utilisateur trouvé : {utilisateur.email}")
-                except Utilisateur.DoesNotExist:
-                    print(f"IGNORÉE : Utilisateur non trouvé")
-                    continue
+                    url_facture = f"{settings.SITE_URL.rstrip('/')}{reverse('invoices:detail', args=[facture.id])}"
+                except Exception as e:
+                    print(f"Erreur construction URL: {e}")
+                    url_facture = "#"
 
-                if not utilisateur.email:
-                    print(f"IGNORÉE : Pas d'email pour l'utilisateur")
-                    continue
-
-                # Récupérer modèle de relance
-                print(f"🔍 Recherche Modele_Relance pour utilisateur : {facture.fournisseur}")
-                try:
-                    modele_relance = Modele_Relance.objects.get(utilisateur=facture.fournisseur)
-                    message_relance = modele_relance.message
-                    print(f"Modèle trouvé : {message_relance[:50]}...")
-                except Modele_Relance.DoesNotExist:
-                    print(f"IGNORÉE : Pas de modèle de relance trouvé")
-                    continue
-
-                if not message_relance:
-                    print(f"IGNORÉE : Message de relance vide")
-                    continue
+                message_relance = (
+                    f"Bonjour,\n\n"
+                    f"Vous avez une facture en attente (Facture n°{facture.id}).\n\n"
+                    f"Vous pouvez la consulter en cliquant sur ce lien :\n{url_facture}\n\n"
+                    f"Cordialement,\n"
+                    f"L'équipe Benjamin Intranet"
+                )
+                print(f"Message généré avec lien : {url_facture}")
 
                 # ENVOYER LA RELANCE
                 print(f"\nENVOI DE LA RELANCE...")
 
                 result = send_invoice_reminder(
                     facture=facture,
-                    to_email=utilisateur.email,
+                    to_email=to_email,
                     message_text=message_relance,
                     jours_avant_echeance=jours_avant_echeance
                 )

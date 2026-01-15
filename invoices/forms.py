@@ -126,12 +126,13 @@ class FactureForm(forms.ModelForm):
             self.fields["pole"].initial = preferred or pole_labels[0]
 
         # Pré-remplir l'échéance avec la date existante
-            if self.instance.echeance:
-                try:
-                    current = timezone.localtime(self.instance.echeance)
-                except Exception:
-                    current = self.instance.echeance
-                self.fields["echeance"].initial = current.date()
+        # Pré-remplir l'échéance avec la date existante
+        if self.instance.echeance:
+            try:
+                current = timezone.localtime(self.instance.echeance)
+            except Exception:
+                current = self.instance.echeance
+            self.fields["echeance"].initial = current.date()
 
         # Pré-remplir les champs input (Edit)
         if self.instance.pk:
@@ -191,13 +192,12 @@ class FactureForm(forms.ModelForm):
         ensure_dossier_exists(inst.dossier)
 
         # ----- Échéance 
-        if "echeance" in self.cleaned_data and "echeance" in getattr(self, "changed_data", []):
+        if "echeance" in self.cleaned_data:
             e = self.cleaned_data.get("echeance")
             if e:
-                if isinstance(e, datetime):
-                    dt = e
-                else:
-                    dt = datetime.combine(e, time.min)
+                # On met midi (12:00) pour éviter les décalages de timezone qui changent le jour
+                # (ex: 00:00 CET -> 23:00 UTC la veille)
+                dt = datetime.combine(e, time(12, 0))
                 if is_naive(dt):
                     dt = timezone.make_aware(dt, timezone.get_current_timezone())
                 inst.echeance = dt
