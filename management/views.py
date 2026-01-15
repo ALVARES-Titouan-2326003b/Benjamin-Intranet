@@ -10,10 +10,13 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from .email_manager import fetch_new_emails, get_sent_emails, get_email_summary, send_email_reply
-from .modelsadm import Utilisateur, Modele_Relance, Temps_Relance, Activites
+from .modelsadm import Modele_Relance, Activites
 import json
 from user_access.user_test_functions import has_administratif_access
 from celery import Celery
+from django.contrib.auth import get_user_model
+
+Utilisateur = get_user_model()
 
 
 

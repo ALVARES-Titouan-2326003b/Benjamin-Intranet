@@ -8,7 +8,11 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 import logging
 
-from .models import Facture, Utilisateur, Modele_Relance, Temps_Relance
+from .models import Facture
+from management.modelsadm import Temps_Relance
+from django.contrib.auth import get_user_model
+
+Utilisateur = get_user_model()
 
 logger = logging.getLogger(__name__)
 

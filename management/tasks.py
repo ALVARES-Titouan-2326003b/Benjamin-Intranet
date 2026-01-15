@@ -6,12 +6,15 @@ import os
 from celery import shared_task
 from django.utils import timezone
 from django.contrib.auth.models import User
-from .modelsadm import Utilisateur, Modele_Relance, Temps_Relance, Activites, OAuthToken
+from .modelsadm import Modele_Relance, Temps_Relance, Activites, OAuthToken
 from .email_manager import send_auto_relance
 from datetime import datetime, timedelta
 from django.core.mail import EmailMessage
 import logging
 from email.utils import parsedate_to_datetime
+from django.contrib.auth import get_user_model
+
+Utilisateur = get_user_model()
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +135,7 @@ def check_and_send_auto_relances():
 
                         try:
                             utilisateur = Utilisateur.objects.get(email=destinataire_email)
-                            print(f"      └─ Utilisateur trouvé: {utilisateur.nom} (ID: {utilisateur.id})")
+                            print(f"      └─ Utilisateur trouvé: {utilisateur.last_name} (ID: {utilisateur.id})")
                         except Utilisateur.DoesNotExist:
                             print(f"         BLOQUÉ : Utilisateur '{destinataire_email}' pas dans table Utilisateur")
                             blocked_at['utilisateur_not_found'] += 1

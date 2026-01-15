@@ -4,25 +4,6 @@ Modèles pour la partie administrative - Gestion des relances
 from django.db import models
 
 
-class Utilisateur(models.Model):
-    """
-    Modèle représentant la table Utilisateurs
-    Contient les informations des clients/destinataires
-    """
-    id = models.TextField(primary_key=True)  # ID en text (pas auto-increment)
-    mdp = models.TextField()
-    email = models.TextField()
-    nom = models.TextField(blank=True, null=True)
-    prenom = models.TextField(blank=True, null=True)
-
-    class Meta:
-        db_table = 'Utilisateurs'
-        managed = False
-
-    def __str__(self):
-        return f"{self.prenom} {self.nom} ({self.email})" if self.prenom and self.nom else self.email
-
-
 class Modele_Relance(models.Model):
     """
     Modèle représentant la table Modele_Relance
@@ -38,7 +19,6 @@ class Modele_Relance(models.Model):
 
     class Meta:
         db_table = 'Modele_Relance'
-        managed = False
 
     def __str__(self):
         return f"Modèle relance pour utilisateur {self.utilisateur}"
@@ -54,7 +34,6 @@ class Temps_Relance(models.Model):
 
     class Meta:
         db_table = 'Temps_Relance'
-        managed = False
 
     def __str__(self):
         return f"Relance tous les {self.relance} jours pour utilisateur {self.id}"
@@ -74,7 +53,6 @@ class Activites(models.Model):
 
     class Meta:
         db_table = 'Activites'
-        managed = False
         ordering = ['date']
 
     def __str__(self):
