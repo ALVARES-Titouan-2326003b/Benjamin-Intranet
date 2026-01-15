@@ -43,6 +43,17 @@ class FactureDetailView(DetailView):
     model = Facture
     template_name = 'invoices/invoice_detail.html'
 
+    def get_queryset(self):
+        qs = super().get_queryset().select_related('client', 'collaborateur')
+        user = self.request.user
+        
+        # Si Finance ou CEO -> Tout voir
+        if has_finance_access(user) or has_ceo_access(user):
+            return qs
+            
+        # Sinon -> Voir seulement ses factures
+        return qs.filter(collaborateur=user)
+
     def get_context_data(self, *, object_list=..., **kwargs):
         context = super().get_context_data(**kwargs)
         context['access_finance'] = has_finance_access(self.request.user)
