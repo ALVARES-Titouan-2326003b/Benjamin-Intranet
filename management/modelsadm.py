@@ -2,6 +2,7 @@
 Modèles pour la partie administrative - Gestion des relances
 """
 from django.db import models
+from django.utils import timezone
 
 
 class Utilisateur(models.Model):
@@ -119,5 +120,4 @@ class OAuthToken(models.Model):
 
     def is_token_expired(self):
         """Vérifie si l'access_token est expiré"""
-        from django.utils import timezone
         return timezone.now() >= self.token_expiry

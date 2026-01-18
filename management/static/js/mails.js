@@ -1,10 +1,4 @@
 /**
- * ============================================
- * GESTION DES EMAILS - RELANCES AUTOMATIQUES
- * ============================================
- */
-
-/**
  * Affiche le formulaire de réponse lorsqu'un email est sélectionné
  */
 function showReplyForm() {
@@ -17,16 +11,13 @@ function showReplyForm() {
         const to = option.getAttribute('data-to');
         const subject = option.getAttribute('data-subject');
 
-        // Remplit les informations du destinataire
         document.getElementById('reply-to').textContent = to;
         document.getElementById('reply-subject').textContent = 'Re: ' + subject;
         document.getElementById('reply-message').value = '';
 
-        // Affiche le formulaire
         form.style.display = 'block';
         status.style.display = 'none';
     } else {
-        // Cache le formulaire si aucun email n'est sélectionné
         form.style.display = 'none';
     }
 }
@@ -47,16 +38,13 @@ function autoGenerate() {
         return;
     }
 
-    // Désactive le textarea et le bouton pendant le chargement
     textarea.value = 'Génération en cours...';
     textarea.disabled = true;
     autoBtn.disabled = true;
     autoBtn.textContent = '⏳ Génération...';
 
-    // Récupère le token CSRF
     const csrftoken = getCookie('csrftoken');
 
-    // Appel API pour générer le message
     fetch('/api/generate-message/', {
         method: 'POST',
         headers: {
@@ -69,34 +57,29 @@ function autoGenerate() {
     })
     .then(response => response.json())
     .then(data => {
-        // Réactive le textarea et le bouton
         textarea.disabled = false;
         autoBtn.disabled = false;
         autoBtn.textContent = '🤖 Auto-générer le message';
 
         if (data.success) {
-            // Remplit le textarea avec le message généré
             textarea.value = data.message;
 
             // Affiche un message de succès
             status.style.display = 'block';
             status.className = 'success';
-            status.textContent = '✅ Message généré automatiquement';
+            status.textContent = ' Message généré automatiquement';
 
-            // Cache le message après 3 secondes
             setTimeout(() => {
                 status.style.display = 'none';
             }, 3000);
         } else {
-            // Affiche l'erreur
             textarea.value = '';
             status.style.display = 'block';
             status.className = 'error';
-            status.textContent = '❌ ' + data.message;
+            status.textContent = ' ' + data.message;
         }
     })
     .catch(error => {
-        // Gestion des erreurs réseau
         textarea.disabled = false;
         autoBtn.disabled = false;
         autoBtn.textContent = '🤖 Auto-générer le message';
@@ -104,7 +87,7 @@ function autoGenerate() {
 
         status.style.display = 'block';
         status.className = 'error';
-        status.textContent = '❌ Erreur réseau: ' + error;
+        status.textContent = ' Erreur réseau: ' + error;
 
         console.error('Erreur auto-génération:', error);
     });
@@ -136,11 +119,9 @@ function sendReply() {
 
     console.log('Envoi email vers:', to_email, 'sujet:', subject);
 
-    // Désactive le bouton pendant l'envoi
     btn.disabled = true;
     btn.textContent = 'Envoi en cours...';
 
-    // Récupère le token CSRF
     const csrftoken = getCookie('csrftoken');
 
     fetch('/api/send-reply/', {
@@ -162,25 +143,24 @@ function sendReply() {
 
         if (data.success) {
             status.className = 'success';
-            status.textContent = '✅ ' + data.message;
+            status.textContent = ' ' + data.message;
 
-            // Recharge la page après 2 secondes
             setTimeout(() => {
                 location.reload();
             }, 2000);
         } else {
             status.className = 'error';
-            status.textContent = '❌ ' + data.message;
+            status.textContent = ' ' + data.message;
             btn.disabled = false;
-            btn.textContent = 'Envoyer 📨';
+            btn.textContent = 'Envoyer ';
         }
     })
     .catch(error => {
         status.style.display = 'block';
         status.className = 'error';
-        status.textContent = '❌ Erreur réseau: ' + error;
+        status.textContent = ' Erreur réseau: ' + error;
         btn.disabled = false;
-        btn.textContent = 'Envoyer 📨';
+        btn.textContent = 'Envoyer ';
 
         console.error('Erreur envoi email:', error);
     });

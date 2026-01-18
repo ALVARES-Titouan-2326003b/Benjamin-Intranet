@@ -89,7 +89,6 @@
          <div id="reply-status" style="display: none; margin-top: 1rem;"></div>
       </div>
 
-      <!-- Liste des emails -->
       {% if emails %}
       <div class="emails-list" style="flex: 1; overflow-y: auto; padding-right: 5px;">
          {% for email in emails %}
@@ -104,7 +103,6 @@
                <span class="email-date" style="font-size: 0.8rem;">{{ email.date|date:"d/m/Y H:i" }}</span>
             </div>
             <div class="email-from">A: {{ email.to }}</div>
-            <!-- "to" because it's sent to us? or from? Check context. Original code said "A: {{ email.to }}" but variable is email.to. Assuming original logic. -->
             <div class="email-preview">{{ email.body_text|truncatewords:20 }}</div>
          </div>
          {% endfor %}
