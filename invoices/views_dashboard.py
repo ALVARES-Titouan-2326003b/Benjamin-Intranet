@@ -12,6 +12,24 @@ from django.db.models.functions import TruncMonth
 
 @method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
 class DashboardView(TemplateView):
+    """
+    Tableau de bord financier avec KPIs et graphiques.
+
+    Context data:
+
+        kpi: {
+            total_amount, total_count, paid_amount,
+            pending_amount, overdue_amount,
+            overdue_count, paid_percent
+        }
+
+        chart_status: { labels, data }  Pie chart statuts
+        chart_monthly: { labels, data }  Bar chart évolution mensuelle
+        risky_suppliers: QuerySet  Top 5 fournisseurs en retard
+
+    Permissions:
+        @user_passes_test(has_finance_access)
+    """
     template_name = "invoices/dashboard.html"
 
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:

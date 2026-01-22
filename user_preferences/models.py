@@ -6,6 +6,13 @@ from django.dispatch import receiver
 User = get_user_model()
 
 class UserPreference(models.Model):
+    """
+    Modèle représentant les paramètres de l'utilisateur
+
+    Attributes:
+        user (OneToOneField): L'utilisateur
+        theme (str): Nom du thème
+    """
     THEME_CHOICES = [
         ('light', 'Clair'),
         ('dark', 'Sombre'),

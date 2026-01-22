@@ -14,6 +14,13 @@ SYSTEM = (
 )
 
 def score_cv(job_text: str, cv_text: str) -> dict:
+    """
+    Renvoie le score d'un cv et une explication par rapport à une fiche de poste
+
+    Args:
+        job_text (str): texte de la fiche de poste
+        cv_text (str): texte du cv
+    """
     # Ia ne génère pas de cv 
     if not cv_text or not cv_text.strip():
         return {

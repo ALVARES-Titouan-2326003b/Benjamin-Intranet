@@ -7,6 +7,10 @@ from .models import UserPreference
 from .forms import UserPreferenceForm
 
 class SettingsView(LoginRequiredMixin, UpdateView):
+    """
+    Correspond à la vue des paramètres.
+    L'utilisateur doit être connecté pour pouvoir y accéder.
+    """
     model = UserPreference
     form_class = UserPreferenceForm
     template_name = 'user_preferences/preferences.html'

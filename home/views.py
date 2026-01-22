@@ -30,7 +30,9 @@ def is_only_collaborator(user):
 
 @login_required
 def dashboard_view(request):
-    print(request.user.groups.all)
+    """
+    Affiche un tableau de bord avec différents pôles selon les accès de l'utilisateur.
+    """
     return render(request, 'home_dashboard.html', {
         'access_finance': has_finance_access(request.user),
         'access_technique': has_technique_access(request.user),
@@ -41,6 +43,9 @@ def dashboard_view(request):
 
 @login_required
 def global_search(request):
+    """
+    Affiche les résultats de la recherche globale.
+    """
     query = request.GET.get('q', '').strip()
     context = {'query': query}
 

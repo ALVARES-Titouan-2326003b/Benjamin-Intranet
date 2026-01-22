@@ -87,6 +87,17 @@ def ensure_dossier_exists(reference: str) -> None:
 from django.contrib.auth.models import User
 
 class FactureForm(forms.ModelForm):
+    """
+    Correspond au formulaire de création/édition de facture.
+
+    Attributes:
+        fournisseur_input (str): Nom du fournisseur
+        client_input (str): Nom du client
+        collaborateur (ModelChoiceField): Collaborateur
+        echeance (DateField): Date d'écheance
+        statut (ChoiceField): Statut de la facture
+        pole (ChoiceField): Pôle de la facture
+    """
     fournisseur_input = forms.CharField(label="Fournisseur", required=True)
     client_input = forms.CharField(label="Client (Entreprise)", required=False)
     collaborateur = forms.ModelChoiceField(
@@ -126,7 +137,6 @@ class FactureForm(forms.ModelForm):
             self.fields["pole"].initial = preferred or pole_labels[0]
 
         # Pré-remplir l'échéance avec la date existante
-        # Pré-remplir l'échéance avec la date existante
         if self.instance.echeance:
             try:
                 current = timezone.localtime(self.instance.echeance)
@@ -149,6 +159,13 @@ class FactureForm(forms.ModelForm):
 
 
     def save(self, commit=True):
+        """
+        Enregistre le formulaire avec logique métier :
+        - Création auto ID "FAC-XXXXXXXX"
+        - Normalisation statut et pôle selon ENUM
+        - Création référence dossier format "DOS-XXXXXXXX"
+        - Gestion timezone échéance
+        """
         inst = super().save(commit=False)
 
         # ----- Fournisseur -----
@@ -217,6 +234,12 @@ class FactureForm(forms.ModelForm):
 # --- Pièce jointe (PDF) ----------------------------------------------------
 
 class PieceJointeForm(forms.ModelForm):
+    """
+    Correspond au formulaire de piece-jointe.
+
+    Attributes:
+        fichier (FieldFile): Piece jointe format PDF
+    """
     fichier = forms.FileField(
         label="Joindre la facture (PDF)",
         required=False,
@@ -233,6 +256,9 @@ class PieceJointeForm(forms.ModelForm):
             field.widget.attrs['class'] = 'form-control'
 
     def clean_fichier(self):
+        """
+        Vérifie si le fichier est valide
+        """
         f = self.cleaned_data.get("fichier")
         if not f:
             return f

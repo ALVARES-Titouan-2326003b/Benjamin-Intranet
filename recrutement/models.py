@@ -4,6 +4,16 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class FicheDePoste(models.Model):
+    """
+    Modèle représentant une fiche de poste
+
+    Attributes:
+        titre (str): Titre de la fiche
+        description (str): Description détaillée
+        competences_clees (str): Compétences attendues pour le poste
+        created_by (ForeignKey): Utilisateur qui a créé la fiche
+        created_at (datetime): Date de création de la fiche
+    """
     titre = models.CharField(max_length=200)
     description = models.TextField(help_text="Missions, responsabilités, contexte.")
     competences_clees = models.TextField(
@@ -17,6 +27,16 @@ class FicheDePoste(models.Model):
         return self.titre
 
 class Candidat(models.Model):
+    """
+    Modèle représentant un candidat
+
+    Attributes:
+        nom (str): Nom du candidat
+        email (str): Email du candidat
+        cv_fichier (FieldFile): CV du candidat
+        cv_texte (str): Texte extrait du CV
+        uploaded_at (datetime): Date d'envoie du CV
+    """
     nom = models.CharField(max_length=200)
     email = models.EmailField(blank=True)
     cv_fichier = models.FileField(upload_to="cv/")
@@ -26,7 +46,18 @@ class Candidat(models.Model):
     def __str__(self):
         return self.nom
 
-class Candidature(models.Model): 
+class Candidature(models.Model):
+    """
+    Modèle représentant une candidature
+
+    Attributes:
+        fiche (FicheDePoste): Fiche de poste
+        candidat (Candidat): Candidat pour le poste
+        score (float): Score du candidat
+        explication (str): Explication du score
+        statut (str): Statut ENUM (nouvelle, retenue, refus)
+        created_at (datetime): Date de création de la candidature
+    """
     STATUTS = [
         ("nouvelle", "Nouvelle"),
         ("retenue", "Retenue"),
