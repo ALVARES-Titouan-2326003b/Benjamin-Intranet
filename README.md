@@ -12,8 +12,8 @@ modules internes d’une organisation (authentification, gestion des employés, 
 - [Structure du projet](#structure-du-projet)
 - [Modules nécessaires](#modules-nécessaires)
 - [Installation & configuration](#installation--configuration)
-- [Lancement de l’application](#lancer-lapplication)
-- [Lancer le cron](#lancer-le-cron)
+- [Lancement de l’application](#lancer-lapplication-et-les-crons)
+- [Tâches planifiées (Cron)](#tâches-planifiées-cron)
 - [Synchronisation mail](#synchronisation-mail)
 
 ---
@@ -96,6 +96,13 @@ Les modules ainsi que leur version sont tous disponibles dans le fichier `requir
 | phonenumbers                     | 9.0.21  |
 | django-otp                       | 1.6.3   |
 | django-axes                      | 8.1.0   |
+| google-auth                      | 2.29.0  |
+| google-auth-oauthlib             | 1.2.0   |
+| google-api-python-client         | 2.122.0 |
+| google-auth-httplib2             | 0.2.0   |
+| pytest                           | 8.3.4   |
+| pytest-django                    | 4.9.0   |
+| pytest-cov                       | 6.0.0   |
 
 ---
 
@@ -226,33 +233,31 @@ python manage.py migrate
 
 ---
 
-## Lancer l’application
+## Lancer l’application et les Crons
 
-Dans un terminal, à la racine du projet :
+Le lancement de l'application et des tâches planifiées (crons) est désormais automatisé.
+
+Dans un terminal, à la racine du projet, exécutez simplement :
 
 ```bash
-python manage.py runserver
+python start_intranet.py
 ```
 
-Accès : http://127.0.0.1:8000/
+Ce script démarre automatiquement **tous les services nécessaires** :
+1. **Le serveur Django** (Interface web accessible sur http://127.0.0.1:8000/)
+2. **Celery Worker** (Exécution des tâches)
+3. **Celery Beat** (Planification des tâches)
 
 ---
 
-## Lancer le cron
+## Tâches planifiées (Cron)
 
-Les tâches cron permettent au serveur de réaliser des tâches à interval régulier automatiquement, c'est-à-dire sans intervention humaine.
+Grâce au script `start_intranet.py`, vous n'avez plus besoin de lancer manuellement les commandes Celery.
+Les tâches crons suivantes seront exécutées automatiquement en arrière-plan :
 
-Il existe pour ce projet **trois systèmes de relance** :
-- la relance factures
-- la relance activités
-- la relance mail
-
-Après, et seulement après avoir démarré le serveur, faîtes ces commandes dans le terminal à la racine du projet pour lancer le cron.
-
-```bash
-celery -A config worker --loglevel=info
-celery -A config beat --loglevel=info
-```
+- **Relance factures**
+- **Relance activités**
+- **Relance mail**
 
 ---
 
