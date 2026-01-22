@@ -42,9 +42,14 @@ def administratif_view(request):
     # Formate les emails pour l'affichage
     emails_data = [get_email_summary(email) for email in emails]
 
+    # Récupérer les dossiers pour le menu déroulant
+    from invoices.models import Dossier
+    dossiers = Dossier.objects.all().order_by('reference')
+
     return render(request, 'management.html', {
         'pole_name': 'Administratif',
         'emails': emails_data,
+        'dossiers': dossiers,
     })
 
 
@@ -285,3 +290,205 @@ def get_calendar_activities(request):
             'success': False,
             'message': f'Erreur : {str(e)}'
         }, status=500)
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def create_activity_view(request):
+    """
+    API endpoint pour créer une nouvelle activité dans le calendrier
+
+    Paramètres POST (JSON) :
+    - dossier : TextField (requis)
+    - type : TextField (requis) - DOIT être en minuscule
+    - date : DateTimeField (requis)
+    - commentaire : TextField (optionnel)
+
+    ATTENTION aux majuscules :
+    - date_type = "Date" (avec D majuscule)
+    - pole = "Administratif" (avec A majuscule)
+    - type = "vente" (tout en minuscule)
+
+    Retourne :
+    - JsonResponse avec success=True/False
+    """
+    try:
+        # Récupérer les données JSON
+        data = json.loads(request.body)
+
+        dossier = data.get('dossier', '').strip()
+        type_activite = data.get('type', '').strip().lower()
+        date_str = data.get('date', '').strip()
+        commentaire = data.get('commentaire', '').strip()
+
+        print(f"\n{'=' * 60}")
+        print(f"📝 Création d'activité")
+        print(f"   Dossier: {dossier}")
+        print(f"   Type: {type_activite}")
+        print(f"   Date: {date_str}")
+        print(f"   Commentaire: {commentaire[:50] if commentaire else '(vide)'}")
+        print(f"{'=' * 60}")
+
+        # Validation des champs requis
+        if not dossier or not type_activite or not date_str:
+            return JsonResponse({
+                'success': False,
+                'message': 'Champs obligatoires manquants'
+            }, status=400)
+
+        # Valider que le type est parmi les valeurs autorisées (en minuscule)
+        types_valides = ['vente', 'location', 'compromis', 'visite', 'relance', 'autre']
+        if type_activite not in types_valides:
+            return JsonResponse({
+                'success': False,
+                'message': f'Type invalide. Types autorisés : {", ".join(types_valides)}'
+            }, status=400)
+
+        # Convertir la date string en datetime
+        from datetime import datetime
+        try:
+            date_activite = datetime.fromisoformat(date_str)
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'message': 'Format de date invalide'
+            }, status=400)
+
+        # 🆕 Générer l'ID suivant (gestion robuste int ou text)
+        from django.db.models import Max
+        max_id_result = Activites.objects.aggregate(Max('id'))['id__max']
+
+        if max_id_result is None:
+            # Table vide, premier ID
+            next_id = 1
+        else:
+            # Convertir en int si c'est une string
+            try:
+                max_id_int = int(max_id_result)
+                next_id = max_id_int + 1
+            except (ValueError, TypeError):
+                # Si la conversion échoue, c'est vraiment un texte
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Type d\'ID invalide dans la BD : {type(max_id_result)}'
+                }, status=500)
+
+        print(f"   Max ID actuel: {max_id_result}")
+        print(f"   Prochain ID: {next_id}")
+
+        # Créer l'activité avec l'ID explicite
+        nouvelle_activite = Activites.objects.create(
+            id=next_id,
+            dossier=dossier,
+            type=type_activite,
+            pole='Administratif',
+            date=date_activite,
+            date_type='Date',
+            commentaire=commentaire if commentaire else None
+        )
+
+        print(f"✅ Activité créée avec succès (ID: {nouvelle_activite.id})")
+        print(f"   └─ Type: '{nouvelle_activite.type}'")
+        print(f"   └─ Pole: '{nouvelle_activite.pole}'")
+        print(f"   └─ Date_type: '{nouvelle_activite.date_type}'")
+        print(f"{'=' * 60}\n")
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Activité créée avec succès',
+            'activity_id': nouvelle_activite.id
+        })
+
+    except Exception as e:
+        print(f"\n❌ Erreur création activité : {e}")
+        import traceback
+        traceback.print_exc()
+        print(f"{'=' * 60}\n")
+
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur : {str(e)}'
+        }, status=500)
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def delete_activity_view(request):
+    """
+    API endpoint pour supprimer une ou plusieurs activités correspondant aux critères
+
+    Paramètres POST (JSON) :
+    - dossier : TextField (requis)
+    - type : TextField (requis)
+    - date : DateTimeField (requis)
+
+    Note : On ne filtre PAS sur pole, date_type ni id
+    La date est comparée avec une tolérance d'une minute
+
+    Retourne :
+    - JsonResponse avec success=True/False et deleted_count
+    """
+    try:
+        data = json.loads(request.body)
+
+        dossier = data.get('dossier', '').strip()
+        type_activite = data.get('type', '').strip().lower()
+        date_str = data.get('date', '').strip()
+
+        if not dossier or not type_activite or not date_str:
+            return JsonResponse({
+                'success': False,
+                'message': 'Champs obligatoires manquants'
+            }, status=400)
+
+        from datetime import datetime, timedelta
+        from django.utils import timezone
+
+        try:
+            date_naive = datetime.fromisoformat(date_str)
+
+            date_activite = timezone.make_aware(date_naive, timezone.get_current_timezone())
+
+            date_debut = date_activite.replace(second=0, microsecond=0)
+            date_fin = date_debut + timedelta(minutes=1)
+
+            date_debut_naive = date_debut.replace(tzinfo=None)
+            date_fin_naive = date_fin.replace(tzinfo=None)
+
+        except ValueError as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Format de date invalide: {e}'
+            }, status=400)
+
+        query_date = Activites.objects.filter(
+            dossier=dossier,
+            type=type_activite,
+            date__gte=date_debut_naive,
+            date__lt=date_fin_naive
+        )
+
+        count_before = query_date.count()
+
+        if count_before == 0:
+            return JsonResponse({
+                'success': False,
+                'message': 'Aucune activité ne correspond à ces critères'
+            }, status=404)
+
+        deleted_count, _ = query_date.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'{deleted_count} activité(s) supprimée(s) avec succès',
+            'deleted_count': deleted_count
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur : {str(e)}'
+        })
