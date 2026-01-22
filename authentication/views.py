@@ -15,6 +15,7 @@ from django_otp.plugins.otp_email.models import EmailDevice
 
 
 class CustomLoginView(LoginView):
+    """Représente une page de connexion personnalisée."""
     def post(self, *args, **kwargs):
         # Vérifier si le bouton renvoyer est cliqué
         if 'resend_code' in self.request.POST:

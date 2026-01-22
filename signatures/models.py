@@ -12,6 +12,10 @@ def generate_signature_token():
 class SignatureUser(models.Model):
     """
     Signature scannée d'un utilisateur (CEO, etc.).
+
+    Attributes:
+        user (OneToOneField): Utilisateur
+        image (ImageFieldFile): Fichier image de la signature
     """
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -27,6 +31,10 @@ class SignatureUser(models.Model):
 class Tampon(models.Model):
     """
     Tampon officiel de l'entreprise.
+
+    Attributes:
+        nom (str): Nom du tampon
+        image (ImageFieldFile): Fichier image du tampon
     """
     nom = models.CharField(max_length=200, default="Tampon officiel")
     image = models.ImageField(upload_to="tampons/")
@@ -36,6 +44,15 @@ class Tampon(models.Model):
 
 
 class Document(models.Model):
+    """
+    Document PDF à signer.
+
+    Attributes:
+        titre (str): Titre du document
+        fichier (FileField): PDF original
+        fichier_signe (FileField): PDF signé (null si non signé)
+        date_upload (datetime): Date d'ajout
+    """
     titre = models.CharField(max_length=255)
     fichier = models.FileField(upload_to="documents/originaux/")
     fichier_signe = models.FileField(
@@ -56,6 +73,12 @@ class Document(models.Model):
 class HistoriqueSignature(models.Model):
     """
     Historique des états d'un document dans le workflow de signature.
+
+    Attributes:
+        document (Document): Document à signer
+        statut (str): Etat du document
+        date_action (datetime): Date et heure de la modification du statut
+        commentaire (str): Description détaillée
     """
     STATUTS = [
         ("upload", "Document ajouté"),
@@ -79,6 +102,21 @@ class HistoriqueSignature(models.Model):
 
 
 class SignatureRequest(models.Model):
+    """
+    Modèle correspondant à une demande de signature
+
+    Attributes:
+        document (Document): Document à signer
+        requested_by (User): Utilisateur qui a créé la demande
+        approver (User): Utilisateur qui reçoie la demande
+        pos_x_pct (float): Position x en pourcentage
+        pos_y_pct (float): Position y en pourcentage
+        statut (str): Statut de la demande
+        token (str): Jeton de la demande
+        created_at (datetime): Date et heure de création de la demande
+        decided_at (datetime): Date et heure de la signature
+        commentaire_ceo (str): Commentaire écrit par le CEO
+    """
     STATUTS = [
         ("pending", "En attente"),
         ("approved", "Approuvée"),
@@ -119,12 +157,24 @@ class SignatureRequest(models.Model):
     commentaire_ceo = models.TextField(blank=True)
 
     def marquer_approuvee(self, commentaire=""):
+        """
+        Approuve la demande
+
+        Args:
+            commentaire (str): Commentaire du CEO
+        """
         self.statut = "approved"
         self.decided_at = timezone.now()
         self.commentaire_ceo = commentaire
         self.save()
 
     def marquer_refusee(self, commentaire=""):
+        """
+        Refuse la demande
+
+        Args:
+            commentaire (str): Commentaire du CEO
+        """
         self.statut = "refused"
         self.decided_at = timezone.now()
         self.commentaire_ceo = commentaire

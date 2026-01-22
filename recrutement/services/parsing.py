@@ -2,6 +2,9 @@ from pathlib import Path
 from io import BytesIO
 
 def _read_pdf(file_obj) -> str:
+    """
+    Retourne le texte contenu dans un fichier PDF.
+    """
     try:
         from PyPDF2 import PdfReader
     except Exception:
@@ -14,6 +17,9 @@ def _read_pdf(file_obj) -> str:
         return ""
 
 def _read_docx(file_obj) -> str:
+    """
+    Retourne le texte contenu dans un fichier docx.
+    """
     try:
         import docx
     except Exception:

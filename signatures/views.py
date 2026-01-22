@@ -82,6 +82,9 @@ def document_list(request):
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def upload_document(request):
+    """
+    Affiche une vue permettant d'enregistrer un document
+    """
     if request.method == "POST":
         form = DocumentUploadForm(request.POST, request.FILES)
         if form.is_valid():
@@ -98,6 +101,13 @@ def upload_document(request):
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def document_detail(request, pk):
+    """
+    Affiche une vue qui présente les informations d'un document
+
+    Args:
+        request (HttpRequest) : Requête HTTP
+        pk (int): Identifiant du document
+    """
     doc = get_object_or_404(Document, pk=pk)
     historiques = doc.historique.order_by("-date_action")
 

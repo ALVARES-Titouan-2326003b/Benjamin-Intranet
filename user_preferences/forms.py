@@ -2,6 +2,9 @@ from django import forms
 from .models import UserPreference
 
 class UserPreferenceForm(forms.ModelForm):
+    """
+    Correspond au formulaire des paramètres de l'utilisateur
+    """
     class Meta:
         model = UserPreference
         fields = ['theme']

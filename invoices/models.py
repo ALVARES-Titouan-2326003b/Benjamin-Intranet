@@ -3,6 +3,14 @@ from django.contrib.auth.models import User
 
 
 class Fournisseur(models.Model):
+    """
+    Correspond à un fournisseur
+
+    Attributes:
+        id (str): Identifiant du fournisseur
+        nom (str): Nom du fournisseur
+        contact (str): Contact du fournisseur
+    """
     id = models.CharField(primary_key=True, max_length=255)
     nom = models.CharField(max_length=255, null=True, blank=True)
     contact = models.CharField(max_length=255)
@@ -15,6 +23,13 @@ class Fournisseur(models.Model):
 
 
 class Entreprise(models.Model):
+    """
+    Modèle représentant la table Entreprise
+
+    Attributes:
+        id (str): Identifiant de l'entreprise
+        nom (str): Nom de l'entreprise
+    """
     id = models.CharField(primary_key=True, max_length=255)
     nom = models.CharField(max_length=255, null=True, blank=True)
 
@@ -26,6 +41,21 @@ class Entreprise(models.Model):
         return self.nom or self.id
 
 class Facture(models.Model):
+    """
+    Modèle représentant la table Factures.
+
+    Attributes:
+        id (str): ID unique format "FAC-XXXXXXXX"
+        pole (str): Pôle associé à la facture
+        dossier (str): Référence dossier
+        fournisseur (str): Nom du fournisseur
+        client (ForeignKey): Entreprise
+        montant (float): Montant de la facture
+        statut (str): Statut ENUM (Recue, En cours, Payée, Refusée, Archivée, En retard)
+        echeance (datetime): Date limite de paiement
+        titre (str): Titre de la facture
+        collaborateur (ForeignKey): Utilisateur assigné
+    """
     id = models.CharField(primary_key=True, max_length=255)
     pole = models.CharField(max_length=50)
     dossier = models.CharField(max_length=255)
@@ -61,6 +91,14 @@ class Justificatif(models.Model):
 
 
 class PieceJointe(models.Model):
+    """
+    Pièces jointes des factures (stockage local Django).
+
+    Attributes:
+        facture (ForeignKey): Facture associée
+        fichier (FileField): PDF de la facture
+        uploaded_at (datetime): Date d'upload
+    """
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE)
     fichier = models.FileField(upload_to='factures/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -69,6 +107,12 @@ class PieceJointe(models.Model):
         db_table = 'pieces_upload_local'  # table locale
 
 class Client(models.Model):
+    """
+    Modèle représentant la table Client.
+
+    Attributes:
+        id (str): ID unique
+    """
     id = models.CharField(primary_key=True, max_length=255)
 
     class Meta:
@@ -79,6 +123,12 @@ class Client(models.Model):
         return self.id
 
 class Dossier(models.Model):
+    """
+    Modèle représentant la table Dossier.
+
+    Attributes:
+        reference (str): ID unique format "DOS-XXXXXXXX"
+    """
     reference = models.CharField(primary_key=True, max_length=255, db_column='reference')
 
     class Meta:
@@ -117,6 +167,15 @@ class Modele_Relance(models.Model):
 
 
 class Temps_Relance(models.Model):
+    """
+    Modèle représentant la table Temps_Relance
+    Contient le nombre de jours entre chaque relance pour chaque utilisateur
+
+    Attributes:
+        id (str): Identifiant du temps de relance
+        pole (str): Nom du pole
+        relance (int): Nombre de jour pour la relance
+    """
     id = models.TextField(primary_key=True)
     pole = models.TextField()
     relance = models.IntegerField()

@@ -6,6 +6,10 @@ from django.conf import settings
 import datetime
 
 def custom_lockout_response(request, response=None, credentials=None):
+    """
+    Bloque l'utilisateur pendant un temps après un certain nombre d'échecs
+    de connexion
+    """
     context = {}
     
     # Obtenir le nom d'utilisateur
