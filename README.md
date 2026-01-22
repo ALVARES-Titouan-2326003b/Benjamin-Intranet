@@ -12,7 +12,7 @@ modules internes d’une organisation (authentification, gestion des employés, 
 - [Structure du projet](#structure-du-projet)
 - [Modules nécessaires](#modules-nécessaires)
 - [Installation & configuration](#installation--configuration)
-- [Lancement de l’application](#lancer-lapplication-et-les-crons)
+- [Lancement de l’application et des crons](#lancement-de-lapplication-et-des-crons)
 - [Tâches planifiées (Cron)](#tâches-planifiées-cron)
 - [Synchronisation mail](#synchronisation-mail)
 
@@ -233,7 +233,7 @@ python manage.py migrate
 
 ---
 
-## Lancer l’application et les Crons
+## Lancement de l’application et des Crons
 
 Le lancement de l'application et des tâches planifiées (crons) est désormais automatisé.
 
