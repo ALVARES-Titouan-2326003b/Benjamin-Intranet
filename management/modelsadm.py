@@ -19,6 +19,7 @@ class Utilisateur(models.Model):
     class Meta:
         db_table = 'Utilisateurs'
         managed = False
+        app_label = 'management'
 
     def __str__(self):
         return f"{self.prenom} {self.nom} ({self.email})" if self.prenom and self.nom else self.email
@@ -40,6 +41,7 @@ class Modele_Relance(models.Model):
     class Meta:
         db_table = 'Modele_Relance'
         managed = False
+        app_label = 'management'
 
     def __str__(self):
         return f"Modèle relance pour utilisateur {self.utilisateur}"
@@ -56,6 +58,7 @@ class Temps_Relance(models.Model):
     class Meta:
         db_table = 'Temps_Relance'
         managed = False
+        app_label = 'management'
 
     def __str__(self):
         return f"Relance tous les {self.relance} jours pour utilisateur {self.id}"
@@ -77,6 +80,7 @@ class Activites(models.Model):
         db_table = 'Activites'
         managed = False
         ordering = ['date']
+        app_label = 'management'
 
     def __str__(self):
         return f"{self.type} - {self.dossier} ({self.date.strftime('%Y-%m-%d')})"
@@ -114,6 +118,7 @@ class OAuthToken(models.Model):
         verbose_name = 'Token OAuth'
         verbose_name_plural = 'Tokens OAuth'
         managed = False
+        app_label = 'management'
 
     def __str__(self):
         return f"OAuth {self.provider} - {self.user.username} ({self.email})"

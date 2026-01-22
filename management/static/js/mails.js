@@ -1,43 +1,104 @@
 /**
- * Affiche le formulaire de réponse lorsqu'un email est sélectionné
+ * ============================================
+ * GESTION DES EMAILS - RELANCES AUTOMATIQUES
+ * ============================================
+ */
+
+// ============================================
+// CHARGEMENT DES DONNÉES
+// ============================================
+
+let emailsData = {};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Charger les données emails depuis le script JSON
+    const emailsScript = document.getElementById('emails-data');
+    if (emailsScript) {
+        try {
+            emailsData = JSON.parse(emailsScript.textContent);
+            console.log('📧 Emails chargés:', Object.keys(emailsData).length);
+        } catch (e) {
+            console.error('Erreur chargement emails:', e);
+        }
+    }
+
+    // Attacher l'événement sur le champ email-select
+    const emailInput = document.getElementById('email-select');
+    if (emailInput) {
+        emailInput.addEventListener('input', showReplyForm);
+        emailInput.addEventListener('change', showReplyForm);
+    }
+});
+
+// ============================================
+// AFFICHAGE DU FORMULAIRE
+// ============================================
+
+/**
+ * Affiche le formulaire de réponse si l'email sélectionné est valide
  */
 function showReplyForm() {
-    const select = document.getElementById('email-select');
+    const input = document.getElementById('email-select');
     const form = document.getElementById('reply-form');
     const status = document.getElementById('reply-status');
+    const errorMsg = document.getElementById('email-error');
 
-    if (select.value) {
-        const option = select.options[select.selectedIndex];
-        const to = option.getAttribute('data-to');
-        const subject = option.getAttribute('data-subject');
+    const selectedSubject = input.value.trim();
 
-        document.getElementById('reply-to').textContent = to;
-        document.getElementById('reply-subject').textContent = 'Re: ' + subject;
+    // Si le champ est vide
+    if (!selectedSubject) {
+        form.style.display = 'none';
+        errorMsg.style.display = 'none';
+        return;
+    }
+
+    // Vérifier si l'email existe dans les données
+    if (emailsData[selectedSubject]) {
+        const email = emailsData[selectedSubject];
+
+        // Extraire le sujet sans la date (tout avant la dernière parenthèse)
+        const subjectOnly = email.subject;
+
+        // Remplir les informations du destinataire
+        document.getElementById('reply-to').textContent = email.to;
+        document.getElementById('reply-subject').textContent = 'Re: ' + subjectOnly;
         document.getElementById('reply-message').value = '';
 
+        // Afficher le formulaire et cacher l'erreur
         form.style.display = 'block';
+        errorMsg.style.display = 'none';
         status.style.display = 'none';
     } else {
+        // Email invalide : cacher le formulaire et afficher l'erreur
         form.style.display = 'none';
+        errorMsg.style.display = 'block';
     }
 }
+
+// ============================================
+// AUTO-GÉNÉRATION DU MESSAGE
+// ============================================
 
 /**
  * Auto-génère un message personnalisé basé sur les données de la BD
  * Appelle l'API /api/generate-message/ avec l'email_id
  */
 function autoGenerate() {
-    const select = document.getElementById('email-select');
-    const email_id = select.value;
+    const input = document.getElementById('email-select');
+    const selectedSubject = input.value.trim();
     const textarea = document.getElementById('reply-message');
     const status = document.getElementById('reply-status');
     const autoBtn = document.querySelector('.auto-btn');
 
-    if (!email_id) {
-        alert('Veuillez d\'abord sélectionner un email');
+    // Vérifier que l'email existe
+    if (!emailsData[selectedSubject]) {
+        alert('Veuillez d\'abord sélectionner un email valide');
         return;
     }
 
+    const email_id = emailsData[selectedSubject].id;
+
+    // Désactiver pendant le chargement
     textarea.value = 'Génération en cours...';
     textarea.disabled = true;
     autoBtn.disabled = true;
@@ -45,6 +106,7 @@ function autoGenerate() {
 
     const csrftoken = getCookie('csrftoken');
 
+    // Appel API
     fetch('/api/generate-message/', {
         method: 'POST',
         headers: {
@@ -64,10 +126,9 @@ function autoGenerate() {
         if (data.success) {
             textarea.value = data.message;
 
-            // Affiche un message de succès
             status.style.display = 'block';
             status.className = 'success';
-            status.textContent = ' Message généré automatiquement';
+            status.textContent = '✅ Message généré automatiquement';
 
             setTimeout(() => {
                 status.style.display = 'none';
@@ -76,7 +137,7 @@ function autoGenerate() {
             textarea.value = '';
             status.style.display = 'block';
             status.className = 'error';
-            status.textContent = ' ' + data.message;
+            status.textContent = '❌ ' + data.message;
         }
     })
     .catch(error => {
@@ -87,38 +148,46 @@ function autoGenerate() {
 
         status.style.display = 'block';
         status.className = 'error';
-        status.textContent = ' Erreur réseau: ' + error;
+        status.textContent = '❌ Erreur réseau: ' + error;
 
         console.error('Erreur auto-génération:', error);
     });
 }
 
+// ============================================
+// ENVOI DE LA RÉPONSE
+// ============================================
+
 /**
  * Envoie la relance à l'email sélectionné
  */
 function sendReply() {
-    const select = document.getElementById('email-select');
+    const input = document.getElementById('email-select');
+    const selectedSubject = input.value.trim();
     const message = document.getElementById('reply-message').value.trim();
     const status = document.getElementById('reply-status');
     const btn = document.querySelector('.send-btn');
 
+    // Validation 1 : Email valide ?
+    if (!emailsData[selectedSubject]) {
+        alert('⚠️ Veuillez sélectionner un email valide dans la liste');
+        return;
+    }
+
+    // Validation 2 : Message non vide ?
     if (!message) {
-        alert('Veuillez écrire un message');
+        alert('⚠️ Veuillez écrire un message');
         return;
     }
 
-    const selectedOption = select.options[select.selectedIndex];
-    const to_email = selectedOption.getAttribute('data-to');
-    const subject = selectedOption.getAttribute('data-subject');
-
-    if (!to_email || !subject) {
-        alert('Erreur : informations du destinataire manquantes');
-        console.error('to_email:', to_email, 'subject:', subject);
-        return;
-    }
+    const email = emailsData[selectedSubject];
+    const to_email = email.to;
+    const subject = email.subject;
+    const email_id = email.id;
 
     console.log('Envoi email vers:', to_email, 'sujet:', subject);
 
+    // Désactiver le bouton pendant l'envoi
     btn.disabled = true;
     btn.textContent = 'Envoi en cours...';
 
@@ -131,7 +200,7 @@ function sendReply() {
             'X-CSRFToken': csrftoken
         },
         body: JSON.stringify({
-            email_id: select.value,
+            email_id: email_id,
             message: message,
             to_email: to_email,
             subject: subject
@@ -143,28 +212,33 @@ function sendReply() {
 
         if (data.success) {
             status.className = 'success';
-            status.textContent = ' ' + data.message;
+            status.textContent = '✅ ' + data.message;
 
+            // Recharger la page après 2 secondes
             setTimeout(() => {
                 location.reload();
             }, 2000);
         } else {
             status.className = 'error';
-            status.textContent = ' ' + data.message;
+            status.textContent = '❌ ' + data.message;
             btn.disabled = false;
-            btn.textContent = 'Envoyer ';
+            btn.textContent = 'Envoyer 📨';
         }
     })
     .catch(error => {
         status.style.display = 'block';
         status.className = 'error';
-        status.textContent = ' Erreur réseau: ' + error;
+        status.textContent = '❌ Erreur réseau: ' + error;
         btn.disabled = false;
-        btn.textContent = 'Envoyer ';
+        btn.textContent = 'Envoyer 📨';
 
         console.error('Erreur envoi email:', error);
     });
 }
+
+// ============================================
+// UTILITAIRES
+// ============================================
 
 /**
  * Récupère un cookie par son nom (nécessaire pour le token CSRF)

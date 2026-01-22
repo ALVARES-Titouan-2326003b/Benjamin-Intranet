@@ -407,17 +407,6 @@ def create_activity_view(request):
 def delete_activity_view(request):
     """
     API endpoint pour supprimer une ou plusieurs activités correspondant aux critères
-
-    Paramètres POST (JSON) :
-    - dossier : TextField (requis)
-    - type : TextField (requis)
-    - date : DateTimeField (requis)
-
-    Note : On ne filtre PAS sur pole, date_type ni id
-    La date est comparée avec une tolérance d'une minute
-
-    Retourne :
-    - JsonResponse avec success=True/False et deleted_count
     """
     try:
         data = json.loads(request.body)
@@ -432,19 +421,12 @@ def delete_activity_view(request):
                 'message': 'Champs obligatoires manquants'
             }, status=400)
 
-        from datetime import datetime, timedelta
-        from django.utils import timezone
+
 
         try:
-            date_naive = datetime.fromisoformat(date_str)
-
-            date_activite = timezone.make_aware(date_naive, timezone.get_current_timezone())
-
+            date_activite = datetime.fromisoformat(date_str)
             date_debut = date_activite.replace(second=0, microsecond=0)
-            date_fin = date_debut + timedelta(minutes=1)
 
-            date_debut_naive = date_debut.replace(tzinfo=None)
-            date_fin_naive = date_fin.replace(tzinfo=None)
 
         except ValueError as e:
             return JsonResponse({
@@ -455,19 +437,25 @@ def delete_activity_view(request):
         query_date = Activites.objects.filter(
             dossier=dossier,
             type=type_activite,
-            date__gte=date_debut_naive,
-            date__lt=date_fin_naive
+            date__gte=date_debut
+
         )
 
         count_before = query_date.count()
 
         if count_before == 0:
+            all_acts = Activites.objects.filter(dossier=dossier)
+            for act in all_acts:
+                print(f"      ID {act.id}: {act.date} | type={act.type}")
+
             return JsonResponse({
                 'success': False,
                 'message': 'Aucune activité ne correspond à ces critères'
             }, status=404)
 
         deleted_count, _ = query_date.delete()
+
+        print(f"   {deleted_count} activité(s) supprimée(s)")
 
         return JsonResponse({
             'success': True,
@@ -476,6 +464,7 @@ def delete_activity_view(request):
         })
 
     except Exception as e:
+        print(f"\n Erreur suppression: {e}")
         import traceback
         traceback.print_exc()
 
