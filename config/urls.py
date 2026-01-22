@@ -33,6 +33,7 @@ urlpatterns = [
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('oauth/', include('management.urls_oauth')),
     path('chatbot/', include('chatbot.urls')),
+    path('parametres/', include('user_preferences.urls')),
     path('finance/', include('invoices.urls')),
     path('auth/', include('authentication.urls')),
     path('gestion-des-candidatures/', include('recrutement.urls')),
