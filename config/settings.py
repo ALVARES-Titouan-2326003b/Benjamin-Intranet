@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'two_factor.plugins.phonenumber',
     'two_factor.plugins.email',
     'axes',
+    'user_preferences',
 ]
 
 MIDDLEWARE = [
@@ -108,6 +109,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'home.context_processors.user_role_context',
+                'user_preferences.context_processors.theme_context',
             ],
         },
     },

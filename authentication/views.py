@@ -64,6 +64,52 @@ def user_management_view(request):
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def toggle_user_active_status_view(request, user_id):
+    """Active ou désactive un utilisateur avec gestion hiérarchique des droits."""
+    if request.method == 'POST':
+        try:
+            target_user = User.objects.get(pk=user_id)
+            actor = request.user
+            
+            # Vérifications des rôles
+            is_actor_ceo = actor.groups.filter(name="CEO").exists()
+            is_target_ceo = target_user.groups.filter(name="CEO").exists()
+            is_target_superuser = target_user.is_superuser
+
+            # Sécurité de base : ne pas se désactiver soi-même
+            if target_user == actor:
+                messages.error(request, "Vous ne pouvez pas révoquer votre propre accès.")
+                return redirect('authentication:user_management')
+
+            # Logique hiérarchique
+            # 1. Le CEO peut tout faire (sauf se révoquer lui-même, géré au-dessus)
+            if is_actor_ceo:
+                can_revoke = True
+            
+            # 2. Un Superuser (non CEO) ne peut PAS toucher au CEO ni aux autres Superusers
+            else:
+                if is_target_ceo or is_target_superuser:
+                    can_revoke = False
+                else:
+                    can_revoke = True
+
+            if can_revoke:
+                target_user.is_active = not target_user.is_active
+                target_user.save()
+                status = "réactivé" if target_user.is_active else "révoqué"
+                messages.success(request, f"L'accès de {target_user.email} a été {status}.")
+            else:
+                messages.error(request, "Vous n'avez pas les droits suffisants pour modifier cet utilisateur (Hiérarchie supérieure ou égale).")
+
+        except User.DoesNotExist:
+            messages.error(request, "Utilisateur introuvable.")
+            
+    return redirect('authentication:user_management')
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def invite_user_view(request):
     """Vue pour inviter un nouvel utilisateur."""
     if request.method == 'POST':

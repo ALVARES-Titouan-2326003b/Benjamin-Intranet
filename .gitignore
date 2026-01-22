@@ -30,7 +30,7 @@ dist/
 build/
 develop-eggs/
 .installed.cfg
-celerybeat-schedule
+celerybeat-schedule*
 django_celery_results
 
 # ==========================
