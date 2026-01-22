@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'django_filters',
     'chatbot',
     'management',
+    'tests',
     'recrutement',
     'technique',
     'signatures',
