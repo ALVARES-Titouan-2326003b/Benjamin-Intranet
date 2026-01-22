@@ -64,6 +64,26 @@ def user_management_view(request):
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
+def toggle_user_active_status_view(request, user_id):
+    """Active ou désactive un utilisateur."""
+    if request.method == 'POST':
+        try:
+            user = User.objects.get(pk=user_id)
+            # Sécurité: ne pas se désactiver soi-même
+            if user == request.user:
+                messages.error(request, "Vous ne pouvez pas révoquer votre propre accès.")
+            else:
+                user.is_active = not user.is_active
+                user.save()
+                status = "réactivé" if user.is_active else "révoqué"
+                messages.success(request, f"L'accès de {user.email} a été {status}.")
+        except User.DoesNotExist:
+            messages.error(request, "Utilisateur introuvable.")
+            
+    return redirect('authentication:user_management')
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def invite_user_view(request):
     """Vue pour inviter un nouvel utilisateur."""
     if request.method == 'POST':

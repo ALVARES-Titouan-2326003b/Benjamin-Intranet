@@ -23,6 +23,7 @@
                         <th>Statut</th>
                         <th>Pôles</th>
                         <th>Date d'inscription</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -55,6 +56,24 @@
                             {% endfor %}
                         </td>
                         <td>{{ u.date_joined|date:"d/m/Y H:i" }}</td>
+                        <td class="text-end">
+                            {% if u != request.user %}
+                            <form action="{% url 'authentication:toggle_user_status' u.id %}" method="post"
+                                class="d-inline">
+                                {% csrf_token %}
+                                {% if u.is_active %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Révoquer l'accès"
+                                    onclick="return confirm('Êtes-vous sûr de vouloir révoquer l\'accès de cet utilisateur ?')">
+                                    <i class="bi bi-person-x-fill"></i> Révoquer
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Réactiver l'accès">
+                                    <i class="bi bi-person-check-fill"></i> Réactiver
+                                </button>
+                                {% endif %}
+                            </form>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
