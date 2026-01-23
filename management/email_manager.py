@@ -6,7 +6,7 @@ VERSION AVEC STATUTS : Détecte automatiquement si les emails ont été répondu
 import base64
 from email.mime.text import MIMEText
 from django.utils import timezone
-from management.modelsadm import OAuthToken
+from management.models import OAuthToken
 
 
 def fetch_new_emails(user):

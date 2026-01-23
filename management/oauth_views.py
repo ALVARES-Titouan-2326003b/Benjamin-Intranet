@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
-from management.modelsadm import OAuthToken
+from management.models import OAuthToken
 from management.oauth_utils import (
     get_authorization_url,
     exchange_code_for_tokens

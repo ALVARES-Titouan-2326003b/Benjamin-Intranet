@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from .email_manager import fetch_new_emails, get_sent_emails, get_email_summary, send_email_reply
-from .modelsadm import ModeleRelance, Activites
+from .models import DefaultModeleRelance, ModeleRelance, Activite
 import json
 from user_access.user_test_functions import has_administratif_access
 from celery import Celery
@@ -43,8 +43,8 @@ def administratif_view(request):
     emails_data = [get_email_summary(email) for email in emails]
 
     # Récupérer les dossiers pour le menu déroulant
-    from invoices.models import Dossier
-    dossiers = Dossier.objects.all().order_by('reference')
+    from technique.models import TechnicalProject
+    dossiers = TechnicalProject.objects.all().order_by('reference')
 
     return render(request, 'management.html', {
         'pole_name': 'Administratif',
@@ -112,16 +112,16 @@ def send_reply_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def generate_auto_message_view(request):
     """
-    Génère un message pré-rempli basé sur les infos de la table Modele_Relance
+    Génère un message pré-rempli basé sur les infos de la table ModeleRelance
     INCHANGÉ : Ne nécessite pas de modification pour OAuth2
 
     LOGIQUE DE LIAISON :
     1. Email.to_header → Utilisateur.email
-    2. Utilisateur.id → Modele_Relance.utilisateur
+    2. Utilisateur.id → ModeleRelance.utilisateur
 
     Structure des tables :
     - Utilisateurs : id (PK), email, nom, prenom
-    - Modele_Relance : utilisateur (PK, FK → Utilisateurs.id), message, objet
+    - ModeleRelance : utilisateur (PK, FK → Utilisateurs.id), message, objet
 
     Returns:
         JsonResponse: {'success': bool, 'message': str}
@@ -147,30 +147,42 @@ def generate_auto_message_view(request):
         original_email = Message.objects.get(id=email_id)
         destinataire_email = original_email.to_header
 
-        fournisseur = Fournisseur.objects.get(email=destinataire_email)
-        modele_relance = ModeleRelance.objects.get(metier=fournisseur.metier)
+        # 3. Récupère le métier du client & l'ID de l'utilisateur
+        emails = EmailClient.objects.filter(email=destinataire_email)
 
-        if modele_relance.message:
-            print(f"   ModeleRelance.message: {modele_relance.message[:100]}...")
-        else:
-            print(f"   ModeleRelance.message: (vide)")
+        if emails.count() == 0:
+            return JsonResponse({
+                'success': False,
+                'message': 'Client introuvable'
+            }, status=404)
 
-        # 5. Prépare le message personnalisé
-        message_template = modele_relance.message if modele_relance.message else "Message de relance par défaut"
-        objet_email = modele_relance.objet if modele_relance.objet else None
+        metier = emails.first().metier
 
-        # 6. Construit la réponse JSON
+        try:
+            user = Utilisateur.objects.get(email=original_email.from_header)
+        except Utilisateur.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Utilisateur introuvable'
+            }, status=404)
+
+        # 4. Récupère le modèle de message
+        try:
+            message_relance = ModeleRelance.objects.get(utilisateur=user.id, metier=metier).message
+        except ModeleRelance.DoesNotExist:
+            try:
+                message_relance = DefaultModeleRelance.objects.get(metier=metier).message
+            except DefaultModeleRelance.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': f"Pas de DefaultModeleRelance pour le métier {metier}"
+                })
+
+        # 5. Construit la réponse JSON
         response_data = {
             'success': True,
-            'message': message_template
+            'message': message_relance
         }
-
-        # Ajoute l'objet si disponible
-        if objet_email:
-            response_data['objet'] = objet_email
-
-        print(f"\n✅✅✅ Message généré avec succès !")
-        print(f"{'='*60}\n")
 
         return JsonResponse(response_data)
 
@@ -180,26 +192,6 @@ def generate_auto_message_view(request):
         return JsonResponse({
             'success': False,
             'message': 'Email introuvable'
-        }, status=404)
-
-    except Fournisseur.DoesNotExist:
-        print(f"\n❌ Fournisseur non trouvé")
-        print(f"   Email recherché: {destinataire_email}")
-        print(f"   Aucun fournisseur dans la table Fournisseur avec cet email")
-        print(f"{'='*60}\n")
-        return JsonResponse({
-            'success': False,
-            'message': f'Fournisseur non trouvé pour {destinataire_email}'
-        }, status=404)
-
-    except ModeleRelance.DoesNotExist:
-        print(f"\n❌ Modèle de relance non trouvé")
-        print(f"   Fournisseur.id: '{fournisseur.id}'")
-        print(f"   Aucun enregistrement dans Modele_Relance avec fournisseur = '{fournisseur.id}'")
-        print(f"{'='*60}\n")
-        return JsonResponse({
-            'success': False,
-            'message': f'Aucun modèle de relance trouvé pour cet fournisseur'
         }, status=404)
 
     except Exception as e:
@@ -251,10 +243,10 @@ def get_calendar_activities(request):
         print(f"📊 Période : {start_date.date()} → {end_date.date()}")
 
         # Récupérer les activités du mois depuis la BD
-        activites = Activites.objects.filter(
+        activites = Activite.objects.filter(
             date__gte=start_date,
             date__lt=end_date
-        ).values('id', 'dossier', 'type', 'pole', 'date', 'commentaire')
+        ).values('id', 'dossier', 'type', 'date', 'commentaire')
 
         print(f"📊 Activités trouvées : {activites.count()}")
 
@@ -265,7 +257,6 @@ def get_calendar_activities(request):
                 'id': act['id'],
                 'dossier': act['dossier'],
                 'type': act['type'],
-                'pole': act['pole'],
                 'date': act['date'].strftime('%Y-%m-%d'),
                 'commentaire': act['commentaire'] or ''
             })
@@ -306,7 +297,6 @@ def create_activity_view(request):
 
     ATTENTION aux majuscules :
     - date_type = "Date" (avec D majuscule)
-    - pole = "Administratif" (avec A majuscule)
     - type = "vente" (tout en minuscule)
 
     Retourne :
@@ -356,7 +346,7 @@ def create_activity_view(request):
 
         # 🆕 Générer l'ID suivant (gestion robuste int ou text)
         from django.db.models import Max
-        max_id_result = Activites.objects.aggregate(Max('id'))['id__max']
+        max_id_result = Activite.objects.aggregate(Max('id'))['id__max']
 
         if max_id_result is None:
             # Table vide, premier ID
@@ -377,11 +367,10 @@ def create_activity_view(request):
         print(f"   Prochain ID: {next_id}")
 
         # Créer l'activité avec l'ID explicite
-        nouvelle_activite = Activites.objects.create(
+        nouvelle_activite = Activite.objects.create(
             id=next_id,
             dossier=dossier,
             type=type_activite,
-            pole='Administratif',
             date=date_activite,
             date_type='Date',
             commentaire=commentaire if commentaire else None
@@ -389,7 +378,6 @@ def create_activity_view(request):
 
         print(f"✅ Activité créée avec succès (ID: {nouvelle_activite.id})")
         print(f"   └─ Type: '{nouvelle_activite.type}'")
-        print(f"   └─ Pole: '{nouvelle_activite.pole}'")
         print(f"   └─ Date_type: '{nouvelle_activite.date_type}'")
         print(f"{'=' * 60}\n")
 
@@ -422,7 +410,7 @@ def delete_activity_view(request):
     - type : TextField (requis)
     - date : DateTimeField (requis)
 
-    Note : On ne filtre PAS sur pole, date_type ni id
+    Note : On ne filtre PAS sur date_type ni id
     La date est comparée avec une tolérance d'une minute
 
     Retourne :
@@ -461,7 +449,7 @@ def delete_activity_view(request):
                 'message': f'Format de date invalide: {e}'
             }, status=400)
 
-        query_date = Activites.objects.filter(
+        query_date = Activite.objects.filter(
             dossier=dossier,
             type=type_activite,
             date__gte=date_debut_naive,

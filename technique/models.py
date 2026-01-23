@@ -43,6 +43,7 @@ class DocumentTechnique(models.Model):
     created_at = models.DateTimeField("Créé le", auto_now_add=True)
 
     class Meta:
+        db_table = 'document_technique'
         ordering = ["-created_at"]
 
     def __str__(self):
@@ -83,8 +84,7 @@ class TechnicalProject(models.Model):
     )
 
     class Meta:
-        managed = False
-        db_table = 'Dossier'
+        db_table = 'dossier'
 
     def __str__(self):
         return f"{self.reference} - {self.name}"
@@ -120,6 +120,7 @@ class ProjectExpense(models.Model):
     payment_date = models.DateField("Date de paiement", null=True, blank=True)
 
     class Meta:
+        db_table = 'depense_projet'
         verbose_name = "Frais projet"
         verbose_name_plural = "Frais projets"
 

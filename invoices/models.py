@@ -1,32 +1,16 @@
 from django.db import models
+from technique.models import TechnicalProject
 from django.contrib.auth import get_user_model
 Utilisateur = get_user_model()
 
 
-class GeneralModeleRelanceFournisseur(models.Model):
+class RelanceFournisseur(models.Model):
     id = models.TextField(primary_key=True)
     message = models.TextField()
+    temps = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        db_table = 'general_modele_relance_fournisseur'
-
-
-
-class Dossier(models.Model):
-    TYPES = [
-        ("client", "Client"),
-        ("juridique", "Juridique")
-    ]
-
-    reference = models.TextField(primary_key=True)
-    type = models.TextField(choices=TYPES, default="client")
-    frais_eng = models.FloatField(blank=True, null=True)
-    fais_payes = models.FloatField(blank=True, null=True)
-    frais_rest = models.FloatField(blank=True, null=True)
-    total_estim = models.FloatField(blank=True, null=True)
-
-    class Meta:
-        db_table = 'dossier'
+        db_table = 'relance_fournisseur'
 
 
 class ActeurExterne(models.Model):
@@ -38,7 +22,7 @@ class ActeurExterne(models.Model):
 
 class Contact(models.Model):
     id = models.TextField(primary_key=True)
-    acteur = models.ForeignKey(ActeurExterne, on_delete=models.CASCADE, db_column='id')
+    acteur = models.ForeignKey(ActeurExterne, on_delete=models.CASCADE, db_column='acteur')
     nom = models.TextField(blank=True, null=True)
     prenom = models.TextField(blank=True, null=True)
 
@@ -58,7 +42,7 @@ class Client(models.Model):
 
 class ClientDossier(models.Model):
     pk = models.CompositePrimaryKey('dossier', 'client')
-    dossier = models.ForeignKey(Dossier, on_delete=models.CASCADE, db_column='dossier')
+    dossier = models.ForeignKey(TechnicalProject, on_delete=models.CASCADE, db_column='dossier')
     client = models.ForeignKey(Client, on_delete=models.CASCADE, db_column='client')
 
     class Meta:
@@ -67,7 +51,7 @@ class ClientDossier(models.Model):
 
 class Entreprise(models.Model):
     id = models.OneToOneField(Client, on_delete=models.CASCADE, db_column='id', primary_key=True)
-    nom = models.TextField()
+    nom = models.TextField(blank=True, null=True)
 
     class Meta:
         db_table = 'entreprise'
@@ -108,7 +92,7 @@ class TelFournisseur(models.Model):
 
 class Fournisseur(models.Model):
     id = models.OneToOneField(ActeurExterne, on_delete=models.CASCADE, db_column='id', primary_key=True)
-    nom = models.TextField()
+    nom = models.TextField(blank=True, null=True)
 
     class Meta:
         db_table = 'fournisseur'
@@ -127,7 +111,7 @@ class Facture(models.Model):
     ]
 
     id = models.CharField(primary_key=True)
-    dossier = models.ForeignKey(Dossier, on_delete=models.CASCADE, db_column='dossier')
+    dossier = models.ForeignKey(TechnicalProject, on_delete=models.CASCADE, db_column='dossier')
     fournisseur = models.ForeignKey(Fournisseur, on_delete=models.DO_NOTHING, db_column='fournisseur')
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING, db_column='client')
     montant = models.FloatField(null=True)

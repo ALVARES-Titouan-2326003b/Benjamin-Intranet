@@ -7,8 +7,7 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 import logging
 
-from .models import Facture, Fournisseur, Contact, EmailFournisseur
-from management.modelsadm import GeneralModeleRelance, GeneralTempsRelance
+from .models import Facture, Fournisseur, Contact, EmailFournisseur, RelanceFournisseur
 
 logger = logging.getLogger(__name__)
 
@@ -81,10 +80,10 @@ def check_and_send_invoice_reminders(delai_relance=None):
 
     Args:
         delai_relance (int, optional): Si fourni, met à jour TOUS les délais
-                                       dans Temps_Relance avant la vérification.
+                                       dans RelanceFournisseur avant la vérification.
                                        Si None, utilise les délais existants.
 
-    LOGIQUE : Relance à J-X (X = intervalle configuré dans Temps_Relance)
+    LOGIQUE : Relance à J-X (X = intervalle configuré dans RelanceFournisseur)
     """
 
     today = timezone.now().date()
@@ -92,19 +91,19 @@ def check_and_send_invoice_reminders(delai_relance=None):
     # ÉTAPE 1 : Mise à jour du délai si fourni
     if delai_relance is not None:
         try:
-            nb_lignes_avant = Temps_Relance.objects.count()
+            nb_lignes_avant = RelanceFournisseur.objects.count()
 
             if nb_lignes_avant == 0:
                 return {
                     'success': False,
-                    'message': 'Aucune configuration trouvée dans Temps_Relance'
+                    'message': 'Aucune configuration trouvée dans RelanceFournisseur'
                 }
 
             # UPDATE de toutes les lignes
-            GeneralTempsRelance.objects.all().update(temps=delai_relance)
+            RelanceFournisseur.objects.all().update(temps=delai_relance)
 
         except Exception as e:
-            print(f"\nERREUR lors de la mise à jour de GeneralTempsRelance : {e}")
+            print(f"\nERREUR lors de la mise à jour de RelanceFournisseur : {e}")
             import traceback
             traceback.print_exc()
             return {
@@ -125,11 +124,11 @@ def check_and_send_invoice_reminders(delai_relance=None):
 
         # Récupérer intervalle
         try:
-            intervalle = GeneralTempsRelance.objects.all().first().temps
-        except Temps_Relance.DoesNotExist:
+            intervalle = RelanceFournisseur.objects.all().first().temps
+        except RelanceFournisseur.DoesNotExist:
             return {
                 'success': False,
-                'message': "IGNORÉE : Pas de GeneralTempsRelance"
+                'message': "IGNORÉE : Pas de RelanceFournisseur"
             }
 
         for facture in factures:
@@ -152,7 +151,6 @@ def check_and_send_invoice_reminders(delai_relance=None):
 
                 # Récupérer l'adresse
                 try:
-                    fournisseur = Fournisseur.objects.get(id=facture.fournisseur)
                     contacts = Contact.objects.filter(acteur=facture.fournisseur)
                     adresse = ""
 
@@ -170,8 +168,8 @@ def check_and_send_invoice_reminders(delai_relance=None):
 
                 # Récupérer modèle de relance
                 try:
-                    message_relance = GeneralModeleRelance.objects.all().first().message
-                except GeneralModeleRelance.DoesNotExist:
+                    message_relance = RelanceFournisseur.objects.all().first().message
+                except RelanceFournisseur.DoesNotExist:
                     continue
 
                 if not message_relance:
@@ -201,7 +199,7 @@ def check_and_send_invoice_reminders(delai_relance=None):
             'factures_traitees': factures_traitees,
             'relances_envoyees': relances_envoyees,
             'erreurs': erreurs,
-            'delai_applique': delai_relance
+            'delai_applique': intervalle
         }
 
     except Exception as e:

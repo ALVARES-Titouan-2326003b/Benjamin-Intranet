@@ -2,7 +2,8 @@
 Modèles pour la partie administrative - Gestion des relances
 """
 from django.db import models
-from invoices.models import Contact, Dossier
+from invoices.models import Contact
+from technique.models import TechnicalProject
 from django.contrib.auth import get_user_model
 Utilisateur = get_user_model()
 
@@ -25,7 +26,7 @@ class EmailClient(models.Model):
     pk = models.CompositePrimaryKey('contact', 'email')
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE, db_column='contact')
     metier = models.ForeignKey(Metier, on_delete=models.CASCADE, db_column='metier')
-    email = models.TextField(blank=True, null=True)
+    email = models.TextField()
 
     class Meta:
         db_table = 'email_client'
@@ -34,29 +35,47 @@ class EmailClient(models.Model):
 class TelClient(models.Model):
     pk = models.CompositePrimaryKey('contact', 'tel')
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE, db_column='contact')
-    tel = models.TextField(blank=True, null=True)
+    tel = models.TextField()
 
     class Meta:
         db_table = 'tel_client'
 
 
-class GeneralModeleRelance(models.Model):
+class DefaultModeleRelance(models.Model):
     metier = models.OneToOneField(Metier, on_delete=models.CASCADE, db_column='metier', primary_key=True)
     message = models.TextField()
 
     class Meta:
-        db_table = 'general_modele_relance'
+        db_table = 'default_modele_relance'
 
 
-class GeneralTempsRelance(models.Model):
+class DefaultTempsRelance(models.Model):
     id = models.TextField(primary_key=True)
     temps = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        db_table = 'general_temps_relance'
+        db_table = 'default_temps_relance'
 
     def __str__(self):
         return f"Relance tous les {self.relance} jours"
+
+
+class ModeleRelance(models.Model):
+    pk = models.CompositePrimaryKey('utilisateur', 'metier')
+    utilisateur = models.ForeignKey(Utilisateur, on_delete=models.CASCADE, db_column='utilisateur')
+    metier = models.ForeignKey(Metier, on_delete=models.CASCADE, db_column='metier')
+    message = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'modele_relance'
+
+
+class TempsRelance(models.Model):
+    id = models.OneToOneField(Utilisateur, on_delete=models.CASCADE, db_column='id', primary_key=True)
+    temps = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'temps_relance'
 
 
 class TypeActivite(models.Model):
@@ -73,7 +92,7 @@ class Activite(models.Model):
     ]
 
     id = models.TextField(primary_key=True)
-    dossier = models.ForeignKey(Dossier, on_delete=models.CASCADE, db_column='dossier')
+    dossier = models.ForeignKey(TechnicalProject, on_delete=models.CASCADE, db_column='dossier')
     type = models.ForeignKey(TypeActivite, on_delete=models.CASCADE, db_column='type')
     date = models.DateTimeField(blank=True, null=True)
     date_type = models.TextField(choices=TYPES, default="echeance")
@@ -118,7 +137,6 @@ class OAuthToken(models.Model):
         db_table = 'oauth_tokens'
         verbose_name = 'Token OAuth'
         verbose_name_plural = 'Tokens OAuth'
-        managed = False
 
     def __str__(self):
         return f"OAuth {self.provider} - {self.user.username} ({self.email})"
