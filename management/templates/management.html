@@ -97,8 +97,8 @@
             style="border: 1px solid #e2e8f0; border-left-width: 4px;">
             <div class="email-header">
                <div>
-                  <span class="status-badge" style="background: #e2e8f0;">{{ email.status_emoji }} {{ email.status_text
-                     }}</span>
+                  <span class="status-badge" style="background: #e2e8f0;"
+                  >{{ email.status_emoji }} {{ email.status_text }}</span>
                   <strong style="display: block; margin-top: 4px;">{{ email.subject|default:"(Sans objet)" }}</strong>
                </div>
                <span class="email-date" style="font-size: 0.8rem;">{{ email.date|date:"d/m/Y H:i" }}</span>
@@ -142,12 +142,9 @@
             <label for="activity-type" class="form-label">Type *</label>
             <select id="activity-type" name="type" class="form-control" required>
                <option value="">-- Sélectionner un type --</option>
-               <option value="vente">Vente</option>
-               <option value="location">Location</option>
-               <option value="compromis">Compromis</option>
-               <option value="visite">Visite</option>
-               <option value="relance">Relance</option>
-               <option value="autre">Autre</option>
+               {% for type in types %}
+               <option value="{{ type.type }}">{{ type.type }}</option>
+               {% endfor %}
             </select>
          </div>
 

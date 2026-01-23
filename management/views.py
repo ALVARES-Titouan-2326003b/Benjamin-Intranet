@@ -9,8 +9,10 @@ from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+
+from technique.models import TechnicalProject
 from .email_manager import fetch_new_emails, get_sent_emails, get_email_summary, send_email_reply
-from .models import DefaultModeleRelance, ModeleRelance, Activite
+from .models import DefaultModeleRelance, ModeleRelance, Activite, TypeActivite
 import json
 from user_access.user_test_functions import has_administratif_access
 from celery import Celery
@@ -46,10 +48,15 @@ def administratif_view(request):
     from technique.models import TechnicalProject
     dossiers = TechnicalProject.objects.all().order_by('reference')
 
+    # Récupérer les types d'activité
+    from .models import TypeActivite
+    types = TypeActivite.objects.distinct()
+
     return render(request, 'management.html', {
         'pole_name': 'Administratif',
         'emails': emails_data,
         'dossiers': dossiers,
+        'types': types
     })
 
 
@@ -144,7 +151,13 @@ def generate_auto_message_view(request):
 
         # 2. Récupère l'email envoyé depuis django-mailbox
         from django_mailbox.models import Message
-        original_email = Message.objects.get(id=email_id)
+        original_email = Message.objects.filter(message_id=email_id).first()
+        if original_email is None:
+            return JsonResponse({
+                'success': False,
+                'message': 'Email introuvable'
+            })
+
         destinataire_email = original_email.to_header
 
         # 3. Récupère le métier du client & l'ID de l'utilisateur
@@ -185,14 +198,6 @@ def generate_auto_message_view(request):
         }
 
         return JsonResponse(response_data)
-
-    except Message.DoesNotExist:
-        print(f"\n❌ Email introuvable (ID: {email_id})")
-        print(f"{'='*60}\n")
-        return JsonResponse({
-            'success': False,
-            'message': 'Email introuvable'
-        }, status=404)
 
     except Exception as e:
         print(f"\n❌❌❌ ERREUR INATTENDUE : {e}")
@@ -369,8 +374,8 @@ def create_activity_view(request):
         # Créer l'activité avec l'ID explicite
         nouvelle_activite = Activite.objects.create(
             id=next_id,
-            dossier=dossier,
-            type=type_activite,
+            dossier=TechnicalProject.objects.get(reference=dossier),
+            type=TypeActivite.objects.get(type=type_activite),
             date=date_activite,
             date_type='Date',
             commentaire=commentaire if commentaire else None
@@ -450,8 +455,8 @@ def delete_activity_view(request):
             }, status=400)
 
         query_date = Activite.objects.filter(
-            dossier=dossier,
-            type=type_activite,
+            dossier=TechnicalProject.objects.get(reference=dossier),
+            type=TypeActivite.objects.get(type=type_activite),
             date__gte=date_debut_naive,
             date__lt=date_fin_naive
         )
