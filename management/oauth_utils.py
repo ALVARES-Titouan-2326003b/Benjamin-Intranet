@@ -4,14 +4,10 @@ Utilitaires OAuth2 pour l'authentification Gmail
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 import os
-
-# ============================================================================
-# CONFIGURATION OAUTH2
-# ============================================================================
+from email.mime.text import MIMEText
 
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
@@ -62,9 +58,9 @@ def get_authorization_url(redirect_uri):
     flow = get_oauth_flow(redirect_uri)
 
     authorization_url, state = flow.authorization_url(
-        access_type='offline',  # Pour obtenir un refresh_token
+        access_type='offline',
         include_granted_scopes='true',
-        prompt='consent'  # Force l'affichage de l'écran de consentement
+        prompt='consent'
     )
 
     return authorization_url, state
@@ -158,7 +154,6 @@ def get_valid_credentials(oauth_token):
 
         new_tokens = refresh_access_token(oauth_token.refresh_token)
 
-        # Mettre à jour en BD
         oauth_token.access_token = new_tokens['access_token']
         oauth_token.token_expiry = new_tokens['token_expiry']
         oauth_token.save()
@@ -219,7 +214,6 @@ def send_email_via_gmail_api(user, to_email, subject, message_text):
         dict: Résultat de l'envoi
     """
     import base64
-    from email.mime.text import MIMEText
 
     service = get_gmail_service(user)
 
@@ -237,14 +231,14 @@ def send_email_via_gmail_api(user, to_email, subject, message_text):
             body={'raw': raw_message}
         ).execute()
 
-        print(f"✅ Email envoyé via Gmail API : {sent_message['id']}")
+        print(f"Email envoyé via Gmail API : {sent_message['id']}")
 
         return {
             'success': True,
             'message_id': sent_message['id']
         }
     except Exception as e:
-        print(f"❌ Erreur envoi Gmail API : {e}")
+        print(f"Erreur envoi Gmail API : {e}")
         return {
             'success': False,
             'error': str(e)

@@ -50,20 +50,42 @@
       <div class="card-title">Relance automatique</div>
 
       <!-- Menu déroulant pour sélectionner un email -->
-      <div class="reply-selector" style="margin-bottom: 1rem;">
-         <label for="email-select" class="form-label">Répondre à un email :</label>
-         <select id="email-select" onchange="showReplyForm()" class="form-control">
-            <option value="">-- Sélectionner un email --</option>
-            {% for email in emails %}
-            {% if email.status == 'pending' %}
-            <option value="{{ email.id }}" data-to="{{ email.to }}"
-               data-subject="{{ email.subject|default:'(Sans objet)' }}">
-               {{ email.subject|default:"(Sans objet)"|truncatewords:8 }}
-            </option>
-            {% endif %}
-            {% endfor %}
-         </select>
-      </div>
+       <div class="reply-selector" style="margin-bottom: 1rem;">
+           <label for="email-select" class="form-label">Répondre à un email :</label>
+           <input
+              type="text"
+              id="email-select"
+              list="email-datalist"
+              class="form-control"
+              placeholder="-- Sélectionner ou taper pour rechercher --"
+              autocomplete="off"
+           >
+<datalist id="email-datalist">
+   {% for email in emails %}
+   {% if email.status == 'pending' %}
+   <option value="{{ email.subject|default:'(Sans objet)' }} ({{ email.date|date:'d/m/Y H:i' }})"></option>
+   {% endif %}
+   {% endfor %}
+</datalist>
+<small id="email-error" style="color: var(--danger); display: none; margin-top: 0.5rem;">
+   ⚠️ Cet email n'existe pas dans la liste
+</small>
+</div>
+
+<!-- Script pour injecter les données emails en JavaScript -->
+<script id="emails-data" type="application/json">
+{
+   {% for email in emails %}
+   {% if email.status == 'pending' %}
+   "{{ email.subject|default:'(Sans objet)' }} ({{ email.date|date:'d/m/Y H:i' }})": {
+      "id": "{{ email.id }}",
+      "to": "{{ email.to }}",
+      "subject": "{{ email.subject|default:'(Sans objet)' }}"
+   }{% if not forloop.last %},{% endif %}
+   {% endif %}
+   {% endfor %}
+}
+</script>
 
       <!-- Formulaire de réponse (caché par défaut) -->
       <div id="reply-form"
@@ -89,7 +111,6 @@
          <div id="reply-status" style="display: none; margin-top: 1rem;"></div>
       </div>
 
-      <!-- Liste des emails -->
       {% if emails %}
       <div class="emails-list" style="flex: 1; overflow-y: auto; padding-right: 5px;">
          {% for email in emails %}
@@ -104,7 +125,6 @@
                <span class="email-date" style="font-size: 0.8rem;">{{ email.date|date:"d/m/Y H:i" }}</span>
             </div>
             <div class="email-from">A: {{ email.to }}</div>
-            <!-- "to" because it's sent to us? or from? Check context. Original code said "A: {{ email.to }}" but variable is email.to. Assuming original logic. -->
             <div class="email-preview">{{ email.body_text|truncatewords:20 }}</div>
          </div>
          {% endfor %}

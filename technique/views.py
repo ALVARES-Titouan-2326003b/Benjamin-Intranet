@@ -22,6 +22,9 @@ from user_access.user_test_functions import has_technique_access
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def documents_list(request):
+    """
+    Affiche la liste des documents techniques
+    """
     qs = DocumentTechnique.objects.all()
     projet = request.GET.get("projet", "").strip()
     if projet:
@@ -40,6 +43,9 @@ def documents_list(request):
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def documents_upload(request):
+    """
+    Affiche une vue pour enregistrer un document
+    """
     if request.method == "POST":
         form = DocumentTechniqueUploadForm(request.POST, request.FILES)
         if form.is_valid():
@@ -98,6 +104,13 @@ def documents_upload(request):
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def documents_detail(request, pk):
+    """
+    Affiche les informations d'un docment technique
+
+    Args:
+        request (HTTPRequest): Requête HTTP
+        pk (int): Identifiant du document
+    """
     doc = get_object_or_404(DocumentTechnique, pk=pk)
     return render(
         request,
@@ -113,6 +126,10 @@ def documents_detail(request, pk):
 def document_resume_pdf(request, pk):
     """
     Génère un PDF simple avec le résumé et les sections structurées.
+
+    Args:
+        request (HTTPRequest): Requête HTTP
+        pk (int): Identifiant du document
     """
 
     doc = get_object_or_404(DocumentTechnique, pk=pk)
@@ -260,7 +277,7 @@ def document_resume_pdf(request, pk):
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def financial_overview(request):
     """
-    Formulaire
+    Affiche la liste des projets techniques
     """
     projects = TechnicalProject.objects.all().order_by("name")
 
@@ -285,6 +302,10 @@ def financial_overview(request):
 def financial_project_detail(request, pk):
     """
     Saisie des données financières + graphiques
+
+    Args:
+        request (HttpRequest): Requête HTTP
+        pk (str): Identifiant du projet
     """
     project = get_object_or_404(TechnicalProject, pk=pk)
 
@@ -312,7 +333,11 @@ def financial_project_detail(request, pk):
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def financial_project_pdf(request, pk):
     """
-    PDF de la vue financière
+    Permet de télécharger le PDF de la vue financière
+
+    Args:
+        request (HttpRequest): Requête HTTP
+        pk (str): Identifiant du projet
     """
     project = get_object_or_404(TechnicalProject, pk=pk)
 

@@ -4,6 +4,9 @@ import logging
 from django.conf import settings
 
 class DailyDateFileHandler(logging.FileHandler):
+    """
+    Enregistre les logs dans un fichier différent par jour
+    """
 
     def __init__(self, log_dir, encoding='utf-8'):
         self.log_dir = log_dir

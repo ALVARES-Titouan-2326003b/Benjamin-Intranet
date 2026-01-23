@@ -9,6 +9,12 @@ def signer_pdf_avec_images_position(document: Document, user, pos_x_pct: float, 
     """
     Signe le PDF en plaçant le bloc tampon+signature à la position donnée
     (en % de la page, à partir de la GAUCHE et du BAS).
+
+    Args:
+        document (Document): Document à signer
+        user (User): Utilisateur qui signe le document
+        pos_x_pct (float): Position x en pourcentage
+        pos_y_pct (float): Position y en pourcentage
     """
 
     # Signature utilisateur (CEO) et tampon

@@ -1,6 +1,6 @@
 ﻿{% load static %}
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="{{ current_theme|default:'light' }}">
 
 <head>
   <meta charset="utf-8" />
@@ -122,6 +122,11 @@
         <div class="user-avatar">
           {{ user.username|first|upper }}
         </div>
+
+        <a href="{% url 'settings' %}" class="btn btn-sm"
+          style="background:none; border:none; padding: 5px; color: var(--text-secondary);" title="Paramètres">
+          <i class="bi bi-gear" style="font-size: 1.2rem;"></i>
+        </a>
 
         <form action="{% url 'logout' %}" method="post" style="display:inline;">
           {% csrf_token %}

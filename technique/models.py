@@ -6,6 +6,25 @@ User = get_user_model()
 
 
 class DocumentTechnique(models.Model):
+    """
+    Modèle représentant un document du pôle technique
+
+    Attributes:
+        projet (str): Projet de l'entreprise
+        titre (str): Titre du document
+        type_document (str): Type de document
+        fichier (FieldFile): Document PDF
+        texte_brut (str): Texte du document
+        resume (str): Resumé global
+        prix (str): Montant
+        dates (str): Dates clés
+        conditions_suspensives (str): Conditions suspensives
+        penalites (str): Pénalités
+        delais (str): Délais
+        clauses_importantes (str): Clauses importantes
+        created_by (ForeignKey): Utilisateur qui a créé le document
+        created_at (datetime): Date de création du document
+    """
     TYPE_CHOICES = [
         ("contrat_reservation", "Contrat de réservation"),
         ("permis_construire", "Permis de construire"),
@@ -51,6 +70,17 @@ class DocumentTechnique(models.Model):
 
 
 class TechnicalProject(models.Model):
+    """
+    Modèle représentant un projet du pôle technique
+
+    Attributes:
+        reference (str): Reference du projet
+        name (str): Nom du projet
+        type (str): Type de dossier
+        engaged_amount (Decimal): Frais engagés
+        paid_amount (Decimal): Frais payés
+        total_estimated (Decimal): Total estimé du projet
+    """
     DOSSIER_TYPES = [
         ("client", "Client"),
         ("juridique", "Juridique"),
@@ -91,18 +121,22 @@ class TechnicalProject(models.Model):
 
     @property
     def frais_engages(self):
+        """Renvoie les frais engagés du projet"""
         return self.engaged_amount
 
     @property
     def frais_payes(self):
+        """Renvoie les frais payés du projet"""
         return self.paid_amount
 
     @property
     def frais_restants(self):
+        """Renvoie les frais restants du projet"""
         return self.engaged_amount - self.paid_amount
 
     @property
     def reste_a_engager(self):
+        """Renvoie le reste à engager du projet"""
         return self.total_estimated - self.engaged_amount
 
 

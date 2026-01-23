@@ -7,11 +7,17 @@ from .services.email import send_invoice_status_email
 # Garantit l'existence du groupe "POLE_FINANCIER" au démarrage
 @receiver(post_save, sender=User)
 def ensure_groups(sender, instance, created, **kwargs):
+    """
+    Crée les groupes associés aux pôles au démarrage s'ils n'existent pas.
+    """
     for name in ['POLE_FINANCIER', 'POLE_TECHNIQUE', 'POLE_ADMINISTRATIF']:
         Group.objects.get_or_create(name=name)
 
 @receiver(pre_save, sender=Facture)
 def invoice_status_change_monitor(sender, instance, **kwargs):
+    """
+    Envoie un email lors du changement de statut de la facture
+    """
     if instance.pk:
         try:
             old_instance = Facture.objects.get(pk=instance.pk)

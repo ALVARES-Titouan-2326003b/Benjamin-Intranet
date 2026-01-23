@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Paramètres - Benjamin Immobilier{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <h1 class="h3 d-flex align-items-center gap-2">
+                <i class="bi bi-gear"></i> Paramètres
+            </h1>
+            <p class="text-muted">Gérez vos préférences personnelles.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 col-lg-8">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title m-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-palette"></i> Apparence
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label class="form-label d-block mb-3 fw-bold">Thème de l'interface</label>
+
+                            <div class="d-flex gap-3 flex-wrap">
+                                <!-- Option LIGHT -->
+                                <label class="theme-option-card">
+                                    <input type="radio" name="theme" value="light">
+                                    <div class="theme-preview light">
+                                        <div class="theme-sidebar"></div>
+                                        <div class="theme-content">
+                                            <div class="theme-header"></div>
+                                            <div class="theme-body"></div>
+                                        </div>
+                                    </div>
+                                    <span class="theme-name">Clair</span>
+                                </label>
+
+                                <!-- Option DARK -->
+                                <label class="theme-option-card">
+                                    <input type="radio" name="theme" value="dark">
+                                    <div class="theme-preview dark">
+                                        <div class="theme-sidebar"></div>
+                                        <div class="theme-content">
+                                            <div class="theme-header"></div>
+                                            <div class="theme-body"></div>
+                                        </div>
+                                    </div>
+                                    <span class="theme-name">Sombre</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary d-flex align-items-center gap-2">
+                                <i class="bi bi-check-lg"></i> Enregistrer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* CSS Spécifique à la page paramètres pour les previews */
+    .theme-option-card {
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .theme-option-card input {
+        display: none;
+    }
+
+    .theme-preview {
+        width: 140px;
+        height: 100px;
+        border: 3px solid #e2e8f0;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        display: flex;
+        overflow: hidden;
+        position: relative;
+        transition: all 0.2s;
+    }
+
+    .theme-option-card input:checked+.theme-preview {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .theme-sidebar {
+        width: 25%;
+        height: 100%;
+    }
+
+    .theme-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .theme-header {
+        height: 15%;
+        width: 100%;
+        margin-bottom: 5%;
+    }
+
+    .theme-body {
+        flex: 1;
+        margin: 5%;
+        border-radius: 4px;
+    }
+
+    /* Light Preview */
+    .light .theme-sidebar {
+        background: #1e293b;
+    }
+
+    .light .theme-content {
+        background: #f1f5f9;
+    }
+
+    .light .theme-header {
+        background: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .light .theme-body {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+    }
+
+    /* Dark Preview */
+    .dark .theme-sidebar {
+        background: #020617;
+        border-right: 1px solid #1e293b;
+    }
+
+    .dark .theme-content {
+        background: #0f172a;
+    }
+
+    .dark .theme-header {
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+    }
+
+    .dark .theme-body {
+        background: #1e293b;
+        border: 1px solid #334155;
+    }
+
+    .theme-name {
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+
+    .theme-option-card input:checked~.theme-name {
+        color: var(--accent);
+        font-weight: 600;
+    }
+</style>
+{% endblock %}

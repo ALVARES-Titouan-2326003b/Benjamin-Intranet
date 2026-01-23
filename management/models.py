@@ -61,6 +61,12 @@ class DefaultTempsRelance(models.Model):
 
 
 class ModeleRelance(models.Model):
+    """
+    Modèle représentant la table Modele_Relance
+    Contient les messages de relance personnalisés pour chaque utilisateur
+    Relation 1-1 : Un utilisateur = Un modèle de relance
+    """
+
     pk = models.CompositePrimaryKey('utilisateur', 'metier')
     utilisateur = models.ForeignKey(Utilisateur, on_delete=models.CASCADE, db_column='utilisateur')
     metier = models.ForeignKey(Metier, on_delete=models.CASCADE, db_column='metier')
@@ -71,6 +77,11 @@ class ModeleRelance(models.Model):
 
 
 class TempsRelance(models.Model):
+    """
+    Modèle représentant la table Temps_Relance
+    Contient le nombre de jours entre chaque relance pour chaque utilisateur
+    """
+
     id = models.OneToOneField(Utilisateur, on_delete=models.CASCADE, db_column='id', primary_key=True)
     temps = models.IntegerField(blank=True, null=True)
 
@@ -86,6 +97,11 @@ class TypeActivite(models.Model):
 
 
 class Activite(models.Model):
+    """
+    Modèle représentant la table Activites
+    Contient les événements/activités liés aux dossiers à afficher dans le calendrier
+    """
+
     TYPES = [
         ("echeance", "Échéance"),
         ("date", "Date")

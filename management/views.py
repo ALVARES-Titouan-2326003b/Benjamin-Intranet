@@ -2,54 +2,39 @@
 Vues pour la partie administrative - Gestion des emails et relances
 VERSION OAUTH2 : Passe request.user aux fonctions email_manager
 """
-from datetime import timezone
 
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
-
 from technique.models import TechnicalProject
 from .email_manager import fetch_new_emails, get_sent_emails, get_email_summary, send_email_reply
 from .models import DefaultModeleRelance, ModeleRelance, Activite, TypeActivite
 import json
 from user_access.user_test_functions import has_administratif_access
 from celery import Celery
+import traceback
+from datetime import datetime
 from django.contrib.auth import get_user_model
 
 Utilisateur = get_user_model()
 
 
-
 @login_required
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def administratif_view(request):
+
     """
     Page du pôle administratif - LOGIQUE INVERSÉE : affiche les emails ENVOYÉS
     VERSION OAUTH2 : Récupère les emails de l'utilisateur connecté
     """
 
-    # ⭐ MODIFICATION OAUTH2 : Récupère l'utilisateur connecté
     user = request.user
-
-    # Récupération des emails à chaque chargement de page
-    # ⭐ MODIFICATION OAUTH2 : Passe user à fetch_new_emails
     fetch_new_emails(user)
-
-    # Récupère les 20 derniers emails ENVOYÉS (au lieu des emails reçus)
-    # ⭐ MODIFICATION OAUTH2 : Passe user à get_sent_emails
     emails = get_sent_emails(user, limit=20)
-
-    # Formate les emails pour l'affichage
     emails_data = [get_email_summary(email) for email in emails]
 
-    # Récupérer les dossiers pour le menu déroulant
-    from technique.models import TechnicalProject
     dossiers = TechnicalProject.objects.all().order_by('reference')
-
-    # Récupérer les types d'activité
-    from .models import TypeActivite
     types = TypeActivite.objects.distinct()
 
     return render(request, 'management.html', {
@@ -70,7 +55,6 @@ def send_reply_view(request):
     Retourne une réponse JSON
     """
     try:
-        # Récupère les données du formulaire
         data = json.loads(request.body)
 
         email_id = data.get('email_id')
@@ -90,16 +74,13 @@ def send_reply_view(request):
                 'message': 'Destinataire ou sujet manquant'
             }, status=400)
 
-        # ⭐ MODIFICATION OAUTH2 : Récupère l'utilisateur connecté
         user = request.user
 
-        # Envoie la relane
-        # ⭐ MODIFICATION OAUTH2 : Passe user à send_email_reply
         result = send_email_reply(
             to_email=to_email,
             subject=subject,
             message_text=message_text,
-            original_message_id=email_id,  # Gmail ID (pour référence uniquement)
+            original_message_id=email_id,
             user=user
         )
 
@@ -134,7 +115,6 @@ def generate_auto_message_view(request):
         JsonResponse: {'success': bool, 'message': str}
     """
     try:
-        # 1. Récupère et valide les données de la requête
         data = json.loads(request.body)
         email_id = data.get('email_id')
 
@@ -145,11 +125,10 @@ def generate_auto_message_view(request):
             }, status=400)
 
         print(f"\n{'='*60}")
-        print(f"🚀 DÉBUT generate_auto_message_view()")
+        print(f"DÉBUT generate_auto_message_view()")
         print(f"   email_id: {email_id}")
         print(f"{'='*60}")
 
-        # 2. Récupère l'email envoyé depuis django-mailbox
         from django_mailbox.models import Message
         original_email = Message.objects.filter(message_id=email_id).first()
         if original_email is None:
@@ -160,7 +139,6 @@ def generate_auto_message_view(request):
 
         destinataire_email = original_email.to_header
 
-        # 3. Récupère le métier du client & l'ID de l'utilisateur
         emails = EmailClient.objects.filter(email=destinataire_email)
 
         if emails.count() == 0:
@@ -200,8 +178,7 @@ def generate_auto_message_view(request):
         return JsonResponse(response_data)
 
     except Exception as e:
-        print(f"\n❌❌❌ ERREUR INATTENDUE : {e}")
-        import traceback
+        print(f"\n ERREUR INATTENDUE : {e}")
         traceback.print_exc()
         print(f"{'='*60}\n")
         return JsonResponse({
@@ -226,36 +203,30 @@ def get_calendar_activities(request):
     - Liste des activités avec leurs détails pour affichage dans le calendrier
     """
     try:
-        # Récupérer les paramètres (par défaut = mois/année actuels)
-        from datetime import datetime  # ← Import local pour éviter conflit
-        now = datetime.now()  # ← Utilise datetime.now() au lieu de timezone.now()
+        now = datetime.now()
         month = int(request.GET.get('month', now.month))
         year = int(request.GET.get('year', now.year))
 
         print(f"\n{'=' * 60}")
-        print(f"📅 API Calendar Activities - Requête pour {month}/{year}")
+        print(f" API Calendar Activities - Requête pour {month}/{year}")
         print(f"{'=' * 60}")
 
-        # Calculer les dates de début et fin du mois
         start_date = datetime(year, month, 1)
 
-        # Fin du mois = début du mois suivant
         if month == 12:
             end_date = datetime(year + 1, 1, 1)
         else:
             end_date = datetime(year, month + 1, 1)
 
-        print(f"📊 Période : {start_date.date()} → {end_date.date()}")
+        print(f" Période : {start_date.date()} → {end_date.date()}")
 
-        # Récupérer les activités du mois depuis la BD
         activites = Activite.objects.filter(
             date__gte=start_date,
             date__lt=end_date
         ).values('id', 'dossier', 'type', 'date', 'commentaire')
 
-        print(f"📊 Activités trouvées : {activites.count()}")
+        print(f" Activités trouvées : {activites.count()}")
 
-        # Formater les données pour JSON
         activites_list = []
         for act in activites:
             activites_list.append({
@@ -277,7 +248,7 @@ def get_calendar_activities(request):
         })
 
     except Exception as e:
-        print(f"\n❌ Erreur API Calendar Activities : {e}")
+        print(f"\n Erreur API Calendar Activities : {e}")
         import traceback
         traceback.print_exc()
         print(f"{'=' * 60}\n")
@@ -317,21 +288,19 @@ def create_activity_view(request):
         commentaire = data.get('commentaire', '').strip()
 
         print(f"\n{'=' * 60}")
-        print(f"📝 Création d'activité")
+        print(f"   Création d'activité")
         print(f"   Dossier: {dossier}")
         print(f"   Type: {type_activite}")
         print(f"   Date: {date_str}")
         print(f"   Commentaire: {commentaire[:50] if commentaire else '(vide)'}")
         print(f"{'=' * 60}")
 
-        # Validation des champs requis
         if not dossier or not type_activite or not date_str:
             return JsonResponse({
                 'success': False,
                 'message': 'Champs obligatoires manquants'
             }, status=400)
 
-        # Valider que le type est parmi les valeurs autorisées (en minuscule)
         types_valides = ['vente', 'location', 'compromis', 'visite', 'relance', 'autre']
         if type_activite not in types_valides:
             return JsonResponse({
@@ -339,7 +308,6 @@ def create_activity_view(request):
                 'message': f'Type invalide. Types autorisés : {", ".join(types_valides)}'
             }, status=400)
 
-        # Convertir la date string en datetime
         from datetime import datetime
         try:
             date_activite = datetime.fromisoformat(date_str)
@@ -349,20 +317,16 @@ def create_activity_view(request):
                 'message': 'Format de date invalide'
             }, status=400)
 
-        # 🆕 Générer l'ID suivant (gestion robuste int ou text)
         from django.db.models import Max
         max_id_result = Activite.objects.aggregate(Max('id'))['id__max']
 
         if max_id_result is None:
-            # Table vide, premier ID
             next_id = 1
         else:
-            # Convertir en int si c'est une string
             try:
                 max_id_int = int(max_id_result)
                 next_id = max_id_int + 1
             except (ValueError, TypeError):
-                # Si la conversion échoue, c'est vraiment un texte
                 return JsonResponse({
                     'success': False,
                     'message': f'Type d\'ID invalide dans la BD : {type(max_id_result)}'
@@ -371,7 +335,6 @@ def create_activity_view(request):
         print(f"   Max ID actuel: {max_id_result}")
         print(f"   Prochain ID: {next_id}")
 
-        # Créer l'activité avec l'ID explicite
         nouvelle_activite = Activite.objects.create(
             id=next_id,
             dossier=TechnicalProject.objects.get(reference=dossier),
@@ -381,7 +344,7 @@ def create_activity_view(request):
             commentaire=commentaire if commentaire else None
         )
 
-        print(f"✅ Activité créée avec succès (ID: {nouvelle_activite.id})")
+        print(f"   Activité créée avec succès (ID: {nouvelle_activite.id})")
         print(f"   └─ Type: '{nouvelle_activite.type}'")
         print(f"   └─ Date_type: '{nouvelle_activite.date_type}'")
         print(f"{'=' * 60}\n")
@@ -393,7 +356,7 @@ def create_activity_view(request):
         })
 
     except Exception as e:
-        print(f"\n❌ Erreur création activité : {e}")
+        print(f"\n Erreur création activité : {e}")
         import traceback
         traceback.print_exc()
         print(f"{'=' * 60}\n")
@@ -409,17 +372,6 @@ def create_activity_view(request):
 def delete_activity_view(request):
     """
     API endpoint pour supprimer une ou plusieurs activités correspondant aux critères
-
-    Paramètres POST (JSON) :
-    - dossier : TextField (requis)
-    - type : TextField (requis)
-    - date : DateTimeField (requis)
-
-    Note : On ne filtre PAS sur date_type ni id
-    La date est comparée avec une tolérance d'une minute
-
-    Retourne :
-    - JsonResponse avec success=True/False et deleted_count
     """
     try:
         data = json.loads(request.body)
@@ -434,19 +386,12 @@ def delete_activity_view(request):
                 'message': 'Champs obligatoires manquants'
             }, status=400)
 
-        from datetime import datetime, timedelta
-        from django.utils import timezone
+
 
         try:
-            date_naive = datetime.fromisoformat(date_str)
-
-            date_activite = timezone.make_aware(date_naive, timezone.get_current_timezone())
-
+            date_activite = datetime.fromisoformat(date_str)
             date_debut = date_activite.replace(second=0, microsecond=0)
-            date_fin = date_debut + timedelta(minutes=1)
 
-            date_debut_naive = date_debut.replace(tzinfo=None)
-            date_fin_naive = date_fin.replace(tzinfo=None)
 
         except ValueError as e:
             return JsonResponse({
@@ -457,19 +402,24 @@ def delete_activity_view(request):
         query_date = Activite.objects.filter(
             dossier=TechnicalProject.objects.get(reference=dossier),
             type=TypeActivite.objects.get(type=type_activite),
-            date__gte=date_debut_naive,
-            date__lt=date_fin_naive
+            date__gte=date_debut,
         )
 
         count_before = query_date.count()
 
         if count_before == 0:
+            all_acts = Activites.objects.filter(dossier=dossier)
+            for act in all_acts:
+                print(f"      ID {act.id}: {act.date} | type={act.type}")
+
             return JsonResponse({
                 'success': False,
                 'message': 'Aucune activité ne correspond à ces critères'
             }, status=404)
 
         deleted_count, _ = query_date.delete()
+
+        print(f"   {deleted_count} activité(s) supprimée(s)")
 
         return JsonResponse({
             'success': True,
@@ -478,10 +428,11 @@ def delete_activity_view(request):
         })
 
     except Exception as e:
+        print(f"\n Erreur suppression: {e}")
         import traceback
         traceback.print_exc()
 
         return JsonResponse({
             'success': False,
             'message': f'Erreur : {str(e)}'
-        })
+        }, status=500)

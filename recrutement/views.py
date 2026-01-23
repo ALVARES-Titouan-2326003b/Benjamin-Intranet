@@ -10,6 +10,9 @@ from user_access.user_test_functions import has_finance_access
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def dashboard(request):
+    """
+    Affiche le tableau de bord des recrutements
+    """
     fiches = FicheDePoste.objects.order_by("-created_at")
     recents = Candidature.objects.select_related("fiche", "candidat")[:20]
     return render(request, "recrutement/dashboard.html", {
@@ -20,6 +23,9 @@ def dashboard(request):
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def fiche_create(request):
+    """
+    Affiche une vue permettant de créer une fiche de poste
+    """
     if request.method == "POST":
         form = FicheDePosteForm(request.POST)
         if form.is_valid():
@@ -35,6 +41,13 @@ def fiche_create(request):
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def fiche_detail(request, pk):
+    """
+    Affiche une vue permettant de voir les détails d'une fiche de poste
+
+    Args:
+        request : Requête HTTP
+        pk (int) : Identifiant de la fiche de poste
+    """
     fiche = get_object_or_404(FicheDePoste, pk=pk)
     upload_form = CVUploadForm()
     candidatures = fiche.candidatures.select_related("candidat")
@@ -47,6 +60,13 @@ def fiche_detail(request, pk):
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def upload_cv(request, pk):
+    """
+    Enregistre une candidature à une fiche de poste
+
+    Args:
+        request : Requête HTTP
+        pk (int) : Identifiant de la fiche de poste
+    """
     fiche = get_object_or_404(FicheDePoste, pk=pk)
     if request.method != "POST":
         return redirect("recrutement:fiche_detail", pk=pk)
@@ -93,7 +113,7 @@ def upload_cv(request, pk):
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def bulk_delete_fiches(request):
     """
-    Vue pour supprimer plusieurs fiches de poste en une seule action
+    Affiche une vue pour supprimer plusieurs fiches de poste en une seule action
     """
     if request.method != "POST":
         return redirect("recrutement:dashboard")
@@ -120,7 +140,7 @@ def bulk_delete_fiches(request):
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def bulk_delete_candidatures(request):
     """
-    Vue pour supprimer plusieurs candidatures en une seule action
+    Affiche une vue pour supprimer plusieurs candidatures en une seule action
     """
     if request.method != "POST":
         return redirect("recrutement:dashboard")

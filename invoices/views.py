@@ -17,6 +17,13 @@ from .models import Facture, PieceJointe
 
 @method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
 class FactureListView(FilterView):
+    """
+    Vue affichant la liste des factures avec filtres.
+
+    Permissions:
+        - Finance/CEO : Voir toutes les factures
+        - Collaborateur : Voir uniquement ses factures assignées
+    """
     model = Facture
     paginate_by = 20
     filterset_class = FactureFilter
@@ -40,6 +47,13 @@ class FactureListView(FilterView):
 
 @method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
 class FactureDetailView(DetailView):
+    """
+    Vue pour afficher les détails d'une facture
+
+    Permissions:
+        - Finance/CEO : Voir toutes les factures
+        - Collaborateur : Voir uniquement ses factures assignées
+    """
     model = Facture
     template_name = 'invoices/invoice_detail.html'
 
@@ -106,6 +120,9 @@ class _PieceJointeMixin:
 
 @method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
 class FactureCreateView(_PieceJointeMixin, CreateView):
+    """
+    Vue pour créer une facture
+    """
     model = Facture
     form_class = FactureForm
     template_name = 'invoices/invoice_form.html'
@@ -122,6 +139,9 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
 
 @method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
 class FactureUpdateView(_PieceJointeMixin, UpdateView):
+    """
+    Vue pour mettre à jour une facture
+    """
     model = Facture
     form_class = FactureForm
     template_name = 'invoices/invoice_form.html'

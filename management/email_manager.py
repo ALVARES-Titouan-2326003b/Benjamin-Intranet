@@ -1,12 +1,10 @@
 """
 Gestionnaire de récupération et traitement des emails
-VERSION OAUTH2 : Utilise Gmail API avec OAuth2 au lieu de IMAP/SMTP classique
-VERSION AVEC STATUTS : Détecte automatiquement si les emails ont été répondu
 """
 import base64
-from email.mime.text import MIMEText
 from django.utils import timezone
 from management.models import OAuthToken
+import traceback
 
 
 def fetch_new_emails(user):
@@ -32,7 +30,6 @@ def fetch_new_emails(user):
 
         service = get_gmail_service(user)
 
-        # Récupérer les messages
         results = service.users().messages().list(
             userId='me',
             maxResults=100,
@@ -41,7 +38,7 @@ def fetch_new_emails(user):
 
         messages = results.get('messages', [])
 
-        print(f"✅ {len(messages)} messages trouvés dans INBOX")
+        print(f"{len(messages)} messages trouvés dans INBOX")
 
         return len(messages)
 
@@ -66,7 +63,7 @@ def get_sent_emails(user, limit=50):
     try:
         oauth_token = OAuthToken.objects.get(user=user)
     except OAuthToken.DoesNotExist:
-        print(f"❌ {user.username} n'a pas synchronisé sa boîte mail")
+        print(f"{user.username} n'a pas synchronisé sa boîte mail")
         return []
 
     try:
@@ -74,7 +71,6 @@ def get_sent_emails(user, limit=50):
 
         service = get_gmail_service(user)
 
-        # Récupérer les messages envoyés
         results = service.users().messages().list(
             userId='me',
             maxResults=limit,
@@ -86,7 +82,6 @@ def get_sent_emails(user, limit=50):
         print(f"\nRécupération de {len(messages)} emails envoyés...")
         replied_message_ids = check_if_replies_exist(user)
 
-        # Récupérer les détails de chaque message
         detailed_messages = []
 
         for msg in messages:
@@ -97,7 +92,6 @@ def get_sent_emails(user, limit=50):
                     format='full'
                 ).execute()
 
-                # Extraire les headers
                 headers = msg_data['payload']['headers']
                 subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '(Sans objet)')
                 to = next((h['value'] for h in headers if h['name'] == 'To'), '')
@@ -146,9 +140,8 @@ def get_sent_emails(user, limit=50):
                 print(f"Erreur sur le message {msg['id']}: {e}")
                 continue
 
-        print(f"✅ {len(detailed_messages)} emails envoyés récupérés")
+        print(f"{len(detailed_messages)} emails envoyés récupérés")
 
-        # Compter les statuts
         replied_count = sum(1 for m in detailed_messages if m['status'] == 'replied')
         pending_count = sum(1 for m in detailed_messages if m['status'] == 'pending')
         print(f"   Statuts : {replied_count} répondus, {pending_count} en attente")
@@ -157,7 +150,6 @@ def get_sent_emails(user, limit=50):
 
     except Exception as e:
         print(f"Erreur récupération emails envoyés : {e}")
-        import traceback
         traceback.print_exc()
         return []
 
@@ -244,7 +236,6 @@ def send_auto_relance(to_email, subject, message_text, objet_custom, original_me
         base_subject = subject.replace('Re: ', '', 1) if subject.startswith('Re:') else subject
         final_subject = f"{base_subject}: relance automatique"
 
-    # Envoyer comme un email normal
     return send_email_reply(to_email, final_subject, message_text, original_message_id, user)
 
 
@@ -301,7 +292,6 @@ def check_if_received_reply(sent_message, user):
 
         service = get_gmail_service(user)
 
-        # Récupérer le Message-ID de l'email envoyé
         msg_data = service.users().messages().get(
             userId='me',
             id=sent_message['id'],
@@ -347,11 +337,9 @@ def get_email_summary(email_dict):
     Returns:
         dict: Résumé de l'email formaté
     """
-    # Si c'est déjà un dict, le retourner tel quel
     if isinstance(email_dict, dict):
         return email_dict
 
-    # Sinon, formater (fallback au cas où)
     return {
         'id': getattr(email_dict, 'id', ''),
         'subject': getattr(email_dict, 'subject', '(Sans objet)'),

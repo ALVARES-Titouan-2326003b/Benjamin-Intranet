@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
  * Charge le statut OAuth depuis l'API et affiche le résultat
  */
 function loadOAuthStatus() {
-    fetch('/oauth/status/')  // ✅ CORRECTION : URL absolue depuis la racine
+    fetch('/oauth/status/')
         .then(response => response.json())
         .then(data => {
             const container = document.getElementById('oauth-status-container');
@@ -28,8 +28,8 @@ function loadOAuthStatus() {
             if (data.synchronized) {
                 // Boîte mail synchronisée
                 const tokenStatus = data.token_expired ?
-                    '<span style="color: #f59e0b;">⚠️ Token expiré (sera renouvelé automatiquement)</span>' :
-                    '<span style="color: #10b981;">✅ Token valide</span>';
+                    '<span style="color: #f59e0b;"> Token expiré (sera renouvelé automatiquement)</span>' :
+                    '<span style="color: #10b981;"> Token valide</span>';
 
                 container.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
@@ -88,7 +88,7 @@ function loadOAuthStatus() {
  */
 function resyncMailbox() {
     if (confirm('Re-synchroniser votre boîte mail ? Vous allez être redirigé vers Google.')) {
-        window.location.href = '/oauth/gmail/';  // ✅ CORRECTION : URL absolue
+        window.location.href = '/oauth/gmail/';
     }
 }
 
@@ -99,7 +99,7 @@ function revokeOAuth() {
     if (confirm('Êtes-vous sûr de vouloir révoquer l\'accès à votre boîte mail ? Vous ne pourrez plus envoyer d\'emails.')) {
         const csrftoken = getCookie('csrftoken');
 
-        fetch('/oauth/revoke/', {  // ✅ CORRECTION : URL absolue
+        fetch('/oauth/revoke/', {
             method: 'POST',
             headers: {
                 'X-CSRFToken': csrftoken
@@ -108,15 +108,15 @@ function revokeOAuth() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('✅ Accès révoqué avec succès');
+                alert(' Accès révoqué avec succès');
                 loadOAuthStatus(); // Recharger le statut
             } else {
-                alert('❌ Erreur : ' + data.message);
+                alert(' Erreur : ' + data.message);
             }
         })
         .catch(error => {
             console.error('Erreur révocation:', error);
-            alert('❌ Erreur lors de la révocation');
+            alert(' Erreur lors de la révocation');
         });
     }
 }

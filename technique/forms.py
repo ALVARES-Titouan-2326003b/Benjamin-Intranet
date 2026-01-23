@@ -3,6 +3,9 @@ from .models import DocumentTechnique, TechnicalProject
 
 
 class DocumentTechniqueUploadForm(forms.ModelForm):
+    """
+    Formulaire pour enregistrer un document technique
+    """
     class Meta:
         model = DocumentTechnique
         fields = ["projet", "titre", "type_document", "fichier"]
@@ -14,7 +17,9 @@ class DocumentTechniqueUploadForm(forms.ModelForm):
 
 
 class TechnicalProjectCreateForm(forms.ModelForm):
-    """Créer un projet"""
+    """
+    Formulaire pour créer un projet
+    """
 
     class Meta:
         model = TechnicalProject
@@ -22,7 +27,9 @@ class TechnicalProjectCreateForm(forms.ModelForm):
 
 
 class TechnicalProjectFinanceForm(forms.ModelForm):
-    """Modifier les données financières d'un projet"""
+    """
+    Formulaire pour modifier les données financières d'un projet
+    """
 
     class Meta:
         model = TechnicalProject

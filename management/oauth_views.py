@@ -4,6 +4,8 @@ VERSION CORRIGÉE : Redirections vers /administratif/ au lieu de namespace
 """
 from django.shortcuts import redirect
 from django.http import JsonResponse
+import traceback
+
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
@@ -32,7 +34,7 @@ def initiate_oauth(request):
     request.session['oauth_state'] = state
 
     print(f"\n{'='*60}")
-    print(f"🚀 Initiation OAuth pour {request.user.username}")
+    print(f"   Initiation OAuth pour {request.user.username}")
     print(f"   Redirect URI: {redirect_uri}")
     print(f"   State: {state}")
     print(f"{'='*60}\n")
@@ -54,7 +56,7 @@ def oauth_callback(request):
     error = request.GET.get('error')
 
     print(f"\n{'='*60}")
-    print(f"📥 Callback OAuth pour {request.user.username}")
+    print(f"   Callback OAuth pour {request.user.username}")
     print(f"   Code: {code[:20]}..." if code else "   Code: None")
     print(f"   State: {state}")
     print(f"   Error: {error}")
@@ -62,19 +64,19 @@ def oauth_callback(request):
 
     if error:
         messages.error(request, f"Erreur OAuth : {error}")
-        print(f"❌ Erreur OAuth : {error}")
-        return redirect('/administratif/')  # ✅ CORRECTION : URL directe
+        print(f" Erreur OAuth : {error}")
+        return redirect('/administratif/')
 
     if not code:
         messages.error(request, "Code d'autorisation manquant")
-        print(f"❌ Code manquant")
-        return redirect('/administratif/')  # ✅ CORRECTION : URL directe
+        print(f" Code manquant")
+        return redirect('/administratif/')
 
     session_state = request.session.get('oauth_state')
     if state != session_state:
         messages.error(request, "État OAuth invalide (possible attaque CSRF)")
-        print(f"❌ State invalide : {state} != {session_state}")
-        return redirect('/administratif/')  # ✅ CORRECTION : URL directe
+        print(f" State invalide : {state} != {session_state}")
+        return redirect('/administratif/')
 
     try:
 
@@ -93,7 +95,7 @@ def oauth_callback(request):
         if tokens['email'] != request.user.email:
             messages.warning(
                 request,
-                f"⚠L'email autorisé ({tokens['email']}) ne correspond pas à votre compte ({request.user.email}). "
+                f"L'email autorisé ({tokens['email']}) ne correspond pas à votre compte ({request.user.email}). "
                 f"Mise à jour de votre email..."
             )
             request.user.email = tokens['email']
@@ -113,13 +115,13 @@ def oauth_callback(request):
         if created:
             messages.success(
                 request,
-                f"✅ Boîte mail {tokens['email']} synchronisée avec succès !"
+                f" Boîte mail {tokens['email']} synchronisée avec succès !"
             )
-            print(f"✅ Nouveau token créé pour {request.user.username}")
+            print(f" Nouveau token créé pour {request.user.username}")
         else:
             messages.success(
                 request,
-                f"✅ Boîte mail {tokens['email']} mise à jour avec succès !"
+                f" Boîte mail {tokens['email']} mise à jour avec succès !"
             )
             print(f"Token mis à jour pour {request.user.username}")
 
@@ -128,14 +130,13 @@ def oauth_callback(request):
 
         print(f"{'='*60}\n")
 
-        return redirect('/administratif/')  # ✅ CORRECTION : URL directe
+        return redirect('/administratif/')
 
     except Exception as e:
-        messages.error(request, f"❌ Erreur lors de l'authentification : {str(e)}")
-        print(f"❌ Erreur : {e}")
-        import traceback
+        messages.error(request, f" Erreur lors de l'authentification : {str(e)}")
+        print(f" Erreur : {e}")
         traceback.print_exc()
-        return redirect('/administratif/')  # ✅ CORRECTION : URL directe
+        return redirect('/administratif/')
 
 
 @login_required
@@ -154,9 +155,9 @@ def revoke_oauth(request):
 
         messages.success(
             request,
-            f"✅ Accès à la boîte mail {email} révoqué avec succès."
+            f" Accès à la boîte mail {email} révoqué avec succès."
         )
-        print(f"🗑️  Token OAuth supprimé pour {request.user.username}")
+        print(f" Token OAuth supprimé pour {request.user.username}")
 
         return JsonResponse({'success': True})
 
