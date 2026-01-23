@@ -17,7 +17,6 @@ class SettingsView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy('settings')
 
     def get_object(self):
-        # Ensure we return the preferences of the current user
         return get_object_or_404(UserPreference, user=self.request.user)
 
     def form_valid(self, form):
