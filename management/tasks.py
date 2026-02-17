@@ -5,7 +5,8 @@ Cette version affiche EXACTEMENT où chaque email est bloqué
 import os
 from celery import shared_task
 from django.utils import timezone
-from .modelsadm import Utilisateur, Modele_Relance, Temps_Relance, Activites, OAuthToken
+from django.contrib.auth.models import User
+from .models import DefaultModeleRelance, DefaultTempsRelance, ModeleRelance, TempsRelance, EmailClient, Activite, OAuthToken
 from .email_manager import send_auto_relance
 from datetime import datetime, timedelta
 from django.core.mail import EmailMessage
@@ -13,6 +14,9 @@ import logging
 from email.utils import parsedate_to_datetime
 import traceback
 from management.email_manager import check_if_replies_exist
+from django.contrib.auth import get_user_model
+
+Utilisateur = get_user_model()
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +37,12 @@ def check_and_send_auto_relances():
         'date_missing': 0,
         'nb_jours_check': 0,
         'email_missing': 0,
-        'utilisateur_not_found': 0,
         'temps_relance_not_found': 0,
+        'default_temps_relance_not_found': False,
         'modulo_check': 0,
+        'client_not_found': 0,
         'modele_relance_not_found': 0,
+        'default_modele_relance_not_found': 0,
         'message_empty': 0,
         'sent_successfully': 0,
         'send_failed': 0
@@ -53,6 +59,10 @@ def check_and_send_auto_relances():
                 'erreurs': 0
             }
 
+        try:
+            default_temps_relance = DefaultTempsRelance.objects.all().first().temps
+        except DefaultTempsRelance.DoesNotExist:
+            blocked_at['default_temps_relance_not_found'] = True
 
         for oauth_token in oauth_users:
             user = oauth_token.user
@@ -104,31 +114,41 @@ def check_and_send_auto_relances():
                             destinataire_email = destinataire_email.split('<')[1].split('>')[0].strip()
 
                         try:
-                            utilisateur = Utilisateur.objects.get(email=destinataire_email)
+                            utilisateur = Utilisateur.objects.get(id=user)
                         except Utilisateur.DoesNotExist:
                             blocked_at['utilisateur_not_found'] += 1
                             continue
 
                         try:
-                            temps_relance = Temps_Relance.objects.get(id=utilisateur.id)
-                            intervalle = temps_relance.relance
-                        except Temps_Relance.DoesNotExist:
+                            intervalle = TempsRelance.objects.get(id=user).relance
+                        except TempsRelance.DoesNotExist:
                             blocked_at['temps_relance_not_found'] += 1
-                            continue
+                            if not blocked_at['default_temps_relance_not_found']:
+                                continue
+                            intervalle = default_temps_relance
 
 
                         if nb_jours % intervalle != 0:
                             blocked_at['modulo_check'] += 1
                             continue
 
+                        emails = EmailClient.objects.filter(email=destinataire_email)
+
+                        if emails.count() == 0:
+                            blocked_at['client_not_found'] += 1
+                            continue
+
+                        metier = emails.first().metier
 
                         try:
-                            modele_relance = Modele_Relance.objects.get(utilisateur=utilisateur.id)
-                            message_relance = modele_relance.message
-                            objet_relance = modele_relance.objet
-                        except Modele_Relance.DoesNotExist:
+                            message_relance = ModeleRelance.objects.get(utilisateur=user, metier=metier).message
+                        except ModeleRelance.DoesNotExist:
                             blocked_at['modele_relance_not_found'] += 1
-                            continue
+                            try:
+                                message_relance = DefaultModeleRelance.objects.get(metier=metier).message
+                            except DefaultModeleRelance.DoesNotExist:
+                                blocked_at['default_modele_relance_not_found'] += 1
+                                continue
 
                         if not message_relance:
                             blocked_at['message_empty'] += 1
@@ -142,7 +162,7 @@ def check_and_send_auto_relances():
                             message_text=message_relance,
                             objet_custom=objet_relance,
                             original_message_id=email_data.get('id'),
-                            user=user
+                            user=utilisateur
                         )
 
                         if result['success']:
@@ -267,7 +287,7 @@ def check_and_send_activite_reminders():
     date_limite = today + timedelta(days=10)
     logger.info(f"Date limite : {date_limite} (dans 10 jours)")
 
-    activites = Activites.objects.filter(
+    activites = Activite.objects.filter(
         date__date__gt=today,
         date__date__lte=date_limite
     ).order_by('date')
