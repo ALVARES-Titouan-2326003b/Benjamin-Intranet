@@ -379,7 +379,7 @@ def create_activity_view(request):
 
         print(f"   Activité créée avec succès (ID: {nouvelle_activite.id})")
         print(f"   └─ Type: '{nouvelle_activite.type}'")
-        print(f"   └─ Pole: '{nouvelle_activite.pole}'")
+        print(f"   └─ Pôle: '{nouvelle_activite.pole}'")
         print(f"   └─ Date_type: '{nouvelle_activite.date_type}'")
         print(f"{'=' * 60}\n")
 

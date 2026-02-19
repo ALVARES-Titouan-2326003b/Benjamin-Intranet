@@ -261,7 +261,7 @@ header .current-date {
 }
 
 .calendar li {
-    color: #333;
+    color: var( --text-main);
     width: calc(100% / 7);
     font-size: 1.07rem;
 }
