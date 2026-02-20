@@ -35,7 +35,16 @@
     --radius-lg: 0.75rem;
     --radius-xl: 1rem;
 
+    /* Hover table */
+    --hover-table: #f8fafc;
+
     --border-light: #e2e8f0;
+
+    --input-bg: #ffffff;
+    --input-text: var(--text-main);
+    --input-border: var(--border-light);
+    --input-placeholder: #94a3b8;
+    --input-focus-ring: rgba(59, 130, 246, 0.18);
 }
 
 [data-theme="dark"] {
@@ -53,6 +62,10 @@
     --bg-card: #1e293b;
     /* Card background */
 
+    --bg-table: #172033;   
+    /* TR background */
+
+
     --text-main: #f8fafc;
     /* White text */
     --text-secondary: #94a3b8;
@@ -63,4 +76,16 @@
     /* Darker borders */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+
+    /* Hover table */
+    --hover-table: #4e5b69;
+    
+    /* Inputs (Dark) */
+    --input-bg: #0b1220;                  /* fond sombre (pas noir) */
+    --input-text: var(--text-main);
+    --input-border: #334155;
+    --input-placeholder: rgba(148, 163, 184, 0.85);
+    --input-focus-ring: rgba(96, 165, 250, 0.22);
+
+    
 }

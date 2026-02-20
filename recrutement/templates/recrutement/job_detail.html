@@ -23,7 +23,7 @@
       <div class="card-title">Description du poste</div>
       <div style="margin-bottom: 1rem;">
         <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Compétences clés</label>
-        <div style="background: #f1f5f9; padding: 0.5rem 1rem; border-radius: 6px; display: inline-block;"
+        <div style="padding: 0.5rem 1rem; border-radius: 6px; display: inline-block;"
         >{{ fiche.competences_clees|default:"—" }}</div>
       </div>
       <div>
@@ -58,9 +58,11 @@
               <td>{{ c.candidat.email|default:"—" }}</td>
               <td class="text-center">
                 {% if c.score != None %}
-                <span class="badge"
-                  style="background: {% if c.score >= 70 %}#dcfce7{% elif c.score >= 50 %}#fef9c3{% else %}#fee2e2{% endif %}; 
-                                             color: {% if c.score >= 70 %}#166534{% elif c.score >= 50 %}#854d0e{% else %}#991b1b{% endif %};">
+                <span class="badge score-badge
+                  {% if c.score >= 70 %}score-badge--good
+                  {% elif c.score >= 50 %}score-badge--mid
+                  {% else %}score-badge--bad
+                  {% endif %}">
                   {{ c.score|floatformat:0 }} / 100
                 </span>
                 {% else %}

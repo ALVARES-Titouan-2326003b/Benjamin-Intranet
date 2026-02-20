@@ -4,62 +4,74 @@
 {% block title %}Paramètres - Benjamin Immobilier{% endblock %}
 
 {% block content %}
-<div class="container-fluid p-4">
+<div class="container-fluid p-4 settings-page">
     <div class="row">
         <div class="col-12 mb-4">
-            <h1 class="h3 d-flex align-items-center gap-2">
+            <h1 class="h3 d-flex align-items-center gap-2 mb-1">
                 <i class="bi bi-gear"></i> Paramètres
             </h1>
-            <p class="text-muted">Gérez vos préférences personnelles.</p>
+            <p class="text-muted mb-0">Gérez vos préférences personnelles.</p>
         </div>
     </div>
 
     <div class="row">
-        <div class="col-md-6 col-lg-8">
-            <div class="card shadow-sm border-0 mb-4">
-                <div class="card-header bg-white py-3">
-                    <h5 class="card-title m-0 d-flex align-items-center gap-2">
+        <div class="col-md-8 col-lg-7">
+            <div class="card shadow-sm border-0 mb-4 settings-card">
+                <div class="card-header bg-white">
+                    <h5 class="m-0 d-flex align-items-center gap-2">
                         <i class="bi bi-palette"></i> Apparence
                     </h5>
+                    <small class="text-muted">Choisissez votre thème par défaut</small>
                 </div>
+
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" class="settings-form">
                         {% csrf_token %}
 
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label class="form-label d-block mb-3 fw-bold">Thème de l'interface</label>
 
-                            <div class="d-flex gap-3 flex-wrap">
-                                <!-- Option LIGHT -->
-                                <label class="theme-option-card">
+                            <div class="theme-grid">
+                                <!-- LIGHT -->
+                                <label class="theme-option">
                                     <input type="radio" name="theme" value="light">
-                                    <div class="theme-preview light">
-                                        <div class="theme-sidebar"></div>
-                                        <div class="theme-content">
-                                            <div class="theme-header"></div>
-                                            <div class="theme-body"></div>
+                                    <div class="theme-card">
+                                        <div class="theme-preview light">
+                                            <div class="theme-sidebar"></div>
+                                            <div class="theme-content">
+                                                <div class="theme-header"></div>
+                                                <div class="theme-body"></div>
+                                            </div>
+                                        </div>
+                                        <div class="theme-meta">
+                                            <span class="theme-name">Clair</span>
+                                            <span class="theme-hint">Contraste élevé, lecture facile</span>
                                         </div>
                                     </div>
-                                    <span class="theme-name">Clair</span>
                                 </label>
 
-                                <!-- Option DARK -->
-                                <label class="theme-option-card">
+                                <!-- DARK -->
+                                <label class="theme-option">
                                     <input type="radio" name="theme" value="dark">
-                                    <div class="theme-preview dark">
-                                        <div class="theme-sidebar"></div>
-                                        <div class="theme-content">
-                                            <div class="theme-header"></div>
-                                            <div class="theme-body"></div>
+                                    <div class="theme-card">
+                                        <div class="theme-preview dark">
+                                            <div class="theme-sidebar"></div>
+                                            <div class="theme-content">
+                                                <div class="theme-header"></div>
+                                                <div class="theme-body"></div>
+                                            </div>
+                                        </div>
+                                        <div class="theme-meta">
+                                            <span class="theme-name">Sombre</span>
+                                            <span class="theme-hint">Confort visuel en faible lumière</span>
                                         </div>
                                     </div>
-                                    <span class="theme-name">Sombre</span>
                                 </label>
                             </div>
                         </div>
 
-                        <div class="d-flex justify-content-end">
-                            <button type="submit" class="btn btn-primary d-flex align-items-center gap-2">
+                        <div class="settings-actions">
+                            <button type="submit" class="btn btn-primary d-inline-flex align-items-center gap-2">
                                 <i class="bi bi-check-lg"></i> Enregistrer
                             </button>
                         </div>
@@ -71,103 +83,137 @@
 </div>
 
 <style>
-    /* CSS Spécifique à la page paramètres pour les previews */
-    .theme-option-card {
-        cursor: pointer;
-        text-align: center;
-    }
+/* Scope : uniquement cette page */
+.settings-page .settings-card {
+  overflow: hidden;
+}
 
-    .theme-option-card input {
-        display: none;
-    }
+/* Header propre + sans conflit avec .card padding global */
+.settings-page .settings-card .card-header {
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--border-light);
+}
+.settings-page .settings-card .card-body {
+  padding: 1.25rem;
+}
 
-    .theme-preview {
-        width: 140px;
-        height: 100px;
-        border: 3px solid #e2e8f0;
-        border-radius: 8px;
-        margin-bottom: 8px;
-        display: flex;
-        overflow: hidden;
-        position: relative;
-        transition: all 0.2s;
-    }
+/* Grid des thèmes */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 1rem;
+}
 
-    .theme-option-card input:checked+.theme-preview {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-    }
+/* Label couvre toute la zone clickable */
+.theme-option {
+  cursor: pointer;
+  margin: 0;
+}
 
-    .theme-sidebar {
-        width: 25%;
-        height: 100%;
-    }
+/* Radios cachés mais accessibles */
+.theme-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
 
-    .theme-content {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
+/* Carte du thème */
+.theme-card {
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  background: var(--bg-card);
+  padding: 0.9rem;
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  position: relative;
+}
 
-    .theme-header {
-        height: 15%;
-        width: 100%;
-        margin-bottom: 5%;
-    }
+.theme-option:hover .theme-card {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+}
 
-    .theme-body {
-        flex: 1;
-        margin: 5%;
-        border-radius: 4px;
-    }
+/* Etat sélectionné */
+.theme-option input:checked + .theme-card {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.18);
+}
 
-    /* Light Preview */
-    .light .theme-sidebar {
-        background: #1e293b;
-    }
+/* Badge sélectionné */
+.theme-option input:checked + .theme-card::after {
+  content: "Sélectionné";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(59,130,246,0.12);
+  color: var(--accent);
+  border: 1px solid rgba(59,130,246,0.25);
+}
 
-    .light .theme-content {
-        background: #f1f5f9;
-    }
+/* Preview */
+.theme-preview {
+  width: 132px;
+  height: 92px;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+  display: flex;
+  flex: 0 0 auto;
+}
 
-    .light .theme-header {
-        background: #ffffff;
-        border-bottom: 1px solid #e2e8f0;
-    }
+.theme-sidebar { width: 28%; height: 100%; }
+.theme-content {
+  width: 72%;
+  height: 100%;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.theme-header { height: 16px; border-radius: 8px; }
+.theme-body { flex: 1; border-radius: 10px; }
 
-    .light .theme-body {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-    }
+/* Light preview */
+.theme-preview.light .theme-sidebar { background: #0f172a; }
+.theme-preview.light .theme-content { background: #f1f5f9; }
+.theme-preview.light .theme-header { background: #ffffff; border: 1px solid #e2e8f0; }
+.theme-preview.light .theme-body   { background: #ffffff; border: 1px solid #e2e8f0; }
 
-    /* Dark Preview */
-    .dark .theme-sidebar {
-        background: #020617;
-        border-right: 1px solid #1e293b;
-    }
+/* Dark preview */
+.theme-preview.dark { background: #0b1220; border-color: rgba(255,255,255,0.10); }
+.theme-preview.dark .theme-sidebar { background: #111827; }
+.theme-preview.dark .theme-content { background: #0f172a; }
+.theme-preview.dark .theme-header { background: rgba(255,255,255,0.10); }
+.theme-preview.dark .theme-body   { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); }
 
-    .dark .theme-content {
-        background: #0f172a;
-    }
+/* Texte */
+.theme-meta { display: flex; flex-direction: column; line-height: 1.2; }
+.theme-name { font-weight: 700; color: var(--text); }
+.theme-hint { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; }
 
-    .dark .theme-header {
-        background: #1e293b;
-        border-bottom: 1px solid #334155;
-    }
+.theme-option input:checked + .theme-card .theme-name {
+  color: var(--accent);
+}
 
-    .dark .theme-body {
-        background: #1e293b;
-        border: 1px solid #334155;
-    }
+/* Zone actions */
+.settings-actions {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  justify-content: flex-end;
+}
 
-    .theme-name {
-        font-weight: 500;
-        color: var(--text-secondary);
-    }
-
-    .theme-option-card input:checked~.theme-name {
-        color: var(--accent);
-        font-weight: 600;
-    }
+/* Responsive */
+@media (max-width: 768px) {
+  .theme-grid { grid-template-columns: 1fr; }
+  .theme-preview { width: 140px; }
+}
 </style>
 {% endblock %}
