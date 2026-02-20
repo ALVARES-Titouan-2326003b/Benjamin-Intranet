@@ -81,7 +81,7 @@
 .reply-selector label {
     display: block;
     margin-bottom: 8px;
-    color: #1e3c72;
+    color: var(--text-main);
     font-weight: 600;
 }
 

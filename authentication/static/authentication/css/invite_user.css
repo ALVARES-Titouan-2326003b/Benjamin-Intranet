@@ -5,3 +5,106 @@ input[type="email"] {
     border: 1px solid #ced4da;
     border-radius: 0.25rem;
 }
+
+.invite-page { padding-bottom: 2rem; }
+
+.invite-card {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.invite-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.invite-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.invite-subtitle {
+  margin: 0.4rem 0 0 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.invite-body {
+  padding: 1.5rem;
+}
+
+.invite-help {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* Utilise ton form-control global, mais assure la largeur */
+.invite-page .form-control {
+  width: 100%;
+}
+
+/* Chips pôles */
+.poles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.pole-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-body);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pole-chip input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.pole-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-light));
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.04);
+}
+
+.pole-chip:has(input:checked) {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-light));
+}
+
+/* Actions */
+.invite-actions {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .poles-grid { grid-template-columns: 1fr; }
+  .invite-actions { flex-direction: column; align-items: stretch; }
+  .invite-actions .btn { width: 100%; }
+}

@@ -5,62 +5,69 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'authentication/css/invite_user.css' %}">
-<div class="container mt-5" style="max-width: 600px;">
-    <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-            <h3 class="card-title mb-0">Inviter un nouvel utilisateur</h3>
+<div class="invite-shell">
+  <div class="invite-container">
+    <div class="invite-card">
+      <div class="invite-header">
+        <div class="invite-header-text">
+          <h2 class="invite-title">Inviter un nouvel utilisateur</h2>
+          <p class="invite-subtitle">
+            L’invitation est valable 48h. Le collaborateur configurera son mot de passe via le lien.
+          </p>
         </div>
-        <div class="card-body">
-            <p class="text-muted mb-4">
-                Saisissez l'email du futur collaborateur et sélectionnez ses droits d'accès.
-                Il recevra un lien unique valable 48h pour configurer son mot de passe.
-            </p>
+      </div>
 
-            <form method="post">
-                {% csrf_token %}
+      <form method="post" class="invite-form">
+        {% csrf_token %}
 
-                {% if form.non_field_errors %}
-                <div class="alert alert-danger">
-                    {{ form.non_field_errors }}
-                </div>
-                {% endif %}
+        {% if form.non_field_errors %}
+          <div class="invite-alert invite-alert-danger">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
 
-                <div class="mb-3">
-                    <label class="form-label fw-bold">{{ form.email.label }}</label>
-                    {{ form.email }}
-                    {% if form.email.errors %}
-                    <div class="text-danger small">{{ form.email.errors }}</div>
-                    {% endif %}
-                    <small class="form-text text-muted">L'adresse servira aussi d'identifiant temporaire.</small>
-                </div>
+        <div class="invite-field">
+          <label class="invite-label" for="{{ form.email.id_for_label }}">Email de l'utilisateur</label>
 
-                <div class="mb-4">
-                    <label class="form-label fw-bold">{{ form.poles.label }}</label>
-                    <div class="d-flex flex-column gap-2">
-                        {% for checkbox in form.poles %}
-                        <div class="form-check">
-                            {{ checkbox.tag }}
-                            <label class="form-check-label" for="{{ checkbox.id_for_label }}">
-                                {{ checkbox.choice_label }}
-                            </label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% if form.poles.errors %}
-                    <div class="text-danger small">{{ form.poles.errors }}</div>
-                    {% endif %}
-                </div>
+          {# idéalement: widget avec class="form-control" côté forms.py #}
+          {{ form.email }}
 
-                <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-success btn-lg">
-                        <i class="bi bi-envelope-paper"></i> Envoyer l'invitation
-                    </button>
-                    <a href="{% url 'authentication:user_management' %}" class="btn btn-outline-secondary">
-                        Annuler
-                    </a>
-                </div>
-            </form>
+          {% if form.email.errors %}
+            <div class="invite-error">{{ form.email.errors }}</div>
+          {% endif %}
+          <small class="invite-help">L'adresse servira aussi d'identifiant temporaire.</small>
         </div>
+
+        <div class="invite-field">
+          <label class="invite-label">{{ form.poles.label }}</label>
+
+          <div class="invite-poles">
+            {% for checkbox in form.poles %}
+              <label class="pole-chip" for="{{ checkbox.id_for_label }}">
+                {{ checkbox.tag }}
+                <span class="pole-chip-text">{{ checkbox.choice_label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+
+          {% if form.poles.errors %}
+            <div class="invite-error">{{ form.poles.errors }}</div>
+          {% endif %}
+          <small class="invite-help">Vous pouvez sélectionner plusieurs pôles.</small>
+        </div>
+
+        <div class="invite-actions">
+          <button type="submit" class="btn btn-primary invite-btn">
+            <i class="bi bi-envelope-paper"></i>
+            Envoyer l'invitation
+          </button>
+
+          <a href="/auth/gestion-comptes/" class="btn btn-secondary invite-btn">
+            Annuler
+          </a>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
 {% endblock %}
