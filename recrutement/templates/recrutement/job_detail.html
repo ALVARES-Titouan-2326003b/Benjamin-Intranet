@@ -58,9 +58,11 @@
               <td>{{ c.candidat.email|default:"—" }}</td>
               <td class="text-center">
                 {% if c.score != None %}
-                <span class="badge"
-                  style="background: {% if c.score >= 70 %}#dcfce7{% elif c.score >= 50 %}#fef9c3{% else %}#fee2e2{% endif %}; 
-                                             color: {% if c.score >= 70 %}#166534{% elif c.score >= 50 %}#854d0e{% else %}#991b1b{% endif %};">
+                <span class="badge score-badge
+                  {% if c.score >= 70 %}score-badge--good
+                  {% elif c.score >= 50 %}score-badge--mid
+                  {% else %}score-badge--bad
+                  {% endif %}">
                   {{ c.score|floatformat:0 }} / 100
                 </span>
                 {% else %}
