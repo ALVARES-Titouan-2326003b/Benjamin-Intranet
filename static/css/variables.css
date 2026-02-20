@@ -35,6 +35,9 @@
     --radius-lg: 0.75rem;
     --radius-xl: 1rem;
 
+    /* Hover table */
+    --hover-table: #f8fafc;
+
     --border-light: #e2e8f0;
 }
 
@@ -63,6 +66,10 @@
     /* Darker borders */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+
+    /* Hover table */
+    --hover-table: #4e5b69;
+
 
     
 }
