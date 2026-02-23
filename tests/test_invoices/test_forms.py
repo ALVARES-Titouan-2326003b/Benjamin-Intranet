@@ -17,7 +17,7 @@ from invoices.forms import (
     FactureForm,
     PieceJointeForm,
 )
-from invoices.models import Facture, Entreprise, Fournisseur, Client, Dossier, PieceJointe
+from invoices.models import Facture, Entreprise, Fournisseur, Client
 
 
 class TestNormalizeLabel:

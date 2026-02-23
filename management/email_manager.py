@@ -96,12 +96,12 @@ def get_sent_emails(user, limit=50):
                 subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '(Sans objet)')
                 to = next((h['value'] for h in headers if h['name'] == 'To'), '')
                 date_str = next((h['value'] for h in headers if h['name'] == 'Date'), '')
-                message_id = next((h['value'] for h in headers if h['name'] == 'Message-ID'), None)
+                #message_id = next((h['value'] for h in headers if h['name'] == 'Message-ID'), None)
 
                 from email.utils import parsedate_to_datetime
                 try:
                     date = parsedate_to_datetime(date_str)
-                except:
+                except (TypeError, ValueError):
                     date = timezone.now()
 
                 body = ''
@@ -168,7 +168,7 @@ def send_email_reply(to_email, subject, message_text, original_message_id, user)
     Returns:
         dict: {'success': bool, 'message': str}
     """
-    print(f"\nEnvoi email via Gmail API")
+    print("\nEnvoi email via Gmail API")
     print(f"   User: {user.username}")
     print(f"   To: {to_email}")
     print(f"   Subject: {subject}")
@@ -226,7 +226,7 @@ def send_auto_relance(to_email, subject, message_text, objet_custom, original_me
     Returns:
         dict: {'success': bool, 'message': str}
     """
-    print(f"\nEnvoi relance automatique via Gmail API")
+    print("\nEnvoi relance automatique via Gmail API")
     print(f"   User: {user.username}")
     print(f"   To: {to_email}")
 
@@ -248,7 +248,7 @@ def check_if_replies_exist(user):
 
         service = get_gmail_service(user)
 
-        print(f"\nVérification des réponses (méthode threadId)...")
+        print("\nVérification des réponses (méthode threadId)...")
 
         results = service.users().messages().list(
             userId='me',

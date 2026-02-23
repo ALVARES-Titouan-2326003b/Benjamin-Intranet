@@ -1,7 +1,6 @@
 import os
 import datetime
 import logging
-from django.conf import settings
 
 class DailyDateFileHandler(logging.FileHandler):
     """

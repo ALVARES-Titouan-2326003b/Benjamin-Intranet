@@ -64,10 +64,10 @@ def check_and_send_auto_relances():
 
                 print(f"   {len(sent_emails)} emails trouvés dans SENT")
 
-                pending_count = sum(1 for e in sent_emails if e.get('status') == 'pending')
-                replied_count = sum(1 for e in sent_emails if e.get('status') == 'replied')
+                #pending_count = sum(1 for e in sent_emails if e.get('status') == 'pending')
+                #replied_count = sum(1 for e in sent_emails if e.get('status') == 'replied')
 
-                print(f"\n   ANALYSE DÉTAILLÉE DE CHAQUE EMAIL:")
+                print("\n   ANALYSE DÉTAILLÉE DE CHAQUE EMAIL:")
                 print(f"   {'─'*66}")
 
                 for idx, email_data in enumerate(sent_emails, 1):
@@ -152,7 +152,7 @@ def check_and_send_auto_relances():
                             blocked_at['send_failed'] += 1
                             erreurs += 1
 
-                    except Exception as e:
+                    except Exception:
                         traceback.print_exc()
                         erreurs += 1
                         continue
@@ -223,7 +223,7 @@ def get_sent_emails_for_celery(user, limit=100):
 
                 try:
                     date = parsedate_to_datetime(date_str)
-                except:
+                except (TypeError, ValueError):
                     date = timezone.now()
 
                 status = 'pending'
@@ -239,7 +239,7 @@ def get_sent_emails_for_celery(user, limit=100):
                     'status': status
                 })
 
-            except Exception as e:
+            except Exception:
                 continue
 
         return detailed_messages
@@ -315,7 +315,7 @@ Ceci est un rappel automatique concernant l'activité suivante :
                 if activite.commentaire:
                     message += f"Commentaire : {activite.commentaire}\n\n"
 
-                message += f"""Merci de prendre les dispositions nécessaires.
+                message += """Merci de prendre les dispositions nécessaires.
 
 Cordialement,
 Système de rappel Benjamin Immobilier"""
@@ -330,7 +330,7 @@ Système de rappel Benjamin Immobilier"""
 
                     email.send()
                     rappels_envoyes += 1
-                    logger.info(f"   Rappel envoyé avec succès")
+                    logger.info("   Rappel envoyé avec succès")
                 except Exception as e:
                     logger.error(f"   Erreur envoi email : {e}")
 
@@ -340,8 +340,8 @@ Système de rappel Benjamin Immobilier"""
             continue
 
     logger.info("\n" + "=" * 60)
-    logger.info(f"FIN - Rappels d'activités")
-    logger.info(f"Résumé :")
+    logger.info("FIN - Rappels d'activités")
+    logger.info("Résumé :")
     logger.info(f"   - Activités traitées : {activites_traitees}")
     logger.info(f"   - Rappels envoyés : {rappels_envoyes}")
     logger.info("=" * 60 + "\n")

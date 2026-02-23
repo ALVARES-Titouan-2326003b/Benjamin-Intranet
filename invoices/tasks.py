@@ -8,7 +8,7 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 import logging
 
-from .models import Facture, Utilisateur, Modele_Relance, Temps_Relance
+from .models import Facture, Temps_Relance
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def send_invoice_reminder(facture, to_email, message_text, jours_avant_echeance)
             message_final = message_text
             logger.warning(f"Variables manquantes dans le template pour facture {facture.id}")
 
-        print(f"\nEnvoi de l'email")
+        print("\nEnvoi de l'email")
         print(f"   Sujet: {subject}")
         print(f"   Message (extrait): {message_final[:100]}...")
 
@@ -100,7 +100,7 @@ def check_and_send_invoice_reminders(delai_relance=None):
     if delai_relance is not None:
         try:
             print(f"\n{'='*80}")
-            print(f"MISE À JOUR DES DÉLAIS DE RELANCE")
+            print("MISE À JOUR DES DÉLAIS DE RELANCE")
             print(f"{'='*80}")
             print(f"Délai demandé : {delai_relance} jour(s)")
 
@@ -131,7 +131,7 @@ def check_and_send_invoice_reminders(delai_relance=None):
                 'message': f'Erreur lors de la mise à jour des délais : {str(e)}'
             }
     else:
-        print(f"\nAucun délai spécifié, utilisation des délais existants dans Temps_Relance\n")
+        print("\nAucun délai spécifié, utilisation des délais existants dans Temps_Relance\n")
 
     # ============================================================
     # ÉTAPE 2 : Vérification et envoi des relances
@@ -158,7 +158,7 @@ def check_and_send_invoice_reminders(delai_relance=None):
             try:
                 # Vérifier échéance
                 if not facture.echeance:
-                    print(f"IGNORÉE : Pas de date d'échéance")
+                    print("IGNORÉE : Pas de date d'échéance")
                     continue
 
                 date_echeance = facture.echeance.date()
@@ -169,10 +169,10 @@ def check_and_send_invoice_reminders(delai_relance=None):
                 print(f"Jours avant échéance : {jours_avant_echeance}")
 
                 if jours_avant_echeance <= 0:
-                    print(f"IGNORÉE : Échéance déjà passée ou aujourd'hui")
+                    print("IGNORÉE : Échéance déjà passée ou aujourd'hui")
                     continue
 
-                print(f"Échéance future OK")
+                print("Échéance future OK")
 
                 # Récupérer intervalle
                 print(f"Recherche Temps_Relance pour fournisseur : {facture.fournisseur}")
@@ -190,11 +190,11 @@ def check_and_send_invoice_reminders(delai_relance=None):
                     print(f"IGNORÉE : Ce n'est pas le jour de relance ({jours_avant_echeance} != {intervalle})")
                     continue
 
-                print(f"C'EST LE BON JOUR POUR RELANCER !")
+                print("C'EST LE BON JOUR POUR RELANCER !")
 
                 # Récupérer collaborateur assigné
                 if not facture.collaborateur:
-                    print(f"IGNORÉE : Pas de collaborateur assigné à la facture")
+                    print("IGNORÉE : Pas de collaborateur assigné à la facture")
                     continue
 
                 to_email = facture.collaborateur.email
@@ -221,7 +221,7 @@ def check_and_send_invoice_reminders(delai_relance=None):
                 print(f"Message généré avec lien : {url_facture}")
 
                 # ENVOYER LA RELANCE
-                print(f"\nENVOI DE LA RELANCE...")
+                print("\nENVOI DE LA RELANCE...")
 
                 result = send_invoice_reminder(
                     facture=facture,
@@ -231,7 +231,7 @@ def check_and_send_invoice_reminders(delai_relance=None):
                 )
 
                 if result['success']:
-                    print(f"RELANCE ENVOYÉE AVEC SUCCÈS !")
+                    print("RELANCE ENVOYÉE AVEC SUCCÈS !")
                     relances_envoyees += 1
                 else:
                     print(f"Échec de l'envoi : {result['message']}")

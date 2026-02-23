@@ -102,10 +102,12 @@ class TestUserInvitationForm:
 
         pole_admin = Group.objects.get(name='POLE_ADMINISTRATIF')
 
+        """
         form_data = {
             'email': 'EXISTING@EXAMPLE.COM',
             'poles': [pole_admin.id]
         }
+        """
 
 
 

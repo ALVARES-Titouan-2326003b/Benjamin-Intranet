@@ -14,7 +14,6 @@ from pathlib import Path
 from django.utils.encoding import force_str
 import os
 import environ
-import logging
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.

@@ -119,7 +119,7 @@ def generate_auto_message_view(request):
             }, status=400)
 
         print(f"\n{'='*60}")
-        print(f"DÉBUT generate_auto_message_view()")
+        print("DÉBUT generate_auto_message_view()")
         print(f"   email_id: {email_id}")
         print(f"{'='*60}")
 
@@ -127,27 +127,27 @@ def generate_auto_message_view(request):
         original_email = Message.objects.get(id=email_id)
         destinataire_email = original_email.to_header
 
-        print(f"\nEmail original récupéré")
+        print("\nEmail original récupéré")
         print(f"   to_header: {destinataire_email}")
 
-        print(f"\n Recherche utilisateur dans Utilisateurs...")
+        print("\n Recherche utilisateur dans Utilisateurs...")
         print(f"   WHERE email = '{destinataire_email}'")
 
         utilisateur = Utilisateur.objects.get(email=destinataire_email)
 
-        print(f"   Utilisateur trouvé !")
+        print("   Utilisateur trouvé !")
         print(f"   Utilisateur.id: '{utilisateur.id}'")
         print(f"   Utilisateur.prenom: {utilisateur.prenom}")
         print(f"   Utilisateur.nom: {utilisateur.nom}")
         print(f"   Utilisateur.email: {utilisateur.email}")
 
-        print(f"\n Recherche modèle de relance dans Modele_Relance...")
+        print("\n Recherche modèle de relance dans Modele_Relance...")
         print(f"   WHERE utilisateur = '{utilisateur.id}'")
-        print(f"   (Modele_Relance.utilisateur doit correspondre à Utilisateur.id)")
+        print("   (Modele_Relance.utilisateur doit correspondre à Utilisateur.id)")
 
         modele_relance = Modele_Relance.objects.get(utilisateur=utilisateur.id)
 
-        print(f"   Modèle de relance trouvé !")
+        print("   Modèle de relance trouvé !")
         print(f"   Modele_Relance.utilisateur: '{modele_relance.utilisateur}'")
         print(f"   Modele_Relance.metier: {modele_relance.metier}")
         print(f"   Modele_Relance.pole: {modele_relance.pole}")
@@ -155,12 +155,12 @@ def generate_auto_message_view(request):
         if modele_relance.objet:
             print(f"   Modele_Relance.objet: {modele_relance.objet}")
         else:
-            print(f"   Modele_Relance.objet: (vide)")
+            print("   Modele_Relance.objet: (vide)")
 
         if modele_relance.message:
             print(f"   Modele_Relance.message: {modele_relance.message[:100]}...")
         else:
-            print(f"   Modele_Relance.message: (vide)")
+            print("   Modele_Relance.message: (vide)")
 
         message_template = modele_relance.message if modele_relance.message else "Message de relance par défaut"
         objet_email = modele_relance.objet if modele_relance.objet else None
@@ -173,7 +173,7 @@ def generate_auto_message_view(request):
         if objet_email:
             response_data['objet'] = objet_email
 
-        print(f"\n Message généré avec succès !")
+        print("\n Message généré avec succès !")
         print(f"{'='*60}\n")
 
         return JsonResponse(response_data)
@@ -187,9 +187,9 @@ def generate_auto_message_view(request):
         }, status=404)
 
     except Utilisateur.DoesNotExist:
-        print(f"\n Utilisateur non trouvé")
+        print("\n Utilisateur non trouvé")
         print(f"   Email recherché: {destinataire_email}")
-        print(f"   Aucun utilisateur dans la table Utilisateurs avec cet email")
+        print("   Aucun utilisateur dans la table Utilisateurs avec cet email")
         print(f"{'='*60}\n")
         return JsonResponse({
             'success': False,
@@ -197,13 +197,13 @@ def generate_auto_message_view(request):
         }, status=404)
 
     except Modele_Relance.DoesNotExist:
-        print(f"\n Modèle de relance non trouvé")
+        print("\n Modèle de relance non trouvé")
         print(f"   Utilisateur.id: '{utilisateur.id}'")
         print(f"   Aucun enregistrement dans Modele_Relance avec utilisateur = '{utilisateur.id}'")
         print(f"{'='*60}\n")
         return JsonResponse({
             'success': False,
-            'message': f'Aucun modèle de relance trouvé pour cet utilisateur'
+            'message': 'Aucun modèle de relance trouvé pour cet utilisateur'
         }, status=404)
 
     except Exception as e:
@@ -320,7 +320,7 @@ def create_activity_view(request):
         commentaire = data.get('commentaire', '').strip()
 
         print(f"\n{'=' * 60}")
-        print(f"   Création d'activité")
+        print("   Création d'activité")
         print(f"   Dossier: {dossier}")
         print(f"   Type: {type_activite}")
         print(f"   Date: {date_str}")

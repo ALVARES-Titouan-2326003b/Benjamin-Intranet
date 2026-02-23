@@ -1,4 +1,3 @@
-from pathlib import Path
 from io import BytesIO
 
 def _read_pdf(file_obj) -> str:
