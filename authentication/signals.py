@@ -1,6 +1,6 @@
 import logging
 from django.contrib.auth.signals import user_logged_in, user_login_failed
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 

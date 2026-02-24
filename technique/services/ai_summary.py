@@ -143,7 +143,7 @@ def _call_groq_chunk(chunk_text: str) -> dict:
             r.raise_for_status()
             content = r.json()["choices"][0]["message"]["content"].strip()
             return _parse_json_or_fallback(content)
-        except Exception:
+        except Exception as e:
             print(f"[AI] Erreur sur appel chunk (tentative {attempt+1}/{MAX_RETRIES_PER_CHUNK}): {e}")
             if attempt == MAX_RETRIES_PER_CHUNK:
                 raise

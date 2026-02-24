@@ -37,18 +37,18 @@ def chatbot_query(request):
         if not message:
             return JsonResponse({'success': False, 'response': 'Message vide.'}, status=400)
 
-        route = None
+        #route = None
 
         if _is_invoice_query(message):
-            route = "invoice"
+            #route = "invoice"
             resp = _handle_invoice_query(message, request.user)
 
             # Fallback si aucune facture trouvée
             if resp.startswith("❌ Aucune facture") or resp.startswith("🕳️ Aucune facture"):
-                route = "legal_fallback"
+                #route = "legal_fallback"
                 resp = _handle_legal_query(message)
         else:
-            route = "legal"
+            #route = "legal"
             resp = _handle_legal_query(message)
 
         return JsonResponse({'success': True, 'response': resp})
