@@ -105,6 +105,8 @@ Les modules ainsi que leur version sont tous disponibles dans le fichier `requir
 | pytest                           | 8.3.4   |
 | pytest-django                    | 4.9.0   |
 | pytest-cov                       | 6.0.0   |
+| ruff                             | 0.15.2  |
+
 
 ---
 
