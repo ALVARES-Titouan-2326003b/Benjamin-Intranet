@@ -327,19 +327,17 @@ class TestPieceJointeForm:
 
     @pytest.fixture
     def facture(self):
-        """Facture de test"""
-        fournisseur = Fournisseur.objects.create(id='TEST-FOURNISSEUR', nom='Test', contact='')
-        entreprise = Entreprise.objects.create(id='TEST-CLIENT', nom='Test Client')
-        Client.objects.create(id='TEST-CLIENT')
+        entreprise = Entreprise.objects.create(id="TEST-CLIENT", nom="Test Client")
+        Client.objects.create(id="TEST-CLIENT")
 
         return Facture.objects.create(
-            id='FAC-TEST',
-            fournisseur='TEST-FOURNISSEUR',
+            id="FAC-TEST",
+            fournisseur="TEST-FOURNISSEUR",
             client=entreprise,
             montant=1000,
-            statut='En cours',
-            pole='Technique',
-            dossier='DOS-TEST',
+            statut="En cours",
+            pole="Technique",
+            dossier="DOS-TEST",
         )
 
     def test_form_valid_pdf(self, facture, valid_pdf_file):

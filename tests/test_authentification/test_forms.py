@@ -102,12 +102,13 @@ class TestUserInvitationForm:
 
         pole_admin = Group.objects.get(name='POLE_ADMINISTRATIF')
 
-        """
         form_data = {
             'email': 'EXISTING@EXAMPLE.COM',
             'poles': [pole_admin.id]
         }
-        """
+
+        form = UserInvitationForm(data=form_data)
+        assert form.is_valid()
 
 
 
@@ -301,8 +302,8 @@ class TestAccountActivationForm:
             'password': 'SecurePass123!',
             'password_confirm': 'SecurePass123!'
         }
-
-
+        form = AccountActivationForm(data=form_data)
+        assert form.is_valid()
 
 
 
@@ -315,6 +316,10 @@ class TestAccountActivationForm:
             'password': '123',
             'password_confirm': '123'
         }
+
+        form = AccountActivationForm(data=form_data)
+        assert form.is_valid()
+    
 
 
 

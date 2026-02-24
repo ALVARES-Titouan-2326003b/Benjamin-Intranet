@@ -397,8 +397,11 @@ class TestCheckAndSendActiviteReminders:
 
         result = check_and_send_activite_reminders()
 
-        assert len(capture_emails) == 1
+        assert result["success"] is True
+        assert result["activites_traitees"] == 1
+        assert result["rappels_envoyes"] == 1
 
+        assert len(capture_emails) == 1
         email = capture_emails[0]
 
         assert 'DOSS-URGENT' in email.body
