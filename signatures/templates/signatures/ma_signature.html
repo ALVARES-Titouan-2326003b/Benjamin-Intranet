@@ -4,15 +4,79 @@
 {% block header_title %}Ma signature électronique{% endblock %}
 
 {% block content %}
-<div class="sig-card">
-    <h2 class="sig-card-title">Déposer / modifier ma signature</h2>
+<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+    <div>
+        <h2 style="margin: 0;">Déposer / modifier ma signature</h2>
+        <div style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
+            Votre signature sera utilisée lors de l’approbation et de la génération des documents signés.
+        </div>
+    </div>
 
-    <form method="post" enctype="multipart/form-data" class="sig-form">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="sig-btn sig-btn-primary">
-            Enregistrer
-        </button>
-    </form>
+    <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+        <a href="{% url 'signatures:tampon_edit' %}" class="btn btn-ghost">
+            <i class="bi bi-building"></i> Tampon
+        </a>
+        <a href="{% url 'signatures:ceo_dashboard' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem; align-items:start;">
+    <!-- Colonne gauche : formulaire -->
+    <div class="card">
+        <div class="card-title">Configuration</div>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger" style="margin-bottom: 1rem;">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            <div style="display:grid; gap: 1rem;">
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">{{ form.image.label }}</label>
+                    {{ form.image }}
+                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: .35rem;">
+                        Conseil : PNG avec fond transparent, signature noire sur fond transparent.
+                    </div>
+                    {% if form.image.errors %}
+                    <div class="alert alert-danger" style="margin-top: .5rem;">
+                        {{ form.image.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap: .75rem; margin-top: .5rem;">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Enregistrer
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Colonne droite : aperçu -->
+    <div class="card">
+        <div class="card-title">Aperçu</div>
+
+        {% if signature_user and signature_user.image %}
+            <div style="border: 1px solid var(--border-light); background: var(--bg-card); border-radius: 8px; padding: 1rem;">
+                <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: .75rem;">
+                    Signature actuelle
+                </div>
+                <div style="display:flex; justify-content:center; align-items:center; min-height: 160px;">
+                    <img src="{{ signature_user.image.url }}" alt="Signature" style="max-width: 100%; max-height: 220px;">
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info" style="margin: 0;">
+                Aucune signature n’est configurée pour le moment.
+            </div>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
