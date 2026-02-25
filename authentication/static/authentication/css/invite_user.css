@@ -1,78 +1,162 @@
-/* Style minimal pour les champs input générés par Django qui n'auraient pas les classes Bootstrap par défaut */
-input[type="email"] {
-    width: 100%;
-    padding: 0.5rem;
-    border: 1px solid #ced4da;
-    border-radius: 0.25rem;
+/* invite_user.css */
+
+.invite-shell {
+  padding: 2rem 1rem;
 }
 
-.invite-page { padding-bottom: 2rem; }
+.invite-container {
+  max-width: 820px;
+  margin: 0 auto;
+}
 
 .invite-card {
+  background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  background: var(--bg-card);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
+/* Header */
 .invite-header {
-  padding: 1.25rem 1.5rem;
+  padding: 1.5rem 1.75rem;
   border-bottom: 1px solid var(--border-light);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  background: linear-gradient(
+    180deg,
+    rgba(59, 130, 246, 0.07),
+    rgba(59, 130, 246, 0.00)
+  );
 }
 
 .invite-title {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--text-main);
+  letter-spacing: -0.01em;
 }
 
 .invite-subtitle {
-  margin: 0.4rem 0 0 0;
+  margin: 0.5rem 0 0 0;
   color: var(--text-secondary);
+  line-height: 1.4;
   font-size: 0.95rem;
+}
+
+/* Form layout */
+.invite-form {
+  padding: 1.5rem 1.75rem 1.75rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.invite-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.invite-label {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.95rem;
+}
+
+/* Email input */
+.invite-form input[type="email"],
+.invite-form input[type="text"],
+.invite-form select,
+.invite-form textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--input-bg, var(--bg-card));
+  color: var(--input-text, var(--text-main));
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+  box-sizing: border-box;
+}
+
+.invite-form input[type="email"]::placeholder,
+.invite-form input[type="text"]::placeholder,
+.invite-form textarea::placeholder {
+  color: var(--input-placeholder, #94a3b8);
+}
+
+.invite-form input:focus,
+.invite-form select:focus,
+.invite-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+/* Help text */
+.invite-help {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+/* Errors: Django met souvent <ul class="errorlist"> */
+.invite-error,
+.invite-field .errorlist {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.06);
+  color: #991b1b;
+  font-size: 0.88rem;
   line-height: 1.35;
 }
 
-.invite-body {
-  padding: 1.5rem;
+.invite-field .errorlist {
+  list-style: none;
 }
 
-.invite-help {
-  display: block;
-  margin-top: 0.5rem;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
+.invite-field .errorlist li {
+  margin: 0;
 }
 
-/* Utilise ton form-control global, mais assure la largeur */
-.invite-page .form-control {
-  width: 100%;
+/* Non-field errors */
+.invite-alert {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  background: var(--bg-body);
 }
 
-/* Chips pôles */
-.poles-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+.invite-alert-danger {
+  border-color: rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.06);
+  color: #991b1b;
+}
+
+/* Pôles : layout propre, compact, lisible */
+.invite-poles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
   margin-top: 0.25rem;
 }
 
+/* Chips */
 .pole-chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.75rem 0.85rem;
+  gap: 0.55rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
   background: var(--bg-body);
   cursor: pointer;
-  transition: all 0.2s;
+  user-select: none;
+  transition: transform 0.15s, border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+
+.pole-chip:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  transform: translateY(-1px);
 }
 
 .pole-chip input[type="checkbox"] {
@@ -82,29 +166,49 @@ input[type="email"] {
   accent-color: var(--accent);
 }
 
-.pole-chip:hover {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-light));
-  box-shadow: 0 1px 0 rgb(0 0 0 / 0.04);
+.pole-chip-text {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-main);
 }
 
+/* Etat coché (Chrome OK avec :has) */
 .pole-chip:has(input:checked) {
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-light));
+  background: rgba(59, 130, 246, 0.10);
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.10);
 }
 
-/* Actions */
+.pole-chip input:checked + .pole-chip-text {
+  color: var(--text-main);
+}
+
 .invite-actions {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-light);
   display: flex;
+  justify-content: flex-end;
   gap: 0.75rem;
-  align-items: center;
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.invite-actions .btn {
+  margin-top: 0;
 }
 
 /* Responsive */
 @media (max-width: 640px) {
-  .poles-grid { grid-template-columns: 1fr; }
-  .invite-actions { flex-direction: column; align-items: stretch; }
-  .invite-actions .btn { width: 100%; }
+  .invite-header,
+  .invite-form {
+    padding: 1.25rem;
+  }
+
+  .invite-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .invite-actions .btn {
+    width: 100%;
+  }
 }

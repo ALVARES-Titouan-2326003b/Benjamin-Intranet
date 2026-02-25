@@ -9,9 +9,19 @@
         <p style="color: var(--text-secondary); margin-top: 0.5rem;">Gérez ici les demandes de signatures en attente.
         </p>
     </div>
+    <div style="display:flex; gap: .5rem; flex-wrap: wrap;">
+    <a href="{% url 'signatures:tampon_edit' %}" class="btn btn-secondary">
+        <i class="bi bi-building"></i> Tampon
+    </a>
+
+    <a href="{% url 'signatures:ma_signature' %}" class="btn btn-secondary">
+        <i class="bi bi-pencil-square"></i> Ma signature
+    </a>
+
     <a href="{% url 'signatures:upload_document' %}" class="btn btn-primary">
         <i class="bi bi-plus-lg"></i> Ajouter un document
     </a>
+</div>
 </div>
 
 <div style="display: grid; gap: 2rem;">
