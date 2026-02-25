@@ -1,7 +1,6 @@
 .avatar-circle {
     height: 40px;
-    background-color: var(--primary);
-    color: white;
+    color: var(--text-main);
     border-radius: 50%;
     display: flex;
     align-items: center;
