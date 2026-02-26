@@ -41,13 +41,13 @@ class Client(models.Model):
 
 
 class ClientDossier(models.Model):
-    pk = models.CompositePrimaryKey('dossier', 'client')
-    dossier = models.ForeignKey(TechnicalProject, on_delete=models.CASCADE, db_column='dossier')
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, db_column='client')
+    client = models.ForeignKey("invoices.Client", on_delete=models.CASCADE)
+    dossier = models.ForeignKey("technique.TechnicalProject", on_delete=models.CASCADE)
 
     class Meta:
-        db_table = 'client_dossier'
-
+        constraints = [
+            models.UniqueConstraint(fields=["client", "dossier"], name="uniq_client_dossier")
+        ]
 
 class Entreprise(models.Model):
     id = models.OneToOneField(Client, on_delete=models.CASCADE, db_column='id', primary_key=True)
