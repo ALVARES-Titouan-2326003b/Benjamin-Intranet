@@ -113,27 +113,19 @@ class FactureForm(forms.ModelForm):
     )
 
     statut = forms.ChoiceField(choices=[], required=True)
-    pole = forms.ChoiceField(choices=[], required=True)
 
     class Meta:
         model = Facture
-        fields = ["montant", "statut", "pole", "echeance", "titre", "collaborateur"]
+        fields = ["montant", "statut", "echeance", "titre", "collaborateur"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Récupère les labels réels depuis la DB
         statut_labels = get_enum_labels("facture_statut")
-        pole_labels = get_enum_labels("poles")
 
         # Alimente les <select> avec EXACTEMENT les valeurs de la DB
         self.fields["statut"].choices = build_choices(statut_labels)
-        self.fields["pole"].choices = build_choices(pole_labels)
-
-        # Valeur par défaut du pôle
-        if not self.fields["pole"].initial and pole_labels:
-            preferred = best_match("Comptabilite et Finance", pole_labels)
-            self.fields["pole"].initial = preferred or pole_labels[0]
 
         # Pré-remplir l'échéance avec la date existante
         if self.instance.echeance:
@@ -204,12 +196,6 @@ class FactureForm(forms.ModelForm):
         chosen_statut = self.cleaned_data.get("statut")
         mapped_statut = best_match(chosen_statut, statut_labels) or (statut_labels[0] if statut_labels else None)
         inst.statut = mapped_statut
-
-        # ----- Pôle -----
-        pole_labels = get_enum_labels("poles")
-        chosen_pole = self.cleaned_data.get("pole")
-        mapped_pole = best_match(chosen_pole, pole_labels) or (pole_labels[0] if pole_labels else None)
-        inst.pole = mapped_pole
 
         # ----- Dossier : référence auto + création dans "Dossier" donc a voir -----
         if not inst.dossier:

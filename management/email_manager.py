@@ -3,7 +3,7 @@ Gestionnaire de récupération et traitement des emails
 """
 import base64
 from django.utils import timezone
-from management.modelsadm import OAuthToken
+from management.models import OAuthToken
 import traceback
 
 

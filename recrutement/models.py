@@ -23,6 +23,9 @@ class FicheDePoste(models.Model):
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        db_table = 'fiche_de_poste'
+
     def __str__(self):
         return self.titre
 
@@ -42,6 +45,9 @@ class Candidat(models.Model):
     cv_fichier = models.FileField(upload_to="cv/")
     cv_texte = models.TextField(blank=True)  # texte extrait (PDF -> texte)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'candidat'
 
     def __str__(self):
         return self.nom
@@ -71,6 +77,7 @@ class Candidature(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = 'candidature'
         unique_together = [("fiche", "candidat")]
         ordering = ["-score", "-created_at"]
 

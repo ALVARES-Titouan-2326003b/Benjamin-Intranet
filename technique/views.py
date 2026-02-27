@@ -210,7 +210,6 @@ def document_resume_pdf(request, pk):
                 for clause in highlight_clauses:
                     if not clause:
                         continue
-                    print(clause)
 
                     for idx in find_all_occurrences(line, clause):
                         prefix = line[:idx]

@@ -24,6 +24,9 @@ class SignatureUser(models.Model):
     )
     image = models.ImageField(upload_to="signatures/")
 
+    class Meta:
+        db_table = 'signature_utilisateur'
+
     def __str__(self):
         return f"Signature de {self.user.get_username()}"
 
@@ -38,6 +41,9 @@ class Tampon(models.Model):
     """
     nom = models.CharField(max_length=200, default="Tampon officiel")
     image = models.ImageField(upload_to="tampons/")
+
+    class Meta:
+        db_table = 'tampon'
 
     def __str__(self):
         return self.nom
@@ -65,6 +71,9 @@ class Document(models.Model):
     stamp_y = models.FloatField(null=True, blank=True)
     sig_x = models.FloatField(null=True, blank=True)
     sig_y = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'document'
 
     def __str__(self):
         return self.titre
@@ -96,6 +105,9 @@ class HistoriqueSignature(models.Model):
     statut = models.CharField(max_length=30, choices=STATUTS)
     date_action = models.DateTimeField(auto_now_add=True)
     commentaire = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'historique_signature'
 
     def __str__(self):
         return f"{self.document} - {self.statut}"
@@ -179,6 +191,9 @@ class SignatureRequest(models.Model):
         self.decided_at = timezone.now()
         self.commentaire_ceo = commentaire
         self.save()
+
+    class Meta:
+        db_table = 'demande_signature'
 
     def __str__(self):
         return f"Demande pour {self.document} ({self.get_statut_display()})"

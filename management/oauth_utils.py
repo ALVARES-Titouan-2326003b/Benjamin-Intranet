@@ -185,10 +185,10 @@ def get_gmail_service(user):
     Raises:
         ValueError: Si l'utilisateur n'a pas de token OAuth
     """
-    from management.modelsadm import OAuthToken
+    from management.models import OAuthToken
 
     try:
-        oauth_token = OAuthToken.objects.get(user=user)
+        oauth_token = OAuthToken.objects.get(user=user.id)
     except OAuthToken.DoesNotExist:
         raise ValueError(
             f"L'utilisateur {user.username} n'a pas synchronisé sa boîte mail. "
