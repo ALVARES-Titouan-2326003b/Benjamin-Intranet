@@ -2,7 +2,7 @@
 Settings spécifiques pour les tests
 Hérite de settings.py mais utilise SQLite en mémoire
 """
-from .settings import *
+from .settings import *  # noqa: F403,F401
 
 # Override de la base de données pour les tests
 DATABASES = {

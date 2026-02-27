@@ -95,8 +95,11 @@
             <td>{{ c.candidat.nom }}</td>
             <td class="text-center">
               {% if c.score != None %}
-              <span
-                style="font-weight: 600; color: {% if c.score >= 70 %}#16a34a{% elif c.score >= 50 %}#ca8a04{% else %}#dc2626{% endif %};">
+              <span class="score
+                {% if c.score >= 70 %}score--good
+                {% elif c.score >= 50 %}score--mid
+                {% else %}score--bad
+                {% endif %}">
                 {{ c.score|floatformat:0 }}
               </span>
               <small class="text-muted">/ 100</small>

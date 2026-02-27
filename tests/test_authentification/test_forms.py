@@ -107,6 +107,9 @@ class TestUserInvitationForm:
             'poles': [pole_admin.id]
         }
 
+        form = UserInvitationForm(data=form_data)
+        assert form.is_valid()
+
 
 
 
@@ -299,8 +302,8 @@ class TestAccountActivationForm:
             'password': 'SecurePass123!',
             'password_confirm': 'SecurePass123!'
         }
-
-
+        form = AccountActivationForm(data=form_data)
+        assert form.is_valid()
 
 
 
@@ -313,6 +316,10 @@ class TestAccountActivationForm:
             'password': '123',
             'password_confirm': '123'
         }
+
+        form = AccountActivationForm(data=form_data)
+        assert form.is_valid()
+    
 
 
 

@@ -79,7 +79,7 @@
 
 .brand-logo .highlight {
     background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-    -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -148,10 +148,20 @@
     margin-bottom: 0.5rem;
 }
 
-.input-container {
-    position: relative;
-    display: flex;
-    align-items: center;
+.input-container{
+  position: relative;
+}
+
+.input-container .input-icon{
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.input-container .form-control{
+  padding-left: 40px; 
 }
 
 .input-icon {
@@ -165,26 +175,25 @@
 
 .form-control {
     width: 100%;
-    padding: 1rem 1rem 1rem 3rem;
-    /* Space for icon */
-    font-size: 1rem;
-    line-height: 1.5;
-    color: #1e293b;
-    background-color: #f1f5f9;
-    border: 2px solid transparent;
-    border-radius: 12px;
-    transition: all 0.2s ease;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    box-sizing: border-box;
+
+    background-color: var(--input-bg);
+    color: var(--input-text);
 }
 
-.form-control:hover {
-    background-color: #e2e8f0;
+.form-control::placeholder {
+    color: var(--input-placeholder);
 }
 
 .form-control:focus {
-    background-color: #ffffff;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
     outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--input-focus-ring);
 }
 
 .form-control:focus+.input-icon,

@@ -77,6 +77,7 @@ Les modules ainsi que leur version sont tous disponibles dans le fichier `requir
 
 | Package                          | Version |
 |----------------------------------|---------|
+| protobuf                         | 6.33.4  |
 | Django                           | 5.2.8   |
 | django-celery-beat               | 2.8.1   |
 | django-celery-results            | 2.5.0   |
@@ -92,17 +93,20 @@ Les modules ainsi que leur version sont tous disponibles dans le fichier `requir
 | psycopg2-binary                  | 2.9.11  |
 | celery                           | 5.3.4   |
 | SQLAlchemy                       | 2.0.44  |
-| django-two-factor-auth[call,sms] | 1.18.1  |
-| phonenumbers                     | 9.0.21  |
-| django-otp                       | 1.6.3   |
-| django-axes                      | 8.1.0   |
 | google-auth                      | 2.29.0  |
 | google-auth-oauthlib             | 1.2.0   |
 | google-api-python-client         | 2.122.0 |
 | google-auth-httplib2             | 0.2.0   |
+| requests                         | 2.32.5  |
+| django-two-factor-auth[call,sms] | 1.18.1  |
+| phonenumbers                     | 9.0.21  |
+| django-otp                       | 1.6.3   |
+| django-axes                      | 8.1.0   |
 | pytest                           | 8.3.4   |
 | pytest-django                    | 4.9.0   |
 | pytest-cov                       | 6.0.0   |
+| ruff                             | 0.15.2  |
+
 
 ---
 

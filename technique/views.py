@@ -71,11 +71,13 @@ def documents_upload(request):
             obj.texte_brut = texte[:500000]
 
             # Résumé IA
+            """
             meta = {
                 "projet": obj.projet,
                 "titre": obj.titre,
                 "type_document": obj.get_type_document_display(),
             }
+            """
             summary = summarize_document(obj.texte_brut)
 
             obj.resume = (summary.get("resume") or "")[:50000]
@@ -283,7 +285,7 @@ def financial_overview(request):
     if request.method == "POST":
         form = TechnicalProjectCreateForm(request.POST)
         if form.is_valid():
-            project = form.save()
+            #project = form.save()
             messages.success(request, "Projet créé avec succès.")
             return redirect("technique_financial_overview")
     else:

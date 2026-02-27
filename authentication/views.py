@@ -2,7 +2,7 @@ from two_factor.views import LoginView
 from django.shortcuts import redirect, render
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
-from django.contrib.auth.models import User, Group
+from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode

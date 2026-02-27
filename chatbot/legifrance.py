@@ -120,7 +120,7 @@ def legifrance_search_generic(query: str, fond: str = "LODA_DATE", page_size: in
         raise RuntimeError(f"Erreur Légifrance /search {resp.status_code}: {resp.text}")
 
     data = resp.json()
-    nb_results = len(data.get("results") or [])
+    #nb_results = len(data.get("results") or [])
     return data
 
 

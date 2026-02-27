@@ -69,7 +69,7 @@ def oauth_callback(request):
 
     if not code:
         messages.error(request, "Code d'autorisation manquant")
-        print(f" Code manquant")
+        print(" Code manquant")
         return redirect('/administratif/')
 
     session_state = request.session.get('oauth_state')
@@ -82,10 +82,10 @@ def oauth_callback(request):
 
         redirect_uri = request.build_absolute_uri('/oauth/callback/')
 
-        print(f"Échange du code contre des tokens...")
+        print("Échange du code contre des tokens...")
         tokens = exchange_code_for_tokens(code, redirect_uri)
 
-        print(f"Tokens reçus !")
+        print("Tokens reçus !")
         print(f"   Email: {tokens['email']}")
         print(f"   Access token: {tokens['access_token'][:20]}...")
         print(f"   Refresh token: {'OUI' if tokens['refresh_token'] else 'NON'}")

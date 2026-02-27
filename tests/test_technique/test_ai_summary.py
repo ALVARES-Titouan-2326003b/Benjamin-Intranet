@@ -446,17 +446,19 @@ class TestSummarizeDocument:
         assert "clauses_importantes" in result
         assert mock_sleep.call_count == 0
 
-    @patch('time.sleep')
+    @patch("time.sleep")
     def test_summarize_long_document(self, mock_sleep, sample_long_text, mock_groq_api_success):
         """Test avec document long (plusieurs chunks)"""
         from technique.services.ai_summary import summarize_document
 
         result = summarize_document(sample_long_text)
 
-
         assert mock_groq_api_success.call_count >= 2
         expected_sleeps = mock_groq_api_success.call_count - 1
         assert mock_sleep.call_count == expected_sleeps
+
+        assert "resume" in result
+        assert isinstance(result["clauses_importantes"], list)
 
     @patch('time.sleep')
     def test_summarize_merges_results(self, mock_sleep, sample_long_text):

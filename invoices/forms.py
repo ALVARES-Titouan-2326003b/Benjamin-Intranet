@@ -2,9 +2,8 @@ from django import forms
 from uuid import uuid4
 from datetime import datetime, time
 from django.utils import timezone
-from django.utils.timezone import is_naive
 from django.db import connection
-
+from django.contrib.auth.models import User
 from .models import Facture, Entreprise, Fournisseur, Client, PieceJointe
 
 
@@ -17,11 +16,12 @@ def get_enum_labels(enum_name: str) -> list[str]:
 
 def build_choices(labels: list[str]) -> list[tuple[str, str]]:
     """Construit des tuples (value, label_affiche) pour un <select>."""
-    return [(l, l) for l in labels]
+    return [(label, label) for label in labels]
 
 def normalize_label(s: str) -> str:
     """Normalisation légère pour comparer proprement des labels."""
-    import unicodedata, re
+    import unicodedata
+    import re
     if not s:
         return s
     s_no_acc = ''.join(c for c in unicodedata.normalize('NFD', s)
@@ -84,7 +84,6 @@ def ensure_dossier_exists(reference: str) -> None:
 
 
 # --- Formulaire ------------------------------------------------------------------
-from django.contrib.auth.models import User
 
 class FactureForm(forms.ModelForm):
     """
@@ -149,6 +148,15 @@ class FactureForm(forms.ModelForm):
             current_class = field.widget.attrs.get('class', '')
             field.widget.attrs['class'] = f"{current_class} form-control".strip()
 
+    def clean_echeance(self):
+        e = self.cleaned_data.get("echeance")
+        if not e:
+            return e
+
+        dt = datetime.combine(e, time(12, 0))
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, timezone.get_current_timezone())
+        return dt
 
     def save(self, commit=True):
         """
@@ -201,7 +209,7 @@ class FactureForm(forms.ModelForm):
                 # On met midi (12:00) pour éviter les décalages de timezone qui changent le jour
                 # (ex: 00:00 CET -> 23:00 UTC la veille)
                 dt = datetime.combine(e, time(12, 0))
-                if is_naive(dt):
+                if timezone.is_naive(dt):
                     dt = timezone.make_aware(dt, timezone.get_current_timezone())
                 inst.echeance = dt
             else:
