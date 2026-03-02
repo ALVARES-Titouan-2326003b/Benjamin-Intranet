@@ -130,8 +130,8 @@ def document_resume_pdf(request, pk):
     Génère un PDF simple avec le résumé et les sections structurées.
 
     Args:
-        request (HTTPRequest): Requête HTTP
-        pk (int): Identifiant du document
+        request (HTTPRequest) : Requête HTTP
+        pk (int) : Identifiant du document
     """
 
     doc = get_object_or_404(DocumentTechnique, pk=pk)
@@ -285,7 +285,7 @@ def financial_overview(request):
     if request.method == "POST":
         form = TechnicalProjectCreateForm(request.POST)
         if form.is_valid():
-            #project = form.save()
+            project = form.save()
             messages.success(request, "Projet créé avec succès.")
             return redirect("technique_financial_overview")
     else:

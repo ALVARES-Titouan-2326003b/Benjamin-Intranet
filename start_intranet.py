@@ -53,7 +53,7 @@ def main():
                     p.terminate() 
                 else:
                     os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-        print("✅ Terminé.")
+        print("Terminé.")
 
 if __name__ == "__main__":
     main()

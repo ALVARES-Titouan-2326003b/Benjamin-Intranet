@@ -9,10 +9,9 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from technique.models import TechnicalProject
 from .email_manager import fetch_new_emails, get_sent_emails, get_email_summary, send_email_reply
-from .models import DefaultModeleRelance, ModeleRelance, Activite, TypeActivite
+from .models import DefaultModeleRelance, ModeleRelance, Activite, TypeActivite, EmailClient
 import json
 from user_access.user_test_functions import has_administratif_access
-from celery import Celery
 import traceback
 from datetime import datetime
 from django.contrib.auth import get_user_model
@@ -197,10 +196,9 @@ def get_calendar_activities(request):
 
     Paramètres GET :
     - month : numéro du mois (1-12)
-    - year : année (ex: 2025)
+    - year : année (ex : 2025)
 
-    Retourne :
-    - Liste des activités avec leurs détails pour affichage dans le calendrier
+    Retourne – Liste des activités avec leurs détails pour affichage dans le calendrier
     """
     try:
         now = datetime.now()
@@ -265,18 +263,16 @@ def create_activity_view(request):
     """
     API endpoint pour créer une nouvelle activité dans le calendrier
 
-    Paramètres POST (JSON) :
-    - dossier : TextField (requis)
-    - type : TextField (requis) - DOIT être en minuscule
-    - date : DateTimeField (requis)
-    - commentaire : TextField (optionnel)
+    Paramètres POST (JSON) – dossier : TextField (requis)
+    — type : TextField (requis) — DOIT être en minuscule
+    — date : DateTimeField (requis)
+    — commentaire : TextField (optionnel)
 
     ATTENTION aux majuscules :
-    - date_type = "Date" (avec D majuscule)
-    - type = "vente" (tout en minuscule)
+    — date_type = "Date" (avec D majuscule)
+    — type = "vente" (tout en minuscule)
 
-    Retourne :
-    - JsonResponse avec success=True/False
+    Retourne — JsonResponse avec success=True/False
     """
     try:
         # Récupérer les données JSON
@@ -408,7 +404,7 @@ def delete_activity_view(request):
         count_before = query_date.count()
 
         if count_before == 0:
-            all_acts = Activites.objects.filter(dossier=dossier)
+            all_acts = Activite.objects.filter(dossier=dossier)
             for act in all_acts:
                 print(f"      ID {act.id}: {act.date} | type={act.type}")
 

@@ -145,7 +145,7 @@ class TestFactureForm:
         """Mock des ENUMs PostgreSQL"""
         with patch('invoices.forms.get_enum_labels') as mock:
             def side_effect(enum_name):
-                if enum_name == "facture_statut":
+                if enum_name == "statut":
                     return ["Reçue", "En cours", "Payée", "Archivée"]
                 elif enum_name == "poles":
                     return ["Comptabilité et Finance", "Technique", "Administratif"]

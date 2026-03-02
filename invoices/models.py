@@ -69,7 +69,7 @@ class Particulier(models.Model):
         db_table = 'particulier'
 
     def __str__(self):
-        return f"{upper(self.nom)} {self.prenom}" or self.id
+        return f"{self.nom.upper()} {self.prenom}" or self.id
 
 
 class EmailFournisseur(models.Model):
@@ -110,7 +110,7 @@ class Facture(models.Model):
         ("archived", "Archivée"),
     ]
 
-    id = models.CharField(primary_key=True)
+    id = models.CharField(primary_key=True, max_length=255)
     dossier = models.ForeignKey(TechnicalProject, on_delete=models.CASCADE, db_column='dossier')
     fournisseur = models.ForeignKey(Fournisseur, on_delete=models.DO_NOTHING, db_column='fournisseur')
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING, db_column='client')

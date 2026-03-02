@@ -116,7 +116,7 @@ def _invoices_by_status(status: str, user) -> str:
 def _invoices_by_supplier(supplier: str, user) -> str:
     qs = _user_queryset(user).filter(fournisseur__icontains=supplier).order_by('-echeance')[:5]
     if not qs:
-        return f"❌ Aucune facture pour « {supplier} »"
+        return f" Aucune facture pour « {supplier} »"
 
     lines = [f" Factures — {supplier} :"]
     for inv in qs:
