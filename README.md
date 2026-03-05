@@ -225,6 +225,20 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
+Les tables et les données par défaut seront insérées dans la base de données.
+
+---
+
+8**Créer le super-utilisateur**
+
+Une fois de plus dans le termina, on lance la commande suivante :
+
+```bash
+python manage.py createsuperuser
+```
+
+Les tables et les données par défaut seront insérées dans la base de données.
+
 ---
 
 ## Lancement de l’application et des Crons
