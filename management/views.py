@@ -7,13 +7,16 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from technique.models import TechnicalProject
 from .email_manager import fetch_new_emails, get_sent_emails, get_email_summary, send_email_reply
-from .modelsadm import Utilisateur, Modele_Relance, Activites
+from .models import DefaultModeleRelance, ModeleRelance, Activite, TypeActivite, EmailClient
 import json
 from user_access.user_test_functions import has_administratif_access
-from invoices.models import Dossier
 import traceback
 from datetime import datetime
+from django.contrib.auth import get_user_model
+
+Utilisateur = get_user_model()
 
 
 @login_required
@@ -30,12 +33,14 @@ def administratif_view(request):
     emails = get_sent_emails(user, limit=20)
     emails_data = [get_email_summary(email) for email in emails]
 
-    dossiers = Dossier.objects.all().order_by('reference')
+    dossiers = TechnicalProject.objects.all().order_by('reference')
+    types = TypeActivite.objects.distinct()
 
     return render(request, 'management.html', {
         'pole_name': 'Administratif',
         'emails': emails_data,
         'dossiers': dossiers,
+        'types': types
     })
 
 
@@ -94,19 +99,19 @@ def send_reply_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def generate_auto_message_view(request):
     """
-    Génère un message pré-rempli basé sur les infos de la table Modele_Relance
+    Génère un message pré-rempli basé sur les infos de la table ModeleRelance
     INCHANGÉ : Ne nécessite pas de modification pour OAuth2
 
     LOGIQUE DE LIAISON :
     1. Email.to_header → Utilisateur.email
-    2. Utilisateur.id → Modele_Relance.utilisateur
+    2. Utilisateur.id → ModeleRelance.utilisateur
 
     Structure des tables :
     - Utilisateurs : id (PK), email, nom, prenom
-    - Modele_Relance : utilisateur (PK, FK → Utilisateurs.id), message, objet
+    - ModeleRelance : utilisateur (PK, FK → Utilisateurs.id), message, objet
 
     Returns:
-        JsonResponse: {'success': bool, 'message': str, 'objet': str (optionnel)}
+        JsonResponse: {'success': bool, 'message': str}
     """
     try:
         data = json.loads(request.body)
@@ -119,92 +124,57 @@ def generate_auto_message_view(request):
             }, status=400)
 
         print(f"\n{'='*60}")
-        print("DÉBUT generate_auto_message_view()")
+        print(f"DÉBUT generate_auto_message_view()")
         print(f"   email_id: {email_id}")
         print(f"{'='*60}")
 
         from django_mailbox.models import Message
-        original_email = Message.objects.get(id=email_id)
+        original_email = Message.objects.filter(message_id=email_id).first()
+        if original_email is None:
+            return JsonResponse({
+                'success': False,
+                'message': 'Email introuvable'
+            })
+
         destinataire_email = original_email.to_header
 
-        print("\nEmail original récupéré")
-        print(f"   to_header: {destinataire_email}")
+        emails = EmailClient.objects.filter(email=destinataire_email)
 
-        print("\n Recherche utilisateur dans Utilisateurs...")
-        print(f"   WHERE email = '{destinataire_email}'")
+        if emails.count() == 0:
+            return JsonResponse({
+                'success': False,
+                'message': 'Client introuvable'
+            }, status=404)
 
-        utilisateur = Utilisateur.objects.get(email=destinataire_email)
+        metier = emails.first().metier
 
-        print("   Utilisateur trouvé !")
-        print(f"   Utilisateur.id: '{utilisateur.id}'")
-        print(f"   Utilisateur.prenom: {utilisateur.prenom}")
-        print(f"   Utilisateur.nom: {utilisateur.nom}")
-        print(f"   Utilisateur.email: {utilisateur.email}")
+        try:
+            user = Utilisateur.objects.get(email=original_email.from_header)
+        except Utilisateur.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Utilisateur introuvable'
+            }, status=404)
 
-        print("\n Recherche modèle de relance dans Modele_Relance...")
-        print(f"   WHERE utilisateur = '{utilisateur.id}'")
-        print("   (Modele_Relance.utilisateur doit correspondre à Utilisateur.id)")
+        # 4. Récupère le modèle de message
+        try:
+            message_relance = ModeleRelance.objects.get(utilisateur=user.id, metier=metier).message
+        except ModeleRelance.DoesNotExist:
+            try:
+                message_relance = DefaultModeleRelance.objects.get(metier=metier).message
+            except DefaultModeleRelance.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': f"Pas de DefaultModeleRelance pour le métier {metier}"
+                })
 
-        modele_relance = Modele_Relance.objects.get(utilisateur=utilisateur.id)
-
-        print("   Modèle de relance trouvé !")
-        print(f"   Modele_Relance.utilisateur: '{modele_relance.utilisateur}'")
-        print(f"   Modele_Relance.metier: {modele_relance.metier}")
-        print(f"   Modele_Relance.pole: {modele_relance.pole}")
-
-        if modele_relance.objet:
-            print(f"   Modele_Relance.objet: {modele_relance.objet}")
-        else:
-            print("   Modele_Relance.objet: (vide)")
-
-        if modele_relance.message:
-            print(f"   Modele_Relance.message: {modele_relance.message[:100]}...")
-        else:
-            print("   Modele_Relance.message: (vide)")
-
-        message_template = modele_relance.message if modele_relance.message else "Message de relance par défaut"
-        objet_email = modele_relance.objet if modele_relance.objet else None
-
+        # 5. Construit la réponse JSON
         response_data = {
             'success': True,
-            'message': message_template
+            'message': message_relance
         }
 
-        if objet_email:
-            response_data['objet'] = objet_email
-
-        print("\n Message généré avec succès !")
-        print(f"{'='*60}\n")
-
         return JsonResponse(response_data)
-
-    except Message.DoesNotExist:
-        print(f"\n Email introuvable (ID: {email_id})")
-        print(f"{'='*60}\n")
-        return JsonResponse({
-            'success': False,
-            'message': 'Email introuvable'
-        }, status=404)
-
-    except Utilisateur.DoesNotExist:
-        print("\n Utilisateur non trouvé")
-        print(f"   Email recherché: {destinataire_email}")
-        print("   Aucun utilisateur dans la table Utilisateurs avec cet email")
-        print(f"{'='*60}\n")
-        return JsonResponse({
-            'success': False,
-            'message': f'Utilisateur non trouvé pour {destinataire_email}'
-        }, status=404)
-
-    except Modele_Relance.DoesNotExist:
-        print("\n Modèle de relance non trouvé")
-        print(f"   Utilisateur.id: '{utilisateur.id}'")
-        print(f"   Aucun enregistrement dans Modele_Relance avec utilisateur = '{utilisateur.id}'")
-        print(f"{'='*60}\n")
-        return JsonResponse({
-            'success': False,
-            'message': 'Aucun modèle de relance trouvé pour cet utilisateur'
-        }, status=404)
 
     except Exception as e:
         print(f"\n ERREUR INATTENDUE : {e}")
@@ -226,10 +196,9 @@ def get_calendar_activities(request):
 
     Paramètres GET :
     - month : numéro du mois (1-12)
-    - year : année (ex: 2025)
+    - year : année (ex : 2025)
 
-    Retourne :
-    - Liste des activités avec leurs détails pour affichage dans le calendrier
+    Retourne – Liste des activités avec leurs détails pour affichage dans le calendrier
     """
     try:
         now = datetime.now()
@@ -249,10 +218,10 @@ def get_calendar_activities(request):
 
         print(f" Période : {start_date.date()} → {end_date.date()}")
 
-        activites = Activites.objects.filter(
+        activites = Activite.objects.filter(
             date__gte=start_date,
             date__lt=end_date
-        ).values('id', 'dossier', 'type', 'pole', 'date', 'commentaire')
+        ).values('id', 'dossier', 'type', 'date', 'commentaire')
 
         print(f" Activités trouvées : {activites.count()}")
 
@@ -262,7 +231,6 @@ def get_calendar_activities(request):
                 'id': act['id'],
                 'dossier': act['dossier'],
                 'type': act['type'],
-                'pole': act['pole'],
                 'date': act['date'].strftime('%Y-%m-%d'),
                 'commentaire': act['commentaire'] or ''
             })
@@ -288,7 +256,6 @@ def get_calendar_activities(request):
             'message': f'Erreur : {str(e)}'
         }, status=500)
 
-
 @require_http_methods(["POST"])
 @login_required
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
@@ -296,31 +263,28 @@ def create_activity_view(request):
     """
     API endpoint pour créer une nouvelle activité dans le calendrier
 
-    Paramètres POST (JSON) :
-    - dossier : TextField (requis)
-    - type : TextField (requis) - DOIT être en minuscule
-    - date : DateTimeField (requis)
-    - commentaire : TextField (optionnel)
+    Paramètres POST (JSON) – dossier : TextField (requis)
+    — type : TextField (requis) — DOIT être en minuscule
+    — date : DateTimeField (requis)
+    — commentaire : TextField (optionnel)
 
     ATTENTION aux majuscules :
-    - date_type = "Date" (avec D majuscule)
-    - pole = "Administratif" (avec A majuscule)
-    - type = "vente" (tout en minuscule)
+    — date_type = "Date" (avec D majuscule)
+    — type = "vente" (tout en minuscule)
 
-    Retourne :
-    - JsonResponse avec success=True/False
+    Retourne — JsonResponse avec success=True/False
     """
     try:
         # Récupérer les données JSON
         data = json.loads(request.body)
 
         dossier = data.get('dossier', '').strip()
-        type_activite = data.get('type', '').strip().lower()
+        type_activite = data.get('type', '').strip()
         date_str = data.get('date', '').strip()
         commentaire = data.get('commentaire', '').strip()
 
         print(f"\n{'=' * 60}")
-        print("   Création d'activité")
+        print(f"   Création d'activité")
         print(f"   Dossier: {dossier}")
         print(f"   Type: {type_activite}")
         print(f"   Date: {date_str}")
@@ -333,7 +297,7 @@ def create_activity_view(request):
                 'message': 'Champs obligatoires manquants'
             }, status=400)
 
-        types_valides = ['vente', 'location', 'compromis', 'visite', 'relance', 'autre']
+        types_valides = ['Vente', 'Location', 'Compromis', 'Visite', 'Relance', 'Autre']
         if type_activite not in types_valides:
             return JsonResponse({
                 'success': False,
@@ -350,7 +314,7 @@ def create_activity_view(request):
             }, status=400)
 
         from django.db.models import Max
-        max_id_result = Activites.objects.aggregate(Max('id'))['id__max']
+        max_id_result = Activite.objects.aggregate(Max('id'))['id__max']
 
         if max_id_result is None:
             next_id = 1
@@ -367,11 +331,10 @@ def create_activity_view(request):
         print(f"   Max ID actuel: {max_id_result}")
         print(f"   Prochain ID: {next_id}")
 
-        nouvelle_activite = Activites.objects.create(
+        nouvelle_activite = Activite.objects.create(
             id=next_id,
-            dossier=dossier,
-            type=type_activite,
-            pole='Administratif',
+            dossier=TechnicalProject.objects.get(reference=dossier),
+            type=TypeActivite.objects.get(type=type_activite),
             date=date_activite,
             date_type='Date',
             commentaire=commentaire if commentaire else None
@@ -379,7 +342,6 @@ def create_activity_view(request):
 
         print(f"   Activité créée avec succès (ID: {nouvelle_activite.id})")
         print(f"   └─ Type: '{nouvelle_activite.type}'")
-        print(f"   └─ Pôle: '{nouvelle_activite.pole}'")
         print(f"   └─ Date_type: '{nouvelle_activite.date_type}'")
         print(f"{'=' * 60}\n")
 
@@ -400,7 +362,6 @@ def create_activity_view(request):
             'message': f'Erreur : {str(e)}'
         }, status=500)
 
-
 @require_http_methods(["POST"])
 @login_required
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
@@ -412,7 +373,7 @@ def delete_activity_view(request):
         data = json.loads(request.body)
 
         dossier = data.get('dossier', '').strip()
-        type_activite = data.get('type', '').strip().lower()
+        type_activite = data.get('type', '').strip()
         date_str = data.get('date', '').strip()
 
         if not dossier or not type_activite or not date_str:
@@ -434,17 +395,16 @@ def delete_activity_view(request):
                 'message': f'Format de date invalide: {e}'
             }, status=400)
 
-        query_date = Activites.objects.filter(
-            dossier=dossier,
-            type=type_activite,
-            date__gte=date_debut
-
+        query_date = Activite.objects.filter(
+            dossier=TechnicalProject.objects.get(reference=dossier),
+            type=TypeActivite.objects.get(type=type_activite),
+            date__gte=date_debut,
         )
 
         count_before = query_date.count()
 
         if count_before == 0:
-            all_acts = Activites.objects.filter(dossier=dossier)
+            all_acts = Activite.objects.filter(dossier=dossier)
             for act in all_acts:
                 print(f"      ID {act.id}: {act.date} | type={act.type}")
 

@@ -136,6 +136,37 @@ def document_detail(request, pk):
     )
 
 
+
+
+@login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+def document_update(request, pk):
+    doc = get_object_or_404(Document, pk=pk)
+
+    # Règle métier : si déjà signé, on bloque l'édition du fichier
+    is_signed = bool(doc.fichier_signe)
+
+    if request.method == "POST":
+        form = DocumentUploadForm(request.POST, request.FILES, instance=doc)
+
+        if form.is_valid():
+            # Si signé, empêcher toute tentative de remplacement de fichier
+            if is_signed and "fichier" in form.changed_data:
+                messages.error(request, "Document déjà signé : le fichier ne peut plus être modifié.")
+                return redirect("signatures:document_detail", pk=doc.pk)
+
+            form.save()
+            messages.success(request, "Document modifié.")
+            return redirect("signatures:document_detail", pk=doc.pk)
+    else:
+        form = DocumentUploadForm(instance=doc)
+
+        # Option UX : si signé, rendre le champ fichier non modifiable dans le form
+        if is_signed:
+            form.fields["fichier"].disabled = True
+
+    return render(request, "signatures/document_update.html", {"doc": doc, "form": form, "is_signed": is_signed})
+
 @login_required
 @user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
 def envoyer_signature(request, pk):
@@ -389,7 +420,6 @@ def signature_approval(request, token):
         )
         return redirect("signatures:document_detail", pk=doc.pk)
 
-    # ✅ CORRECTION ICI : "POST" et pas "POST__"
     if request.method == "POST":
         action = request.POST.get("action")
         commentaire = request.POST.get("commentaire", "")
@@ -548,9 +578,9 @@ def bulk_delete_documents(request):
         
         messages.success(
             request,
-            f"✅ {deleted_count} document{'s' if deleted_count > 1 else ''} supprimé{'s' if deleted_count > 1 else ''} avec succès."
+            f"{deleted_count} document{'s' if deleted_count > 1 else ''} supprimé{'s' if deleted_count > 1 else ''} avec succès."
         )
     except Exception as e:
-        messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+        messages.error(request, f"Erreur lors de la suppression : {str(e)}")
     
     return redirect("signatures:document_list")

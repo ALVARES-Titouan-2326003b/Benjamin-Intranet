@@ -208,7 +208,7 @@ LEGIFRANCE_CLIENT_SECRET = os.getenv("LEGIFRANCE_CLIENT_SECRET")
 # Configuration Celery - TOUT dans PostgreSQL
 CELERY_BROKER_URL = 'sqla+postgresql://%(USER)s:%(PASSWORD)s@%(HOST)s:%(PORT)s/%(NAME)s' % DATABASES['default']
 CELERY_RESULT_BACKEND = 'db+postgresql://%(USER)s:%(PASSWORD)s@%(HOST)s:%(PORT)s/%(NAME)s' % DATABASES['default']
-
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 # Alternative pour result_backend (utilise django-celery-results) :
 # CELERY_RESULT_BACKEND = 'django-db'
 
@@ -242,7 +242,7 @@ AXES_COOLOFF_TIME = 0.167
 # Réinitialise le compteur si la connexion réussit
 AXES_RESET_ON_SUCCESS = True
 
-# Ici On bloque la combinaison ip + nom d'utilisateur
+# Ici, on bloque la combinaison ip + nom d'utilisateur
 AXES_LOCKOUT_PARAMETERS = ["ip_address", ["username", "user_agent"]]
 AXES_LOCKOUT_PARAMETERS = ["ip_address", "username"]
 AXES_LOCKOUT_CALLABLE = 'authentication.axes_handlers.custom_lockout_response'
@@ -255,7 +255,7 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        # Obtenir toute les données
+        # Obtenir toutes les données
         'standard': {
             'format': '[{asctime}] {levelname} {name}: {message}',
             'style': '{',
@@ -315,7 +315,7 @@ if os.getenv('DJANGO_ENV') == 'production':
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-    # On empeche de faire des connexions http
+    # On empêche de faire des connexions http
     SECURE_HSTS_SECONDS = 31536000  # 1 an
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True

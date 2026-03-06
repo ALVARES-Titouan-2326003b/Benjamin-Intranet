@@ -26,7 +26,7 @@ def has_technique_access(user):
     Renvoie vrai si un utilisateur peut accéder au pôle technique
 
     Args:
-        user (User):  L'utilisateur
+        user (User) :  L'utilisateur
     """
     user = User.objects.get(username=user.username)
     return user.is_superuser or user.is_staff or user.groups.filter(name="POLE_TECHNIQUE").exists()

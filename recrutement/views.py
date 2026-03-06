@@ -106,6 +106,22 @@ def upload_cv(request, pk):
     messages.success(request, f"CV déposé. Score: {cand.score if cand.score is not None else '—'}")
     return redirect("recrutement:fiche_detail", pk=pk)
 
+@login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+def fiche_update(request, pk):
+    fiche = get_object_or_404(FicheDePoste, pk=pk)
+
+    if request.method == "POST":
+        form = FicheDePosteForm(request.POST, instance=fiche)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Fiche de poste mise à jour.")
+            return redirect("recrutement:fiche_detail", pk=fiche.pk)
+    else:
+        form = FicheDePosteForm(instance=fiche)
+
+    return render(request, "recrutement/job_form.html", {"form": form, "fiche": fiche})
+
 
 # ================== Suppression en masse ==================
 
@@ -162,4 +178,21 @@ def bulk_delete_candidatures(request):
     
     return redirect("recrutement:dashboard")
 
-  
+
+@login_required
+@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+def candidature_detail(request, pk):
+    candidature = get_object_or_404(
+        Candidature.objects.select_related("fiche", "candidat"),
+        pk=pk
+    )
+
+    return render(
+        request,
+        "recrutement/candidature_detail.html",
+        {
+            "candidature": candidature,
+            "fiche": candidature.fiche,
+            "candidat": candidature.candidat,
+        },
+    )

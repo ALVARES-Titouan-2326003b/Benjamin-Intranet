@@ -21,8 +21,12 @@ class UserPreference(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preferences')
     theme = models.CharField(max_length=10, choices=THEME_CHOICES, default='light', verbose_name="Thème")
 
+    class Meta:
+        db_table = 'user_preference'
+
     def __str__(self):
         return f"Préférences de {self.user.username}"
+
 
 @receiver(post_save, sender=User)
 def create_user_preferences(sender, instance, created, **kwargs):

@@ -37,8 +37,8 @@ django_celery_results
 # DJANGO SPECIFIQUE
 # ==========================
 # Migrations (sauf si tu veux versionner les nouvelles)
-*/migrations/*
-!*/migrations/__init__.py
+# */migrations/*
+# !*/migrations/__init__.py
 
 # Fichiers de cache / sessions / statiques compilés
 staticfiles/

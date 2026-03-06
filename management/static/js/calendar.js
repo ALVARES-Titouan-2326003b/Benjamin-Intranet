@@ -361,13 +361,107 @@
                 currentActive.forEach((activeEle) => {
                     if (activeEle !== li) activeEle.classList.remove("active");
                 });
+
+                // Si le jour a des activités, ouvrir le modal pré-rempli
+                if (hasActivities(dateStr)) {
+                    const activites = getActivitiesForDate(dateStr);
+                    if (activites.length === 1) {
+                        openModalWithActivity(activites[0], dateStr);
+                    } else if (activites.length > 1) {
+                        openActivityPickerModal(activites, dateStr);
+                    }
+                }
             });
         }
 
         return li;
     }
+    function openModalWithActivity(act, dateStr) {
+        const modal = document.getElementById('activity-modal');
+        if (!modal) return;
+
+        // Changer le titre du modal
+        const modalTitle = modal.querySelector('.activity-modal-header h3');
+        if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-calendar-check"></i> Modifier / Supprimer une activité';
+
+        // Pré-remplir le formulaire
+        const dossierSelect = document.getElementById('activity-dossier');
+        const typeSelect = document.getElementById('activity-type');
+        const dateInput = document.getElementById('activity-date');
+        const commentaireInput = document.getElementById('activity-commentaire');
+
+        if (dossierSelect) dossierSelect.value = act.dossier;
+        if (typeSelect) typeSelect.value = act.type;
+        if (dateInput) dateInput.value = `${dateStr}T00:00`;
+        if (commentaireInput) commentaireInput.value = act.commentaire || '';
+
+        modal.style.display = 'flex';
+    }
 
 
+
+    function openActivityPickerModal(activites, dateStr) {
+        // Créer ou récupérer le picker
+        let picker = document.getElementById('activity-picker-modal');
+        if (!picker) {
+            picker = document.createElement('div');
+            picker.id = 'activity-picker-modal';
+            picker.style.cssText = `
+                display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
+                z-index:9999; align-items:center; justify-content:center;
+            `;
+            picker.innerHTML = `
+                <div style="background:#fff; border-radius:12px; padding:1.5rem; max-width:420px; width:90%; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <h3 style="margin:0; color:#1e3c72; font-size:1.1rem;">
+                            <i class="bi bi-list-ul"></i> Choisir une activité
+                        </h3>
+                        <button id="picker-close-btn" style="background:none; border:none; font-size:1.8rem; cursor:pointer; color:#666; line-height:1;">&times;</button>
+                    </div>
+                    <p id="picker-date-label" style="color:#666; font-size:0.9rem; margin-bottom:1rem;"></p>
+                    <div id="picker-list"></div>
+                </div>
+            `;
+            document.body.appendChild(picker);
+
+            document.getElementById('picker-close-btn').addEventListener('click', () => {
+                picker.style.display = 'none';
+            });
+            picker.addEventListener('click', (e) => {
+                if (e.target === picker) picker.style.display = 'none';
+            });
+        }
+
+        const [year, month, day] = dateStr.split('-');
+        document.getElementById('picker-date-label').textContent =
+            `${activites.length} activités le ${day}/${month}/${year} — sélectionnez-en une :`;
+
+        const list = document.getElementById('picker-list');
+        list.innerHTML = '';
+        activites.forEach((act, idx) => {
+            const config = TYPES_CONFIG[act.type] || TYPES_CONFIG['autre'];
+            const btn = document.createElement('button');
+            btn.style.cssText = `
+                display:flex; align-items:center; gap:0.75rem; width:100%;
+                padding:0.75rem 1rem; margin-bottom:0.5rem; border-radius:8px;
+                border:2px solid #e0e0e0; background:#f8fafc; cursor:pointer;
+                text-align:left; transition:all 0.15s; font-size:0.9rem;
+            `;
+            btn.innerHTML = `
+                <span style="width:12px; height:12px; border-radius:50%; background:${config.couleur}; flex-shrink:0;"></span>
+                <span><strong>${config.nom}</strong> — 📁 ${act.dossier}${act.commentaire ? `<br><small style="color:#888">${act.commentaire}</small>` : ''}</span>
+            `;
+            btn.addEventListener('mouseenter', () => btn.style.borderColor = config.couleur);
+            btn.addEventListener('mouseleave', () => btn.style.borderColor = '#e0e0e0');
+            btn.addEventListener('click', () => {
+                picker.style.display = 'none';
+                openModalWithActivity(act, dateStr);
+            });
+            list.appendChild(btn);
+        });
+
+        picker.style.display = 'flex';
+    }
 
     function changeMonth(newMonth) {
         if (newMonth < 0 || newMonth > 11) {
@@ -433,6 +527,10 @@
 
     openBtn.addEventListener('click', function() {
         console.log('Clic sur le bouton détecté !');
+        // Remettre le titre par défaut
+        const modalTitle = modal.querySelector('.activity-modal-header h3');
+        if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-calendar-plus"></i> Nouvelle activité';
+        form.reset();
         modal.style.display = 'flex';
         const now = new Date();
         const dateString = now.toISOString().slice(0, 16);

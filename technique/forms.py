@@ -34,3 +34,12 @@ class TechnicalProjectFinanceForm(forms.ModelForm):
     class Meta:
         model = TechnicalProject
         fields = ["engaged_amount", "paid_amount", "total_estimated"]
+
+class DocumentTechniqueUpdateForm(forms.ModelForm):
+    """
+    Formulaire pour modifier les métadonnées d'un document technique
+    sans permettre le remplacement du fichier.
+    """
+    class Meta:
+        model = DocumentTechnique
+        fields = ["projet", "titre", "type_document"]

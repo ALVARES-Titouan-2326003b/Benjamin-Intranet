@@ -139,16 +139,6 @@ Dans un terminal, à la racine du projet :
 pip install -r requirements.txt
 ```
 
-3.5. **Créer la BD** (optionnel)
-
-Si vous partez d'une BD vide, utilisez la branche `for_migration` pour créer les relations.  
-**Cela ne créera aucun tuple, seulement les relations.**  
-Dans un terminal, à la racine du projet :
-
-```bash
-git checkout for_migration
-```
-
 4. **Créer les dossiers pour accueillir les fichiers uploadés et les logs**
 
 Dans un terminal, à la racine du projet :
@@ -234,6 +224,20 @@ Dans un terminal, à la racine du projet :
 python manage.py makemigrations
 python manage.py migrate
 ```
+
+Les tables et les données par défaut seront insérées dans la base de données.
+
+---
+
+8**Créer le super-utilisateur**
+
+Une fois de plus dans le termina, on lance la commande suivante :
+
+```bash
+python manage.py createsuperuser
+```
+
+Les tables et les données par défaut seront insérées dans la base de données.
 
 ---
 

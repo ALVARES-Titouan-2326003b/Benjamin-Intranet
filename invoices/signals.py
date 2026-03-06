@@ -10,7 +10,7 @@ def ensure_groups(sender, instance, created, **kwargs):
     """
     Crée les groupes associés aux pôles au démarrage s'ils n'existent pas.
     """
-    for name in ['POLE_FINANCIER', 'POLE_TECHNIQUE', 'POLE_ADMINISTRATIF']:
+    for name in ['POLE_FINANCIER', 'POLE_TECHNIQUE', 'POLE_ADMINISTRATIF', 'CEO', 'COLLABORATEUR']:
         Group.objects.get_or_create(name=name)
 
 @receiver(pre_save, sender=Facture)

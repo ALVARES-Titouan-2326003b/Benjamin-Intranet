@@ -4,7 +4,9 @@ from datetime import datetime, time
 from django.utils import timezone
 from django.db import connection
 from django.contrib.auth.models import User
-from .models import Facture, Entreprise, Fournisseur, Client, PieceJointe
+
+from technique.models import TechnicalProject
+from .models import Facture, Entreprise, Fournisseur, Client, PieceJointe, ActeurExterne
 
 
 def get_enum_labels(enum_name: str) -> list[str]:
@@ -87,18 +89,24 @@ def ensure_dossier_exists(reference: str) -> None:
 
 class FactureForm(forms.ModelForm):
     """
-    Correspond au formulaire de création/édition de facture.
+    Formulaire de création/édition de facture.
 
     Attributes:
         fournisseur_input (str): Nom du fournisseur
-        client_input (str): Nom du client
-        collaborateur (ModelChoiceField): Collaborateur
-        echeance (DateField): Date d'écheance
+        client_input (str): Nom du client (entreprise)
+        collaborateur (ModelChoiceField): Collaborateur assigné
+        echeance (DateField): Date d'échéance
         statut (ChoiceField): Statut de la facture
-        pole (ChoiceField): Pôle de la facture
     """
     fournisseur_input = forms.CharField(label="Fournisseur", required=True)
     client_input = forms.CharField(label="Client (Entreprise)", required=False)
+
+    dossier = forms.ModelChoiceField(
+        queryset=TechnicalProject.objects.all(),
+        required=True,
+        label="Dossier",
+    )
+
     collaborateur = forms.ModelChoiceField(
         queryset=User.objects.filter(is_active=True, groups__name="COLLABORATEUR").order_by('last_name', 'first_name'),
         required=False,
@@ -112,30 +120,19 @@ class FactureForm(forms.ModelForm):
         label="Échéance",
     )
 
-    statut = forms.ChoiceField(choices=[], required=True)
-    pole = forms.ChoiceField(choices=[], required=True)
+    statut = forms.ChoiceField(choices=Facture.STATUS, required=True)
 
     class Meta:
         model = Facture
-        fields = ["montant", "statut", "pole", "echeance", "titre", "collaborateur"]
+        fields = ["dossier", "montant", "statut", "echeance", "titre", "collaborateur"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Récupère les labels réels depuis la DB
-        statut_labels = get_enum_labels("facture_statut")
-        pole_labels = get_enum_labels("poles")
+        # Statut : utilise directement les choices du modèle
+        self.fields["statut"].choices = Facture.STATUS
 
-        # Alimente les <select> avec EXACTEMENT les valeurs de la DB
-        self.fields["statut"].choices = build_choices(statut_labels)
-        self.fields["pole"].choices = build_choices(pole_labels)
-
-        # Valeur par défaut du pôle
-        if not self.fields["pole"].initial and pole_labels:
-            preferred = best_match("Comptabilite et Finance", pole_labels)
-            self.fields["pole"].initial = preferred or pole_labels[0]
-
-        # Pré-remplir l'échéance avec la date existante
+        # Pré-remplir l'échéance avec la date existante (mode édition)
         if self.instance.echeance:
             try:
                 current = timezone.localtime(self.instance.echeance)
@@ -143,16 +140,17 @@ class FactureForm(forms.ModelForm):
                 current = self.instance.echeance
             self.fields["echeance"].initial = current.date()
 
-        # Pré-remplir les champs input (Edit)
+        # Pré-remplir les champs texte (mode édition)
         if self.instance.pk:
-            if self.instance.fournisseur:
-                self.fields["fournisseur_input"].initial = self.instance.fournisseur
-            if self.instance.client:
-                # client est une ForeignKey vers Entreprise(id=CharField)
-                self.fields["client_input"].initial = self.instance.client.id
+            if self.instance.fournisseur_id:
+                self.fields["fournisseur_input"].initial = self.instance.fournisseur_id
+            if self.instance.client_id:
+                self.fields["client_input"].initial = self.instance.client_id
+            if self.instance.dossier_id:
+                self.fields["dossier"].initial = self.instance.dossier_id
 
-        # Add CSS class to all fields
-        for field_name, field in self.fields.items():
+        # Ajoute la classe CSS Bootstrap à tous les champs
+        for field in self.fields.values():
             current_class = field.widget.attrs.get('class', '')
             field.widget.attrs['class'] = f"{current_class} form-control".strip()
 
@@ -160,7 +158,7 @@ class FactureForm(forms.ModelForm):
         e = self.cleaned_data.get("echeance")
         if not e:
             return e
-
+        # Midi pour éviter les décalages de timezone
         dt = datetime.combine(e, time(12, 0))
         if timezone.is_naive(dt):
             dt = timezone.make_aware(dt, timezone.get_current_timezone())
@@ -168,66 +166,30 @@ class FactureForm(forms.ModelForm):
 
     def save(self, commit=True):
         """
-        Enregistre le formulaire avec logique métier :
-        - Création auto ID "FAC-XXXXXXXX"
-        - Normalisation statut et pôle selon ENUM
-        - Création référence dossier format "DOS-XXXXXXXX"
-        - Gestion timezone échéance
+        Enregistre la facture avec logique métier :
+        - Création auto de l'ID "FAC-XXXXXXXX"
+        - Création/récupération du fournisseur et du client
+        - Gestion de l'échéance avec timezone
         """
         inst = super().save(commit=False)
 
         # ----- Fournisseur -----
         f_text = (self.cleaned_data.get("fournisseur_input") or "").strip()
+        acteur_f, _ = ActeurExterne.objects.get_or_create(id=f_text)
         fournisseur, _ = Fournisseur.objects.get_or_create(
-            id=f_text,
-            defaults={"nom": f_text, "contact": ""} 
+            id=acteur_f,
+            defaults={"nom": f_text},
         )
-        inst.fournisseur = fournisseur.id
+        inst.fournisseur = fournisseur
 
         # ----- Client -----
-        c_text = (self.cleaned_data.get("client_input") or "").strip()
-        if not c_text:
-            c_text = "DIVERS"
-            c_nom = "Divers"
-        else:
-            c_nom = c_text
+        c_text = (self.cleaned_data.get("client_input") or "").strip() or "DIVERS"
+        c_nom = c_text if c_text != "DIVERS" else "Divers"
 
-        Client.objects.get_or_create(id=c_text)
-        client, _ = Entreprise.objects.get_or_create(
-            id=c_text,
-            defaults={"nom": c_nom},
-        )
+        acteur_c, _ = ActeurExterne.objects.get_or_create(id=c_text)
+        client, _ = Client.objects.get_or_create(id=acteur_c)
+        Entreprise.objects.get_or_create(id=client, defaults={"nom": c_nom})
         inst.client = client
-
-        # ----- Statut -----
-        statut_labels = get_enum_labels("facture_statut")
-        chosen_statut = self.cleaned_data.get("statut")
-        mapped_statut = best_match(chosen_statut, statut_labels) or (statut_labels[0] if statut_labels else None)
-        inst.statut = mapped_statut
-
-        # ----- Pôle -----
-        pole_labels = get_enum_labels("poles")
-        chosen_pole = self.cleaned_data.get("pole")
-        mapped_pole = best_match(chosen_pole, pole_labels) or (pole_labels[0] if pole_labels else None)
-        inst.pole = mapped_pole
-
-        # ----- Dossier : référence auto + création dans "Dossier" donc a voir -----
-        if not inst.dossier:
-            inst.dossier = f"DOS-{uuid4().hex[:8].upper()}"
-        ensure_dossier_exists(inst.dossier)
-
-        # ----- Échéance 
-        if "echeance" in self.cleaned_data:
-            e = self.cleaned_data.get("echeance")
-            if e:
-                # On met midi (12:00) pour éviter les décalages de timezone qui changent le jour
-                # (ex: 00:00 CET -> 23:00 UTC la veille)
-                dt = datetime.combine(e, time(12, 0))
-                if timezone.is_naive(dt):
-                    dt = timezone.make_aware(dt, timezone.get_current_timezone())
-                inst.echeance = dt
-            else:
-                pass
 
         # ----- ID facture auto si nouvelle -----
         if not inst.pk:
@@ -243,10 +205,7 @@ class FactureForm(forms.ModelForm):
 
 class PieceJointeForm(forms.ModelForm):
     """
-    Correspond au formulaire de piece-jointe.
-
-    Attributes:
-        fichier (FieldFile): Piece jointe format PDF
+    Formulaire de pièce jointe (PDF uniquement, 10 Mo max).
     """
     fichier = forms.FileField(
         label="Joindre la facture (PDF)",
@@ -264,9 +223,6 @@ class PieceJointeForm(forms.ModelForm):
             field.widget.attrs['class'] = 'form-control'
 
     def clean_fichier(self):
-        """
-        Vérifie si le fichier est valide
-        """
         f = self.cleaned_data.get("fichier")
         if not f:
             return f

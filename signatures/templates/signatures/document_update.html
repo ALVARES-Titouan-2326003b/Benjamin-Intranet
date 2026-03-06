@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Modifier le document{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+  <div>
+    <h2>Modifier le document</h2>
+    {% if is_signed %}
+      <div class="text-muted">Le document est signé : seul le titre est modifiable.</div>
+    {% endif %}
+  </div>
+  <a href="{% url 'signatures:document_detail' doc.pk %}" class="btn btn-secondary">Retour</a>
+</div>
+
+<div class="card">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+    <a href="{% url 'signatures:document_detail' doc.pk %}" class="btn btn-secondary">Annuler</a>
+  </form>
+</div>
+{% endblock %}
