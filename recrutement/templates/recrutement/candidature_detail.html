@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-between align-center mb-4"
+     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <div>
+    <a href="{% url 'recrutement:fiche_detail' fiche.pk %}"
+       style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+      <i class="bi bi-arrow-left"></i> Retour à la fiche de poste
+    </a>
+    <h2>{{ candidat.nom }}</h2>
+    <div style="font-size: 0.9rem; color: var(--text-secondary);">
+      Candidature pour : {{ fiche.titre }}
+    </div>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.5rem; align-items: start;">
+
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+    <div class="card">
+      <div class="card-title">Profil candidat</div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Nom</label>
+        <div>{{ candidat.nom }}</div>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Email</label>
+        <div>{{ candidat.email|default:"—" }}</div>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Statut</label>
+        <div>{{ candidature.get_statut_display }}</div>
+      </div>
+
+      <div>
+        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Score</label>
+        <div>
+          {% if candidature.score != None %}
+            <strong>{{ candidature.score|floatformat:0 }} / 100</strong>
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Analyse IA</div>
+      {% if candidature.explication %}
+        <div style="white-space: pre-wrap; line-height: 1.6;">{{ candidature.explication }}</div>
+      {% else %}
+        <div class="text-muted">Aucune explication disponible.</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Texte extrait du CV</div>
+      {% if candidat.cv_texte %}
+        <div style="white-space: pre-wrap; line-height: 1.6; max-height: 500px; overflow: auto;">
+          {{ candidat.cv_texte }}
+        </div>
+      {% else %}
+        <div class="text-muted">Aucun texte extrait disponible.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card" style="min-height: 700px;">
+    <div class="card-title">Aperçu du CV</div>
+
+    {% if candidat.cv_fichier %}
+      <div style="margin-bottom: 1rem;">
+        <a class="btn btn-primary" href="{{ candidat.cv_fichier.url }}" target="_blank">
+          <i class="bi bi-file-earmark-arrow-down"></i> Ouvrir le CV
+        </a>
+      </div>
+
+      <iframe
+        src="{{ candidat.cv_fichier.url }}"
+        style="width: 100%; height: 800px; border: 1px solid var(--border-color, #ddd); border-radius: 8px;">
+      </iframe>
+    {% else %}
+      <div class="text-muted">Aucun fichier CV disponible.</div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

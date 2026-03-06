@@ -19,7 +19,7 @@
 <form method="post" action="{% url 'recrutement:bulk_delete_fiches' %}" id="bulkDeleteFichesForm" style="margin-bottom: 1rem;">
     {% csrf_token %}
     <button type="submit" class="btn btn-danger" id="deleteFichesBtn" style="display: none;" 
-            onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer les fiches sélectionnées ? Cette action est irréversible.');">
+            onclick="return confirm('Êtes-vous sûr de vouloir supprimer les fiches sélectionnées ? Cette action est irréversible.');">
         <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedFichesCount">0</span>)
     </button>
 
@@ -31,6 +31,7 @@
             <th>Titre</th>
             <th>Créée le</th>
             <th class="text-center">Candidatures</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -46,6 +47,11 @@
             <td style="color: var(--text-secondary);">{{ f.created_at|date:"d/m/Y H:i" }}</td>
             <td class="text-center">
               <span class="badge" style="background: #e2e8f0; color: #475569;">{{ f.candidatures.count }}</span>
+            </td>
+            <td>
+              <a class="btn btn-primary" href="{% url 'recrutement:fiche_update' f.pk %}">
+                Modifier
+              </a>
             </td>
           </tr>
           {% empty %}
@@ -67,7 +73,7 @@
 <form method="post" action="{% url 'recrutement:bulk_delete_candidatures' %}" id="bulkDeleteCandidaturesForm" style="margin-bottom: 1rem;">
     {% csrf_token %}
     <button type="submit" class="btn btn-danger" id="deleteCandidaturesBtn" style="display: none;" 
-            onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer les candidatures sélectionnées ? Cette action est irréversible.');">
+            onclick="return confirm('Êtes-vous sûr de vouloir supprimer les candidatures sélectionnées ? Cette action est irréversible.');">
         <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedCandidaturesCount">0</span>)
     </button>
 

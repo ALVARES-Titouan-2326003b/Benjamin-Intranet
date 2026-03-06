@@ -53,7 +53,10 @@
             {% for c in candidatures %}
             <tr>
               <td>
-                <div style="font-weight: 500;">{{ c.candidat.nom }}</div>
+                <a href="{% url 'recrutement:candidature_detail' c.pk %}"
+                   style="font-weight: 500; color: var(--text-main); text-decoration: none;">
+                  {{ c.candidat.nom }}
+                </a>
               </td>
               <td>{{ c.candidat.email|default:"—" }}</td>
               <td class="text-center">

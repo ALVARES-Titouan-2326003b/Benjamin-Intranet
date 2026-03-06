@@ -65,7 +65,7 @@
             style="margin-bottom: 1rem;">
             {% csrf_token %}
             <button type="submit" class="btn btn-danger" id="deleteSelectedBtn" style="display: none;"
-                onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer les documents sélectionnés ? Cette action est irréversible.');">
+                onclick="return confirm('Êtes-vous sûr de vouloir supprimer les documents sélectionnés ? Cette action est irréversible.');">
                 <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedCount">0</span>)
             </button>
 
@@ -100,6 +100,9 @@
                         <td class="text-right">
                             <a class="btn btn-sm btn-ghost" href="{% url 'signatures:document_detail' doc.pk %}">
                                 Voir détails
+                            </a>
+                            <a class="btn btn-sm btn-ghost" href="{% url 'signatures:document_update' doc.pk %}">
+                              Modifier
                             </a>
                         </td>
                     </tr>

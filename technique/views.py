@@ -14,7 +14,7 @@ from .models import DocumentTechnique, TechnicalProject
 from .forms import (
     DocumentTechniqueUploadForm,
     TechnicalProjectCreateForm,
-    TechnicalProjectFinanceForm,
+    TechnicalProjectFinanceForm, DocumentTechniqueUpdateForm,
 )
 from user_access.user_test_functions import has_technique_access
 
@@ -271,7 +271,33 @@ def document_resume_pdf(request, pk):
     return response
 
 
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def documents_update(request, pk):
+    document = get_object_or_404(DocumentTechnique, pk=pk)
 
+    if request.method == "POST":
+        form = DocumentTechniqueUpdateForm(
+            request.POST,
+            instance=document
+        )
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Document modifié avec succès.")
+            return redirect("technique:documents_detail", pk=document.pk)
+
+    else:
+        form = DocumentTechniqueUpdateForm(instance=document)
+
+    return render(
+        request,
+        "technique/documents_update.html",
+        {
+            "form": form,
+            "document": document,
+        },
+    )
 
 
 @login_required
@@ -420,6 +446,8 @@ def financial_project_pdf(request, pk):
     return response
 
 
+
+
 # ================== Suppression en masse ==================
 
 @login_required
@@ -441,10 +469,10 @@ def bulk_delete_projects(request):
         deleted_count = TechnicalProject.objects.filter(id__in=project_ids).delete()[0]
         messages.success(
             request,
-            f"✅ {deleted_count} projet{'s' if deleted_count > 1 else ''} supprimé{'s' if deleted_count > 1 else ''} avec succès."
+            f"{deleted_count} projet{'s' if deleted_count > 1 else ''} supprimé{'s' if deleted_count > 1 else ''} avec succès."
         )
     except Exception as e:
-        messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+        messages.error(request, f"Erreur lors de la suppression : {str(e)}")
     
     return redirect("technique_financial_overview")
 
@@ -468,10 +496,10 @@ def bulk_delete_documents(request):
         deleted_count = DocumentTechnique.objects.filter(id__in=document_ids).delete()[0]
         messages.success(
             request,
-            f"✅ {deleted_count} document{'s' if deleted_count > 1 else ''} supprimé{'s' if deleted_count > 1 else ''} avec succès."
+            f"{deleted_count} document{'s' if deleted_count > 1 else ''} supprimé{'s' if deleted_count > 1 else ''} avec succès."
         )
     except Exception as e:
-        messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+        messages.error(request, f"Erreur lors de la suppression : {str(e)}")
     
     return redirect("technique:documents_list")
 

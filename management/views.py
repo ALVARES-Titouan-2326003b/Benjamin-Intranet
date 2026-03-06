@@ -279,7 +279,7 @@ def create_activity_view(request):
         data = json.loads(request.body)
 
         dossier = data.get('dossier', '').strip()
-        type_activite = data.get('type', '').strip().lower()
+        type_activite = data.get('type', '').strip()
         date_str = data.get('date', '').strip()
         commentaire = data.get('commentaire', '').strip()
 
@@ -297,7 +297,7 @@ def create_activity_view(request):
                 'message': 'Champs obligatoires manquants'
             }, status=400)
 
-        types_valides = ['vente', 'location', 'compromis', 'visite', 'relance', 'autre']
+        types_valides = ['Vente', 'Location', 'Compromis', 'Visite', 'Relance', 'Autre']
         if type_activite not in types_valides:
             return JsonResponse({
                 'success': False,
@@ -373,7 +373,7 @@ def delete_activity_view(request):
         data = json.loads(request.body)
 
         dossier = data.get('dossier', '').strip()
-        type_activite = data.get('type', '').strip().lower()
+        type_activite = data.get('type', '').strip()
         date_str = data.get('date', '').strip()
 
         if not dossier or not type_activite or not date_str:

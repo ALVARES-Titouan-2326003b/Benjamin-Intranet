@@ -19,4 +19,9 @@ class CVUploadForm(forms.ModelForm):
         widgets = {
             "cv_fichier": forms.ClearableFileInput(attrs={"accept": ".pdf,.txt,.docx"})
         }
- 
+
+
+class FichePosteForm(forms.ModelForm):
+    class Meta:
+        model = FicheDePoste
+        fields = "__all__"

@@ -11,5 +11,8 @@ urlpatterns = [
     path("fiche/<int:pk>/upload-cv/", views.upload_cv, name="upload_cv"),
     path("fiches/bulk-delete/", views.bulk_delete_fiches, name="bulk_delete_fiches"),
     path("candidatures/bulk-delete/", views.bulk_delete_candidatures, name="bulk_delete_candidatures"),
+    path("fiches/<int:pk>/edit/", views.fiche_update, name="fiche_update"),
+    path("candidature/<int:pk>/", views.candidature_detail, name="candidature_detail"),
+
 ]
  

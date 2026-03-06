@@ -47,7 +47,7 @@
 <form method="post" action="{% url 'technique_bulk_delete_projects' %}" id="bulkDeleteProjectsForm" style="margin-bottom: 1rem;">
     {% csrf_token %}
     <button type="submit" class="btn btn-danger" id="deleteProjectsBtn" style="display: none;" 
-            onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer les projets sélectionnés ? Cette action est irréversible.');">
+            onclick="return confirm('Êtes-vous sûr de vouloir supprimer les projets sélectionnés ? Cette action est irréversible.');">
         <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedProjectsCount">0</span>)
     </button>
 
