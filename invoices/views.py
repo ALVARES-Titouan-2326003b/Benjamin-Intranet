@@ -172,11 +172,11 @@ class ManualInvoiceRemindersView(View):
 
             # Validation : minimum 1 jour
             if delai_relance < 1:
-                messages.error(request, "❌ Le délai de relance doit être au minimum de 1 jour.")
+                messages.error(request, "Le délai de relance doit être au minimum de 1 jour.")
                 return redirect('invoices:list')
 
         except (ValueError, TypeError):
-            messages.error(request, "❌ Délai de relance invalide.")
+            messages.error(request, "Délai de relance invalide.")
             return redirect('invoices:list')
 
         # Importer la tâche et l'exécuter avec le délai
@@ -229,9 +229,9 @@ class BulkDeleteInvoicesView(View):
             
             messages.success(
                 request,
-                f"✅ {deleted_count} facture{['','s'][deleted_count>1]} supprimée{['','s'][deleted_count>1]} avec succès."
+                f"{deleted_count} facture{['','s'][deleted_count>1]} supprimée{['','s'][deleted_count>1]} avec succès."
             )
         except Exception as e:
-            messages.error(request, f"❌ Erreur lors de la suppression : {str(e)}")
+            messages.error(request, f"Erreur lors de la suppression : {str(e)}")
         
         return redirect('invoices:list')
