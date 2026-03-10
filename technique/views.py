@@ -19,26 +19,58 @@ from .forms import (
 from user_access.user_test_functions import has_technique_access
 
 
+from django.db.models import Q
+
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def documents_list(request):
     """
     Affiche la liste des documents techniques
+    avec recherche et filtres.
     """
     qs = DocumentTechnique.objects.all()
-    projet = request.GET.get("projet", "").strip()
+
+    q = (request.GET.get("q") or "").strip()
+    projet = (request.GET.get("projet") or "").strip()
+    type_document = (request.GET.get("type_document") or "").strip()
+    sort = (request.GET.get("sort") or "").strip()
+
+    if q:
+        qs = qs.filter(
+            Q(titre__icontains=q)
+            | Q(projet__icontains=q)
+            | Q(resume__icontains=q)
+            | Q(prix__icontains=q)
+            | Q(dates__icontains=q)
+            | Q(conditions_suspensives__icontains=q)
+            | Q(penalites__icontains=q)
+            | Q(delais__icontains=q)
+            | Q(clauses_importantes__icontains=q)
+        )
+
     if projet:
         qs = qs.filter(projet__icontains=projet)
+
+    if type_document:
+        qs = qs.filter(type_document=type_document)
+
+    if sort == "oldest":
+        qs = qs.order_by("created_at")
+    else:
+        qs = qs.order_by("-created_at")
 
     return render(
         request,
         "technique/documents_list.html",
         {
             "documents": qs,
+            "q": q,
             "projet": projet,
+            "type_document": type_document,
+            "sort": sort,
+            "type_choices": DocumentTechnique.TYPE_CHOICES,
         },
     )
-
 
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
@@ -300,13 +332,42 @@ def documents_update(request, pk):
     )
 
 
+from django.db.models import Q
+
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def financial_overview(request):
     """
     Affiche la liste des projets techniques
+    avec recherche et filtres.
     """
-    projects = TechnicalProject.objects.all().order_by("name")
+    projects = TechnicalProject.objects.all()
+
+    q = (request.GET.get("q") or "").strip()
+    reference = (request.GET.get("reference") or "").strip()
+    project_type = (request.GET.get("type") or "").strip()
+    sort = (request.GET.get("sort") or "").strip()
+
+    if q:
+        projects = projects.filter(
+            Q(name__icontains=q)
+            | Q(reference__icontains=q)
+        )
+
+    if reference:
+        projects = projects.filter(reference__icontains=reference)
+
+    if project_type:
+        projects = projects.filter(type=project_type)
+
+    if sort == "name_desc":
+        projects = projects.order_by("-name")
+    elif sort == "ref_asc":
+        projects = projects.order_by("reference")
+    elif sort == "ref_desc":
+        projects = projects.order_by("-reference")
+    else:
+        projects = projects.order_by("name")
 
     if request.method == "POST":
         form = TechnicalProjectCreateForm(request.POST)
@@ -320,9 +381,16 @@ def financial_overview(request):
     return render(
         request,
         "technique/vue_financiere_list.html",
-        {"projects": projects, "form": form},
+        {
+            "projects": projects,
+            "form": form,
+            "q": q,
+            "reference": reference,
+            "selected_type": project_type,
+            "sort": sort,
+            "type_choices": TechnicalProject.DOSSIER_TYPES,
+        },
     )
-
 
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)

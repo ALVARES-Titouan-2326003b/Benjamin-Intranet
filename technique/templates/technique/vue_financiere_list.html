@@ -32,6 +32,60 @@
     </form>
 </div>
 
+<div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-title">Filtres</div>
+
+    <form method="get"
+          style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr; gap: 1rem; align-items: end;">
+        <div>
+            <label style="display:block; margin-bottom: .4rem; font-weight:500;">
+                Recherche
+            </label>
+            <input
+                type="text"
+                name="q"
+                class="form-control"
+                placeholder="Nom ou référence du projet..."
+                value="{{ q }}"
+            >
+        </div>
+
+        <div>
+            <label style="display:block; margin-bottom: .4rem; font-weight:500;">
+                Référence
+            </label>
+            <input
+                type="text"
+                name="reference"
+                class="form-control"
+                placeholder="Ex. PRJ-001"
+                value="{{ reference }}"
+            >
+        </div>
+
+        <div>
+            <label style="display:block; margin-bottom: .4rem; font-weight:500;">
+                Tri
+            </label>
+            <select name="sort" class="form-control">
+                <option value="" {% if not sort %}selected{% endif %}>Nom A → Z</option>
+                <option value="name_desc" {% if sort == "name_desc" %}selected{% endif %}>Nom Z → A</option>
+                <option value="ref_asc" {% if sort == "ref_asc" %}selected{% endif %}>Référence A → Z</option>
+                <option value="ref_desc" {% if sort == "ref_desc" %}selected{% endif %}>Référence Z → A</option>
+            </select>
+        </div>
+
+        <div style="grid-column: 1 / -1; display: flex; gap: .75rem; justify-content: flex-end; flex-wrap: wrap;">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i> Filtrer
+            </button>
+
+            <a href="{% url 'technique_financial_overview' %}" class="btn btn-secondary">
+                Réinitialiser
+            </a>
+        </div>
+    </form>
+</div>
 <!-- Liste des projets -->
 <div class="card">
     <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">

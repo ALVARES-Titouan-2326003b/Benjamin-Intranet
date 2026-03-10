@@ -10,21 +10,70 @@
 </div>
 
 <div class="card">
+  <div class="card">
+  <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+    <span>Documents techniques</span>
+    <span class="badge" style="background: var(--bg-secondary); color: var(--text-secondary);">
+      {{ documents|length }} document{% if documents|length > 1 %}s{% endif %}
+    </span>
+  </div>
   <form method="get"
-    style="display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-    <div style="flex: 1;">
-      <input type="text" name="projet" class="form-control" placeholder="Rechercher par projet..." value="{{ projet }}"
-        style="margin: 0;">
+        style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr auto; gap: 1rem; margin-bottom: 1.5rem; align-items: end; background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+
+    <div>
+      <label style="display:block; margin-bottom: .4rem; font-weight:500;">Recherche</label>
+      <input
+        type="text"
+        name="q"
+        class="form-control"
+        placeholder="Titre, projet, résumé, clause..."
+        value="{{ q }}"
+        style="margin: 0;"
+      >
     </div>
-    <button type="submit" class="btn btn-secondary">
-      <i class="bi bi-filter"></i> Filtrer
-    </button>
-    {% if projet %}
-    <a href="{% url 'technique:documents_list' %}" class="btn btn-ghost"
-      style="text-decoration: none; color: var(--text-secondary);">
-      <i class="bi bi-x-circle"></i> Réinitialiser
-    </a>
-    {% endif %}
+
+    <div>
+      <label style="display:block; margin-bottom: .4rem; font-weight:500;">Projet</label>
+      <input
+        type="text"
+        name="projet"
+        class="form-control"
+        placeholder="Nom du projet..."
+        value="{{ projet }}"
+        style="margin: 0;"
+      >
+    </div>
+
+    <div>
+      <label style="display:block; margin-bottom: .4rem; font-weight:500;">Type</label>
+      <select name="type_document" class="form-control" style="margin: 0;">
+        <option value="">Tous</option>
+        {% for value, label in type_choices %}
+          <option value="{{ value }}" {% if type_document == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label style="display:block; margin-bottom: .4rem; font-weight:500;">Tri</label>
+      <select name="sort" class="form-control" style="margin: 0;">
+        <option value="">Plus récents</option>
+        <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Plus anciens</option>
+      </select>
+    </div>
+
+    <div style="grid-column: 1 / -1; display: flex; gap: .75rem; justify-content: flex-end;">
+      <button type="submit" class="btn btn-secondary">
+        <i class="bi bi-search"></i> Rechercher
+      </button>
+
+      <a href="{% url 'technique:documents_list' %}" class="btn btn-ghost"
+         style="text-decoration: none; color: var(--text-secondary);">
+        <i class="bi bi-x-circle"></i> Réinitialiser
+      </a>
+    </div>
   </form>
 
   
