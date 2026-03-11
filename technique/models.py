@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -61,7 +62,7 @@ class DocumentTechnique(models.Model):
     created_at = models.DateTimeField("Créé le", auto_now_add=True)
 
     class Meta:
-        db_table = 'document_technique'
+        db_table = "document_technique"
         ordering = ["-created_at"]
 
     def __str__(self):
@@ -85,57 +86,63 @@ class TechnicalProject(models.Model):
         ("juridique", "Juridique"),
     ]
 
-    reference = models.CharField("Référence projet", max_length=50, unique=True, db_column='reference')
-    name = models.CharField("Nom du projet", max_length=255, db_column='nom')
-    type = models.TextField(choices=DOSSIER_TYPES, default="Client")
+    reference = models.CharField("Référence projet", max_length=50, unique=True, db_column="reference")
+    name = models.CharField("Nom du projet", max_length=255, db_column="nom")
+    type = models.TextField(choices=DOSSIER_TYPES, default="client")
 
-    # Saisis de l'utilisateur
     engaged_amount = models.DecimalField(
         "Frais engagés",
         max_digits=12,
         decimal_places=2,
         default=0,
-        db_column='frais_eng',
+        db_column="frais_eng",
     )
     paid_amount = models.DecimalField(
         "Frais déjà payés",
         max_digits=12,
         decimal_places=2,
         default=0,
-        db_column='frais_payes',
+        db_column="frais_payes",
     )
     total_estimated = models.DecimalField(
         "Total estimé du projet",
         max_digits=12,
         decimal_places=2,
         default=0,
-        db_column='total_estim',
+        db_column="total_estim",
     )
 
     class Meta:
-        db_table = 'dossier'
+        db_table = "dossier"
 
     def __str__(self):
         return f"{self.reference} - {self.name}"
 
+    def refresh_amounts_from_expenses(self, save=True):
+        expenses = self.expenses.all()
+        engaged = sum((expense.amount for expense in expenses), Decimal("0.00"))
+        paid = sum((expense.amount for expense in expenses if expense.is_paid), Decimal("0.00"))
+
+        self.engaged_amount = engaged
+        self.paid_amount = paid
+
+        if save:
+            self.save(update_fields=["engaged_amount", "paid_amount"])
+
     @property
     def frais_engages(self):
-        """Renvoie les frais engagés du projet"""
         return self.engaged_amount
 
     @property
     def frais_payes(self):
-        """Renvoie les frais payés du projet"""
         return self.paid_amount
 
     @property
     def frais_restants(self):
-        """Renvoie les frais restants du projet"""
         return self.engaged_amount - self.paid_amount
 
     @property
     def reste_a_engager(self):
-        """Renvoie le reste à engager du projet"""
         return self.total_estimated - self.engaged_amount
 
 
@@ -153,9 +160,19 @@ class ProjectExpense(models.Model):
     payment_date = models.DateField("Date de paiement", null=True, blank=True)
 
     class Meta:
-        db_table = 'depense_projet'
+        db_table = "depense_projet"
         verbose_name = "Frais projet"
         verbose_name_plural = "Frais projets"
+        ordering = ["due_date", "id"]
 
     def __str__(self):
         return f"{self.project.reference} - {self.label}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.project.refresh_amounts_from_expenses()
+
+    def delete(self, *args, **kwargs):
+        project = self.project
+        super().delete(*args, **kwargs)
+        project.refresh_amounts_from_expenses()

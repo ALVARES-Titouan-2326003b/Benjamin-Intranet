@@ -1,11 +1,8 @@
 from django import forms
-from .models import DocumentTechnique, TechnicalProject
+from .models import DocumentTechnique, TechnicalProject, ProjectExpense
 
 
 class DocumentTechniqueUploadForm(forms.ModelForm):
-    """
-    Formulaire pour enregistrer un document technique
-    """
     class Meta:
         model = DocumentTechnique
         fields = ["projet", "titre", "type_document", "fichier"]
@@ -17,29 +14,34 @@ class DocumentTechniqueUploadForm(forms.ModelForm):
 
 
 class TechnicalProjectCreateForm(forms.ModelForm):
-    """
-    Formulaire pour créer un projet
-    """
-
     class Meta:
         model = TechnicalProject
-        fields = ["name", "reference", "total_estimated"]
+        fields = ["name", "reference", "type", "total_estimated"]
 
 
 class TechnicalProjectFinanceForm(forms.ModelForm):
     """
-    Formulaire pour modifier les données financières d'un projet
+    On ne modifie ici que le budget prévisionnel.
+    Les montants engagés et payés sont calculés automatiquement
+    depuis les dépenses projet.
     """
 
     class Meta:
         model = TechnicalProject
-        fields = ["engaged_amount", "paid_amount", "total_estimated"]
+        fields = ["total_estimated"]
+
 
 class DocumentTechniqueUpdateForm(forms.ModelForm):
-    """
-    Formulaire pour modifier les métadonnées d'un document technique
-    sans permettre le remplacement du fichier.
-    """
     class Meta:
         model = DocumentTechnique
         fields = ["projet", "titre", "type_document"]
+
+
+class ProjectExpenseForm(forms.ModelForm):
+    class Meta:
+        model = ProjectExpense
+        fields = ["label", "amount", "is_paid", "due_date", "payment_date"]
+        widgets = {
+            "due_date": forms.DateInput(attrs={"type": "date"}),
+            "payment_date": forms.DateInput(attrs={"type": "date"}),
+        }
