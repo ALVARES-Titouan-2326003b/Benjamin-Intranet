@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Historique chatbot{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-between align-center mb-4"
+     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+        <h2>Historique de mes requêtes</h2>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+            Retrouvez vos dernières questions posées à l’assistant.
+        </p>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-title">Filtres</div>
+
+    <form method="get"
+          style="display: grid; grid-template-columns: minmax(260px, 1fr) 220px 220px; gap: 1rem; align-items: end;">
+        <div>
+            <label for="q" style="display: block; margin-bottom: 0.4rem; font-weight: 500;">
+                Rechercher dans les questions
+            </label>
+            <input
+                type="text"
+                id="q"
+                name="q"
+                value="{{ search }}"
+                class="form-control"
+                placeholder="Ex. DPE, bail, facture..."
+            >
+        </div>
+
+        <div>
+            <label for="type" style="display: block; margin-bottom: 0.4rem; font-weight: 500;">
+                Type
+            </label>
+            <select id="type" name="type" class="form-control">
+                <option value="">Tous</option>
+                <option value="invoice" {% if selected_type == "invoice" %}selected{% endif %}>Facture</option>
+                <option value="legal" {% if selected_type == "legal" %}selected{% endif %}>Juridique</option>
+                <option value="legal_fallback" {% if selected_type == "legal_fallback" %}selected{% endif %}>Juridique fallback</option>
+                <option value="unknown" {% if selected_type == "unknown" %}selected{% endif %}>Inconnu</option>
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary">Filtrer</button>
+            <a href="{% url 'chatbot:history' %}" class="btn btn-secondary">Réinitialiser</a>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Mes requêtes</span>
+        <span class="badge" style="background: var(--bg-secondary); color: var(--text-secondary);">
+            {{ queries|length }} résultat{% if queries|length > 1 %}s{% endif %}
+        </span>
+    </div>
+
+    {% if queries %}
+    <div style="display: grid; gap: 1rem;">
+        {% for item in queries %}
+        <div style="border: 1px solid var(--border-light); border-radius: 12px; padding: 1rem; background: #fff;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <span class="badge"
+                          style="background:
+                          {% if item.query_type == 'invoice' %}#dbeafe;color:#1d4ed8
+                          {% elif item.query_type == 'legal' %}#dcfce7;color:#166534
+                          {% elif item.query_type == 'legal_fallback' %}#fef3c7;color:#92400e
+                          {% else %}#f3f4f6;color:#374151{% endif %};">
+                        {{ item.get_query_type_display }}
+                    </span>
+                    <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                        {{ item.created_at|date:"d/m/Y H:i" }}
+                    </span>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <div style="font-weight: 600; margin-bottom: 0.35rem;">Question</div>
+                <div style="color: var(--text-main);">
+                    {{ item.message }}
+                </div>
+            </div>
+
+            <div>
+                <div style="font-weight: 600; margin-bottom: 0.35rem;">Réponse</div>
+                <div style="
+                    color: var(--text-secondary);
+                    background: #f8fafc;
+                    border: 1px solid var(--border-light);
+                    border-radius: 10px;
+                    padding: 0.85rem;
+                    max-height: 180px;
+                    overflow-y: auto;
+                ">
+                    {{ item.response }}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+        Aucune requête trouvée.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

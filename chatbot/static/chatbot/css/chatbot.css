@@ -221,3 +221,80 @@
         right: -10px;
     }
 }
+
+.chatbot-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.chatbot-subtitle {
+    font-size: 12px;
+    font-weight: 400;
+    opacity: 0.9;
+}
+
+.message-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bot-block {
+    align-items: flex-start;
+}
+
+.user-block {
+    align-items: flex-end;
+}
+
+.message-footer {
+    font-size: 11px;
+    color: #6b7280;
+    display: flex;
+    gap: 8px;
+    padding: 0 4px;
+}
+
+.message-actions {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.copy-btn {
+    border: 1px solid #e1e5e9;
+    background: white;
+    color: #333;
+    border-radius: 12px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.copy-btn:hover {
+    background: #f3f4f6;
+}
+
+#send-btn:disabled,
+#message-input:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.chatbot-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chatbot-history-link {
+    color: white;
+    font-size: 12px;
+    text-decoration: underline;
+    opacity: 0.95;
+}
+
+.chatbot-history-link:hover {
+    opacity: 1;
+}

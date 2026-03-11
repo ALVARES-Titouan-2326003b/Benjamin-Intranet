@@ -111,16 +111,34 @@
   </div>
 
 </div>
-<script data-clauses="{{ document.clauses_importantes }}">
-    const htmlElement = document.getElementById("resume");
-    if (htmlElement) {
-        let resume = htmlElement.innerHTML;
-        const clauses = document.currentScript.dataset.clauses ?? "[]";
-        JSON.parse(clauses === "" ? "[]" : clauses).forEach(clause => {
-            resume = resume.replaceAll(clause, `<mark class="highlight">${clause}</mark>`)
-        })
-        htmlElement.innerHTML = resume;
+{{ document.clauses_importantes|json_script:"clauses-data" }}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const resumeElement = document.getElementById("resume");
+    const scriptElement = document.getElementById("clauses-data");
+
+    if (!resumeElement || !scriptElement) return;
+
+    let clauses = [];
+    try {
+        clauses = JSON.parse(scriptElement.textContent || "[]");
+    } catch (e) {
+        clauses = [];
     }
+
+    if (!Array.isArray(clauses) || clauses.length === 0) return;
+
+    let html = resumeElement.innerHTML;
+    clauses.forEach((clause) => {
+        if (!clause) return;
+        const escaped = clause.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(escaped, "g");
+        html = html.replace(regex, `<mark>${clause}</mark>`);
+    });
+
+    resumeElement.innerHTML = html;
+});
 </script>
 <style>
     .highlight {

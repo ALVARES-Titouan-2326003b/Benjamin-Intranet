@@ -9,7 +9,12 @@
 
     <div id="chatbot-container" class="hidden">
         <div id="chatbot-header">
-            <span>🤖 Assistant Factures</span>
+            <div class="chatbot-header-text">
+                <span>Assistant Factures</span>
+                <a href="{% url 'chatbot:history' %}" class="chatbot-history-link">
+                    Voir l’historique
+                </a>
+            </div>
             <button onclick="toggleChat()" id="close-btn">×</button>
         </div>
         

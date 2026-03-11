@@ -9,7 +9,7 @@ import requests
 
 from invoices.models import Facture
 from .legifrance import legifrance_search_generic, format_legifrance_context
-
+from .models import ChatbotQuery
 
 
 @login_required
@@ -31,29 +31,79 @@ def chatbot_query(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'response': 'Méthode non autorisée'}, status=405)
 
+    message = ""
     try:
         data = json.loads(request.body or '{}')
         message = (data.get('message') or '').strip()
+
         if not message:
             return JsonResponse({'success': False, 'response': 'Message vide.'}, status=400)
 
-        #route = None
+        route = "unknown"
 
         if _is_invoice_query(message):
-            #route = "invoice"
+            route = "invoice"
             resp = _handle_invoice_query(message, request.user)
 
-            # Fallback si aucune facture trouvée
-            if resp.startswith("❌ Aucune facture") or resp.startswith("🕳️ Aucune facture"):
-                #route = "legal_fallback"
+            if resp.startswith("Aucune facture") or resp.startswith("🕳️ Aucune facture"):
+                route = "legal_fallback"
                 resp = _handle_legal_query(message)
         else:
-            #route = "legal"
+            route = "legal"
             resp = _handle_legal_query(message)
 
-        return JsonResponse({'success': True, 'response': resp})
+        ChatbotQuery.objects.create(
+            user=request.user,
+            message=message,
+            response=resp,
+            query_type=route,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'response': resp,
+            'query_type': route,
+        })
+
     except Exception as e:
-        return JsonResponse({'success': False, 'response': f'Erreur: {e}'}, status=500)
+        error_message = f'Erreur: {e}'
+
+        if request.user.is_authenticated and message:
+            ChatbotQuery.objects.create(
+                user=request.user,
+                message=message,
+                response=error_message,
+                query_type="unknown",
+            )
+
+        return JsonResponse({'success': False, 'response': error_message}, status=500)
+
+@login_required
+def chatbot_history(request):
+    """
+    Affiche l'historique des requêtes du chatbot
+    pour l'utilisateur connecté uniquement.
+    """
+    query_type = (request.GET.get("type") or "").strip()
+    search = (request.GET.get("q") or "").strip()
+
+    qs = ChatbotQuery.objects.filter(user=request.user).order_by("-created_at")
+
+    if query_type:
+        qs = qs.filter(query_type=query_type)
+
+    if search:
+        qs = qs.filter(message__icontains=search)
+
+    return render(
+        request,
+        "chatbot/history.html",
+        {
+            "queries": qs,
+            "selected_type": query_type,
+            "search": search,
+        },
+    )
 
 
 # Factures
@@ -98,13 +148,13 @@ def _invoice_by_id(invoice_id: str, user) -> str:
             f"• Titre : {inv.titre or '—'}"
         )
     except Facture.DoesNotExist:
-        return f"❌ Aucune facture trouvée avec l’ID {invoice_id}"
+        return f"Aucune facture trouvée avec l’ID {invoice_id}"
 
 
 def _invoices_by_status(status: str, user) -> str:
     qs = _user_queryset(user).filter(statut=status).order_by('-echeance')[:5]
     if not qs:
-        return f"❌ Aucune facture avec le statut {status}."
+        return f"Aucune facture avec le statut {status}."
 
     lines = [f" Factures '{status}' :"]
     for inv in qs:
@@ -127,9 +177,9 @@ def _invoices_by_supplier(supplier: str, user) -> str:
 def _invoices_all(user, limit=20) -> str:
     qs = _user_queryset(user).order_by('-echeance')[:limit]
     if not qs:
-        return "🕳️ Aucune facture."
+        return "Aucune facture."
 
-    lines = ["📄 Toutes les factures :"]
+    lines = ["Toutes les factures :"]
     for inv in qs:
         lines.append(f"• #{inv.id} — {inv.statut} — {inv.fournisseur} — {inv.montant}€")
     return "\n".join(lines)
@@ -139,11 +189,11 @@ def _invoices_summary(user) -> str:
     qs = _user_queryset(user)
     total = qs.count()
     if total == 0:
-        return "🕳️ Aucune facture."
+        return "Aucune facture."
 
     total_amount = sum(inv.montant or 0 for inv in qs)
     return (
-        "📊 Résumé des factures\n"
+        "Résumé des factures\n"
         f"• Total : {total}\n"
         f"• Montant cumulé : {total_amount:,.2f}€".replace(',', ' ').replace('.', ',')
     )
