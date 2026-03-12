@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<div class="d-flex justify-between align-center mb-4"
+  style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+  <div>
+    <h2>Emails techniques</h2>
+    <p style="margin:0.35rem 0 0; color: var(--text-secondary);">
+      Centralisez les échanges reçus et rattachez-les aux projets techniques.
+    </p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div class="card-title">Filtres</div>
+
+  <form method="get"
+        style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 1rem; align-items:end;">
+
+    <div>
+      <label for="q" style="display:block; margin-bottom:0.35rem;">Recherche</label>
+      <input
+        type="text"
+        id="q"
+        name="q"
+        value="{{ q }}"
+        placeholder="Objet, expéditeur, projet..."
+        class="form-control"
+      >
+    </div>
+
+    <div>
+      <label for="status" style="display:block; margin-bottom:0.35rem;">Statut</label>
+      <select id="status" name="status" class="form-control">
+        <option value="">Tous</option>
+        {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label for="project" style="display:block; margin-bottom:0.35rem;">Projet</label>
+      <select id="project" name="project" class="form-control">
+        <option value="">Tous</option>
+        {% for project in projects %}
+          <option value="{{ project.id }}" {% if selected_project == project.id|stringformat:"s" %}selected{% endif %}>
+            {{ project.reference }} - {{ project.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label for="has_attachments" style="display:block; margin-bottom:0.35rem;">Pièces jointes</label>
+      <select id="has_attachments" name="has_attachments" class="form-control">
+        <option value="">Toutes</option>
+        <option value="yes" {% if selected_has_attachments == "yes" %}selected{% endif %}>Avec PJ</option>
+        <option value="no" {% if selected_has_attachments == "no" %}selected{% endif %}>Sans PJ</option>
+      </select>
+    </div>
+
+    <div style="display:flex; gap:0.5rem;">
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-search"></i> Filtrer
+      </button>
+      <a href="{% url 'technique:email_list' %}" class="btn btn-secondary">
+        Réinitialiser
+      </a>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+    <span>Liste des emails</span>
+    <span class="badge" style="background: var(--bg-secondary); color: var(--text-secondary);">
+      {{ page_obj.paginator.count }} email{% if page_obj.paginator.count > 1 %}s{% endif %}
+    </span>
+  </div>
+
+  {% if emails %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border-color); text-align:left;">
+            <th style="padding: 0.85rem;">Objet</th>
+            <th style="padding: 0.85rem;">Expéditeur</th>
+            <th style="padding: 0.85rem;">Projet</th>
+            <th style="padding: 0.85rem;">Statut</th>
+            <th style="padding: 0.85rem;">PJ</th>
+            <th style="padding: 0.85rem;">Réception</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for email in emails %}
+            <tr style="border-bottom: 1px solid var(--border-color);">
+              <td style="padding: 0.85rem;">
+                <div style="font-weight:600;">{{ email.subject }}</div>
+                {% if email.body %}
+                  <div style="font-size:0.9rem; color:var(--text-secondary); margin-top:0.2rem;">
+                    {{ email.body|truncatechars:120 }}
+                  </div>
+                {% endif %}
+              </td>
+
+              <td style="padding: 0.85rem;">{{ email.sender }}</td>
+
+              <td style="padding: 0.85rem;">
+                {% if email.project %}
+                  <span>{{ email.project.reference }} - {{ email.project.name }}</span>
+                {% else %}
+                  <span style="color:var(--text-secondary);">Non associé</span>
+                {% endif %}
+              </td>
+
+              <td style="padding: 0.85rem;">
+                {% if email.status == "classified" %}
+                  <span class="badge" style="background: rgba(34,197,94,.12); color: #22c55e;">Classé</span>
+                {% elif email.status == "pending" %}
+                  <span class="badge" style="background: rgba(245,158,11,.12); color: #f59e0b;">À valider</span>
+                {% else %}
+                  <span class="badge" style="background: rgba(239,68,68,.12); color: #ef4444;">Non classé</span>
+                {% endif %}
+              </td>
+
+              <td style="padding: 0.85rem;">
+                {% if email.has_attachments %}
+                  <i class="bi bi-paperclip"></i> Oui
+                {% else %}
+                  <span style="color:var(--text-secondary);">Non</span>
+                {% endif %}
+              </td>
+
+              <td style="padding: 0.85rem;">
+                {{ email.received_at|date:"d/m/Y H:i" }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+      <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.25rem;">
+        {% if page_obj.has_previous %}
+          <a class="btn btn-secondary"
+             href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ selected_status }}&project={{ selected_project }}&has_attachments={{ selected_has_attachments }}">
+            Précédent
+          </a>
+        {% endif %}
+
+        <span class="btn btn-secondary" style="pointer-events:none;">
+          Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+          <a class="btn btn-secondary"
+             href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ selected_status }}&project={{ selected_project }}&has_attachments={{ selected_has_attachments }}">
+            Suivant
+          </a>
+        {% endif %}
+      </div>
+    {% endif %}
+
+  {% else %}
+    <div style="padding: 1rem 0; color: var(--text-secondary);">
+      Aucun email trouvé pour le moment.
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

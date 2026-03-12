@@ -176,3 +176,46 @@ class ProjectExpense(models.Model):
         project = self.project
         super().delete(*args, **kwargs)
         project.refresh_amounts_from_expenses()
+
+class TechnicalEmail(models.Model):
+    STATUS_CHOICES = [
+        ("classified", "Classé"),
+        ("pending", "À valider"),
+        ("unassigned", "Non classé"),
+    ]
+
+    subject = models.CharField("Objet", max_length=255)
+    sender = models.CharField("Expéditeur", max_length=255)
+    recipients = models.TextField("Destinataires", blank=True)
+    body = models.TextField("Contenu", blank=True)
+
+    received_at = models.DateTimeField("Reçu le")
+    has_attachments = models.BooleanField("Pièces jointes", default=False)
+
+    project = models.ForeignKey(
+        TechnicalProject,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="emails",
+        verbose_name="Projet associé",
+    )
+
+    status = models.CharField(
+        "Statut de classement",
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="unassigned",
+    )
+
+    external_id = models.CharField("Identifiant externe", max_length=255, blank=True, unique=True, null=True)
+    created_at = models.DateTimeField("Créé le", auto_now_add=True)
+
+    class Meta:
+        db_table = "technical_email"
+        ordering = ["-received_at", "-id"]
+        verbose_name = "Email technique"
+        verbose_name_plural = "Emails techniques"
+
+    def __str__(self):
+        return self.subject

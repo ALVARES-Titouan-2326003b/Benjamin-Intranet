@@ -12,7 +12,7 @@ from reportlab.pdfbase import pdfmetrics
 from openpyxl import Workbook
 from .services.documents import extract_text_from_file
 from .services.ai_summary import summarize_document
-from .models import DocumentTechnique, TechnicalProject, ProjectExpense
+from .models import DocumentTechnique, TechnicalProject, ProjectExpense, TechnicalEmail
 from .forms import (
     DocumentTechniqueUploadForm,
     TechnicalProjectCreateForm,
@@ -22,9 +22,6 @@ from .forms import (
 )
 from user_access.user_test_functions import has_technique_access
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
-
-from django.core.paginator import Paginator
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render
@@ -680,6 +677,58 @@ def financial_project_excel(request, pk):
     response["Content-Disposition"] = f'attachment; filename="budget_{project.reference}.xlsx"'
     wb.save(response)
     return response
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def email_list(request):
+    """
+    Affiche la liste des emails techniques avec filtres.
+    """
+    emails = TechnicalEmail.objects.select_related("project").all()
+
+    q = (request.GET.get("q") or "").strip()
+    status = (request.GET.get("status") or "").strip()
+    project_id = (request.GET.get("project") or "").strip()
+    has_attachments = (request.GET.get("has_attachments") or "").strip()
+
+    if q:
+        emails = emails.filter(
+            Q(subject__icontains=q)
+            | Q(sender__icontains=q)
+            | Q(body__icontains=q)
+            | Q(project__name__icontains=q)
+            | Q(project__reference__icontains=q)
+        )
+
+    if status:
+        emails = emails.filter(status=status)
+
+    if project_id:
+        emails = emails.filter(project_id=project_id)
+
+    if has_attachments == "yes":
+        emails = emails.filter(has_attachments=True)
+    elif has_attachments == "no":
+        emails = emails.filter(has_attachments=False)
+
+    paginator = Paginator(emails, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    return render(
+        request,
+        "technique/email_list.html",
+        {
+            "emails": page_obj,
+            "page_obj": page_obj,
+            "q": q,
+            "selected_status": status,
+            "selected_project": project_id,
+            "selected_has_attachments": has_attachments,
+            "status_choices": TechnicalEmail.STATUS_CHOICES,
+            "projects": TechnicalProject.objects.order_by("name"),
+        },
+    )
 
 # ================== Suppression en masse ==================
 
