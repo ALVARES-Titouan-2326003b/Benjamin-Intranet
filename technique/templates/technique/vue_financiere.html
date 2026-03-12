@@ -40,13 +40,10 @@
   </div>
 </div>
 
-<!-- ── Main Grid ── -->
 <div class="fin-grid">
 
-  <!-- ════ LEFT COLUMN ════ -->
   <div class="fin-left">
 
-    <!-- Données financières -->
     <section class="card">
       <div class="card-title">Données financières</div>
       <form method="post">
@@ -265,13 +262,5 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{% static 'technique/js/vue_financiere.js' %}"></script>
-<script>
-  initFinanceCharts({
-    fraisEngages: {{ frais_engages|unlocalize }},
-    fraisPayes:   {{ frais_payes|unlocalize }},
-    fraisRestants:{{ frais_restants|unlocalize }},
-    totalEstime:  {{ total_estime|unlocalize }}
-  });
-</script>
 
 {% endblock %}

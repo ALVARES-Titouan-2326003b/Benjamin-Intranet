@@ -1,5 +1,3 @@
-console.log("vue_financiere.js chargé ✅");
-
 function initFinanceCharts(config) {
     const { fraisEngages, fraisPayes, fraisRestants, totalEstime } = config;
 
@@ -78,3 +76,10 @@ function initFinanceCharts(config) {
         }
     });
 }
+
+initFinanceCharts({
+    fraisEngages: {{ frais_engages|unlocalize }},
+    fraisPayes:   {{ frais_payes|unlocalize }},
+    fraisRestants:{{ frais_restants|unlocalize }},
+    totalEstime:  {{ total_estime|unlocalize }}
+  });

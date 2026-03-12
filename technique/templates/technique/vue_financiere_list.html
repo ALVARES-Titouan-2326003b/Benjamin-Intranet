@@ -135,7 +135,15 @@
             </table>
         </div>
     </form>
-    {% if page_obj.paginator.num_pages > 1 %}
+
+    {% else %}
+    <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+        <i class="bi bi-folder-x" style="font-size: 2rem; display: block; margin-bottom: 1rem;"></i>
+        Aucun projet technique pour le moment.
+    </div>
+    {% endif %}
+</div>
+{% if page_obj.paginator.num_pages > 1 %}
     <div style="display:flex; justify-content:center; align-items:center; gap:.5rem; margin-top:1.5rem; flex-wrap:wrap;">
         {% if page_obj.has_previous %}
             <a href="?page=1{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
@@ -164,13 +172,6 @@
         {% endif %}
     </div>
     {% endif %}
-    {% else %}
-    <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
-        <i class="bi bi-folder-x" style="font-size: 2rem; display: block; margin-bottom: 1rem;"></i>
-        Aucun projet technique pour le moment.
-    </div>
-    {% endif %}
-</div>
 <script src="{% static 'technique/js/vue_financiere_list.js' %}"></script>
 
 

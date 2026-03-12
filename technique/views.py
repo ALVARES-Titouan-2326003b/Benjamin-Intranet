@@ -24,6 +24,11 @@ from user_access.user_test_functions import has_technique_access
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 
+from django.core.paginator import Paginator
+from django.db.models import Q
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.shortcuts import render
+
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def documents_list(request):
@@ -62,11 +67,16 @@ def documents_list(request):
     else:
         qs = qs.order_by("-created_at")
 
+    paginator = Paginator(qs, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
     return render(
         request,
         "technique/documents_list.html",
         {
-            "documents": qs,
+            "documents": page_obj,
+            "page_obj": page_obj,
             "q": q,
             "projet": projet,
             "type_document": type_document,

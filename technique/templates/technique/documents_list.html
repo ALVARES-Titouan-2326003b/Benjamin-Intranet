@@ -1,7 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'technique/css/style.css' %}">
+
 <div class="d-flex justify-between align-center mb-4"
   style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
   <h2>Documents techniques</h2>
@@ -14,7 +16,7 @@
   <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
     <span>Documents techniques</span>
     <span class="badge" style="background: var(--bg-secondary); color: var(--text-secondary);">
-      {{ documents|length }} document{% if documents|length > 1 %}s{% endif %}
+      {{ page_obj.paginator.count }} document{% if page_obj.paginator.count > 1 %}s{% endif %}
     </span>
   </div>
 
@@ -118,6 +120,36 @@
     </div>
   </form>
 </div>
+{% if page_obj.has_other_pages %}
+<div style="display:flex; justify-content:center; align-items:center; gap:.5rem; margin-top:1.5rem; flex-wrap:wrap;">
+
+    {% if page_obj.has_previous %}
+        <a class="btn btn-secondary"
+           href="?page=1&q={{ q }}&projet={{ projet }}&type_document={{ type_document }}&sort={{ sort }}">
+            « Première
+        </a>
+        <a class="btn btn-secondary"
+           href="?page={{ page_obj.previous_page_number }}&q={{ q }}&projet={{ projet }}&type_document={{ type_document }}&sort={{ sort }}">
+            ‹ Précédente
+        </a>
+    {% endif %}
+
+    <span style="padding: .5rem 1rem;">
+        Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+    </span>
+
+    {% if page_obj.has_next %}
+        <a class="btn btn-secondary"
+           href="?page={{ page_obj.next_page_number }}&q={{ q }}&projet={{ projet }}&type_document={{ type_document }}&sort={{ sort }}">
+            Suivante ›
+        </a>
+        <a class="btn btn-secondary"
+           href="?page={{ page_obj.paginator.num_pages }}&q={{ q }}&projet={{ projet }}&type_document={{ type_document }}&sort={{ sort }}">
+            Dernière »
+        </a>
+    {% endif %}
+</div>
+{% endif %}
 
 <script src="{% static 'technique/js/documents_list.js' %}"> </script>
 
