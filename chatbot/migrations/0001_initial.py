@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('message', models.TextField(verbose_name='Question')),
                 ('response', models.TextField(verbose_name='Réponse')),
-                ('query_type', models.CharField(choices=[('invoice', 'Facture'), ('legal', 'Juridique'), ('legal_fallback', 'Juridique fallback'), ('unknown', 'Inconnu')], default='unknown', max_length=20, verbose_name='Type de requête')),
+                ('query_type', models.CharField(choices=[('invoice', 'Facture'), ('document', 'Document interne'), ('legal', 'Juridique'), ('legal_fallback', 'Juridique fallback'), ('unknown', 'Inconnu')], default='unknown', max_length=20, verbose_name='Type de requête')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Créé le')),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='chatbot_queries', to=settings.AUTH_USER_MODEL, verbose_name='Utilisateur')),
             ],

@@ -6,10 +6,11 @@ User = get_user_model()
 
 class ChatbotQuery(models.Model):
     QUERY_TYPES = [
-        ("invoice", "Facture"),
-        ("legal", "Juridique"),
+        ("invoice","Facture"),
+        ("document","Document interne"),
+        ("legal","Juridique"),
         ("legal_fallback", "Juridique fallback"),
-        ("unknown", "Inconnu"),
+        ("unknown","Inconnu"),
     ]
 
     user = models.ForeignKey(
