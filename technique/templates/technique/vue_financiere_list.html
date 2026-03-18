@@ -4,6 +4,7 @@
 {% block title %}Vue financière – Pôle technique{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'technique/css/style.css' %}">
 <div class="d-flex justify-between align-center mb-4"
     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
     <div>
@@ -32,59 +33,109 @@
     </form>
 </div>
 
-<!-- Liste des projets -->
+<div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-title">Filtres</div>
+
+    <form method="get"
+          style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr; gap: 1rem; align-items: end;">
+        <div>
+            <label style="display:block; margin-bottom: .4rem; font-weight:500;">Recherche</label>
+            <input type="text" name="q" class="form-control" placeholder="Nom ou référence du projet..." value="{{ q }}">
+        </div>
+
+        <div>
+            <label style="display:block; margin-bottom: .4rem; font-weight:500;">Référence</label>
+            <input type="text" name="reference" class="form-control" placeholder="Ex. PRJ-001" value="{{ reference }}">
+        </div>
+
+        <div>
+            <label style="display:block; margin-bottom: .4rem; font-weight:500;">Type</label>
+            <select name="type" class="form-control">
+                <option value="">Tous</option>
+                {% for value, label in type_choices %}
+                    <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label style="display:block; margin-bottom: .4rem; font-weight:500;">Tri</label>
+            <select name="sort" class="form-control">
+                <option value="" {% if not sort %}selected{% endif %}>Nom A → Z</option>
+                <option value="name_desc" {% if sort == "name_desc" %}selected{% endif %}>Nom Z → A</option>
+                <option value="ref_asc" {% if sort == "ref_asc" %}selected{% endif %}>Référence A → Z</option>
+                <option value="ref_desc" {% if sort == "ref_desc" %}selected{% endif %}>Référence Z → A</option>
+            </select>
+        </div>
+
+        <div style="grid-column: 1 / -1; display: flex; gap: .75rem; justify-content: flex-end; flex-wrap: wrap;">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i> Filtrer
+            </button>
+            <a href="{% url 'technique:technique_financial_overview' %}" class="btn btn-secondary">
+                Réinitialiser
+            </a>
+        </div>
+    </form>
+</div>
+
 <div class="card">
     <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
         <span>Projets techniques</span>
         <span class="badge" style="background: var(--bg-secondary); color: var(--text-secondary);">
-            {{ projects|length }} projet{% if projects|length > 1 %}s{% endif %}
+            {{ page_obj.paginator.count }} projet{% if page_obj.paginator.count > 1 %}s{% endif %}
         </span>
     </div>
 
     {% if projects %}
+    <form method="post" action="{% url 'technique:bulk_delete_projects' %}" id="bulkDeleteProjectsForm">
+        {% csrf_token %}
 
-<!-- Bouton suppression projets -->
-<form method="post" action="{% url 'technique_bulk_delete_projects' %}" id="bulkDeleteProjectsForm" style="margin-bottom: 1rem;">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-danger" id="deleteProjectsBtn" style="display: none;" 
-            onclick="return confirm('Êtes-vous sûr de vouloir supprimer les projets sélectionnés ? Cette action est irréversible.');">
-        <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedProjectsCount">0</span>)
-    </button>
+        <div style="margin-bottom: 1rem;">
+            <button type="submit" class="btn btn-danger" id="deleteProjectsBtn" style="display: none;"
+                    onclick="return confirm('Êtes-vous sûr de vouloir supprimer les projets sélectionnés ? Cette action est irréversible.');">
+                <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedProjectsCount">0</span>)
+            </button>
+        </div>
 
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th style="width: 40px;"><input type="checkbox" id="selectAllProjects" title="Tout sélectionner"></th>
-                    <th>Référence</th>
-                    <th>Nom</th>
-                    <th>Total estimé</th>
-                    <th class="text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in projects %}
-                <tr>
-                    <td><input type="checkbox" class="project-checkbox" name="project_ids" value="{{ p.id }}"></td>
-                    <td>
-                        <span style="font-weight: 600; color: var(--text-main);">{{ p.reference }}</span>
-                    </td>
-                    <td>{{ p.name }}</td>
-                    <td>
-                        <span class="badge" style="background: #e0f2fe; color: #0284c7;">{{ p.total_estimated }}
-                            €</span>
-                    </td>
-                    <td class="text-right">
-                        <a href="{% url 'technique_financial_project_detail' p.pk %}" class="btn btn-sm btn-ghost">
-                            Voir / éditer
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-</form>
-    </div>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="selectAllProjects" title="Tout sélectionner"></th>
+                        <th>Référence</th>
+                        <th>Nom</th>
+                        <th>Type</th>
+                        <th>Total estimé</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in projects %}
+                    <tr>
+                        <td><input type="checkbox" class="project-checkbox" name="project_ids" value="{{ p.id }}"></td>
+                        <td><span style="font-weight: 600; color: var(--text-main);">{{ p.reference }}</span></td>
+                        <td>{{ p.name }}</td>
+                        <td>
+                            <span class="badge" style="background:#f3f4f6; color:#374151;">
+                                {{ p.get_type_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge" style="background:#e0f2fe; color:#0284c7;">{{ p.total_estimated }} €</span>
+                        </td>
+                        <td class="text-right">
+                            <a href="{% url 'technique:technique_financial_project_detail' p.pk %}" class="btn btn-sm btn-ghost">
+                                Voir / éditer
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+
     {% else %}
     <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
         <i class="bi bi-folder-x" style="font-size: 2rem; display: block; margin-bottom: 1rem;"></i>
@@ -92,66 +143,37 @@
     </div>
     {% endif %}
 </div>
+{% if page_obj.paginator.num_pages > 1 %}
+    <div style="display:flex; justify-content:center; align-items:center; gap:.5rem; margin-top:1.5rem; flex-wrap:wrap;">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+               class="btn btn-secondary">
+                « Première
+            </a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+               class="btn btn-secondary">
+                Précédente
+            </a>
+        {% endif %}
 
-<script>
-// Gestion de la sélection multiple pour les projets
-document.addEventListener('DOMContentLoaded', function() {
-    const selectAllProjects = document.getElementById('selectAllProjects');
-    const deleteProjectsBtn = document.getElementById('deleteProjectsBtn');
-    const selectedProjectsCount = document.getElementById('selectedProjectsCount');
-    
-    if (selectAllProjects) {
-        selectAllProjects.addEventListener('change', function() {
-            document.querySelectorAll('.project-checkbox').forEach(cb => cb.checked = this.checked);
-            updateProjectsButton();
-        });
-        
-        document.querySelectorAll('.project-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', updateProjectsButton);
-        });
-    }
-    
-    function updateProjectsButton() {
-        const count = document.querySelectorAll('.project-checkbox:checked').length;
-        deleteProjectsBtn.style.display = count > 0 ? 'inline-block' : 'none';
-        selectedProjectsCount.textContent = count;
-        if (selectAllProjects) {
-            const total = document.querySelectorAll('.project-checkbox').length;
-            selectAllProjects.checked = total > 0 && count === total;
-        }
-    }
-});
-</script>
+        <span class="badge" style="background: var(--bg-secondary); color: var(--text-secondary);">
+            Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+        </span>
 
-<script>
-    document.getElementById("showCreateFormBtn").addEventListener("click", function () {
-        const form = document.getElementById("createProjectForm");
-        form.style.display = (form.style.display === "none") ? "block" : "none";
-    });
-</script>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+               class="btn btn-secondary">
+                Suivante
+            </a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+               class="btn btn-secondary">
+                Dernière »
+            </a>
+        {% endif %}
+    </div>
+    {% endif %}
+<script src="{% static 'technique/js/vue_financiere_list.js' %}"></script>
 
-<style>
-    /* Quick fix for form.as_p rendering */
-    #createProjectForm p {
-        margin-bottom: 0;
-    }
 
-    #createProjectForm input,
-    #createProjectForm select,
-    #createProjectForm textarea {
-        display: block;
-        width: 100%;
-        padding: 0.5rem;
-        font-size: 0.95rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        margin-top: 0.25rem;
-    }
 
-    #createProjectForm label {
-        font-weight: 500;
-        font-size: 0.9rem;
-        color: var(--text-main);
-    }
-</style>
 {% endblock %}

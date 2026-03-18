@@ -3,131 +3,264 @@
 {% block title %}Vue financière – {{ project.reference }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-between align-center mb-4"
-    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-    <div>
-        <h2>Vue financière – {{ project.name }}</h2>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
-            <span class="badge" style="background: var(--bg-secondary);">{{ project.reference }}</span>
-            <span style="color: var(--text-secondary); font-size: 0.9rem;">Synthèse des montants engagés, payés et
-                restants.</span>
-        </div>
+<link rel="stylesheet" href="{% static 'technique/css/style.css' %}">
+
+
+<div class="fin-header">
+  <div>
+    <h2 class="fin-header__title">Vue financière — {{ project.name }}</h2>
+    <div class="fin-header__meta">
+      <span class="badge">{{ project.reference }}</span>
+      <span class="badge" style="
+        {% if budget_status == 'ok' %}background:#dcfce7;color:#166534;
+        {% elif budget_status == 'warning' %}background:#fef3c7;color:#92400e;
+        {% else %}background:#fee2e2;color:#991b1b;{% endif %}">
+        {{ budget_label }} — {{ budget_ratio }}%
+      </span>
+      <span class="fin-header__sub">Synthèse des montants engagés, payés et restants.</span>
     </div>
-    <div style="display: flex; gap: 0.5rem;">
-        <a href="{% url 'technique_financial_overview' %}" class="btn btn-ghost">
-            <i class="bi bi-arrow-left"></i> Retour
-        </a>
-        <a href="{% url 'technique_financial_project_pdf' project.pk %}" class="btn btn-secondary">
-            <i class="bi bi-file-pdf"></i> Exporter PDF
-        </a>
+    <div class="fin-header__stat">
+      <div class="fin-header__stat-label">Reste à engager</div>
+      <div class="fin-header__stat-value">{{ reste_a_engager }} €</div>
     </div>
+  </div>
+  <div class="fin-header__actions">
+    <a href="{% url 'technique:technique_financial_overview' %}" class="btn btn-ghost">
+      <i class="bi bi-arrow-left"></i> Retour
+    </a>
+    <a href="{% url 'technique:technique_financial_project_pdf' project.pk %}" class="btn btn-secondary">
+      <i class="bi bi-file-pdf"></i> PDF
+    </a>
+    <a href="{% url 'technique:technique_financial_project_csv' project.pk %}" class="btn btn-secondary">
+      <i class="bi bi-filetype-csv"></i> CSV
+    </a>
+    <a href="{% url 'technique:technique_financial_project_excel' project.pk %}" class="btn btn-secondary">
+      <i class="bi bi-file-earmark-excel"></i> Excel
+    </a>
+  </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+<div class="fin-grid">
 
-    <!-- Left Column: Form & Data -->
+  <div class="fin-left">
+
     <section class="card">
-        <div class="card-title">Données financières</div>
-
-        <form method="post">
-            {% csrf_token %}
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-                {{ form.as_p }}
-            </div>
-            <div style="border-top: 1px solid var(--border-light); padding-top: 1rem; text-align: right;">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-lg"></i> Enregistrer les modifications
-                </button>
-            </div>
-        </form>
-
-        <div
-            style="background: #f8fafc; border-radius: var(--radius-md); padding: 1.5rem; margin-top: 2rem; border: 1px solid var(--border-light);">
-            <h3
-            style="font-size: 1rem; color: var(--text-secondary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px;"
-            >Synthèse</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                <div>
-                    <span style="display: block; font-size: 0.85rem; color: var(--text-secondary);">Frais engagés</span>
-                    <span style="display: block; font-size: 1.2rem; font-weight: 600; color: var(--text-main);"
-                    >{{ frais_engages }} €</span>
-                </div>
-                <div>
-                    <span style="display: block; font-size: 0.85rem; color: var(--text-secondary);"
-                    >Frais déjà payés</span>
-                    <span style="display: block; font-size: 1.2rem; font-weight: 600; color: #10b981;"
-                    >{{ frais_payes }} €</span>
-                </div>
-                <div>
-                    <span style="display: block; font-size: 0.85rem; color: var(--text-secondary);"
-                    >Restant à régler</span>
-                    <span style="display: block; font-size: 1.2rem; font-weight: 600; color: #f59e0b;"
-                    >{{ frais_restants }} €</span>
-                </div>
-                <div>
-                    <span style="display: block; font-size: 0.85rem; color: var(--text-secondary);">Total estimé</span>
-                    <span style="display: block; font-size: 1.2rem; font-weight: 600; color: var(--primary);"
-                    >{{ total_estime }} €</span>
-                </div>
-            </div>
+      <div class="card-title">Données financières</div>
+      <form method="post">
+        {% csrf_token %}
+        <div class="fin-data-grid">
+          {{ form.as_p }}
         </div>
+        <div style="border-top:1px solid var(--gray-200); padding-top:1rem; margin-top:1.25rem; display:flex; justify-content:flex-end;">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i> Enregistrer les modifications
+          </button>
+        </div>
+      </form>
+
+      <!-- KPI Synthèse -->
+      <div class="kpi-grid">
+        <div class="kpi">
+          <span class="kpi__label">Frais engagés</span>
+          <span class="kpi__value" style="color:var(--gray-800)">{{ frais_engages }} €</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Frais payés</span>
+          <span class="kpi__value" style="color:var(--green)">{{ frais_payes }} €</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Restant à régler</span>
+          <span class="kpi__value" style="color:var(--amber)">{{ frais_restants }} €</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Total estimé</span>
+          <span class="kpi__value" style="color:var(--blue)">{{ total_estime }} €</span>
+        </div>
+      </div>
     </section>
 
-    <!-- Right Column: Chart -->
+    <!-- Ajouter une dépense -->
     <section class="card">
-        <div class="card-title">Visualisation graphique</div>
-        <div class="chart-wrapper" style="position: relative; height: 300px; width: 100%;">
-            <canvas id="barChart"></canvas>
+      <div class="card-title">Ajouter une dépense</div>
+      <form method="post" action="{% url 'technique:technique_project_expense_create' project.pk %}">
+        {% csrf_token %}
+        <div class="expense-form-grid">
+
+          <div class="field-group">
+            <label for="id_label">Libellé</label>
+            {{ expense_form.label }}
+          </div>
+
+          <div class="field-group">
+            <label for="id_amount">Montant (€)</label>
+            {{ expense_form.amount }}
+          </div>
+
+          <div class="field-group">
+            <label>Payé</label>
+            <div class="checkbox-row">
+              {{ expense_form.is_paid }}
+              <label for="{{ expense_form.is_paid.id_for_label }}">Oui</label>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label for="id_due_date">Échéance</label>
+            {{ expense_form.due_date }}
+          </div>
+
+          <div class="field-group">
+            <label for="id_payment_date">Date de paiement</label>
+            {{ expense_form.payment_date }}
+          </div>
+
         </div>
-        <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary); text-align: center;">
-            Comparatif des montants pour le projet.
-        </p>
+        <div class="expense-form-footer">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Ajouter la dépense
+          </button>
+        </div>
+      </form>
     </section>
+
+    <!-- Liste des dépenses -->
+    <section class="card">
+      <div class="section-header">
+        <span class="section-header__title">Dépenses du projet</span>
+        <span class="badge">
+          {{ expenses|length }} dépense{% if expenses|length > 1 %}s{% endif %}
+        </span>
+      </div>
+
+      <!-- Filter -->
+      <form method="get" class="filter-grid">
+        <div class="field-group">
+          <label>Recherche</label>
+          <input type="text" name="expense_q" class="form-control" placeholder="Libellé…" value="{{ expense_q }}">
+        </div>
+        <div class="field-group">
+          <label>Statut</label>
+          <select name="expense_status" class="form-control">
+            <option value="">Tous</option>
+            <option value="paid"   {% if expense_status == "paid"   %}selected{% endif %}>Payées</option>
+            <option value="unpaid" {% if expense_status == "unpaid" %}selected{% endif %}>À payer</option>
+          </select>
+        </div>
+        <div class="filter-actions">
+          <button type="submit" class="btn btn-secondary">Filtrer</button>
+          <a href="{% url 'technique:technique_financial_project_detail' project.pk %}" class="btn btn-ghost">
+            Réinitialiser
+          </a>
+        </div>
+      </form>
+
+      {% if expenses %}
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Libellé</th>
+              <th>Montant</th>
+              <th>Statut</th>
+              <th>Échéance</th>
+              <th>Paiement</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for expense in expenses %}
+            <tr>
+              <td>{{ expense.label }}</td>
+              <td style="font-weight:600;">{{ expense.amount }} €</td>
+              <td>
+                {% if expense.is_paid %}
+                <span class="badge" style="background:#dcfce7;color:#166534;">Payée</span>
+                {% else %}
+                <span class="badge" style="background:#fef3c7;color:#92400e;">À payer</span>
+                {% endif %}
+              </td>
+              <td>{{ expense.due_date|date:"d/m/Y"|default:"—" }}</td>
+              <td>{{ expense.payment_date|date:"d/m/Y"|default:"—" }}</td>
+              <td>
+                <details>
+                  <summary>
+                    <span class="action-btn"><i class="bi bi-pencil"></i> Modifier</span>
+                  </summary>
+                  <form method="post" action="{% url 'technique:technique_project_expense_update' expense.pk %}">
+                    {% csrf_token %}
+                    <div class="inline-edit-grid">
+                      <div class="field-group">
+                        <label>Libellé</label>
+                        <input type="text" name="label" value="{{ expense.label }}" class="form-control">
+                      </div>
+                      <div class="field-group">
+                        <label>Montant (€)</label>
+                        <input type="number" step="0.01" name="amount" value="{{ expense.amount }}" class="form-control">
+                      </div>
+                      <div class="field-group">
+                        <label>Payé</label>
+                        <div class="checkbox-row">
+                          <input type="checkbox" name="is_paid" {% if expense.is_paid %}checked{% endif %} id="is_paid_{{ expense.pk }}">
+                          <label for="is_paid_{{ expense.pk }}">Oui</label>
+                        </div>
+                      </div>
+                      <div class="field-group">
+                        <label>Échéance</label>
+                        <input type="date" name="due_date" value="{{ expense.due_date|date:'Y-m-d' }}" class="form-control">
+                      </div>
+                      <div class="field-group">
+                        <label>Date de paiement</label>
+                        <input type="date" name="payment_date" value="{{ expense.payment_date|date:'Y-m-d' }}" class="form-control">
+                      </div>
+                    </div>
+                    <div class="inline-edit-actions">
+                      <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg"></i> Enregistrer
+                      </button>
+                    </div>
+                  </form>
+                  <div class="inline-edit-actions" style="padding-top:0;">
+                    <form method="post" action="{% url 'technique:technique_project_expense_delete' expense.pk %}"
+                          onsubmit="return confirm('Supprimer cette dépense ?');">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-trash"></i> Supprimer
+                      </button>
+                    </form>
+                  </div>
+                </details>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">Aucune dépense enregistrée pour ce projet.</div>
+      {% endif %}
+    </section>
+
+  </div>
+
+  <div class="fin-right">
+
+    <section class="card">
+      <div class="card-title">Visualisation graphique</div>
+      <div style="position:relative; height:280px; width:100%;">
+        <canvas id="barChart"></canvas>
+      </div>
+      <p style="margin-top:.75rem; font-size:.8rem; color:var(--gray-400); text-align:center;">
+        Comparatif des montants pour le projet.
+      </p>
+    </section>
+
+  </div>
+
 </div>
 
-<style>
-    /* Styling for form elements generated by as_p */
-    form p {
-        margin-bottom: 0;
-    }
 
-    form p label {
-        display: block;
-        margin-bottom: 0.4rem;
-        font-weight: 500;
-        font-size: 0.9rem;
-        color: var(--text-main);
-    }
-
-    form p input,
-    form p select,
-    form p textarea {
-        display: block;
-        width: 100%;
-        padding: 0.6rem;
-        font-size: 0.95rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        background-color: white;
-        transition: border-color 0.2s;
-    }
-
-    form p input:focus,
-    form p select:focus {
-        border-color: var(--primary);
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-    }
-</style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{% static 'technique/js/vue_financiere.js' %}"></script>
-<script>
-    initFinanceCharts({
-        fraisEngages: {{ frais_engages| unlocalize }},
-        fraisPayes: {{ frais_payes| unlocalize }},
-        fraisRestants: {{ frais_restants| unlocalize }},
-        totalEstime: {{ total_estime| unlocalize }}
-    });
-</script>
+
 {% endblock %}

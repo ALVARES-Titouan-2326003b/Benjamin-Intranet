@@ -36,8 +36,8 @@ urlpatterns = [
     path('parametres/', include('user_preferences.urls')),
     path('finance/', include('invoices.urls')),
     path('auth/', include('authentication.urls')),
-    path('gestion-des-candidatures/', include('recrutement.urls')),
-    path('pole-technique/documents/', include('technique.urls')),
+    path('gestion-des-candidatures/ ', include('recrutement.urls')),
+    path('pole-technique/', include('technique.urls')),
 
     path('signatures/', include('signatures.urls')),
     # Module financier partie technique

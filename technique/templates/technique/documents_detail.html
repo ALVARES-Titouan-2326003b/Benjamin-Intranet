@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
+{% load static %}
+
+<link rel="stylesheet" href="{% static 'technique/css/style.css' %}">
+
 <div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
   <div>
     <a href="{% url 'technique:documents_list' %}"
@@ -111,20 +115,7 @@
   </div>
 
 </div>
-<script data-clauses="{{ document.clauses_importantes }}">
-    const htmlElement = document.getElementById("resume");
-    if (htmlElement) {
-        let resume = htmlElement.innerHTML;
-        const clauses = document.currentScript.dataset.clauses ?? "[]";
-        JSON.parse(clauses === "" ? "[]" : clauses).forEach(clause => {
-            resume = resume.replaceAll(clause, `<mark class="highlight">${clause}</mark>`)
-        })
-        htmlElement.innerHTML = resume;
-    }
-</script>
-<style>
-    .highlight {
-        background-color: yellow;
-    }
-</style>
+{{ document.clauses_importantes|json_script:"clauses-data" }}
+
+<script src="{% static 'technique/js/documents_list.js' %}"></script>
 {% endblock %}

@@ -1,0 +1,326 @@
+/* =============================================================
+   style.css — Styles extraits des balises <style> des templates
+   Benjamin Immobilier — Pôle Technique
+   ============================================================= */
+
+
+/* ── Variables globales ──────────────────────────────────────── */
+:root {
+  --blue:        #2563eb;
+  --blue-light:  #eff6ff;
+  --blue-dark:   #1d4ed8;
+  --green:       #10b981;
+  --amber:       #f59e0b;
+  --red:         #ef4444;
+  --gray-50:     #f8fafc;
+  --gray-100:    #f1f5f9;
+  --gray-200:    #e2e8f0;
+  --gray-400:    #94a3b8;
+  --gray-600:    #475569;
+  --gray-800:    #1e293b;
+  --radius:      10px;
+  --shadow-sm:   0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
+  --shadow:      0 4px 12px rgba(0,0,0,.08);
+  --transition:  0.18s ease;
+}
+
+* { box-sizing: border-box; }
+
+
+/* =============================================================
+   VUE FINANCIÈRE — vue_financiere.html
+   ============================================================= */
+
+/* ── Page header ── */
+.fin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+.fin-header__title  { font-size: 1.4rem; font-weight: 700; color: var(--gray-800); margin: 0 0 .5rem; }
+.fin-header__meta   { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .5rem; }
+.fin-header__sub    { font-size: .85rem; color: var(--gray-400); }
+.fin-header__stat   { margin-top: .4rem; }
+.fin-header__stat-label { font-size: .8rem; color: var(--gray-400); }
+.fin-header__stat-value { font-size: 1.25rem; font-weight: 700; color: var(--red); }
+.fin-header__actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: flex-start; }
+
+/* ── Two-column layout ── */
+.fin-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
+  align-items: start;
+}
+.fin-left  { display: flex; flex-direction: column; gap: 1.5rem; }
+.fin-right { display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* ── Synthèse KPI grid ── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 1.25rem;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+.kpi            { display: flex; flex-direction: column; gap: .25rem; }
+.kpi__label     { font-size: .78rem; color: var(--gray-400); font-weight: 500; }
+.kpi__value     { font-size: 1.25rem; font-weight: 700; }
+
+/* ── Form fields ── */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+.field-group label {
+  font-size: .83rem;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+.field-group input:not([type="checkbox"]),
+.field-group select,
+.field-group textarea {
+  width: 100%;
+  height: 40px;
+  padding: 0 .75rem;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 8px;
+  background: #fff;
+  font-size: .9rem;
+  color: var(--gray-800);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  appearance: none;
+}
+.field-group input:focus:not([type="checkbox"]),
+.field-group select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+.field-group input[type="checkbox"] {
+  width: 18px; height: 18px;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  height: 40px;
+}
+.checkbox-row label {
+  font-size: .9rem;
+  font-weight: 500;
+  color: var(--gray-800);
+  cursor: pointer;
+  margin: 0;
+}
+
+/* ── Expense form layout ── */
+.expense-form-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1fr 1.3fr 1.3fr;
+  gap: 1rem;
+  align-items: end;
+}
+.expense-form-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.expense-form-grid input,
+.expense-form-grid select {
+  width: 100%; height: 40px; padding: 0 .75rem;
+  border: 1.5px solid var(--gray-200); border-radius: 8px;
+  background: #fff; font-size: .9rem; color: var(--gray-800);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  appearance: none;
+}
+.expense-form-grid input:focus,
+.expense-form-grid select:focus {
+  outline: none; border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+.expense-form-grid input[type="checkbox"] {
+  width: 18px; height: 18px; accent-color: var(--blue); cursor: pointer;
+}
+
+/* ── Filter bar ── */
+.filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 180px auto;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1.25rem;
+}
+.filter-actions { display: flex; gap: .5rem; align-items: flex-end; }
+
+/* ── Section header ── */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1.25rem;
+}
+.section-header__title {
+  font-size: .7rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--gray-400);
+}
+
+/* ── Inline edit ── */
+details summary             { list-style: none; cursor: pointer; }
+details summary::-webkit-details-marker { display: none; }
+
+.action-btn {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .3rem .7rem; border-radius: 6px;
+  font-size: .78rem; font-weight: 500;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50); color: var(--gray-600);
+  cursor: pointer; text-decoration: none;
+  transition: background var(--transition);
+}
+.action-btn:hover { background: var(--gray-100); }
+
+.inline-edit-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 80px 1fr 1fr;
+  gap: .6rem;
+  align-items: end;
+  margin-top: .75rem;
+  padding: .85rem;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+}
+.inline-edit-actions {
+  display: flex; gap: .5rem;
+  margin-top: .6rem;
+  padding: 0 .85rem .85rem;
+}
+
+/* ── Data forms (Données financières) ── */
+.fin-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.fin-data-grid p { margin: 0; display: flex; flex-direction: column; gap: .35rem; }
+.fin-data-grid p label { font-size: .83rem; font-weight: 600; color: var(--gray-600); }
+.fin-data-grid p input,
+.fin-data-grid p select,
+.fin-data-grid p textarea {
+  width: 100%; height: 40px; padding: 0 .75rem;
+  border: 1.5px solid var(--gray-200); border-radius: 8px;
+  background: #fff; font-size: .9rem; color: var(--gray-800);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  appearance: none;
+}
+.fin-data-grid p input:focus,
+.fin-data-grid p select:focus {
+  outline: none; border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+
+/* ── Empty state ── */
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--gray-400);
+  font-size: .9rem;
+}
+
+
+/* =============================================================
+   DOCUMENTS UPLOAD — documents_upload.html
+   ============================================================= */
+
+form p {
+  margin-bottom: 1rem;
+}
+form p label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+form p input,
+form p select,
+form p textarea {
+  display: block;
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 0.95rem;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  background-color: white;
+}
+form p input[type="file"] {
+  padding: 0.4rem;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+}
+
+
+/* =============================================================
+   VUE FINANCIÈRE LIST — vue_financiere_list.html
+   ============================================================= */
+
+#createProjectForm p {
+  margin-bottom: 0;
+}
+#createProjectForm input,
+#createProjectForm select,
+#createProjectForm textarea {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 0.95rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-top: 0.25rem;
+}
+#createProjectForm label {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+
+/* =============================================================
+   DOCUMENTS DETAIL — documents_detail.html
+   ============================================================= */
+
+.highlight {
+  background-color: yellow;
+}
+
+
+/* =============================================================
+   RESPONSIVE — vue_financiere.html
+   ============================================================= */
+
+@media (max-width: 1100px) {
+  .fin-grid              { grid-template-columns: 1fr; }
+  .fin-right             { flex-direction: row; flex-wrap: wrap; }
+  .fin-right > *         { flex: 1 1 280px; }
+  .expense-form-grid     { grid-template-columns: 1fr 1fr; }
+  .kpi-grid              { grid-template-columns: 1fr 1fr; }
+  .inline-edit-grid      { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 640px) {
+  .expense-form-grid { grid-template-columns: 1fr; }
+  .filter-grid       { grid-template-columns: 1fr; }
+  .fin-header        { flex-direction: column; }
+  .kpi-grid          { grid-template-columns: 1fr 1fr; }
+}

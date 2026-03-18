@@ -5,7 +5,6 @@ Cette version affiche EXACTEMENT où chaque email est bloqué
 import os
 from celery import shared_task
 from django.utils import timezone
-from django.contrib.auth.models import User
 from .models import DefaultModeleRelance, DefaultTempsRelance, ModeleRelance, TempsRelance, EmailClient, Activite, OAuthToken
 from .email_manager import send_auto_relance
 from datetime import datetime, timedelta
@@ -154,6 +153,8 @@ def check_and_send_auto_relances():
                             blocked_at['message_empty'] += 1
                             continue
 
+                        objet_original = email_data.get('subject', '(Sans objet)')
+                        objet_relance = f"Relance - {objet_original}"
 
 
                         result = send_auto_relance(
