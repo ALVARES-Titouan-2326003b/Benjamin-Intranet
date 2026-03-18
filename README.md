@@ -221,7 +221,6 @@ SECRET_KEY_FALLBACKS=
 Dans un terminal, à la racine du projet :
 
 ```bash
-python manage.py makemigrations
 python manage.py migrate
 ```
 

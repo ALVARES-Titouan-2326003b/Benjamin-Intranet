@@ -1,10 +1,11 @@
 import json, csv
+from django.views.decorators.http import require_http_methods
 from reportlab.lib import colors
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
@@ -678,13 +679,20 @@ def financial_project_excel(request, pk):
     wb.save(response)
     return response
 
+
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def email_list(request):
     """
-    Affiche la liste des emails techniques avec filtres.
+    Affiche uniquement les emails importés par l'utilisateur connecté.
+    Chaque utilisateur a sa propre boîte — les mails sont strictement personnels.
     """
-    emails = TechnicalEmail.objects.select_related("project").all()
+    # ── Filtre par utilisateur connecté ──────────────────────────────────────
+    emails = TechnicalEmail.objects.select_related(
+        "project", "imported_by"
+    ).filter(
+        imported_by=request.user  # ← chaque utilisateur ne voit QUE ses mails
+    )
 
     q = (request.GET.get("q") or "").strip()
     status = (request.GET.get("status") or "").strip()
@@ -730,6 +738,223 @@ def email_list(request):
         },
     )
 
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def email_detail(request, pk):
+    email = get_object_or_404(
+        TechnicalEmail.objects.select_related("project").prefetch_related("attachments"),
+        pk=pk,
+    )
+    return render(request, "technique/email_detail.html", {"email": email})
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def mail_assign_project(request, pk):
+    email = get_object_or_404(TechnicalEmail, pk=pk)
+
+    if request.method == "POST":
+        project_id = request.POST.get("project_id")
+        if project_id:
+            email.project_id = project_id
+            email.status = "classified"
+            email.save(update_fields=["project", "status"])
+            messages.success(request, "Email rattaché au projet avec succès.")
+
+    return redirect("technique:mail_detail", pk=email.pk)
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+@require_http_methods(["POST"])
+def email_import_gmail(request):
+    """
+    Déclenche l'import des emails Gmail vers TechnicalEmail.
+
+    URL  : POST /technique/email/import/
+    Auth : utilisateur du groupe POLE_TECHNIQUE
+
+    Returns:
+        JsonResponse : {
+            'success': bool,
+            'imported': int,
+            'skipped':  int,
+            'errors':   int,
+            'message':  str   # résumé lisible
+        }
+    """
+    from technique.services.gmail_import import import_technique_emails
+
+    try:
+        stats = import_technique_emails(user=request.user, max_results=50)
+
+        message = (
+            f"{stats['imported']} email(s) importé(s), "
+            f"{stats['skipped']} déjà présent(s), "
+            f"{stats['errors']} erreur(s)."
+        )
+
+        return JsonResponse({
+            "success": True,
+            "imported": stats["imported"],
+            "skipped": stats["skipped"],
+            "errors": stats["errors"],
+            "message": message,
+        })
+
+    except ValueError as exc:
+        # Pas de token OAuth
+        return JsonResponse({"success": False, "message": str(exc)}, status=400)
+
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse(
+            {"success": False, "message": f"Erreur serveur : {str(exc)}"},
+            status=500,
+        )
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def email_detail(request, pk):
+    """
+    Affiche le détail d'un email technique avec :
+    - headers (expéditeur, destinataires, cc, date)
+    - corps du message
+    - pièces jointes téléchargeables
+    - formulaire de rattachement à un projet
+    - documents techniques liés (via les pièces jointes)
+    """
+    email = get_object_or_404(
+        TechnicalEmail.objects.select_related("project", "imported_by")
+        .prefetch_related("attachments__linked_document"),
+        pk=pk,
+    )
+
+    return render(
+        request,
+        "technique/email_detail.html",
+        {
+            "email": email,
+            # Liste des projets pour le sélecteur de rattachement
+            "projects": TechnicalProject.objects.order_by("reference"),
+        },
+    )
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+@require_http_methods(["POST"])
+def email_ai_classify(request, pk):
+    """
+    Lance la classification IA pour un email specifique.
+
+    URL    : POST /technique/email/<pk>/classify/
+    Return : JsonResponse {
+        success, project_id, project_label, confidence, reason, saved, status
+    }
+    """
+    from technique.services.ai_classify import classify_and_save
+
+    email = get_object_or_404(TechnicalEmail, pk=pk)
+    projects = TechnicalProject.objects.order_by("reference")
+
+    # sleep=0 : pas de pause pour un email individuel (l'utilisateur attend la reponse)
+    result = classify_and_save(email, projects, sleep=0)
+
+    project_label = None
+    if result.get("project_id"):
+        try:
+            p = TechnicalProject.objects.get(pk=result["project_id"])
+            project_label = f"{p.reference} – {p.name}"
+        except TechnicalProject.DoesNotExist:
+            pass
+
+    return JsonResponse({
+        "success": result["success"],
+        "project_id": result.get("project_id"),
+        "project_label": project_label,
+        "confidence": result.get("confidence"),
+        "reason": result.get("reason"),
+        "saved": result.get("saved", False),
+        "status": email.status,
+        "error": result.get("error"),
+    })
+
+
+# ── Vue 2 : Classement IA en masse ───────────────────────────────────────────
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+@require_http_methods(["POST"])
+def email_ai_classify_bulk(request):
+    """
+    Lance la classification IA sur tous les emails au statut 'unassigned'.
+    Une pause de BULK_SLEEP secondes est inseree entre chaque appel Groq
+    pour eviter le rate limit 429.
+
+    URL    : POST /technique/email/classify-bulk/
+    Return : JsonResponse {
+        success, classified, pending, skipped, errors, total, message
+    }
+    """
+    from technique.services.ai_classify import classify_and_save, BULK_SLEEP
+
+    emails = TechnicalEmail.objects.filter(status="unassigned").order_by("-received_at")
+    projects = list(TechnicalProject.objects.order_by("reference"))
+
+    stats = {"classified": 0, "pending": 0, "skipped": 0, "errors": 0}
+    total = emails.count()
+
+    print(f"[bulk_classify] Debut classement de {total} email(s) non classes (pause={BULK_SLEEP}s entre chaque)")
+
+    for i, email in enumerate(emails, 1):
+        try:
+            # La pause BULK_SLEEP est inseree APRES chaque appel Groq, sauf le dernier
+            sleep = BULK_SLEEP if i < total else 0
+            result = classify_and_save(email, projects, sleep=sleep)
+
+            if not result["success"]:
+                stats["errors"] += 1
+            elif result["saved"]:
+                # email.status a ete mis a jour en base par classify_and_save, on le relit
+                email.refresh_from_db(fields=["status"])
+                if email.status == "classified":
+                    stats["classified"] += 1
+                else:
+                    stats["pending"] += 1
+            else:
+                stats["skipped"] += 1
+
+        except Exception as exc:
+            print(f"[bulk_classify] Erreur email {email.pk} : {exc}")
+            stats["errors"] += 1
+
+    processed = stats["classified"] + stats["pending"] + stats["skipped"] + stats["errors"]
+
+    print(
+        f"[bulk_classify] Termine : "
+        f"{stats['classified']} classes, {stats['pending']} a valider, "
+        f"{stats['skipped']} non attribues, {stats['errors']} erreurs"
+    )
+
+    return JsonResponse({
+        "success": True,
+        "classified": stats["classified"],
+        "pending": stats["pending"],
+        "skipped": stats["skipped"],
+        "errors": stats["errors"],
+        "total": processed,
+        "message": (
+            f"{stats['classified']} classé(s) automatiquement, "
+            f"{stats['pending']} à valider, "
+            f"{stats['skipped']} non attribué(s), "
+            f"{stats['errors']} erreur(s) "
+            f"— sur {processed} email(s) traité(s)."
+        ),
+    })
 # ================== Suppression en masse ==================
 
 @login_required

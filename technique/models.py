@@ -35,29 +35,19 @@ class DocumentTechnique(models.Model):
     projet = models.CharField("Projet", max_length=255, blank=True)
     titre = models.CharField("Titre du document", max_length=255)
     type_document = models.CharField(
-        "Type de document",
-        max_length=50,
-        choices=TYPE_CHOICES,
-        default="autre",
+        "Type de document", max_length=50, choices=TYPE_CHOICES, default="autre",
     )
     fichier = models.FileField("Fichier", upload_to="documents_tech/")
-
     texte_brut = models.TextField("Texte extrait", blank=True)
     resume = models.TextField("Résumé global", blank=True)
-
     prix = models.TextField("Prix / montants", blank=True)
     dates = models.TextField("Dates clés", blank=True)
     conditions_suspensives = models.TextField("Conditions suspensives", blank=True)
     penalites = models.TextField("Pénalités", blank=True)
     delais = models.TextField("Délais", blank=True)
     clauses_importantes = models.TextField("Clauses importantes", blank=True)
-
     created_by = models.ForeignKey(
-        User,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        verbose_name="Créé par",
+        User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="Créé par",
     )
     created_at = models.DateTimeField("Créé le", auto_now_add=True)
 
@@ -89,28 +79,9 @@ class TechnicalProject(models.Model):
     reference = models.CharField("Référence projet", max_length=50, unique=True, db_column="reference")
     name = models.CharField("Nom du projet", max_length=255, db_column="nom")
     type = models.TextField(choices=DOSSIER_TYPES, default="client")
-
-    engaged_amount = models.DecimalField(
-        "Frais engagés",
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-        db_column="frais_eng",
-    )
-    paid_amount = models.DecimalField(
-        "Frais déjà payés",
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-        db_column="frais_payes",
-    )
-    total_estimated = models.DecimalField(
-        "Total estimé du projet",
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-        db_column="total_estim",
-    )
+    engaged_amount = models.DecimalField("Frais engagés", max_digits=12, decimal_places=2, default=0, db_column="frais_eng")
+    paid_amount = models.DecimalField("Frais déjà payés", max_digits=12, decimal_places=2, default=0, db_column="frais_payes")
+    total_estimated = models.DecimalField("Total estimé du projet", max_digits=12, decimal_places=2, default=0, db_column="total_estim")
 
     class Meta:
         db_table = "dossier"
@@ -120,12 +91,10 @@ class TechnicalProject(models.Model):
 
     def refresh_amounts_from_expenses(self, save=True):
         expenses = self.expenses.all()
-        engaged = sum((expense.amount for expense in expenses), Decimal("0.00"))
-        paid = sum((expense.amount for expense in expenses if expense.is_paid), Decimal("0.00"))
-
+        engaged = sum((e.amount for e in expenses), Decimal("0.00"))
+        paid = sum((e.amount for e in expenses if e.is_paid), Decimal("0.00"))
         self.engaged_amount = engaged
         self.paid_amount = paid
-
         if save:
             self.save(update_fields=["engaged_amount", "paid_amount"])
 
@@ -147,12 +116,7 @@ class TechnicalProject(models.Model):
 
 
 class ProjectExpense(models.Model):
-    project = models.ForeignKey(
-        TechnicalProject,
-        related_name="expenses",
-        on_delete=models.CASCADE,
-        verbose_name="Projet",
-    )
+    project = models.ForeignKey(TechnicalProject, related_name="expenses", on_delete=models.CASCADE, verbose_name="Projet")
     label = models.CharField("Libellé", max_length=255)
     amount = models.DecimalField("Montant", max_digits=12, decimal_places=2)
     is_paid = models.BooleanField("Déjà payé", default=False)
@@ -187,35 +151,62 @@ class TechnicalEmail(models.Model):
     subject = models.CharField("Objet", max_length=255)
     sender = models.CharField("Expéditeur", max_length=255)
     recipients = models.TextField("Destinataires", blank=True)
+    cc = models.TextField("Copie", blank=True)
     body = models.TextField("Contenu", blank=True)
-
     received_at = models.DateTimeField("Reçu le")
-    has_attachments = models.BooleanField("Pièces jointes", default=False)
 
-    project = models.ForeignKey(
-        TechnicalProject,
-        null=True,
+    external_id = models.CharField(
+        "Identifiant externe",
+        max_length=255,
         blank=True,
-        on_delete=models.SET_NULL,
-        related_name="emails",
-        verbose_name="Projet associé",
+        null=True,
     )
 
+    has_attachments = models.BooleanField("Pièces jointes", default=False)
+    project = models.ForeignKey(
+        TechnicalProject, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="emails", verbose_name="Projet associé",
+    )
     status = models.CharField(
-        "Statut de classement",
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default="unassigned",
+        "Statut de classement", max_length=20, choices=STATUS_CHOICES, default="unassigned",
     )
-
-    external_id = models.CharField("Identifiant externe", max_length=255, blank=True, unique=True, null=True)
+    imported_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="imported_technical_emails", verbose_name="Importé par",
+    )
     created_at = models.DateTimeField("Créé le", auto_now_add=True)
 
     class Meta:
         db_table = "technical_email"
         ordering = ["-received_at", "-id"]
-        verbose_name = "Email technique"
-        verbose_name_plural = "Emails techniques"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["external_id", "imported_by"],
+                name="unique_email_per_user",
+                condition=models.Q(external_id__isnull=False),
+            )
+        ]
 
     def __str__(self):
         return self.subject
+
+
+class TechnicalEmailAttachment(models.Model):
+    email = models.ForeignKey(TechnicalEmail, related_name="attachments", on_delete=models.CASCADE, verbose_name="Email")
+    file = models.FileField("Fichier", upload_to="documents_tech/emails/")
+    original_name = models.CharField("Nom d'origine", max_length=255)
+    content_type = models.CharField("Type MIME", max_length=150, blank=True)
+    size = models.PositiveIntegerField("Taille", default=0)
+    extracted_text = models.TextField("Texte extrait", blank=True)
+    linked_document = models.ForeignKey(
+        "DocumentTechnique", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="source_attachments", verbose_name="Document technique lié",
+    )
+    created_at = models.DateTimeField("Créé le", auto_now_add=True)
+
+    class Meta:
+        db_table = "technical_email_attachment"
+        ordering = ["id"]
+
+    def __str__(self):
+        return self.original_name

@@ -3,74 +3,78 @@
 
 {% block content %}
 
-<div class="d-flex justify-between align-center mb-4"
-  style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+<div style="display:flex; justify-content:space-between; align-items:center;
+            margin-bottom:1.5rem; flex-wrap:wrap; gap:0.75rem;">
   <div>
     <h2>Emails techniques</h2>
-    <p style="margin:0.35rem 0 0; color: var(--text-secondary);">
+    <p style="margin:0.35rem 0 0; color:var(--text-secondary);">
       Centralisez les échanges reçus et rattachez-les aux projets techniques.
     </p>
   </div>
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <button id="importBtn" class="btn btn-secondary" onclick="importGmail()">
+      <i class="bi bi-cloud-download"></i> Importer Gmail
+    </button>
+    <button id="classifyBulkBtn" class="btn btn-primary" onclick="classifyBulk()">
+      <i class="bi bi-stars"></i> Classer par IA
+    </button>
+  </div>
 </div>
 
-<div class="card" style="margin-bottom: 1.5rem;">
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-title">
+    <i class="bi bi-envelope-check"></i> Synchronisation boîte mail
+  </div>
+  <div id="oauth-status-technique">
+    <div style="text-align:center; padding:1rem; color:var(--text-secondary);">
+      <i class="bi bi-hourglass-split"></i> Chargement du statut...
+    </div>
+  </div>
+</div>
+
+<div id="actionResult" style="display:none; margin-bottom:1rem;"></div>
+
+<div class="card" style="margin-bottom:1.5rem;">
   <div class="card-title">Filtres</div>
-
   <form method="get"
-        style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 1rem; align-items:end;">
-
+        style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr auto; gap:1rem; align-items:end;">
     <div>
       <label for="q" style="display:block; margin-bottom:0.35rem;">Recherche</label>
-      <input
-        type="text"
-        id="q"
-        name="q"
-        value="{{ q }}"
-        placeholder="Objet, expéditeur, projet..."
-        class="form-control"
-      >
+      <input type="text" id="q" name="q" value="{{ q }}"
+             placeholder="Objet, expéditeur, projet…" class="form-control">
     </div>
-
     <div>
-      <label for="status" style="display:block; margin-bottom:0.35rem;">Statut</label>
-      <select id="status" name="status" class="form-control">
+      <label for="status_filter" style="display:block; margin-bottom:0.35rem;">Statut</label>
+      <select id="status_filter" name="status" class="form-control">
         <option value="">Tous</option>
         {% for value, label in status_choices %}
-          <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>
-            {{ label }}
-          </option>
+          <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
     </div>
-
     <div>
       <label for="project" style="display:block; margin-bottom:0.35rem;">Projet</label>
       <select id="project" name="project" class="form-control">
         <option value="">Tous</option>
         {% for project in projects %}
-          <option value="{{ project.id }}" {% if selected_project == project.id|stringformat:"s" %}selected{% endif %}>
+          <option value="{{ project.id }}"
+                  {% if selected_project == project.id|stringformat:"s" %}selected{% endif %}>
             {{ project.reference }} - {{ project.name }}
           </option>
         {% endfor %}
       </select>
     </div>
-
     <div>
       <label for="has_attachments" style="display:block; margin-bottom:0.35rem;">Pièces jointes</label>
       <select id="has_attachments" name="has_attachments" class="form-control">
         <option value="">Toutes</option>
         <option value="yes" {% if selected_has_attachments == "yes" %}selected{% endif %}>Avec PJ</option>
-        <option value="no" {% if selected_has_attachments == "no" %}selected{% endif %}>Sans PJ</option>
+        <option value="no"  {% if selected_has_attachments == "no"  %}selected{% endif %}>Sans PJ</option>
       </select>
     </div>
-
     <div style="display:flex; gap:0.5rem;">
-      <button type="submit" class="btn btn-primary">
-        <i class="bi bi-search"></i> Filtrer
-      </button>
-      <a href="{% url 'technique:email_list' %}" class="btn btn-secondary">
-        Réinitialiser
-      </a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Filtrer</button>
+      <a href="{% url 'technique:email_list' %}" class="btn btn-secondary">Réinitialiser</a>
     </div>
   </form>
 </div>
@@ -78,100 +82,244 @@
 <div class="card">
   <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
     <span>Liste des emails</span>
-    <span class="badge" style="background: var(--bg-secondary); color: var(--text-secondary);">
+    <span class="badge" style="background:var(--bg-secondary); color:var(--text-secondary);">
       {{ page_obj.paginator.count }} email{% if page_obj.paginator.count > 1 %}s{% endif %}
     </span>
   </div>
 
   {% if emails %}
-    <div style="overflow-x:auto;">
-      <table style="width:100%; border-collapse: collapse;">
-        <thead>
-          <tr style="border-bottom: 1px solid var(--border-color); text-align:left;">
-            <th style="padding: 0.85rem;">Objet</th>
-            <th style="padding: 0.85rem;">Expéditeur</th>
-            <th style="padding: 0.85rem;">Projet</th>
-            <th style="padding: 0.85rem;">Statut</th>
-            <th style="padding: 0.85rem;">PJ</th>
-            <th style="padding: 0.85rem;">Réception</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for email in emails %}
-            <tr style="border-bottom: 1px solid var(--border-color);">
-              <td style="padding: 0.85rem;">
-                <div style="font-weight:600;">{{ email.subject }}</div>
-                {% if email.body %}
-                  <div style="font-size:0.9rem; color:var(--text-secondary); margin-top:0.2rem;">
-                    {{ email.body|truncatechars:120 }}
-                  </div>
-                {% endif %}
-              </td>
-
-              <td style="padding: 0.85rem;">{{ email.sender }}</td>
-
-              <td style="padding: 0.85rem;">
-                {% if email.project %}
-                  <span>{{ email.project.reference }} - {{ email.project.name }}</span>
-                {% else %}
-                  <span style="color:var(--text-secondary);">Non associé</span>
-                {% endif %}
-              </td>
-
-              <td style="padding: 0.85rem;">
-                {% if email.status == "classified" %}
-                  <span class="badge" style="background: rgba(34,197,94,.12); color: #22c55e;">Classé</span>
-                {% elif email.status == "pending" %}
-                  <span class="badge" style="background: rgba(245,158,11,.12); color: #f59e0b;">À valider</span>
-                {% else %}
-                  <span class="badge" style="background: rgba(239,68,68,.12); color: #ef4444;">Non classé</span>
-                {% endif %}
-              </td>
-
-              <td style="padding: 0.85rem;">
-                {% if email.has_attachments %}
-                  <i class="bi bi-paperclip"></i> Oui
-                {% else %}
-                  <span style="color:var(--text-secondary);">Non</span>
-                {% endif %}
-              </td>
-
-              <td style="padding: 0.85rem;">
-                {{ email.received_at|date:"d/m/Y H:i" }}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    {% if page_obj.has_other_pages %}
-      <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.25rem;">
-        {% if page_obj.has_previous %}
-          <a class="btn btn-secondary"
-             href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ selected_status }}&project={{ selected_project }}&has_attachments={{ selected_has_attachments }}">
-            Précédent
-          </a>
-        {% endif %}
-
-        <span class="btn btn-secondary" style="pointer-events:none;">
-          Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
-        </span>
-
-        {% if page_obj.has_next %}
-          <a class="btn btn-secondary"
-             href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ selected_status }}&project={{ selected_project }}&has_attachments={{ selected_has_attachments }}">
-            Suivant
-          </a>
-        {% endif %}
-      </div>
+  <div style="overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border-color); text-align:left;">
+          <th style="padding:0.85rem;">Objet</th>
+          <th style="padding:0.85rem;">Expéditeur</th>
+          <th style="padding:0.85rem;">Projet</th>
+          <th style="padding:0.85rem;">Statut</th>
+          <th style="padding:0.85rem;">PJ</th>
+          <th style="padding:0.85rem;">Réception</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for email in emails %}
+        <tr style="border-bottom:1px solid var(--border-color);">
+          <td style="padding:0.85rem;">
+            <div style="font-weight:600;">
+              <a href="{% url 'technique:mail_detail' email.pk %}">{{ email.subject }}</a>
+            </div>
+            {% if email.body %}
+            <div style="font-size:0.9rem; color:var(--text-secondary); margin-top:0.2rem;">
+              {{ email.body|truncatechars:120 }}
+            </div>
+            {% endif %}
+          </td>
+          <td style="padding:0.85rem;">{{ email.sender }}</td>
+          <td style="padding:0.85rem;">
+            {% if email.project %}
+              <span>{{ email.project.reference }} - {{ email.project.name }}</span>
+            {% else %}
+              <span style="color:var(--text-secondary);">Non associé</span>
+            {% endif %}
+          </td>
+          <td style="padding:0.85rem;">
+            {% if email.status == "classified" %}
+              <span class="badge" style="background:rgba(34,197,94,.12); color:#22c55e;">Classé</span>
+            {% elif email.status == "pending" %}
+              <span class="badge" style="background:rgba(245,158,11,.12); color:#f59e0b;">À valider</span>
+            {% else %}
+              <span class="badge" style="background:rgba(239,68,68,.12); color:#ef4444;">Non classé</span>
+            {% endif %}
+          </td>
+          <td style="padding:0.85rem;">
+            {% if email.has_attachments %}<i class="bi bi-paperclip"></i> Oui
+            {% else %}<span style="color:var(--text-secondary);">Non</span>{% endif %}
+          </td>
+          <td style="padding:0.85rem;">{{ email.received_at|date:"d/m/Y H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.25rem;">
+    {% if page_obj.has_previous %}
+      <a class="btn btn-secondary"
+         href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ selected_status }}&project={{ selected_project }}&has_attachments={{ selected_has_attachments }}">
+        Précédent
+      </a>
     {% endif %}
-
+    <span class="btn btn-secondary" style="pointer-events:none;">
+      Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+      <a class="btn btn-secondary"
+         href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ selected_status }}&project={{ selected_project }}&has_attachments={{ selected_has_attachments }}">
+        Suivant
+      </a>
+    {% endif %}
+  </div>
+  {% endif %}
   {% else %}
-    <div style="padding: 1rem 0; color: var(--text-secondary);">
-      Aucun email trouvé pour le moment.
-    </div>
+  <div style="padding:1rem 0; color:var(--text-secondary);">
+    Aucun email trouvé. Synchronisez votre boîte Gmail puis cliquez sur
+    <strong>Importer Gmail</strong>.
+  </div>
   {% endif %}
 </div>
 
+{% endblock %}
+{% block extra_js %}
+<script>
+
+function _getCsrf() {
+    let v = null;
+    document.cookie.split(';').forEach(c => {
+        c = c.trim();
+        if (c.startsWith('csrftoken=')) v = decodeURIComponent(c.slice(10));
+    });
+    return v;
+}
+
+function loadOAuthStatus() {
+    fetch('/oauth/status/')
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('oauth-status-technique');
+            if (!container) return;
+
+            if (data.synchronized) {
+                const tokenStatus = data.token_expired
+                    ? '<span style="color:#f59e0b;"><i class="bi bi-exclamation-triangle"></i> Token expiré (sera renouvelé automatiquement)</span>'
+                    : '<span style="color:#10b981;"><i class="bi bi-check-circle"></i> Token valide</span>';
+
+                container.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:250px;">
+                            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+                                <i class="bi bi-check-circle-fill" style="color:#10b981; font-size:1.2rem;"></i>
+                                <strong style="color:var(--text-main);">Boîte mail synchronisée</strong>
+                            </div>
+                            <div style="color:var(--text-secondary); font-size:0.9rem;">
+                                <i class="bi bi-envelope"></i> ${data.email}
+                            </div>
+                            <div style="color:var(--text-secondary); font-size:0.85rem; margin-top:0.25rem;">
+                                ${tokenStatus}
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button onclick="resyncMailbox()" class="btn btn-secondary" style="white-space:nowrap;">
+                                <i class="bi bi-arrow-repeat"></i> Re-synchroniser
+                            </button>
+                            <button onclick="revokeOAuth()" class="btn btn-danger" style="white-space:nowrap;">
+                                <i class="bi bi-x-circle"></i> Révoquer
+                            </button>
+                        </div>
+                    </div>`;
+            } else {
+                container.innerHTML = `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; padding:0.5rem 0;">
+                        <div>
+                            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.4rem;">
+                                <i class="bi bi-exclamation-triangle" style="font-size:1.4rem; color:#f59e0b;"></i>
+                                <strong style="color:var(--text-main);">Boîte mail non synchronisée</strong>
+                            </div>
+                            <p style="color:var(--text-secondary); margin:0; font-size:0.9rem;">
+                                Synchronisez votre compte Gmail pour pouvoir importer des emails.
+                            </p>
+                        </div>
+                        <a href="/oauth/gmail/?next=/pole-technique/email/"
+                           class="btn btn-primary" style="white-space:nowrap; flex-shrink:0;">
+                            <i class="bi bi-google"></i> Synchroniser avec Gmail
+                        </a>
+                    </div>`;
+            }
+        })
+        .catch(() => {
+            const container = document.getElementById('oauth-status-technique');
+            if (!container) return;
+            container.innerHTML = `
+                <div style="text-align:center; padding:1rem; color:#dc2626;">
+                    <i class="bi bi-exclamation-circle"></i> Erreur de chargement du statut
+                </div>`;
+        });
+}
+
+function resyncMailbox() {
+    if (confirm('Re-synchroniser votre boîte mail ? Vous allez être redirigé vers Google.')) {
+        window.location.href = '/oauth/gmail/?next=/pole-technique/email/';
+    }
+}
+
+function revokeOAuth() {
+    if (!confirm('Révoquer l\'accès à votre boîte mail ? Vous ne pourrez plus importer d\'emails.')) return;
+    fetch('/oauth/revoke/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': _getCsrf() },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            loadOAuthStatus();
+        } else {
+            alert('Erreur : ' + (data.message || 'inconnue'));
+        }
+    })
+    .catch(() => alert('Erreur réseau lors de la révocation.'));
+}
+
+function showBanner(success, message) {
+    const div   = document.getElementById('actionResult');
+    const color = success ? '#22c55e' : '#ef4444';
+    const bg    = success ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)';
+    const icon  = success ? 'bi-check-circle' : 'bi-x-circle';
+    div.innerHTML = `<div style="padding:0.75rem 1rem; border-radius:6px; background:${bg};
+        border-left:4px solid ${color}; color:var(--text-main);">
+        <i class="bi ${icon}" style="color:${color};"></i> ${message}</div>`;
+    div.style.display = 'block';
+}
+
+async function importGmail() {
+    const btn = document.getElementById('importBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Importation…';
+    document.getElementById('actionResult').style.display = 'none';
+    try {
+        const resp = await fetch("{% url 'technique:email_import' %}", {
+            method: 'POST', headers: { 'X-CSRFToken': _getCsrf() }
+        });
+        const data = await resp.json();
+        showBanner(data.success, data.message);
+        if (data.success && data.imported > 0) setTimeout(() => location.reload(), 1500);
+    } catch(err) {
+        showBanner(false, 'Erreur réseau : ' + err);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-download"></i> Importer Gmail';
+    }
+}
+
+async function classifyBulk() {
+    const btn = document.getElementById('classifyBulkBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Classement en cours…';
+    document.getElementById('actionResult').style.display = 'none';
+    try {
+        const resp = await fetch("{% url 'technique:email_classify_bulk' %}", {
+            method: 'POST', headers: { 'X-CSRFToken': _getCsrf() }
+        });
+        const data = await resp.json();
+        showBanner(data.success, data.message);
+        if (data.success && (data.classified > 0 || data.pending > 0))
+            setTimeout(() => location.reload(), 2000);
+    } catch(err) {
+        showBanner(false, 'Erreur réseau : ' + err);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-stars"></i> Classer par IA';
+    }
+}
+
+// Chargement initial du statut OAuth dès que la page est prête
+document.addEventListener('DOMContentLoaded', loadOAuthStatus);
+</script>
 {% endblock %}

@@ -8,13 +8,13 @@ from django.contrib import messages
 from management.models import OAuthToken
 from management.oauth_utils import (
     get_authorization_url,
-    exchange_code_for_tokens,
+    exchange_code_for_tokens
 )
 
-# Destination par défaut (inchangée pour le pôle administratif)
+# URL de redirection par défaut (pôle administratif)
 DEFAULT_REDIRECT = '/administratif/'
 
-# Seules ces URLs sont autorisées comme destination post-OAuth (sécurité)
+# Liste blanche des redirections autorisées après OAuth
 ALLOWED_REDIRECTS = [
     '/administratif/',
     '/pole-technique/email/',
@@ -25,19 +25,17 @@ ALLOWED_REDIRECTS = [
 def initiate_oauth(request):
     """
     Initie le flux OAuth2.
-    Stocke l'URL de retour dans la session avant de partir vers Google.
+    Stocke l'URL de retour dans la session si elle est dans la liste blanche.
 
     URL : /oauth/gmail/
-    URL pôle technique : /oauth/gmail/?next=/pole-technique/email/
+    URL technique : /oauth/gmail/?next=/pole-technique/email/
     """
-    # Lire et valider le paramètre next
+    # Lecture et validation du paramètre 'next'
     next_url = request.GET.get('next', DEFAULT_REDIRECT)
     if next_url not in ALLOWED_REDIRECTS:
         next_url = DEFAULT_REDIRECT
 
-    # Stocker en session pour le récupérer dans le callback
     request.session['oauth_next'] = next_url
-    request.session.modified = True  # forcer la sauvegarde de la session
 
     redirect_uri = request.build_absolute_uri('/oauth/callback/')
     authorization_url, state = get_authorization_url(redirect_uri)
@@ -45,7 +43,7 @@ def initiate_oauth(request):
 
     print(f"\n{'='*60}")
     print(f"   Initiation OAuth pour {request.user.username}")
-    print(f"   Redirect URI : {redirect_uri}")
+    print(f"   Redirect URI: {redirect_uri}")
     print(f"   Retour après auth : {next_url}")
     print(f"{'='*60}\n")
 
@@ -55,7 +53,7 @@ def initiate_oauth(request):
 @login_required
 def oauth_callback(request):
     """
-    Callback OAuth2 — échange le code et redirige vers next_url.
+    Callback OAuth2 — redirige vers l'URL stockée en session (ou /administratif/).
 
     URL : /oauth/callback/?code=XXX&state=YYY
     """
@@ -63,15 +61,14 @@ def oauth_callback(request):
     state = request.GET.get('state')
     error = request.GET.get('error')
 
-    # Récupérer la destination stockée en session (avec nettoyage)
+    # Récupération de l'URL de retour (avec nettoyage)
     next_url = request.session.pop('oauth_next', DEFAULT_REDIRECT)
     if next_url not in ALLOWED_REDIRECTS:
         next_url = DEFAULT_REDIRECT
 
     print(f"\n{'='*60}")
     print(f"   Callback OAuth pour {request.user.username}")
-    print(f"   Code : {code[:20]}..." if code else "   Code : None")
-    print(f"   State : {state}")
+    print(f"   Code: {code[:20]}..." if code else "   Code: None")
     print(f"   Retour prévu : {next_url}")
     print(f"{'='*60}\n")
 
@@ -80,21 +77,20 @@ def oauth_callback(request):
         return redirect(next_url)
 
     if not code:
-        messages.error(request, "Code d'autorisation manquant.")
+        messages.error(request, "Code d'autorisation manquant")
         return redirect(next_url)
 
     session_state = request.session.get('oauth_state')
     if state != session_state:
-        messages.error(request, "État OAuth invalide (possible attaque CSRF).")
-        print(f"   State invalide : {state} != {session_state}")
+        messages.error(request, "État OAuth invalide (possible attaque CSRF)")
         return redirect(next_url)
 
     try:
         redirect_uri = request.build_absolute_uri('/oauth/callback/')
         tokens = exchange_code_for_tokens(code, redirect_uri)
 
-        print(f"   Email : {tokens['email']}")
-        print(f"   Refresh token : {'OUI' if tokens['refresh_token'] else 'NON'}")
+        print(f"   Email: {tokens['email']}")
+        print(f"   Refresh token: {'OUI' if tokens['refresh_token'] else 'NON'}")
 
         if tokens['email'] != request.user.email:
             messages.warning(
@@ -116,14 +112,15 @@ def oauth_callback(request):
             }
         )
 
-        action = "synchronisée" if created else "mise à jour"
-        messages.success(request, f"Boîte mail {tokens['email']} {action} avec succès !")
-        print(f"   Token {'créé' if created else 'mis à jour'} pour {request.user.username}")
+        messages.success(
+            request,
+            f"Boîte mail {tokens['email']} {'synchronisée' if created else 'mise à jour'} avec succès !"
+        )
 
         if 'oauth_state' in request.session:
             del request.session['oauth_state']
 
-        return redirect(next_url)   # ← redirige vers /administratif/ OU /pole-technique/email/
+        return redirect(next_url)
 
     except Exception as e:
         messages.error(request, f"Erreur lors de l'authentification : {str(e)}")
@@ -134,25 +131,30 @@ def oauth_callback(request):
 @login_required
 @require_http_methods(["POST"])
 def revoke_oauth(request):
-    """Révoque l'accès OAuth. URL : /oauth/revoke/"""
+    """
+    Révoque l'accès OAuth (supprime les tokens).
+    URL : /oauth/revoke/
+    """
     try:
         oauth_token = OAuthToken.objects.get(user=request.user)
         email = oauth_token.email
         oauth_token.delete()
+
         messages.success(request, f"Accès à la boîte mail {email} révoqué avec succès.")
         print(f"Token OAuth supprimé pour {request.user.username}")
+
         return JsonResponse({'success': True})
 
     except OAuthToken.DoesNotExist:
-        return JsonResponse(
-            {'success': False, 'message': 'Aucune boîte mail synchronisée'},
-            status=404
-        )
+        return JsonResponse({'success': False, 'message': 'Aucune boîte mail synchronisée'}, status=404)
 
 
 @login_required
 def oauth_status(request):
-    """Statut OAuth de l'utilisateur. URL : /oauth/status/"""
+    """
+    Statut OAuth de l'utilisateur.
+    URL : /oauth/status/
+    """
     try:
         oauth_token = OAuthToken.objects.get(user=request.user)
         return JsonResponse({
