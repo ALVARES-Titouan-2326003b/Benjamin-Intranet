@@ -1,8 +1,3 @@
-"""
-Vues pour la partie administrative - Gestion des emails et relances
-VERSION OAUTH2 : Passe request.user aux fonctions email_manager
-"""
-
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render
 from django.http import JsonResponse
@@ -124,7 +119,7 @@ def generate_auto_message_view(request):
             }, status=400)
 
         print(f"\n{'='*60}")
-        print(f"DÉBUT generate_auto_message_view()")
+        print("DÉBUT generate_auto_message_view()")
         print(f"   email_id: {email_id}")
         print(f"{'='*60}")
 
@@ -284,7 +279,7 @@ def create_activity_view(request):
         commentaire = data.get('commentaire', '').strip()
 
         print(f"\n{'=' * 60}")
-        print(f"   Création d'activité")
+        print("   Création d'activité")
         print(f"   Dossier: {dossier}")
         print(f"   Type: {type_activite}")
         print(f"   Date: {date_str}")

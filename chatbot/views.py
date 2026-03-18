@@ -13,72 +13,6 @@ from .models import ChatbotQuery
 
 
 @login_required
-def chatbot_interface(request):
-    """Affiche l'interface du chatbot."""
-    return render(request, 'chatbot/interface.html')
-
-
-@csrf_exempt
-@login_required
-def chatbot_query(request):
-    """
-    Route unique :
-      - si message concerne les factures -> interroge la BD
-      - sinon -> question juridique via Groq (+ Légifrance)
-
-    Si la route facture ne trouve rien, on fait un fallback vers le juridique.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'response': 'Méthode non autorisée'}, status=405)
-
-    message = ""
-    try:
-        data = json.loads(request.body or '{}')
-        message = (data.get('message') or '').strip()
-
-        if not message:
-            return JsonResponse({'success': False, 'response': 'Message vide.'}, status=400)
-
-        route = "unknown"
-
-        if _is_invoice_query(message):
-            route = "invoice"
-            resp = _handle_invoice_query(message, request.user)
-
-            if resp.startswith("Aucune facture") or resp.startswith("🕳️ Aucune facture"):
-                route = "legal_fallback"
-                resp = _handle_legal_query(message)
-        else:
-            route = "legal"
-            resp = _handle_legal_query(message)
-
-        ChatbotQuery.objects.create(
-            user=request.user,
-            message=message,
-            response=resp,
-            query_type=route,
-        )
-
-        return JsonResponse({
-            'success': True,
-            'response': resp,
-            'query_type': route,
-        })
-
-    except Exception as e:
-        error_message = f'Erreur: {e}'
-
-        if request.user.is_authenticated and message:
-            ChatbotQuery.objects.create(
-                user=request.user,
-                message=message,
-                response=error_message,
-                query_type="unknown",
-            )
-
-        return JsonResponse({'success': False, 'response': error_message}, status=500)
-
-@login_required
 def chatbot_history(request):
     """
     Affiche l'historique des requêtes du chatbot
@@ -122,25 +56,8 @@ SUMMARY_KEYWORDS = {'stats', 'résumé', 'resume', 'total', 'synthèse', 'synthe
 LIST_KEYWORDS = {'liste', 'toutes', 'all'}
 
 
-from django.shortcuts import render
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
-from django.conf import settings
-import json
-import re
-import requests
-
-from invoices.models import Facture
-from .legifrance import legifrance_search_generic, format_legifrance_context
-from .models import ChatbotQuery
 
 
-# ══════════════════════════════════════════════════════════════════
-#  ROUTING IA
-#  Remplace l'ancienne détection par mots-clés (_is_invoice_query)
-#  par un appel Groq léger qui classe l'intention en 3 catégories.
-# ══════════════════════════════════════════════════════════════════
 
 _ROUTER_SYSTEM = (
     "Tu es un routeur de requêtes pour un assistant intranet d'une agence immobilière.\n"
@@ -226,7 +143,7 @@ def _build_rag_context(question: str, max_docs: int = 4, max_chars_per_doc: int 
       3. On tronque le texte_brut pour rester dans les limites du contexte.
     """
     try:
-        from technique.models import DocumentTechnique, TechnicalProject
+        from technique.models import DocumentTechnique
     except ImportError:
         return ""
 
@@ -412,30 +329,6 @@ def chatbot_query(request):
         return JsonResponse({'success': False, 'response': error_message}, status=500)
 
 
-@login_required
-def chatbot_history(request):
-    """Historique des requêtes de l'utilisateur connecté."""
-    query_type = (request.GET.get("type") or "").strip()
-    search     = (request.GET.get("q") or "").strip()
-
-    qs = ChatbotQuery.objects.filter(user=request.user).order_by("-created_at")
-
-    if query_type:
-        qs = qs.filter(query_type=query_type)
-    if search:
-        qs = qs.filter(message__icontains=search)
-
-    return render(request, "chatbot/history.html", {
-        "queries":       qs,
-        "selected_type": query_type,
-        "search":        search,
-    })
-
-
-# ══════════════════════════════════════════════════════════════════
-#  FACTURES (inchangé)
-# ══════════════════════════════════════════════════════════════════
-
 INVOICE_STATUS_MAP = {
     'payee': 'Payee', 'payée': 'Payee', 'payé': 'Payee', 'paid': 'Payee',
     'recu': 'Recue', 'reçue': 'Recue',
@@ -617,7 +510,7 @@ def _handle_legal_query(message: str) -> str:
             err = r.text
         return f"Erreur API Groq ({r.status_code}) : {err}"
     except requests.exceptions.Timeout:
-        return "⏱️ Délai d'attente dépassé."
+        return "Délai d'attente dépassé."
     except requests.exceptions.ConnectionError as e:
         return f"Erreur de connexion : {e}"
     except Exception as e:

@@ -1,4 +1,5 @@
-import json, csv
+import json
+import csv
 from django.views.decorators.http import require_http_methods
 from reportlab.lib import colors
 from django.shortcuts import render, redirect, get_object_or_404
@@ -22,10 +23,7 @@ from .forms import (
     ProjectExpenseForm,
 )
 from user_access.user_test_functions import has_technique_access
-from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.shortcuts import render
 
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
@@ -135,27 +133,6 @@ def documents_detail(request, pk):
     """
     doc = get_object_or_404(DocumentTechnique, pk=pk)
     return render(request, "technique/documents_detail.html", {"document": doc})
-
-
-@login_required
-@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
-def documents_update(request, pk):
-    document = get_object_or_404(DocumentTechnique, pk=pk)
-
-    if request.method == "POST":
-        form = DocumentTechniqueUpdateForm(request.POST, instance=document)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Document modifié avec succès.")
-            return redirect("technique:documents_detail", pk=document.pk)
-    else:
-        form = DocumentTechniqueUpdateForm(instance=document)
-
-    return render(
-        request,
-        "technique/documents_update.html",
-        {"form": form, "document": document},
-    )
 
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
@@ -738,15 +715,6 @@ def email_list(request):
         },
     )
 
-
-@login_required
-@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
-def email_detail(request, pk):
-    email = get_object_or_404(
-        TechnicalEmail.objects.select_related("project").prefetch_related("attachments"),
-        pk=pk,
-    )
-    return render(request, "technique/email_detail.html", {"email": email})
 
 
 @login_required

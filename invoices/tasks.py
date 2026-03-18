@@ -188,7 +188,7 @@ def check_and_send_invoice_reminders(delai_relance=None):
                 else:
                     erreurs += 1
 
-            except Exception as e:
+            except Exception:
                 import traceback
                 traceback.print_exc()
                 erreurs += 1
