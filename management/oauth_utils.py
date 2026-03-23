@@ -1,268 +1,151 @@
 """
-Utilitaires OAuth2 pour l'authentification Gmail
+Utilitaires OAuth2 pour l'authentification Microsoft/Outlook
 """
-from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from django.utils import timezone
-from datetime import timedelta
 import os
-from email.mime.text import MIMEText
+from datetime import timedelta
+from urllib.parse import urlencode
+
+import requests
+from django.utils import timezone
+
+MICROSOFT_CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID")
+MICROSOFT_CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET")
+TENANT_ID = os.getenv("MICROSOFT_TENANT_ID", "common")
+
+AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+GRAPH_URL = "https://graph.microsoft.com/v1.0"
 
 SCOPES = [
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/gmail.modify',
+    "openid",
+    "offline_access",
+    "User.Read",
+    "Mail.Read",
+    "Mail.Send",
+    "Mail.ReadWrite",
 ]
 
 
-def get_oauth_flow(redirect_uri):
-    """
-    Crée le flux OAuth2 pour l'authentification Google
+def get_authorization_url(redirect_uri):
+    import secrets
 
-    Args:
-        redirect_uri (str): URL de callback (ex: http://localhost:8000/oauth/callback/)
+    state = secrets.token_urlsafe(32)
 
-    Returns:
-        Flow: Objet Flow pour gérer l'authentification
-    """
-    client_config = {
-        "web": {
-            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [redirect_uri]
-        }
+    params = {
+        "client_id": MICROSOFT_CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": redirect_uri,
+        "response_mode": "query",
+        "scope": " ".join(SCOPES),
+        "state": state,
     }
 
-    flow = Flow.from_client_config(
-        client_config=client_config,
-        scopes=SCOPES,
-        redirect_uri=redirect_uri
-    )
-
-    return flow
-
-
-def get_authorization_url(redirect_uri):
-    """
-    Génère l'URL d'autorisation Google OAuth2
-
-    Args:
-        redirect_uri (str): URL de callback
-
-    Returns:
-        tuple: (authorization_url, state)
-    """
-    flow = get_oauth_flow(redirect_uri)
-
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true',
-        prompt='consent'
-    )
-
+    authorization_url = f"{AUTHORITY}/oauth2/v2.0/authorize?{urlencode(params)}"
     return authorization_url, state
 
 
 def exchange_code_for_tokens(code, redirect_uri):
-    """
-    Échange le code d'autorisation contre des tokens
+    token_url = f"{AUTHORITY}/oauth2/v2.0/token"
 
-    Args:
-        code (str): Code d'autorisation reçu depuis Google
-        redirect_uri (str): URL de callback
+    data = {
+        "client_id": MICROSOFT_CLIENT_ID,
+        "client_secret": MICROSOFT_CLIENT_SECRET,
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+        "scope": " ".join(SCOPES),
+    }
 
-    Returns:
-        dict: {
-            'access_token': str,
-            'refresh_token': str,
-            'token_expiry': datetime,
-            'email': str
-        }
-    """
-    flow = get_oauth_flow(redirect_uri)
-    flow.fetch_token(code=code)
+    response = requests.post(token_url, data=data, timeout=20)
+    response.raise_for_status()
+    tokens = response.json()
 
-    credentials = flow.credentials
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    me_response = requests.get(f"{GRAPH_URL}/me", headers=headers, timeout=20)
+    me_response.raise_for_status()
+    user_info = me_response.json()
 
-
-    service = build('gmail', 'v1', credentials=credentials)
-    profile = service.users().getProfile(userId='me').execute()
-    user_email = profile['emailAddress']
-
-
-    token_expiry = timezone.now() + timedelta(seconds=credentials.expiry.timestamp() - timezone.now().timestamp())
+    token_expiry = timezone.now() + timedelta(seconds=tokens.get("expires_in", 3600))
 
     return {
-        'access_token': credentials.token,
-        'refresh_token': credentials.refresh_token,
-        'token_expiry': token_expiry,
-        'email': user_email
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens.get("refresh_token", ""),
+        "token_expiry": token_expiry,
+        "email": user_info.get("mail") or user_info.get("userPrincipalName"),
     }
 
 
 def refresh_access_token(refresh_token):
-    """
-    Renouvelle l'access_token avec le refresh_token
+    token_url = f"{AUTHORITY}/oauth2/v2.0/token"
 
-    Args:
-        refresh_token (str): Refresh token stocké en BD
+    data = {
+        "client_id": MICROSOFT_CLIENT_ID,
+        "client_secret": MICROSOFT_CLIENT_SECRET,
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token",
+        "scope": " ".join(SCOPES),
+    }
 
-    Returns:
-        dict: {
-            'access_token': str,
-            'token_expiry': datetime
-        }
-    """
-    from google.auth.transport.requests import Request
+    response = requests.post(token_url, data=data, timeout=20)
+    response.raise_for_status()
+    tokens = response.json()
 
-    credentials = Credentials(
-        token=None,
-        refresh_token=refresh_token,
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id=os.getenv("GOOGLE_CLIENT_ID"),
-        client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-        scopes=SCOPES
-    )
-
-
-    credentials.refresh(Request())
-
-
-    token_expiry = timezone.now() + timedelta(seconds=3600)  # 1 heure
+    token_expiry = timezone.now() + timedelta(seconds=tokens.get("expires_in", 3600))
 
     return {
-        'access_token': credentials.token,
-        'token_expiry': token_expiry
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens.get("refresh_token", refresh_token),
+        "token_expiry": token_expiry,
     }
 
 
 def get_valid_credentials(oauth_token):
-    """
-    Récupère des credentials valides, les renouvelle si nécessaire
-
-    Args:
-        oauth_token (OAuthToken): Instance du modèle OAuthToken
-
-    Returns:
-        Credentials: Credentials Google valides
-    """
     if oauth_token.is_token_expired():
-        print(f"Token expiré pour {oauth_token.user.username}, renouvellement...")
-
         new_tokens = refresh_access_token(oauth_token.refresh_token)
+        oauth_token.access_token = new_tokens["access_token"]
+        oauth_token.refresh_token = new_tokens["refresh_token"]
+        oauth_token.token_expiry = new_tokens["token_expiry"]
+        oauth_token.save(update_fields=["access_token", "refresh_token", "token_expiry"])
 
-        oauth_token.access_token = new_tokens['access_token']
-        oauth_token.token_expiry = new_tokens['token_expiry']
-        oauth_token.save()
-
-        print(f"Token renouvelé pour {oauth_token.user.username}")
-
-    credentials = Credentials(
-        token=oauth_token.access_token,
-        refresh_token=oauth_token.refresh_token,
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id=os.getenv("GOOGLE_CLIENT_ID"),
-        client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-        scopes=SCOPES
-    )
-
-    return credentials
+    return oauth_token.access_token
 
 
-def get_gmail_service(user):
-    """
-    Crée un service Gmail API pour l'utilisateur
-
-    Args:
-        user (User): Utilisateur Django
-
-    Returns:
-        Resource: Service Gmail API
-
-    Raises:
-        ValueError: Si l'utilisateur n'a pas de token OAuth
-    """
+def get_graph_headers(user):
     from management.models import OAuthToken
 
-    try:
-        oauth_token = OAuthToken.objects.get(user=user.id)
-    except OAuthToken.DoesNotExist:
-        raise ValueError(
-            f"L'utilisateur {user.username} n'a pas synchronisé sa boîte mail. "
-            f"Cliquez sur 'Synchroniser boite mail' pour autoriser l'accès."
-        )
+    oauth_token = OAuthToken.objects.get(user=user)
+    access_token = get_valid_credentials(oauth_token)
 
-    credentials = get_valid_credentials(oauth_token)
-    service = build('gmail', 'v1', credentials=credentials)
-
-    return service
-
-def send_email_via_gmail_api(user, to_email, subject, message_text):
-    """
-    Envoie un email via Gmail API avec OAuth2
-
-    Args:
-        user (User): Utilisateur Django
-        to_email (str): Destinataire
-        subject (str): Sujet
-        message_text (str): Corps du message
-
-    Returns:
-        dict: Résultat de l'envoi
-    """
-    import base64
-
-    service = get_gmail_service(user)
-
-    message = MIMEText(message_text)
-    message['to'] = to_email
-    message['subject'] = subject
-    message['from'] = user.email
-
-    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
+    return {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
 
 
-    try:
-        sent_message = service.users().messages().send(
-            userId='me',
-            body={'raw': raw_message}
-        ).execute()
+def send_email_via_graph_api(user, to_email, subject, message_text):
+    headers = get_graph_headers(user)
 
-        print(f"Email envoyé via Gmail API : {sent_message['id']}")
+    payload = {
+        "message": {
+            "subject": subject,
+            "body": {
+                "contentType": "Text",
+                "content": message_text,
+            },
+            "toRecipients": [
+                {"emailAddress": {"address": to_email}}
+            ],
+        },
+        "saveToSentItems": True,
+    }
 
-        return {
-            'success': True,
-            'message_id': sent_message['id']
-        }
-    except Exception as e:
-        print(f"Erreur envoi Gmail API : {e}")
-        return {
-            'success': False,
-            'error': str(e)
-        }
+    response = requests.post(
+        f"{GRAPH_URL}/me/sendMail",
+        headers=headers,
+        json=payload,
+        timeout=20,
+    )
 
+    if response.status_code == 202:
+        return {"success": True, "message_id": None}
 
-def list_messages(user, max_results=10):
-    """
-    Liste les messages de la boîte mail de l'utilisateur
-
-    Args:
-        user (User): Utilisateur Django
-        max_results (int): Nombre max de messages
-
-    Returns:
-        list: Liste des messages
-    """
-    service = get_gmail_service(user)
-
-    results = service.users().messages().list(
-        userId='me',
-        maxResults=max_results
-    ).execute()
-
-    messages = results.get('messages', [])
-
-    return messages
+    return {"success": False, "error": response.text}

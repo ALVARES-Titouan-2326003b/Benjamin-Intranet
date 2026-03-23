@@ -5,7 +5,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
-from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities, create_activity_view, delete_activity_view
+from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities, \
+    create_activity_view, delete_activity_view, get_calendar_activities_week
 from technique import views as technique_views
 from home.views import dashboard_view, global_search
 
@@ -15,6 +16,7 @@ urlpatterns = [
     path('', dashboard_view, name='home'),
     path('recherche/', global_search, name='global_search'),
     path('administratif/', administratif_view, name='admin_view'),
+    path('api/calendar-activities-week/', get_calendar_activities_week, name='calendar_activities_week'),
     
     # On met ceci AVANT les autres pour être sûr que les URLs de login sont prioritaires
     path('', include('config.urls_custom_2fa')),

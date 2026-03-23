@@ -26,23 +26,36 @@
 
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
 
-   <!-- Card Calendrier -->
+      <!-- Card Calendrier -->
    <div class="card" style="height: 100%;">
-      <div class="card-title">Calendrier & Suivi</div>
+      <div class="card-title">Calendrier &amp; Suivi des activités</div>
 
       <!-- Filtres du calendrier -->
       <div class="calendar-filters">
          <!-- Les filtres seront générés dynamiquement par JavaScript -->
       </div>
-      <!-- Bouton pour ajouter une activité -->
-      <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
-         <button id="add-activity-btn" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem;">
+
+      <!-- Bouton ajouter -->
+      <div style="display: flex; justify-content: flex-end; margin: 0.75rem 0;">
+         <button id="add-activity-btn" class="btn btn-primary" style="display:flex;align-items:center;gap:.5rem;">
             <i class="bi bi-plus-circle"></i> Ajouter une activité
          </button>
       </div>
 
-      <!-- Calendrier -->
+      <!-- Calendrier (vue mois + vue semaine) -->
       {% include 'calendar.html' %}
+
+      <!-- ── Prochaines activités ── -->
+      <div style="margin-top:1.5rem; border-top:1px solid #eee; padding-top:1rem;">
+         <h4 style="font-size:.9rem;font-weight:700;color:#1e3c72;margin-bottom:.75rem;">
+            <i class="bi bi-clock-history"></i>&nbsp; Prochaines activités
+         </h4>
+         <div id="upcoming-activities-list">
+            <div style="color:var(--text-secondary);font-size:.85rem;text-align:center;padding:.5rem 0;">
+               <i class="bi bi-hourglass-split"></i> Chargement…
+            </div>
+         </div>
+      </div>
    </div>
 
    <!-- Card Relance automatique -->
@@ -138,28 +151,34 @@
 </div>
 
 <!-- Modal pour ajouter une activité -->
-<div id="activity-modal" class="activity-modal" style="display: none;">
+<!-- Modal activité -->
+<div id="activity-modal" class="activity-modal" style="display:none;">
    <div class="activity-modal-content">
+
       <div class="activity-modal-header">
-         <h3><i class="bi bi-calendar-plus"></i> Nouvelle activité</h3>
+         <h3 id="activity-modal-title"><i class="bi bi-calendar-plus"></i> Nouvelle activité</h3>
          <button id="close-modal-btn" class="activity-modal-close">&times;</button>
       </div>
 
       <form id="activity-form" class="activity-form">
          {% csrf_token %}
 
+         <!-- Dossier avec recherche -->
          <div class="form-group">
-            <label for="activity-dossier" class="form-label">Dossier *</label>
+            <label class="form-label">Dossier *</label>
             <select id="activity-dossier" name="dossier" class="form-control" required>
                <option value="">-- Sélectionner un dossier --</option>
                {% for dossier in dossiers %}
-               <option value="{{ dossier.reference }}">{{ dossier.reference }}</option>
+               <option value="{{ dossier.reference }}" data-nom="{{ dossier.name }}">
+                  {{ dossier.reference }} — {{ dossier.name }}
+               </option>
                {% endfor %}
             </select>
          </div>
 
+         <!-- Type -->
          <div class="form-group">
-            <label for="activity-type" class="form-label">Type *</label>
+            <label class="form-label">Type d'activité *</label>
             <select id="activity-type" name="type" class="form-control" required>
                <option value="">-- Sélectionner un type --</option>
                {% for type in types %}
@@ -168,35 +187,123 @@
             </select>
          </div>
 
+         <!-- Date & heure -->
          <div class="form-group">
-            <label for="activity-date" class="form-label">Date *</label>
+            <label class="form-label">Date et heure *</label>
             <input type="datetime-local" id="activity-date" name="date" class="form-control" required>
          </div>
 
+         <!-- Commentaire -->
          <div class="form-group">
-            <label for="activity-commentaire" class="form-label">Commentaire</label>
-            <textarea id="activity-commentaire" name="commentaire" class="form-control" rows="3"
-               placeholder="Détails optionnels..."></textarea>
+            <label class="form-label">Commentaire</label>
+            <textarea id="activity-commentaire" name="commentaire" class="form-control"
+                      rows="3" placeholder="Informations complémentaires…"></textarea>
          </div>
 
-         <div id="activity-form-status" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: 6px;">
-         </div>
+         <!-- Status -->
+         <div id="activity-form-status" style="display:none;"></div>
 
-         <div style="display: flex; gap: 0.75rem; justify-content: space-between; margin-top: 1.5rem;">
-            <button type="button" id="delete-activity-btn" class="btn btn-danger" style="flex: 1;">
-               <i class="bi bi-trash"></i> Supprimer
+         <!-- Actions -->
+         <div style="display:flex;gap:.75rem;margin-top:1rem;">
+            <button type="submit" class="btn btn-primary" style="flex:1;">
+               <i class="bi bi-check-lg"></i> Enregistrer
             </button>
-            <div style="display: flex; gap: 0.75rem; flex: 1;">
-               <button type="button" id="cancel-activity-btn" class="btn btn-secondary"
-                  style="flex: 1;">Annuler</button>
-               <button type="submit" class="btn btn-success" style="flex: 1;">
-                  <i class="bi bi-check-circle"></i> Enregistrer
-               </button>
-            </div>
+            <button type="button" id="delete-activity-btn" class="btn btn-danger"
+                    style="flex:0 0 auto;display:none;">
+               <i class="bi bi-trash3"></i> Supprimer
+            </button>
+            <button type="button" id="cancel-activity-btn" class="btn btn-secondary"
+                    style="flex:0 0 auto;">
+               Annuler
+            </button>
          </div>
       </form>
    </div>
 </div>
+
+<script>
+document.getElementById('activity-dossier')?.addEventListener('change', function() {
+   const opt = this.options[this.selectedIndex];
+   const nom = opt.dataset.nom || '';
+   const display = document.getElementById('dossier-nom-display');
+   if (nom && this.value) {
+      display.style.display = 'block';
+   } else {
+      display.style.display = 'none';
+   }
+});
+
+async function loadUpcomingActivities() {
+   const container = document.getElementById('upcoming-activities-list');
+   if (!container) return;
+
+   const COLORS = {
+      'vente':    '#27ae60', 'location': '#3498db', 'compromis': '#e74c3c',
+      'visite':   '#f39c12', 'relance':  '#9b59b6', 'autre':     '#95a5a6',
+   };
+
+   try {
+      const now   = new Date();
+      const month = now.getMonth() + 1;
+      const year  = now.getFullYear();
+
+      const resp = await fetch(`/api/calendar-activities/?month=${month}&year=${year}`);
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message);
+
+      const today = now.toISOString().split('T')[0];
+      const upcoming = data.activites
+         .filter(a => a.date >= today)
+         .sort((a, b) => a.date.localeCompare(b.date))
+         .slice(0, 6);
+
+      if (upcoming.length === 0) {
+         container.innerHTML = `<p style="color:var(--text-secondary);font-size:.85rem;text-align:center;">
+            Aucune activité à venir ce mois-ci.</p>`;
+         return;
+      }
+
+      container.innerHTML = upcoming.map(act => {
+         const color   = COLORS[(act.type || 'autre').toLowerCase()] || COLORS['autre'];
+         const typeStr = act.type ? (act.type.charAt(0).toUpperCase() + act.type.slice(1)) : 'Activité';
+         const [y, m, d] = act.date.split('-');
+         const dateStr  = `${d}/${m}/${y}`;
+         const nomStr   = act.dossier_nom || act.dossier;
+
+         const msDay    = 86400000;
+         const diff     = Math.round((new Date(act.date) - new Date(today)) / msDay);
+         const badge    = diff === 0 ? "Aujourd'hui"
+                        : diff === 1 ? "Demain"
+                        : `J-${diff}`;
+         const badgeColor = diff <= 2 ? '#e74c3c' : diff <= 7 ? '#f39c12' : '#6c757d';
+
+         return `
+            <div class="upcoming-activity-row" style="border-left:3px solid ${color};">
+               <div class="upcoming-left">
+                  <span class="upcoming-type" style="color:${color};">${typeStr}</span>
+                  <span class="upcoming-dossier" title="${act.dossier}">
+                     <i class="bi bi-folder2"></i> ${nomStr}
+                  </span>
+                  ${act.commentaire
+                     ? `<span class="upcoming-comment">${act.commentaire}</span>`
+                     : ''}
+               </div>
+               <div class="upcoming-right">
+                  <span class="upcoming-date">${dateStr}</span>
+                  <span class="upcoming-badge" style="background:${badgeColor};">${badge}</span>
+               </div>
+            </div>`;
+      }).join('');
+
+   } catch (e) {
+      container.innerHTML = `<p style="color:#e74c3c;font-size:.82rem;">Erreur de chargement.</p>`;
+      console.error('upcoming activities error', e);
+   }
+}
+
+document.addEventListener('DOMContentLoaded', loadUpcomingActivities);
+document.addEventListener('activity-changed', loadUpcomingActivities);
+</script>
 {% endblock %}
 
 {% block extra_js %}

@@ -5,7 +5,7 @@ from .views import (
     generate_auto_message_view,
     get_calendar_activities,
     create_activity_view,
-    delete_activity_view
+    delete_activity_view, get_calendar_activities_week
 )
 
 app_name = 'management'
@@ -18,6 +18,6 @@ urlpatterns = [
     path('api/calendar-activities/', get_calendar_activities, name='calendar_activities'),
     path('api/delete-activity/', delete_activity_view, name='delete_activity'),
     path('api/create-activity/', create_activity_view, name='create_activity'),
-
+    path('api/calendar-activities-week/', get_calendar_activities_week, name='calendar_activities_week'),
 ]
 

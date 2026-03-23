@@ -3,12 +3,12 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from technique.models import TechnicalProject
-from .email_manager import fetch_new_emails, get_sent_emails, get_email_summary, send_email_reply
+from .email_manager import get_message_metadata
 from .models import DefaultModeleRelance, ModeleRelance, Activite, TypeActivite, EmailClient
 import json
 from user_access.user_test_functions import has_administratif_access
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.contrib.auth import get_user_model
 
 Utilisateur = get_user_model()
@@ -94,91 +94,94 @@ def send_reply_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def generate_auto_message_view(request):
     """
-    Génère un message pré-rempli basé sur les infos de la table ModeleRelance
-    INCHANGÉ : Ne nécessite pas de modification pour OAuth2
+    Génère un message pré-rempli basé sur les infos de la table ModeleRelance.
+    VERSION OAUTH2 : récupère les headers de l'email directement via Gmail API,
+    sans dépendre de django_mailbox.
 
-    LOGIQUE DE LIAISON :
-    1. Email.to_header → Utilisateur.email
-    2. Utilisateur.id → ModeleRelance.utilisateur
-
-    Structure des tables :
-    - Utilisateurs : id (PK), email, nom, prenom
-    - ModeleRelance : utilisateur (PK, FK → Utilisateurs.id), message, objet
-
-    Returns:
-        JsonResponse: {'success': bool, 'message': str}
+    LOGIQUE :
+    1. Récupère le header "To" de l'email Gmail (= adresse du destinataire)
+    2. Cherche le métier du destinataire dans EmailClient
+    3. Cherche le ModeleRelance de l'utilisateur connecté pour ce métier
+       → fallback sur DefaultModeleRelance si absent
     """
     try:
         data = json.loads(request.body)
         email_id = data.get('email_id')
 
         if not email_id:
-            return JsonResponse({
-                'success': False,
-                'message': 'ID email manquant'
-            }, status=400)
+            return JsonResponse({'success': False, 'message': 'ID email manquant'}, status=400)
 
         print(f"\n{'='*60}")
-        print("DÉBUT generate_auto_message_view()")
+        print("DÉBUT generate_auto_message_view() [OAuth2]")
         print(f"   email_id: {email_id}")
         print(f"{'='*60}")
 
-        from django_mailbox.models import Message
-        original_email = Message.objects.filter(message_id=email_id).first()
-        if original_email is None:
-            return JsonResponse({
-                'success': False,
-                'message': 'Email introuvable'
-            })
+        user = request.user
 
-        destinataire_email = original_email.to_header
-
-        emails = EmailClient.objects.filter(email=destinataire_email)
-
-        if emails.count() == 0:
-            return JsonResponse({
-                'success': False,
-                'message': 'Client introuvable'
-            }, status=404)
-
-        metier = emails.first().metier
-
+        # 1. Récupère les headers de l'email via Gmail API
         try:
-            user = Utilisateur.objects.get(email=original_email.from_header)
-        except Utilisateur.DoesNotExist:
+            from management.oauth_utils import get_gmail_service
+            service = get_gmail_service(user)
+            msg_data = service.users().messages().get(
+                userId='me',
+                id=email_id,
+                format='metadata',
+                metadataHeaders=['To', 'From']
+            ).execute()
+        except Exception as e:
+            print(f"   Erreur Gmail API : {e}")
             return JsonResponse({
                 'success': False,
-                'message': 'Utilisateur introuvable'
+                'message': f'Impossible de récupérer l\'email via Gmail : {str(e)}'
+            }, status=502)
+
+        headers = msg_data.get('payload', {}).get('headers', [])
+        destinataire_email = next((h['value'] for h in headers if h['name'] == 'To'), None)
+
+        if not destinataire_email:
+            return JsonResponse({'success': False, 'message': 'Header "To" introuvable dans l\'email'}, status=404)
+
+        # Nettoie le format "Prénom Nom <email@example.com>"
+        import re
+        match = re.search(r'<(.+?)>', destinataire_email)
+        if match:
+            destinataire_email = match.group(1).strip()
+
+        print(f"   Destinataire extrait : {destinataire_email}")
+
+        # 2. Cherche le métier du destinataire
+        emails_qs = EmailClient.objects.filter(email=destinataire_email)
+        if not emails_qs.exists():
+            return JsonResponse({
+                'success': False,
+                'message': f'Client introuvable pour l\'adresse : {destinataire_email}'
             }, status=404)
 
-        # 4. Récupère le modèle de message
+        metier = emails_qs.first().metier
+        print(f"   Métier trouvé : {metier}")
+
+        # 3. Cherche le modèle de relance (personnalisé → défaut)
         try:
             message_relance = ModeleRelance.objects.get(utilisateur=user.id, metier=metier).message
+            print("   ModeleRelance personnalisé trouvé")
         except ModeleRelance.DoesNotExist:
             try:
                 message_relance = DefaultModeleRelance.objects.get(metier=metier).message
+                print("   Fallback sur DefaultModeleRelance")
             except DefaultModeleRelance.DoesNotExist:
                 return JsonResponse({
                     'success': False,
-                    'message': f"Pas de DefaultModeleRelance pour le métier {metier}"
+                    'message': f'Aucun modèle de relance configuré pour le métier "{metier}"'
                 })
 
-        # 5. Construit la réponse JSON
-        response_data = {
-            'success': True,
-            'message': message_relance
-        }
-
-        return JsonResponse(response_data)
+        print(f"{'='*60}\n")
+        return JsonResponse({'success': True, 'message': message_relance})
 
     except Exception as e:
         print(f"\n ERREUR INATTENDUE : {e}")
         traceback.print_exc()
         print(f"{'='*60}\n")
-        return JsonResponse({
-            'success': False,
-            'message': f'Erreur: {str(e)}'
-        }, status=500)
+        return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'}, status=500)
 
 
 @require_http_methods(["GET"])
@@ -186,70 +189,124 @@ def generate_auto_message_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def get_calendar_activities(request):
     """
-    API endpoint pour récupérer les activités du calendrier
-    INCHANGÉ : Ne nécessite pas de modification pour OAuth2
-
-    Paramètres GET :
-    - month : numéro du mois (1-12)
-    - year : année (ex : 2025)
-
-    Retourne – Liste des activités avec leurs détails pour affichage dans le calendrier
+    API endpoint pour récupérer les activités du calendrier (vue MOIS).
+    Retourne la référence dossier + le nom lisible du dossier.
     """
     try:
         now = datetime.now()
-        month = int(request.GET.get('month', now.month))
-        year = int(request.GET.get('year', now.year))
-
-        print(f"\n{'=' * 60}")
-        print(f" API Calendar Activities - Requête pour {month}/{year}")
-        print(f"{'=' * 60}")
+        month = int(request.GET.get("month", now.month))
+        year = int(request.GET.get("year", now.year))
 
         start_date = datetime(year, month, 1)
+        end_date = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
 
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1)
-        else:
-            end_date = datetime(year, month + 1, 1)
-
-        print(f" Période : {start_date.date()} → {end_date.date()}")
-
-        activites = Activite.objects.filter(
-            date__gte=start_date,
-            date__lt=end_date
-        ).values('id', 'dossier', 'type', 'date', 'commentaire')
-
-        print(f" Activités trouvées : {activites.count()}")
+        activites = (
+            Activite.objects
+            .filter(date__gte=start_date, date__lt=end_date)
+            .select_related("dossier")
+            .values(
+                "id",
+                "dossier__reference",
+                "dossier__name",
+                "type",
+                "date",
+                "commentaire",
+            )
+        )
 
         activites_list = []
         for act in activites:
-            activites_list.append({
-                'id': act['id'],
-                'dossier': act['dossier'],
-                'type': act['type'],
-                'date': act['date'].strftime('%Y-%m-%d'),
-                'commentaire': act['commentaire'] or ''
-            })
-            print(f"   - {act['date'].strftime('%Y-%m-%d')} : {act['type']} - {act['dossier']}")
+            dossier_reference = act.get("dossier__reference") or ""
+            dossier_nom = act.get("dossier__name") or dossier_reference
 
-        print(f"{'=' * 60}\n")
+            activites_list.append({
+                "id": act["id"],
+                "dossier": dossier_reference,
+                "dossier_nom": dossier_nom,
+                "type": act["type"] or "",
+                "date": act["date"].strftime("%Y-%m-%d") if act["date"] else "",
+                "commentaire": act["commentaire"] or "",
+            })
 
         return JsonResponse({
-            'success': True,
-            'activites': activites_list,
-            'month': month,
-            'year': year
+            "success": True,
+            "activites": activites_list,
+            "month": month,
+            "year": year,
         })
 
     except Exception as e:
-        print(f"\n Erreur API Calendar Activities : {e}")
         import traceback
         traceback.print_exc()
-        print(f"{'=' * 60}\n")
+        return JsonResponse({
+            "success": False,
+            "message": str(e),
+        }, status=500)
+
+@require_http_methods(["GET"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def get_calendar_activities_week(request):
+    """
+    API endpoint pour récupérer les activités d'une semaine (vue AGENDA).
+    Retourne la référence dossier + le nom lisible + date/heure complètes.
+    """
+    try:
+        date_str = request.GET.get("date")
+        ref_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else datetime.now().date()
+
+        monday = ref_date - timedelta(days=ref_date.weekday())
+        sunday = monday + timedelta(days=6)
+
+        start_dt = datetime(monday.year, monday.month, monday.day, 0, 0, 0)
+        end_dt = datetime(sunday.year, sunday.month, sunday.day, 23, 59, 59)
+
+        activites = (
+            Activite.objects
+            .filter(date__gte=start_dt, date__lte=end_dt)
+            .select_related("dossier")
+            .values(
+                "id",
+                "dossier__reference",
+                "dossier__name",
+                "type",
+                "date",
+                "commentaire",
+            )
+        )
+
+        activites_list = []
+        for act in activites:
+            dossier_reference = act.get("dossier__reference") or ""
+            dossier_nom = act.get("dossier__name") or dossier_reference
+            dt = act.get("date")
+
+            activites_list.append({
+                "id": act["id"],
+                "dossier": dossier_reference,
+                "dossier_nom": dossier_nom,
+                "type": act["type"] or "",
+                "date": dt.strftime("%Y-%m-%d") if dt else "",
+                "time": dt.strftime("%H:%M") if dt else "09:00",
+                "datetime": dt.isoformat() if dt else None,
+                "commentaire": act["commentaire"] or "",
+            })
 
         return JsonResponse({
-            'success': False,
-            'message': f'Erreur : {str(e)}'
+            "success": True,
+            "activites": activites_list,
+            "week_start": monday.isoformat(),
+            "week_end": sunday.isoformat(),
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            "success": False,
+            "message": str(e),
         }, status=500)
+
 
 @require_http_methods(["POST"])
 @login_required
@@ -299,7 +356,6 @@ def create_activity_view(request):
                 'message': f'Type invalide. Types autorisés : {", ".join(types_valides)}'
             }, status=400)
 
-        from datetime import datetime
         try:
             date_activite = datetime.fromisoformat(date_str)
         except ValueError:
@@ -382,7 +438,7 @@ def delete_activity_view(request):
         try:
             date_activite = datetime.fromisoformat(date_str)
             date_debut = date_activite.replace(second=0, microsecond=0)
-
+            date_fin   = date_debut + timedelta(minutes=1)
 
         except ValueError as e:
             return JsonResponse({
@@ -394,6 +450,7 @@ def delete_activity_view(request):
             dossier=TechnicalProject.objects.get(reference=dossier),
             type=TypeActivite.objects.get(type=type_activite),
             date__gte=date_debut,
+            date__lt=date_fin,
         )
 
         count_before = query_date.count()

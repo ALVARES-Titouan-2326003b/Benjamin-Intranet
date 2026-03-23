@@ -24,11 +24,11 @@ ALLOWED_REDIRECTS = [
 @login_required
 def initiate_oauth(request):
     """
-    Initie le flux OAuth2.
-    Stocke l'URL de retour dans la session avant de partir vers Google.
+    Initie le flux OAuth2 Microsoft.
+    Stocke l'URL de retour dans la session avant de partir vers Microsoft.
 
-    URL : /oauth/gmail/
-    URL pôle technique : /oauth/gmail/?next=/pole-technique/email/
+    URL : /oauth/microsoft/
+    URL pôle technique : /oauth/microsoft/?next=/pole-technique/email/
     """
     # Lire et valider le paramètre next
     next_url = request.GET.get('next', DEFAULT_REDIRECT)
@@ -108,7 +108,7 @@ def oauth_callback(request):
         _, created = OAuthToken.objects.update_or_create(
             user=request.user,
             defaults={
-                'provider':      'google',
+                'provider':      'microsoft',
                 'email':         tokens['email'],
                 'access_token':  tokens['access_token'],
                 'refresh_token': tokens['refresh_token'],

@@ -1,5 +1,16 @@
-<!-- CALENDRIER  -->
-<div class="calendar" style="padding: 0; margin-top: 1rem;">
+<!-- Toggle vue Mois / Semaine -->
+<div style="display: flex; justify-content: center; margin-bottom: 1rem;">
+    <div class="cal-view-toggle">
+        <button id="btn-view-month" class="cal-view-btn active" onclick="calSwitchView('month')">
+            <i class="bi bi-calendar3"></i> Mois
+        </button>
+        <button id="btn-view-week" class="cal-view-btn" onclick="calSwitchView('week')">
+            <i class="bi bi-calendar-week"></i> Semaine
+        </button>
+    </div>
+</div>
+
+<div id="cal-month-view" class="calendar" style="padding: 0; margin-top: 0.5rem;">
     <header style="padding: 10px 0; border: none; align-items: center;">
         <h3 class="current-date" style="font-size: 1.2rem; margin: 0; color: var(--text-main);"></h3>
         <div class="icons">
@@ -18,5 +29,48 @@
             <li>Dim</li>
         </ul>
         <div class="days" style="font-size: 0.95rem;"></div>
+    </div>
+</div>
+
+<div id="cal-week-view" style="display: none; margin-top: 0.5rem;">
+
+    <!-- Header navigation semaine -->
+    <div class="week-header">
+        <button class="week-nav-btn" id="week-prev" title="Semaine précédente">
+            <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        <span class="week-title" id="week-title">Semaine du …</span>
+        <button class="week-nav-btn" id="week-next" title="Semaine suivante">
+            <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+        <button class="week-today-btn" id="week-today">Aujourd'hui</button>
+    </div>
+
+    <!-- Grille agenda -->
+    <div class="agenda-outer">
+
+        <!-- Headers des jours (ne scrollent pas) -->
+        <div class="agenda-week-headers">
+            <div class="agenda-week-header-spacer"></div>
+            <div class="agenda-week-header-days" id="agenda-header-days">
+                <!-- généré par JS -->
+            </div>
+        </div>
+
+        <!-- Corps scrollable : colonne heures + 7 colonnes jours -->
+        <div class="agenda-grid-wrapper">
+            <div class="agenda-time-col" id="agenda-time-col">
+                <!-- généré par JS : 00h → 23h -->
+            </div>
+            <div class="agenda-days-cols" id="agenda-days-cols">
+                <!-- généré par JS -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Indicateur chargement -->
+    <div id="week-loading" style="display:none; text-align:center; padding: 1rem; color: var(--text-secondary);">
+        <i class="bi bi-hourglass-split"></i> Chargement…
     </div>
 </div>

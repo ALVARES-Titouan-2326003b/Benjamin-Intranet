@@ -7,7 +7,9 @@ from . import oauth_views
 app_name = 'oauth'
 
 urlpatterns = [
-    path('gmail/', oauth_views.initiate_oauth, name='initiate'),
+    path('microsoft/', oauth_views.initiate_oauth, name='initiate'),
+
+    path('gmail/', oauth_views.initiate_oauth, name='initiate_legacy'),
 
     path('callback/', oauth_views.oauth_callback, name='callback'),
 
