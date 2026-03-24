@@ -1,15 +1,19 @@
 import requests
 from management.models import OAuthToken
+from django.utils.dateparse import parse_datetime
 from management.oauth_utils import (
     GRAPH_URL,
     get_graph_headers,
     send_email_via_graph_api,
+    refresh_access_token,
 )
 
 
 def _graph_get(user, url, params=None):
     headers = get_graph_headers(user)
     response = requests.get(url, headers=headers, params=params, timeout=20)
+    print("GRAPH STATUS:", response.status_code)
+    print("GRAPH BODY:", response.text)
     response.raise_for_status()
     return response.json()
 
@@ -110,11 +114,14 @@ def get_sent_emails(user, limit=50):
             if to_recipients:
                 first_to = to_recipients[0].get("emailAddress", {}).get("address", "")
 
+            sent_date_raw = msg.get("sentDateTime")
+            sent_date = parse_datetime(sent_date_raw) if sent_date_raw else None
+
             detailed.append({
                 "id": msg.get("id"),
                 "subject": msg.get("subject") or "(Sans objet)",
                 "to": first_to,
-                "date": msg.get("sentDateTime"),
+                "date": sent_date,
                 "body_text": (msg.get("bodyPreview") or "")[:200],
                 "from": oauth_token.email,
                 "status": status,
@@ -200,6 +207,41 @@ def send_email_reply(user, original_message_id, message_text, subject=None, to_e
 
     except Exception as e:
         print(f"Erreur send_email_reply : {e}")
+        return {
+            "success": False,
+            "message": str(e),
+        }
+
+def send_auto_relance(user, to_email, subject, message_text, objet_custom=None, original_message_id=None):
+    """
+    Envoie une relance automatique via Outlook / Microsoft Graph.
+
+    Comportement :
+    - si objet_custom est fourni, on envoie un nouveau mail avec cet objet
+    - sinon, si original_message_id est fourni, on répond dans le thread existant
+    - sinon, on envoie un nouveau mail classique
+    """
+    try:
+        final_subject = objet_custom or subject or "Relance"
+
+        if original_message_id and not objet_custom:
+            return send_email_reply(
+                user=user,
+                original_message_id=original_message_id,
+                message_text=message_text,
+                subject=final_subject,
+                to_email=to_email,
+            )
+
+        return send_email_via_graph_api(
+            user=user,
+            to_email=to_email,
+            subject=final_subject,
+            message_text=message_text,
+        )
+
+    except Exception as e:
+        print(f"Erreur send_auto_relance : {e}")
         return {
             "success": False,
             "message": str(e),

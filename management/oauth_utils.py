@@ -63,6 +63,7 @@ def exchange_code_for_tokens(code, redirect_uri):
     me_response = requests.get(f"{GRAPH_URL}/me", headers=headers, timeout=20)
     me_response.raise_for_status()
     user_info = me_response.json()
+    print(user_info)
 
     token_expiry = timezone.now() + timedelta(seconds=tokens.get("expires_in", 3600))
 
@@ -99,7 +100,7 @@ def refresh_access_token(refresh_token):
 
 
 def get_valid_credentials(oauth_token):
-    if oauth_token.is_token_expired():
+    if timezone.now() >= (oauth_token.token_expiry - timedelta(minutes=5)):
         new_tokens = refresh_access_token(oauth_token.refresh_token)
         oauth_token.access_token = new_tokens["access_token"]
         oauth_token.refresh_token = new_tokens["refresh_token"]

@@ -9,8 +9,6 @@ app_name = 'oauth'
 urlpatterns = [
     path('microsoft/', oauth_views.initiate_oauth, name='initiate'),
 
-    path('gmail/', oauth_views.initiate_oauth, name='initiate_legacy'),
-
     path('callback/', oauth_views.oauth_callback, name='callback'),
 
     path('revoke/', oauth_views.revoke_oauth, name='revoke'),

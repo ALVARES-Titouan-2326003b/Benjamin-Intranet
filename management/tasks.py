@@ -1,19 +1,23 @@
-"""
-VERSION DEBUG ULTRA-DÉTAILLÉ
-Cette version affiche EXACTEMENT où chaque email est bloqué
-"""
 import os
-from celery import shared_task
-from django.utils import timezone
-from .models import DefaultModeleRelance, DefaultTempsRelance, ModeleRelance, TempsRelance, EmailClient, Activite, OAuthToken
-from .email_manager import send_auto_relance
-from datetime import datetime, timedelta
-from django.core.mail import EmailMessage
 import logging
-from email.utils import parsedate_to_datetime
 import traceback
-from management.email_manager import check_if_replies_exist
+from datetime import datetime, timedelta
+
+from celery import shared_task
+from django.core.mail import EmailMessage
+from django.utils import timezone
 from django.contrib.auth import get_user_model
+
+from .models import (
+    DefaultModeleRelance,
+    DefaultTempsRelance,
+    ModeleRelance,
+    TempsRelance,
+    EmailClient,
+    Activite,
+    OAuthToken,
+)
+from .email_manager import send_auto_relance, get_sent_emails
 
 Utilisateur = get_user_model()
 
@@ -44,7 +48,8 @@ def check_and_send_auto_relances():
         'default_modele_relance_not_found': 0,
         'message_empty': 0,
         'sent_successfully': 0,
-        'send_failed': 0
+        'send_failed': 0,
+        'utilisateur_not_found': 0,
     }
 
     try:
@@ -58,9 +63,10 @@ def check_and_send_auto_relances():
                 'erreurs': 0
             }
 
-        try:
-            default_temps_relance = DefaultTempsRelance.objects.all().first().temps
-        except DefaultTempsRelance.DoesNotExist:
+        default_temps_relance_obj = DefaultTempsRelance.objects.first()
+        default_temps_relance = default_temps_relance_obj.temps if default_temps_relance_obj else None
+
+        if default_temps_relance is None:
             blocked_at['default_temps_relance_not_found'] = True
 
         for oauth_token in oauth_users:
@@ -69,7 +75,7 @@ def check_and_send_auto_relances():
 
 
             try:
-                sent_emails = get_sent_emails_for_celery(user, limit=100)
+                sent_emails = get_sent_emails(user, limit=100)
 
                 print(f"   {len(sent_emails)} emails trouvés dans SENT")
 
@@ -113,18 +119,21 @@ def check_and_send_auto_relances():
                             destinataire_email = destinataire_email.split('<')[1].split('>')[0].strip()
 
                         try:
-                            utilisateur = Utilisateur.objects.get(id=user)
+                            utilisateur = user
                         except Utilisateur.DoesNotExist:
                             blocked_at['utilisateur_not_found'] += 1
                             continue
 
                         try:
-                            intervalle = TempsRelance.objects.get(id=user).relance
+                            intervalle = TempsRelance.objects.get(id=user).temps
                         except TempsRelance.DoesNotExist:
                             blocked_at['temps_relance_not_found'] += 1
-                            if not blocked_at['default_temps_relance_not_found']:
+                            if blocked_at['default_temps_relance_not_found']:
                                 continue
                             intervalle = default_temps_relance
+
+                        if not intervalle or intervalle <= 0:
+                            continue
 
 
                         if nb_jours % intervalle != 0:
@@ -198,76 +207,6 @@ def check_and_send_auto_relances():
             'success': False,
             'message': str(e)
         }
-
-
-def get_sent_emails_for_celery(user, limit=100):
-    """
-    Permet de récuperer les mails a la place de la bd
-    """
-    try:
-        from management.oauth_utils import get_gmail_service
-
-        service = get_gmail_service(user)
-
-        date_limite = timezone.now() - timedelta(days=90)
-        date_limite_str = date_limite.strftime('%Y/%m/%d')
-
-        query = f'in:sent after:{date_limite_str}'
-
-        results = service.users().messages().list(
-            userId='me',
-            maxResults=limit,
-            q=query
-        ).execute()
-
-        messages = results.get('messages', [])
-
-        replied_thread_ids = check_if_replies_exist(user)
-
-        detailed_messages = []
-
-        for msg in messages:
-            try:
-                msg_data = service.users().messages().get(
-                    userId='me',
-                    id=msg['id'],
-                    format='metadata',
-                    metadataHeaders=['Subject', 'To', 'Date']
-                ).execute()
-
-                thread_id = msg_data.get('threadId')
-                headers = msg_data['payload']['headers']
-
-                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '(Sans objet)')
-                to = next((h['value'] for h in headers if h['name'] == 'To'), '')
-                date_str = next((h['value'] for h in headers if h['name'] == 'Date'), '')
-
-                try:
-                    date = parsedate_to_datetime(date_str)
-                except (TypeError, ValueError):
-                    date = timezone.now()
-
-                status = 'pending'
-                if thread_id and thread_id in replied_thread_ids:
-                    status = 'replied'
-
-                detailed_messages.append({
-                    'id': msg['id'],
-                    'thread_id': thread_id,
-                    'subject': subject,
-                    'to': to,
-                    'date': date,
-                    'status': status
-                })
-
-            except Exception:
-                continue
-
-        return detailed_messages
-
-    except Exception as e:
-        print(f"   Erreur get_sent_emails_for_celery : {e}")
-        return []
 
 
 @shared_task

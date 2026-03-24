@@ -57,7 +57,7 @@ class DefaultTempsRelance(models.Model):
         db_table = 'default_temps_relance'
 
     def __str__(self):
-        return f"Relance tous les {self.relance} jours"
+        return f"Relance tous les {self.temps} jours"
 
 
 class ModeleRelance(models.Model):
@@ -134,7 +134,7 @@ class OAuthToken(models.Model):
     )
 
 
-    provider = models.CharField(max_length=50, default='google')
+    provider = models.CharField(max_length=50, default='microsoft')
 
 
     email = models.EmailField()

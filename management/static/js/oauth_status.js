@@ -46,11 +46,11 @@ function loadOAuthStatus() {
                             <i class="bi bi-exclamation-triangle" style="font-size:2rem; color:#f59e0b;"></i>
                         </div>
                         <p style="color:var(--text-secondary); margin-bottom:1rem;">
-                            Vous devez synchroniser votre boîte mail Gmail pour envoyer et recevoir des emails.
+                            Vous devez synchroniser votre boîte mail Microsoft pour envoyer et recevoir des emails.
                         </p>
-                        <a href="/oauth/gmail/" class="btn btn-primary"
+                        <a href="/oauth/microsoft/" class="btn btn-primary"
                            style="display:inline-flex; align-items:center; gap:0.5rem;">
-                            <i class="bi bi-google"></i> Synchroniser avec Gmail
+                            <i class="bi bi-microsoft"></i> Synchroniser avec Outlook
                         </a>
                     </div>`;
             }
@@ -67,8 +67,8 @@ function loadOAuthStatus() {
 }
 
 function resyncMailbox() {
-    if (confirm('Re-synchroniser votre boîte mail ? Vous allez être redirigé vers Google.')) {
-        window.location.href = '/oauth/gmail/';
+    if (confirm('Re-synchroniser votre boîte mail ? Vous allez être redirigé vers Microsoft.')) {
+        window.location.href = '/oauth/microsoft/';
     }
 }
 
