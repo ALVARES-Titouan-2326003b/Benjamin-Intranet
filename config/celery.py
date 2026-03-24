@@ -25,15 +25,15 @@ app.autodiscover_tasks()
 app.conf.beat_schedule = {
     'check-and-send-auto-relances': {
         'task': 'management.tasks.check_and_send_auto_relances',
-        'schedule': crontab(minute='*/5'),
+        'schedule': crontab(minute='*/30'),
     },
     'check-activite-reminders-daily': {
         'task': 'management.tasks.check_and_send_activite_reminders',
-        'schedule': crontab(minute='*/5'),
+        'schedule': crontab(minute='*/30'),
     },
     'check-and-send-invoice-reminders': {
         'task': 'invoices.tasks.check_and_send_invoice_reminders',
-        'schedule': crontab(minute='*/5'),
+        'schedule': crontab(minute='*/30'),
     },
 }
 app.conf.timezone = 'Europe/Paris'

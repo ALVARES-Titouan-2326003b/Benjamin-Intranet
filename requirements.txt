@@ -28,3 +28,4 @@ pytest-django==4.9.0
 pytest-cov==6.0.0
 ruff==0.15.2
 openpyxl==3.1.5
+msal==1.35.1
