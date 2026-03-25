@@ -7,7 +7,7 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 import logging
 
-from .models import Facture, Fournisseur, Contact, EmailFournisseur, RelanceFournisseur
+from .models import Facture, Fournisseur, Contact, EmailFournisseur, RelanceFournisseur, FactureHistorique
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,16 @@ def send_invoice_reminder(facture, to_email, message_text, jours_avant_echeance)
         }
 
         email.send()
+
+        # Historique métier - relance envoyée
+        try:
+            FactureHistorique.objects.create(
+                facture=facture,
+                action='reminder_sent',
+                details=f"Relance envoyée à {to_email} à J-{jours_avant_echeance}",
+            )
+        except Exception:
+            logger.exception('Impossible d enregistrer l historique de relance pour facture %s', facture.id)
 
         return {
             'success': True,
@@ -118,7 +128,7 @@ def check_and_send_invoice_reminders(delai_relance=None):
 
     try:
         factures = Facture.objects.filter(
-            statut="En cours",
+            statut="ongoing",
             echeance__gt=timezone.now()
         ).select_related('client')
 

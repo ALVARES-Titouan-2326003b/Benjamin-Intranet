@@ -37,6 +37,21 @@ class Client(models.Model):
         db_table = 'client'
 
     def __str__(self):
+        # Essayer d'abord comme entreprise
+        try:
+            entreprise = self.entreprise
+            return entreprise.nom or self.id
+        except Entreprise.DoesNotExist:
+            pass
+
+        # Essayer comme particulier
+        try:
+            particulier = self.particulier
+            return f"{particulier.nom.upper()} {particulier.prenom}"
+        except Particulier.DoesNotExist:
+            pass
+
+        # Fallback sur l'ID
         return self.id
 
 
@@ -126,6 +141,33 @@ class Facture(models.Model):
 
     class Meta:
         db_table = 'facture'
+
+
+class FactureHistorique(models.Model):
+    ACTION_CHOICES = [
+        ('status_change', 'Changement de statut'),
+        ('reminder_sent', 'Relance envoyée'),
+        ('user_action', 'Action utilisateur'),
+    ]
+
+    facture = models.ForeignKey(
+        'Facture', on_delete=models.CASCADE, related_name='historique', verbose_name='Facture'
+    )
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    old_status = models.CharField(max_length=50, blank=True, null=True)
+    new_status = models.CharField(max_length=50, blank=True, null=True)
+    user = models.ForeignKey(
+        Utilisateur, on_delete=models.SET_NULL, blank=True, null=True, verbose_name='Utilisateur'
+    )
+    details = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'facture_historique'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Historique {self.facture_id} [{self.get_action_display()}] {self.created_at:%d/%m/%Y %H:%M}"
 
 
 class PieceJointe(models.Model):

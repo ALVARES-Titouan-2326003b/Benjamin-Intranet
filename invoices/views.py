@@ -10,7 +10,7 @@ from django.views.generic import DetailView, CreateView, UpdateView
 from user_access.user_test_functions import has_finance_access, has_ceo_access, can_read_facture
 from .filters import FactureFilter
 from .forms import FactureForm, PieceJointeForm
-from .models import Facture, PieceJointe
+from .models import Facture, PieceJointe, FactureHistorique
 
 
 # ================== Liste / Détail ==================
@@ -127,6 +127,17 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
     form_class = FactureForm
     template_name = 'invoices/invoice_form.html'
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        FactureHistorique.objects.create(
+            facture=self.object,
+            action='user_action',
+            new_status=self.object.statut,
+            user=self.request.user,
+            details=f"Facture créée par {self.request.user.username}"
+        )
+        return response
+
     def get_success_url(self):
         messages.success(self.request, "Facture créée.")
         return reverse('invoices:detail', args=[self.object.pk])
@@ -145,6 +156,22 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
     model = Facture
     form_class = FactureForm
     template_name = 'invoices/invoice_form.html'
+
+    def form_valid(self, form):
+        old_status = self.get_object().statut
+        response = super().form_valid(form)
+        new_status = self.object.statut
+
+        FactureHistorique.objects.create(
+            facture=self.object,
+            action='user_action',
+            old_status=old_status,
+            new_status=new_status,
+            user=self.request.user,
+            details=f"Facture modifiée par {self.request.user.username}"
+        )
+
+        return response
 
     def get_success_url(self):
         messages.success(self.request, "Facture mise à jour.")

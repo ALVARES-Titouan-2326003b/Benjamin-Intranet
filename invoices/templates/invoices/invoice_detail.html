@@ -32,7 +32,7 @@
 
       <div>
         <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Client</label>
-        <div style="font-weight: 500;">{{ object.client.nom|default:object.client_id|default:"—" }}</div>
+        <div style="font-weight: 500;">{{ object.client|default:"—" }}</div>
       </div>
 
       <div>
@@ -40,11 +40,6 @@
         <div style="font-weight: 600; font-size: 1.1rem;">
           {{ object.montant|default_if_none:"—" }}{% if object.montant %} €{% endif %}
         </div>
-      </div>
-
-      <div>
-        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Pôle / Service</label>
-        <div>{{ object.pole|default:"—" }}</div>
       </div>
 
       <div>
@@ -117,6 +112,47 @@
     {% endwith %}
   </div>
 
+</div>
+
+<div class="card" style="margin-top: 1.5rem;">
+    <div class="card-title">Historique de la facture</div>
+    {% if object.historique.exists %}
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Action</th>
+                    <th>Utilisateur</th>
+                    <th>Détails</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in object.historique.all %}
+                <tr>
+                    <td>{{ event.created_at|date:"d/m/Y H:i" }}</td>
+                    <td>{{ event.get_action_display }}</td>
+                    <td>
+                        {% if event.user %}
+                            {{ event.user.username }}
+                        {% else %}
+                            Système
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if event.old_status or event.new_status %}
+                        <strong>{{ event.old_status|default:"-" }} → {{ event.new_status|default:"-" }}</strong><br>
+                        {% endif %}
+                        {{ event.details|default:"-" }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-secondary);">Aucun historique disponible pour cette facture.</p>
+    {% endif %}
 </div>
 
 {% endblock %}

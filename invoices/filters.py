@@ -24,11 +24,6 @@ class FactureFilter(django_filters.FilterSet):
         lookup_expr='lte'
     )
 
-    pole = django_filters.CharFilter(
-        field_name='pole',
-        lookup_expr='icontains'
-    )
-
     echeance_min = django_filters.DateFilter(
         field_name='echeance',
         lookup_expr='date__gte',

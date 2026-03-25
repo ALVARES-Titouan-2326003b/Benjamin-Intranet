@@ -87,17 +87,12 @@
             <label class="form-label" style="font-size: 0.8rem;">Statut</label>
             <select name="statut" class="form-control">
                 <option value="">Tous</option>
-                <option value="Recue" {% if request.GET.statut == 'Recue' %}selected{% endif %}>Reçue</option>
-                <option value="En cours" {% if request.GET.statut == 'En cours' %}selected{% endif %}>En cours</option>
-                <option value="Payee" {% if request.GET.statut == 'Payee' %}selected{% endif %}>Payée</option>
-                <option value="Refusée" {% if request.GET.statut == 'Refusée' %}selected{% endif %}>Refusée</option>
-                <option value="Archivee" {% if request.GET.statut == 'Archivee' %}selected{% endif %}>Archivée</option>
+                <option value="ongoing" {% if request.GET.statut == 'ongoing' %}selected{% endif %}>En cours</option>
+                <option value="received" {% if request.GET.statut == 'received' %}selected{% endif %}>Reçue</option>
+                <option value="paid" {% if request.GET.statut == 'paid' %}selected{% endif %}>Payée</option>
+                <option value="denied" {% if request.GET.statut == 'denied' %}selected{% endif %}>Refusée</option>
+                <option value="archived" {% if request.GET.statut == 'archived' %}selected{% endif %}>Archivée</option>
             </select>
-        </div>
-
-        <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 0.8rem;">Pôle</label>
-            <input type="text" name="pole" value="{{ request.GET.pole }}" class="form-control" placeholder="Service...">
         </div>
 
         <div class="form-group" style="margin: 0; grid-column: span 2;">
@@ -157,11 +152,7 @@
                     <td>{{ invoice.fournisseur|default:"—" }}</td>
                     <td>
                         <div style="display: flex; flex-direction: column;">
-                            <span style="font-weight: 500;">{{ invoice.client.nom|default:"—" }}</span>
-                            {% if invoice.client_id and invoice.client_id != invoice.client.nom %}
-                            <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ invoice.client_id
-                                }}</span>
-                            {% endif %}
+                            <span style="font-weight: 500;">{{ invoice.client|default:"—" }}</span>
                         </div>
                     </td>
                     <td style="font-family: monospace; font-size: 0.95rem;">

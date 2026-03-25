@@ -49,17 +49,17 @@ class DashboardView(TemplateView):
         total_count = total_aggregate['count'] or 0
 
         # Montant Payé
-        paid_aggregate = qs.filter(statut='Payee').aggregate(total=Sum('montant'))
+        paid_aggregate = qs.filter(statut='paid').aggregate(total=Sum('montant'))
         paid_amount = paid_aggregate['total'] or 0
 
         # En attente (Tout ce qui n'est pas payé ni annulé/archivé)
-        pending_qs = qs.exclude(statut__in=['Payee', 'Archivee'])
+        pending_qs = qs.exclude(statut__in=['paid', 'archived'])
         pending_aggregate = pending_qs.aggregate(total=Sum('montant'))
         pending_amount = pending_aggregate['total'] or 0
 
         # En Retard (Non payée et date dépassée) OU Statut explicitement 'En retard'
         overdue_qs = qs.filter(
-            Q(statut__in=['Recue', 'En cours', 'En retard']),
+            Q(statut__in=['received', 'ongoing']),
             echeance__lt=now
         )
         overdue_aggregate = overdue_qs.aggregate(
