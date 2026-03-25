@@ -41,6 +41,27 @@ def has_ceo_access(user):
     user = User.objects.get(username=user.username)
     return user.groups.filter(name="CEO").exists()
 
+
+def has_all_poles_access(user):
+    """
+    Renvoie vrai si un utilisateur a accès à au moins un des pôles gérés (CEO, financier, administratif, technique).
+
+    Args:
+        user (User):  L'utilisateur
+    """
+    user = User.objects.get(username=user.username)
+
+    if user.is_superuser or user.is_staff:
+        return True
+
+    return (
+        user.groups.filter(name="CEO").exists()
+        or user.groups.filter(name="POLE_FINANCIER").exists()
+        or user.groups.filter(name="POLE_ADMINISTRATIF").exists()
+        or user.groups.filter(name="POLE_TECHNIQUE").exists()
+    )
+
+
 def has_collaborateur_access(user):
     """
     Renvoie vrai si un utilisateur a les accès des collaborateurs
