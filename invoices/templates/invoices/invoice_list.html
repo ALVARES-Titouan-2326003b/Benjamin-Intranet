@@ -13,6 +13,12 @@
         <a class="btn btn-primary" href="{% url 'invoices:create' %}">
             <i class="bi bi-plus-lg"></i> Nouvelle facture
         </a>
+        <a class="btn btn-outline-primary" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}export=xlsx">
+            <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
+        </a>
+        <a class="btn btn-outline-primary" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}export=pdf">
+            <i class="bi bi-file-earmark-pdf"></i> Export PDF
+        </a>
         {% endif %}
     </div>
 </div>
@@ -69,6 +75,12 @@
             <label class="form-label" style="font-size: 0.8rem;">Client</label>
             <input type="text" name="client" value="{{ request.GET.client }}" class="form-control"
                 placeholder="Rech...">
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Dossier / Projet</label>
+            <input type="text" name="dossier" value="{{ request.GET.dossier }}" class="form-control"
+                placeholder="Référence ou nom...">
         </div>
 
         <div class="form-group" style="margin: 0;">
@@ -131,6 +143,7 @@
                 <tr>
                     <th style="padding-left: 1.5rem; width: 40px;"><input type="checkbox" id="selectAll" title="Tout sélectionner"></th>
                     <th>ID</th>
+                    <th>Dossier</th>
                     <th>Fournisseur</th>
                     <th>Client</th>
                     <th>Montant</th>
@@ -149,6 +162,7 @@
                             #{{ invoice.id }}
                         </a>
                     </td>
+                    <td>{{ invoice.dossier|default:"—" }}</td>
                     <td>{{ invoice.fournisseur|default:"—" }}</td>
                     <td>
                         <div style="display: flex; flex-direction: column;">
@@ -164,10 +178,10 @@
                     </td>
                     <td>
                         {% if invoice.statut %}
-                        {% with s=invoice.statut %}
-                        {% if 'Payée' in s %}<span class="badge badge-success">Payée</span>
-                        {% elif 'En cours' in s %}<span class="badge badge-info text-dark">En cours</span>
-                        {% elif 'Retard' in s or 'Refusée' in s %}<span class="badge badge-danger">{{ s }}</span>
+                        {% with s=invoice.get_statut_display %}
+                        {% if s == 'Payée' %}<span class="badge badge-success">Payée</span>
+                        {% elif s == 'En cours' %}<span class="badge badge-info text-dark">En cours</span>
+                        {% elif s == 'Refusée' %}<span class="badge badge-danger">Refusée</span>
                         {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ s }}</span>
                         {% endif %}
                         {% endwith %}

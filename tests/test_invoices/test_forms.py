@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from unittest.mock import patch
 from django.contrib.auth.models import User
+from django.urls import reverse
 
 from invoices.forms import (
     normalize_label,
@@ -17,7 +18,7 @@ from invoices.forms import (
     FactureForm,
     PieceJointeForm,
 )
-from invoices.models import Facture, Entreprise, Fournisseur, Client
+from invoices.models import Facture, Entreprise, Fournisseur, Client, ActeurExterne
 
 
 class TestNormalizeLabel:
@@ -158,12 +159,16 @@ class TestFactureForm:
     @pytest.fixture
     def valid_form_data(self):
         """Données de formulaire valides"""
+        from technique.models import TechnicalProject
+
+        dossier = TechnicalProject.objects.create(reference='DOS-000', name='Dossier Test')
+
         return {
             'fournisseur_input': 'Fournisseur Test',
             'client_input': 'Client Test',
+            'dossier': dossier.id,
             'montant': 1000.0,
             'statut': 'En cours',
-            'pole': 'Comptabilité et Finance',
             'echeance': '2024-12-31',
             'titre': 'Facture de test',
         }
@@ -173,7 +178,7 @@ class TestFactureForm:
         form = FactureForm()
 
         assert len(form.fields['statut'].choices) > 0
-        assert len(form.fields['pole'].choices) > 0
+        assert 'dossier' in form.fields
 
     def test_form_valid_data(self, mock_enums, valid_form_data):
         """Teste un formulaire avec données valides"""
@@ -267,16 +272,23 @@ class TestFactureForm:
         """Teste l'édition d'une facture existante"""
 
 
-        entreprise = Entreprise.objects.create(id='OLD-CLIENT', nom='Old Client')
-        Client.objects.create(id='OLD-CLIENT')
+        acteur = ActeurExterne.objects.create(id='OLD-CLIENT')
+        client = Client.objects.create(id=acteur)
+        Entreprise.objects.create(id=client, nom='Old Client')
+
+        acteur_f = ActeurExterne.objects.create(id='OLD-FOURNISSEUR')
+        fournisseur = Fournisseur.objects.create(id=acteur_f, nom='Old Fournisseur')
+
+        from technique.models import TechnicalProject
+        old_dossier = TechnicalProject.objects.create(reference='DOS-OLD', name='Dossier Old')
 
         facture = Facture.objects.create(
             id='FAC-EXISTING',
-            fournisseur='OLD-FOURNISSEUR',
-            client=entreprise,
+            fournisseur=fournisseur,
+            client=client,
             montant=500,
             statut='ongoing',
-            dossier='DOS-OLD',
+            dossier=old_dossier,
         )
 
         valid_form_data['fournisseur_input'] = 'New Fournisseur'
@@ -329,16 +341,24 @@ class TestPieceJointeForm:
     @pytest.fixture
     def facture(self):
         """Facture de test"""
-        entreprise = Entreprise.objects.create(id='TEST-CLIENT', nom='Test Client')
-        Client.objects.create(id='TEST-CLIENT')
+        from technique.models import TechnicalProject
+
+        acteur = ActeurExterne.objects.create(id='TEST-CLIENT')
+        client = Client.objects.create(id=acteur)
+        Entreprise.objects.create(id=client, nom='Test Client')
+
+        acteur_f = ActeurExterne.objects.create(id='TEST-FOURNISSEUR')
+        fournisseur = Fournisseur.objects.create(id=acteur_f, nom='Test Fournisseur')
+
+        dossier = TechnicalProject.objects.create(reference='DOS-TEST', name='Dossier Test')
 
         return Facture.objects.create(
             id='FAC-TEST',
-            fournisseur='TEST-FOURNISSEUR',
-            client=entreprise,
+            fournisseur=fournisseur,
+            client=client,
             montant=1000,
             statut='ongoing',
-            dossier='DOS-TEST',
+            dossier=dossier,
         )
 
     def test_form_valid_pdf(self, facture, valid_pdf_file):
@@ -405,3 +425,79 @@ class TestPieceJointeForm:
         )
 
         assert form.is_valid()
+
+
+@pytest.mark.django_db
+class TestFactureListViewFiltersAndExport:
+    """Tests pour liste de factures : filtre client/dossier + export Excel/PDF"""
+
+    @pytest.fixture(autouse=True)
+    def setup_user(self):
+        self.user = User.objects.create_user(username='finance', password='finance', is_staff=True)
+
+    def _create_test_invoice(self, reference='PRJ-001', project_name='Projet Exemple', client_id='CLIENT-1', client_name='Client Exemple'):
+        from technique.models import TechnicalProject
+
+        dossier = TechnicalProject.objects.create(reference=reference, name=project_name)
+        acteur = ActeurExterne.objects.create(id=client_id)
+        client = Client.objects.create(id=acteur)
+        Entreprise.objects.create(id=client, nom=client_name)
+
+        acte_fournisseur = ActeurExterne.objects.create(id='FOURNISSEUR-1')
+        fournisseur = Fournisseur.objects.create(id=acte_fournisseur, nom='Fournisseur Test')
+
+        facture = Facture.objects.create(
+            id='FAC-TEST',
+            fournisseur=fournisseur,
+            client=client,
+            montant=2500.0,
+            statut='ongoing',
+            dossier=dossier,
+        )
+        return facture
+
+    def test_client_filter(self, client):
+        self._create_test_invoice(client_name='NomClientX')
+        client.force_login(self.user)
+
+        response = client.get(reverse('invoices:list'), {'client': 'NomClientX'})
+        assert response.status_code == 200
+        assert 'FAC-TEST' in response.content.decode('utf-8')
+
+        response = client.get(reverse('invoices:list'), {'client': 'CLIENT-1'})
+        assert response.status_code == 200
+        assert 'FAC-TEST' in response.content.decode('utf-8')
+
+    def test_dossier_filter(self, client):
+        self._create_test_invoice(reference='DOS-AAA', project_name='Mon Dossier')
+        client.force_login(self.user)
+
+        response = client.get(reverse('invoices:list'), {'dossier': 'DOS-AAA'})
+        assert response.status_code == 200
+        assert 'FAC-TEST' in response.content.decode('utf-8')
+
+        response = client.get(reverse('invoices:list'), {'dossier': 'Mon Dossier'})
+        assert response.status_code == 200
+        assert 'FAC-TEST' in response.content.decode('utf-8')
+
+    def test_export_xlsx_pdf(self, client):
+        self._create_test_invoice()
+        client.force_login(self.user)
+
+        response_xlsx = client.get(reverse('invoices:list'), {'export': 'xlsx'})
+        assert response_xlsx.status_code == 200
+        assert response_xlsx['Content-Type'] == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+        from openpyxl import load_workbook
+        import io as _io
+
+        f = _io.BytesIO(response_xlsx.content)
+        wb = load_workbook(f)
+        assert 'Factures' in wb.sheetnames
+        ws = wb['Factures']
+        assert ws['A1'].value == 'ID'
+
+        response_pdf = client.get(reverse('invoices:list'), {'export': 'pdf'})
+        assert response_pdf.status_code == 200
+        assert response_pdf['Content-Type'] == 'application/pdf'
+        assert response_pdf.content[:4] == b'%PDF'
