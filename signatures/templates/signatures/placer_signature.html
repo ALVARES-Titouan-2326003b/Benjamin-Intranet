@@ -17,12 +17,12 @@
     <div class="card-title">Document : {{ doc.titre }}</div>
     <div class="alert alert-info" style="margin-bottom: 1.5rem;">
         <i class="bi bi-info-circle"></i>
-        {% if is_ceo %}
+        {% if is_designated_signer %}
         Déplacez le bloc <strong>“Tampon + Signature”</strong> (cadre rouge) à l’endroit souhaité sur le document, puis
         cliquez sur <strong>Signer</strong>.
         {% else %}
         Déplacez le bloc <strong>“Tampon + Signature”</strong> (cadre rouge) à l’endroit souhaité, puis cliquez sur
-        <strong>Demander la signature</strong>.
+        <strong>Demander la signature à {{ designated_signer_name }}</strong>.
         {% endif %}
     </div>
 
@@ -50,7 +50,7 @@
         </a>
 
         <button type="submit" class="btn btn-primary">
-            {% if is_ceo %}
+            {% if is_designated_signer %}
             <i class="bi bi-pen"></i> Signer à cet endroit
             {% else %}
             <i class="bi bi-send"></i> Demander la signature à cet endroit

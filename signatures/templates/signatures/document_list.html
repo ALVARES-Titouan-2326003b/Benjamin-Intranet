@@ -75,6 +75,7 @@
                         <th style="width: 40px;"><input type="checkbox" id="selectAll" title="Tout sélectionner"></th>
                         <th>Titre</th>
                         <th>Date d’upload</th>
+                        <th>Signataire</th>
                         <th>Statut</th>
                         <th class="text-right">Action</th>
                     </tr>
@@ -88,6 +89,7 @@
                             <span style="font-weight: 500; color: var(--text-main);">{{ doc.titre }}</span>
                         </td>
                         <td>{{ doc.date_upload|date:"d/m/Y H:i" }}</td>
+                        <td>{{ doc.get_signataire_requis_display }}</td>
                         <td>
                             {% if doc.status_label %}
                             <span class="badge {{ doc.status_css }}">

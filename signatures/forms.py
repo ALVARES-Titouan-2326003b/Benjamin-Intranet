@@ -8,7 +8,13 @@ class DocumentUploadForm(forms.ModelForm):
     """
     class Meta:
         model = Document
-        fields = ["titre", "fichier"]
+        fields = ["titre", "fichier", "signataire_requis"]
+        labels = {
+            "signataire_requis": "Qui doit signer ?",
+        }
+        help_texts = {
+            "signataire_requis": "CEO pour les documents officiels, RH pour contrats/factures.",
+        }
 
 
 class SignatureUserForm(forms.ModelForm):

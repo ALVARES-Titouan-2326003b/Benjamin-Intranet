@@ -59,8 +59,18 @@ class Document(models.Model):
         fichier_signe (FileField): PDF signé (null si non signé)
         date_upload (datetime): Date d'ajout
     """
+    SIGNATAIRES_REQUIS = [
+        ("CEO", "CEO (Rudy)"),
+        ("RH", "RH"),
+    ]
+
     titre = models.CharField(max_length=255)
     fichier = models.FileField(upload_to="documents/originaux/")
+    signataire_requis = models.CharField(
+        max_length=10,
+        choices=SIGNATAIRES_REQUIS,
+        default="CEO",
+    )
     fichier_signe = models.FileField(
         upload_to="documents/signes/", null=True, blank=True
     )

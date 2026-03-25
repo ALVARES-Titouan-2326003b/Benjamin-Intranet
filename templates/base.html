@@ -51,10 +51,13 @@
       </a>
       {% endif %}
 
-      {% if user.is_superuser or user.is_staff or "POLE_FINANCIER" in u_groups_str %}
+      {% if user.is_superuser or user.is_staff or "POLE_FINANCIER" in u_groups_str or "POLE_ADMINISTRATIF" in u_groups_str or "POLE_TECHNIQUE" in u_groups_str %}
       <a href="{% url 'signatures:document_list' %}" class="nav-item {% if '/signatures/' in p %}active{% endif %}">
         <i class="bi bi-pen"></i> Signatures
       </a>
+      {% endif %}
+
+      {% if user.is_superuser or user.is_staff or "POLE_FINANCIER" in u_groups_str %}
       <a href="{% url 'recrutement:dashboard' %}"
         class="nav-item {% if '/gestion-des-candidatures/' in p %}active{% endif %}">
         <i class="bi bi-person-badge"></i> Candidatures
@@ -79,6 +82,11 @@
          class="nav-item {% if '/email/' in request.path %}active{% endif %}">
         <i class="bi bi-envelope"></i> Emails
       </a>
+
+      <a href="{% url 'signatures:document_list' %}"
+         class="nav-item {% if '/signatures/' in p %}active{% endif %}">
+        <i class="bi bi-pen"></i> Signatures
+      </a>
       {% endif %}
       {% endif %}
 
@@ -87,6 +95,10 @@
       {% if user.is_superuser or user.is_staff or "POLE_ADMINISTRATIF" in u_groups_str %}
       <a href="{% url 'admin_view' %}" class="nav-item {% if '/administratif/' in request.path %}active{% endif %}">
         <i class="bi bi-speedometer2"></i> Vue d'ensemble
+      </a>
+      <a href="{% url 'signatures:document_list' %}"
+         class="nav-item {% if '/signatures/' in p %}active{% endif %}">
+        <i class="bi bi-pen"></i> Signatures
       </a>
       {% endif %}
       {% endif %}

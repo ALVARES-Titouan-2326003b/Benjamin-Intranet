@@ -29,10 +29,10 @@
             <p class="pole-desc">
                 Gestion des factures fournisseurs, suivi des candidatures et signatures RH.
             </p>
-            <span class="pole-link">Accéder <i class="bi bi-arrow-right"></i></span>
         </a>
+        {% endif %}
 
-        {% elif access_collaborator %}
+        {% if access_collaborator %}
         <!-- Carte unique pour les collaborateurs -->
         <a href="{% url 'invoices:list' %}" class="pole-card">
             <div class="pole-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
@@ -56,7 +56,6 @@
             <p class="pole-desc">
                 Suivi financier des projets, gestion des documents techniques.
             </p>
-            <span class="pole-link">Accéder <i class="bi bi-arrow-right"></i></span>
         </a>
         {% endif %}
 
@@ -70,7 +69,6 @@
             <p class="pole-desc">
                 Tableau de bord général, calendrier et gestion administrative.
             </p>
-            <span class="pole-link">Accéder <i class="bi bi-arrow-right"></i></span>
         </a>
         {% endif %}
 

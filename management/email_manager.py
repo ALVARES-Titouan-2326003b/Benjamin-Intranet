@@ -5,7 +5,6 @@ from management.oauth_utils import (
     GRAPH_URL,
     get_graph_headers,
     send_email_via_graph_api,
-    refresh_access_token,
 )
 
 

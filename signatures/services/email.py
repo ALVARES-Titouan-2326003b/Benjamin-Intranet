@@ -2,9 +2,9 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 
 
-def envoyer_demande_signature(ceo_email: str, lien_approbation: str, document):
+def envoyer_demande_signature(signataire_email: str, lien_approbation: str, document):
     """
-    Envoie l'email de demande de signature au CEO.
+    Envoie l'email de demande de signature au signataire.
     """
     titre_doc = document.titre or document.fichier.name
 
@@ -22,7 +22,7 @@ def envoyer_demande_signature(ceo_email: str, lien_approbation: str, document):
         subject=sujet,
         body=corps,
         from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[ceo_email],
+        to=[signataire_email],
     )
 
     email.send()
