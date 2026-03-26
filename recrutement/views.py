@@ -5,10 +5,10 @@ from .models import FicheDePoste, Candidature
 from .forms import FicheDePosteForm, CVUploadForm
 from .services.parsing import extract_text
 from .services.ai import score_cv
-from user_access.user_test_functions import has_finance_access
+from user_access.user_test_functions import has_administratif_access
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def dashboard(request):
     """
     Affiche le tableau de bord des recrutements
@@ -21,7 +21,7 @@ def dashboard(request):
     })
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def fiche_create(request):
     """
     Affiche une vue permettant de créer une fiche de poste
@@ -39,7 +39,7 @@ def fiche_create(request):
     return render(request, "recrutement/job_form.html", {"form": form})
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def fiche_detail(request, pk):
     """
     Affiche une vue permettant de voir les détails d'une fiche de poste
@@ -58,7 +58,7 @@ def fiche_detail(request, pk):
     })
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def upload_cv(request, pk):
     """
     Enregistre une candidature à une fiche de poste
@@ -107,7 +107,7 @@ def upload_cv(request, pk):
     return redirect("recrutement:fiche_detail", pk=pk)
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def fiche_update(request, pk):
     fiche = get_object_or_404(FicheDePoste, pk=pk)
 
@@ -126,7 +126,7 @@ def fiche_update(request, pk):
 # ================== Suppression en masse ==================
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def bulk_delete_fiches(request):
     """
     Affiche une vue pour supprimer plusieurs fiches de poste en une seule action
@@ -153,7 +153,7 @@ def bulk_delete_fiches(request):
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def bulk_delete_candidatures(request):
     """
     Affiche une vue pour supprimer plusieurs candidatures en une seule action
@@ -180,7 +180,7 @@ def bulk_delete_candidatures(request):
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def candidature_detail(request, pk):
     candidature = get_object_or_404(
         Candidature.objects.select_related("fiche", "candidat"),
