@@ -217,4 +217,51 @@ class Migration(migrations.Migration):
                 'ordering': ['id'],
             },
         ),
+        migrations.CreateModel(
+            name='TechnicalProjectHistory',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('action_type', models.CharField(
+                    choices=[
+                        ('project_created', 'Projet créé'),
+                        ('budget_updated', 'Budget mis à jour'),
+                        ('expense_created', 'Dépense créée'),
+                        ('expense_updated', 'Dépense modifiée'),
+                        ('expense_deleted', 'Dépense supprimée'),
+                    ],
+                    max_length=32,
+                    verbose_name="Type d'action",
+                )),
+                ('target_type', models.CharField(
+                    choices=[('project', 'Projet'), ('expense', 'Dépense')],
+                    max_length=16,
+                    verbose_name='Type de cible',
+                )),
+                ('target_label', models.CharField(blank=True, max_length=255, verbose_name='Cible')),
+                ('old_value', models.JSONField(blank=True, null=True, verbose_name='Ancienne valeur')),
+                ('new_value', models.JSONField(blank=True, null=True, verbose_name='Nouvelle valeur')),
+                ('changes', models.JSONField(blank=True, default=dict, verbose_name='Modifications')),
+                ('summary', models.TextField(verbose_name='Résumé')),
+                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Créé le')),
+                ('project', models.ForeignKey(
+                    on_delete=django.db.models.deletion.CASCADE,
+                    related_name='history_entries',
+                    to='technique.technicalproject',
+                    verbose_name='Projet',
+                )),
+                ('user', models.ForeignKey(
+                    blank=True,
+                    null=True,
+                    on_delete=django.db.models.deletion.SET_NULL,
+                    to=settings.AUTH_USER_MODEL,
+                    verbose_name='Utilisateur',
+                )),
+            ],
+            options={
+                'verbose_name': 'Historique projet technique',
+                'verbose_name_plural': 'Historiques projets techniques',
+                'db_table': 'technical_project_history',
+                'ordering': ['-created_at', '-id'],
+            },
+        ),
     ]

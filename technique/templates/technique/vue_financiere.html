@@ -328,6 +328,51 @@
       {% endif %}
     </section>
 
+    <section class="card">
+      <div class="section-header">
+        <span class="section-header__title">Historique des mises a jour</span>
+        <span class="badge">
+          {{ history_entries|length }} entree{% if history_entries|length > 1 %}s{% endif %}
+        </span>
+      </div>
+
+      {% if history_entries %}
+      <div style="display:grid; gap:0.85rem;">
+        {% for entry in history_entries %}
+        <div style="border:1px solid var(--border-light); border-radius:12px; padding:0.95rem; background:#fff;">
+          <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+              <span class="badge" style="background:#eef2ff; color:#4338ca;">{{ entry.get_action_type_display }}</span>
+              <span style="color:var(--text-secondary); font-size:0.9rem;">
+                {{ entry.created_at|date:"d/m/Y H:i" }}
+              </span>
+            </div>
+            <div style="color:var(--text-secondary); font-size:0.9rem;">
+              {{ entry.user.username|default:"Système" }}
+            </div>
+          </div>
+
+          <div style="font-weight:600; margin-bottom:0.5rem;">{{ entry.summary }}</div>
+
+          {% if entry.changes %}
+          <div style="display:grid; gap:0.4rem;">
+            {% for field, change in entry.changes.items %}
+            <div style="font-size:0.92rem; color:var(--text-secondary);">
+              <strong style="color:var(--text-main);">{{ field }}</strong> :
+              <span>avant {{ change.old|default:"-" }}</span>
+              <span> -> apres {{ change.new|default:"-" }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">Aucune mise a jour historisee pour ce projet.</div>
+      {% endif %}
+    </section>
+
   </div>
 
 </div>

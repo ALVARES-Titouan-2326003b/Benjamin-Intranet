@@ -13,6 +13,12 @@ from .models import ChatbotQuery
 
 
 @login_required
+def chatbot_help(request):
+    """Affiche l'aide utilisateur du chatbot."""
+    return render(request, "chatbot/help.html")
+
+
+@login_required
 def chatbot_history(request):
     """
     Affiche l'historique des requêtes du chatbot

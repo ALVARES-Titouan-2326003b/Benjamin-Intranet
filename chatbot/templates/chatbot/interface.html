@@ -23,17 +23,20 @@
                 </div>
                 <a href="{% url 'chatbot:history' %}"
                    style="color: white; font-size: 0.85rem; text-decoration: underline;">
-                    Voir l’historique
+                    Voir l'historique
+                </a>
+                <a href="{% url 'chatbot:help' %}"
+                   style="color: white; font-size: 0.85rem; text-decoration: underline;">
+                    Aide
                 </a>
                 <button onclick="toggleChat()" id="close-btn">×</button>
             </div>
-
 
             <div id="chatbot-messages">
                 <div class="message-block bot-block">
                     <div class="bot-message">
                         Bonjour {{ user.username }} ! Je peux vous aider sur :
-                        • l’état de vos factures fournisseurs
+                        • l'état de vos factures fournisseurs
                         • vos questions juridiques immobilières
                     </div>
                     <div class="message-footer">

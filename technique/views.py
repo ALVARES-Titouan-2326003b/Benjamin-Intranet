@@ -14,8 +14,21 @@ from reportlab.pdfbase import pdfmetrics
 from openpyxl import Workbook
 from .services.documents import extract_text_from_file
 from .services.ai_summary import summarize_document
+from .services.history import (
+    _expense_snapshot,
+    log_budget_updated,
+    log_expense_created,
+    log_expense_deleted,
+    log_expense_updated,
+    log_project_created,
+)
 from invoices.models import Facture
-from .models import DocumentTechnique, TechnicalProject, ProjectExpense, TechnicalEmail
+from .models import (
+    DocumentTechnique,
+    TechnicalProject,
+    ProjectExpense,
+    TechnicalEmail,
+)
 from .forms import (
     DocumentTechniqueUploadForm,
     TechnicalProjectCreateForm,
@@ -310,7 +323,8 @@ def documents_update(request, pk):
         )
 
         if form.is_valid():
-            form.save()
+            project = form.save()
+            log_project_created(project, request.user)
             messages.success(request, "Document modifié avec succès.")
             return redirect("technique:documents_detail", pk=document.pk)
 
@@ -369,7 +383,8 @@ def financial_overview(request):
     if request.method == "POST":
         form = TechnicalProjectCreateForm(request.POST)
         if form.is_valid():
-            form.save()
+            project = form.save()
+            log_project_created(project, request.user)
             messages.success(request, "Projet créé avec succès.")
             return redirect("technique:technique_financial_overview")
     else:
@@ -402,11 +417,14 @@ def financial_project_detail(request, pk):
     """
     project = get_object_or_404(TechnicalProject, pk=pk)
     project.refresh_amounts_from_expenses()
+    history_entries = project.history_entries.select_related("user")[:20]
 
     if request.method == "POST" and "total_estimated" in request.POST:
+        old_total = project.total_estimated
         form = TechnicalProjectFinanceForm(request.POST, instance=project)
         if form.is_valid():
-            form.save()
+            updated_project = form.save()
+            log_budget_updated(updated_project, request.user, old_total, updated_project.total_estimated)
             messages.success(request, "Budget prévisionnel mis à jour.")
             return redirect("technique:technique_financial_project_detail", pk=project.pk)
     else:
@@ -475,6 +493,7 @@ def financial_project_detail(request, pk):
             "budget_status": budget_status,
             "budget_label": budget_label,
             "budget_ratio": round(budget_ratio, 2),
+            "history_entries": history_entries,
         },
     )
 
@@ -490,6 +509,7 @@ def project_expense_create(request, pk):
             expense = form.save(commit=False)
             expense.project = project
             expense.save()
+            log_expense_created(expense, request.user)
             messages.success(request, "Dépense ajoutée avec succès.")
         else:
             messages.error(request, "Impossible d'ajouter la dépense.")
@@ -504,10 +524,12 @@ def project_expense_update(request, expense_pk):
     project = expense.project
 
     if request.method == "POST":
+        old_snapshot = _expense_snapshot(expense)
         form = ProjectExpenseForm(request.POST, instance=expense)
         form.fields["facture"].queryset = _get_available_project_invoices(project, current_expense=expense)
         if form.is_valid():
-            form.save()
+            updated_expense = form.save()
+            log_expense_updated(updated_expense, request.user, old_snapshot, _expense_snapshot(updated_expense))
             messages.success(request, "Dépense modifiée avec succès.")
         else:
             messages.error(request, "Impossible de modifier la dépense.")
@@ -521,7 +543,9 @@ def project_expense_delete(request, expense_pk):
     project = expense.project
 
     if request.method == "POST":
+        old_snapshot = _expense_snapshot(expense)
         expense.delete()
+        log_expense_deleted(project, request.user, old_snapshot)
         messages.success(request, "Dépense supprimée avec succès.")
 
     return redirect("technique:technique_financial_project_detail", pk=project.pk)
