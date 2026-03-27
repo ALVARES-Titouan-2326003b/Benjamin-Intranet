@@ -5,7 +5,13 @@ from pypdf import PdfReader, PdfWriter
 from signatures.models import Document, SignatureUser, Tampon
 
 
-def signer_pdf_avec_images_position(document: Document, user, pos_x_pct: float, pos_y_pct: float) -> None:
+def signer_pdf_avec_images_position(
+    document: Document,
+    user,
+    pos_x_pct: float,
+    pos_y_pct: float,
+    size_scale_pct: float = 100,
+) -> None:
     """
     Signe le PDF en plaçant le bloc tampon+signature à la position donnée
     (en % de la page, à partir de la GAUCHE et du BAS).
@@ -43,16 +49,17 @@ def signer_pdf_avec_images_position(document: Document, user, pos_x_pct: float, 
     tampon_path = tampon.image.path
 
     # Tailles en points
-    stamp_width, stamp_height = 140, 140
-    sig_width, sig_height = 160, 70
+    scale = max(50, min(float(size_scale_pct or 100), 200)) / 100.0
+    stamp_width, stamp_height = 140 * scale, 140 * scale
+    sig_width, sig_height = 160 * scale, 70 * scale
 
     # Conversion % → coordonnées PDF (origine en bas à gauche)
     tampon_x = page_width * (pos_x_pct / 100.0)
     tampon_y = page_height * (pos_y_pct / 100.0)
 
     # Signature légèrement décalée sur le tampon
-    signature_x = tampon_x + 30
-    signature_y = tampon_y - 10
+    signature_x = tampon_x + (30 * scale)
+    signature_y = tampon_y - (10 * scale)
 
     # Dessin du tampon
     c.drawImage(

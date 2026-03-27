@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Approbation de signature – {{ doc.titre }}{% endblock %}
+{% block title %}Approbation de signature - {{ doc.titre }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
     <div>
-        <a href="{% url 'signatures:ceo_dashboard' %}"
+        <a href="{% url 'signatures:signer_dashboard' %}"
             style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
             <i class="bi bi-arrow-left"></i> Retour au tableau de bord
         </a>
@@ -17,23 +17,35 @@
     <div class="card-title">{{ doc.titre }}</div>
     <div class="alert alert-info" style="margin-bottom: 1.5rem;">
         <i class="bi bi-person-circle"></i>
-        <span>Demande effectuée par <strong>{{ requester_name }}</strong></span>
+        <span>Demande effectuee par <strong>{{ requester_name }}</strong></span>
         <span>le {{ formatted_date }}.</span>
     </div>
 
     <p style="margin-bottom: 1rem;">
-        Vérifiez l'emplacement de la signature ci-dessous avant d'approuver.
+        Verifiez l'emplacement de la signature ci-dessous avant d'approuver.
     </p>
+    <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Taille choisie : {{ demande.size_scale_pct|floatformat:0 }}%
+    </div>
 
     <div id="sig-pdf-wrapper"
         style="position: relative; border: 1px solid var(--border-light); background: #525659; padding: 1rem; overflow: auto; max-width: 100%;">
-        <div id="page" style="position: relative; display: inline-block;">
-            <embed id="pdf-preview" src="{{ doc.fichier.url }}#page=1&zoom=page-width&toolbar=0&navpanes=0"
-                type="application/pdf" width="100%" height="600px" style="display: block;">
+        <div id="page"
+            data-pdf-width="{{ preview_page_width }}"
+            data-pdf-height="{{ preview_page_height }}"
+            style="position: relative; width: 100%; max-width: 900px; min-height: 600px; margin: 0 auto; background: white; overflow: visible;">
+            <embed id="pdf-preview"
+                src="{{ doc.fichier.url }}#page={{ preview_page_number }}&zoom=page-fit&toolbar=0&navpanes=0"
+                type="application/pdf"
+                style="position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: white;">
 
             <div id="sig-block" data-pos-x="{{ demande.pos_x_pct }}" data-pos-y="{{ demande.pos_y_pct }}"
-                style="position: absolute; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.1); color: #dc2626; padding: 10px; font-weight: bold; pointer-events: none; white-space: nowrap;">
-                Tampon + Signature (aperçu)
+                style="position: absolute; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.08); pointer-events: none; z-index: 2; box-sizing: border-box;">
+                <div style="position: absolute; inset: 0; background: rgba(220, 38, 38, 0.14);"></div>
+                <div id="signature-preview"
+                    style="position: absolute; display: flex; align-items: center; justify-content: center; color: #b91c1c; font-weight: 600; font-size: 0.8rem; border-bottom: 2px solid rgba(185, 28, 28, 0.6);">
+                    Signature
+                </div>
             </div>
         </div>
     </div>
@@ -65,40 +77,63 @@
     (function () {
         const page = document.getElementById("page");
         const block = document.getElementById("sig-block");
-        // Update embed size if needed or handle resizing
+        const signaturePreview = document.getElementById("signature-preview");
+        const sizeScalePct = parseFloat("{{ demande.size_scale_pct|default:100 }}") || 100;
+        const PDF_STAMP_WIDTH = 140;
+        const PDF_STAMP_HEIGHT = 140;
+        const PDF_SIGNATURE_WIDTH = 160;
+        const PDF_SIGNATURE_HEIGHT = 70;
+        const PDF_SIGNATURE_OFFSET_X = 30;
+        const PDF_SIGNATURE_OFFSET_Y = -10;
+
+        function updatePreviewScale() {
+            if (!page || !block || !signaturePreview) return;
+
+            const pdfWidth = parseFloat(page.dataset.pdfWidth) || 595;
+            const pdfHeight = parseFloat(page.dataset.pdfHeight) || 842;
+            const scaleX = page.clientWidth / pdfWidth;
+            const scaleY = page.clientHeight / pdfHeight;
+
+            const scale = sizeScalePct / 100;
+
+            block.style.width = (PDF_STAMP_WIDTH * scale * scaleX) + "px";
+            block.style.height = (PDF_STAMP_HEIGHT * scale * scaleY) + "px";
+
+            signaturePreview.style.left = (PDF_SIGNATURE_OFFSET_X * scale * scaleX) + "px";
+            signaturePreview.style.width = (PDF_SIGNATURE_WIDTH * scale * scaleX) + "px";
+            signaturePreview.style.height = (PDF_SIGNATURE_HEIGHT * scale * scaleY) + "px";
+            signaturePreview.style.bottom = (PDF_SIGNATURE_OFFSET_Y * scale * scaleY) + "px";
+        }
+
+        function syncPageSize() {
+            if (!page) return;
+            const pdfWidth = parseFloat(page.dataset.pdfWidth) || 595;
+            const pdfHeight = parseFloat(page.dataset.pdfHeight) || 842;
+            const width = page.clientWidth || Math.min(window.innerWidth - 64, 900);
+            const height = Math.max(600, (width * pdfHeight) / pdfWidth);
+            page.style.height = height + "px";
+        }
 
         function positionnerBloc() {
             if (!page || !block) return;
-            const pageRect = page.getBoundingClientRect();
-
-            // Note: embed might not give correct rect if not fully loaded.
-            // Using a somewhat fixed sizing approach or relative percentages.
-            // The original logic relied on pageRect.width. width of embed is 100%.
+            syncPageSize();
+            updatePreviewScale();
 
             const posX = parseFloat(block.dataset.posX);
             const posY = parseFloat(block.dataset.posY);
 
             if (isNaN(posX) || isNaN(posY)) return;
 
-            // Simplified positioning based on % of container
-            block.style.left = posX + "%";
-            block.style.bottom = posY + "%";
-            // Warning: Original logic used (posY / 100) * pageRect.height => Bottom distance ?
-            // Original: topPx = pageRect.height - bottomPx - blockRect.height;
-            // Let's try to stick to % if possible for responsiveness, OR replicate the logic exactly if layout is fixed.
-
-            // Replicating original exact pixel logic for safety, assuming pageRect is valid:
-            const leftPx = (posX / 100) * pageRect.width;
-            const bottomPx = (posY / 100) * pageRect.height;
-            const topPx = pageRect.height - bottomPx - block.offsetHeight; // Use offsetHeight
+            const leftPx = (posX / 100) * page.clientWidth;
+            const bottomPx = (posY / 100) * page.clientHeight;
+            const topPx = page.clientHeight - bottomPx - block.offsetHeight;
 
             block.style.left = leftPx + "px";
             block.style.top = topPx + "px";
         }
 
         window.addEventListener("load", function () {
-            // Need to wait for PDF to load slightly, or container to size.
-            setTimeout(positionnerBloc, 500);
+            setTimeout(positionnerBloc, 200);
         });
 
         window.addEventListener("resize", positionnerBloc);

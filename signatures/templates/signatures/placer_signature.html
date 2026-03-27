@@ -29,13 +29,23 @@
     <!-- PDF & Drag Area -->
     <div id="sig-pdf-wrapper"
         style="position: relative; border: 1px solid var(--border-light); background: #525659; padding: 1rem; overflow: auto; max-width: 100%; margin-bottom: 1.5rem;">
-        <div id="page" style="position: relative; display: inline-block;">
-            <embed id="pdf-preview" src="{{ doc.fichier.url }}#page=1&zoom=page-width&toolbar=0&navpanes=0"
-                type="application/pdf" width="100%" height="600px" style="display: block;">
+        <div id="page"
+            data-pdf-width="{{ preview_page_width }}"
+            data-pdf-height="{{ preview_page_height }}"
+            style="position: relative; width: 100%; max-width: 900px; min-height: 600px; margin: 0 auto; background: white; overflow: visible;">
+            <embed id="pdf-preview"
+                src="{{ doc.fichier.url }}#page={{ preview_page_number }}&zoom=page-fit&toolbar=0&navpanes=0"
+                type="application/pdf"
+                style="position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: white;">
 
             <div id="sig-block"
-                style="position: absolute; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.1); color: #dc2626; padding: 10px; font-weight: bold; cursor: move; white-space: nowrap; user-select: none;">
-                <i class="bi bi-arrows-move"></i> Tampon + Signature
+                style="position: absolute; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.08); cursor: move; user-select: none; z-index: 2; box-sizing: border-box;">
+                <div id="stamp-preview"
+                    style="position: absolute; inset: 0; background: rgba(220, 38, 38, 0.14);"></div>
+                <div id="signature-preview"
+                    style="position: absolute; display: flex; align-items: center; justify-content: center; color: #b91c1c; font-weight: 600; font-size: 0.8rem; border-bottom: 2px solid rgba(185, 28, 28, 0.6); pointer-events: none;">
+                    Signature
+                </div>
             </div>
         </div>
     </div>
@@ -44,6 +54,14 @@
         {% csrf_token %}
         <input type="hidden" name="pos_x_pct" id="pos_x_pct">
         <input type="hidden" name="pos_y_pct" id="pos_y_pct">
+        <input type="hidden" name="size_scale_pct" id="size_scale_pct" value="{{ default_size_scale_pct }}">
+
+        <div style="margin-right: auto; min-width: 260px;">
+            <label for="size_scale_control" style="display: block; font-size: 0.9rem; font-weight: 500; margin-bottom: 0.35rem;">
+                Taille du bloc : <span id="size_scale_value">{{ default_size_scale_pct }}%</span>
+            </label>
+            <input id="size_scale_control" type="range" min="50" max="200" step="10" value="{{ default_size_scale_pct }}" style="width: 100%;">
+        </div>
 
         <a href="{{ doc.fichier.url }}" target="_blank" class="btn btn-ghost">
             <i class="bi bi-eye"></i> Voir le PDF original
@@ -63,22 +81,65 @@
     (function () {
         const page = document.getElementById("page");
         const block = document.getElementById("sig-block");
+        const signaturePreview = document.getElementById("signature-preview");
         const inputX = document.getElementById("pos_x_pct");
         const inputY = document.getElementById("pos_y_pct");
+        const sizeScaleInput = document.getElementById("size_scale_pct");
+        const sizeScaleControl = document.getElementById("size_scale_control");
+        const sizeScaleValue = document.getElementById("size_scale_value");
+        const PDF_STAMP_WIDTH = 140;
+        const PDF_STAMP_HEIGHT = 140;
+        const PDF_SIGNATURE_WIDTH = 160;
+        const PDF_SIGNATURE_HEIGHT = 70;
+        const PDF_SIGNATURE_OFFSET_X = 30;
+        const PDF_SIGNATURE_OFFSET_Y = -10;
 
         let offsetX = 0;
         let offsetY = 0;
         let dragging = false;
 
+        function getStageMetrics() {
+            const pdfWidth = parseFloat(page.dataset.pdfWidth) || 595;
+            const pdfHeight = parseFloat(page.dataset.pdfHeight) || 842;
+
+            return {
+                pdfWidth,
+                pdfHeight,
+                scaleX: page.clientWidth / pdfWidth,
+                scaleY: page.clientHeight / pdfHeight,
+            };
+        }
+
+        function syncPageSize() {
+            if (!page) return;
+            const pdfWidth = parseFloat(page.dataset.pdfWidth) || 595;
+            const pdfHeight = parseFloat(page.dataset.pdfHeight) || 842;
+            const width = page.clientWidth || Math.min(window.innerWidth - 64, 900);
+            const height = Math.max(600, (width * pdfHeight) / pdfWidth);
+            page.style.height = height + "px";
+        }
+
+        function updatePreviewScale() {
+            if (!page || !block || !signaturePreview) return;
+            const metrics = getStageMetrics();
+            const scale = (parseFloat(sizeScaleInput.value) || 100) / 100;
+
+            block.style.width = (PDF_STAMP_WIDTH * scale * metrics.scaleX) + "px";
+            block.style.height = (PDF_STAMP_HEIGHT * scale * metrics.scaleY) + "px";
+
+            signaturePreview.style.left = (PDF_SIGNATURE_OFFSET_X * scale * metrics.scaleX) + "px";
+            signaturePreview.style.width = (PDF_SIGNATURE_WIDTH * scale * metrics.scaleX) + "px";
+            signaturePreview.style.height = (PDF_SIGNATURE_HEIGHT * scale * metrics.scaleY) + "px";
+            signaturePreview.style.bottom = (PDF_SIGNATURE_OFFSET_Y * scale * metrics.scaleY) + "px";
+        }
+
         function initPosition() {
             if (!page || !block) return;
-            const pageRect = page.getBoundingClientRect();
-            const blockRect = block.getBoundingClientRect();
+            syncPageSize();
+            updatePreviewScale();
 
-            // Default center/bottom placement attempt
-            // Note: pageRect might be 0 if PDF not loaded or embed weirdness.
-            const left = (pageRect.width - blockRect.width) / 2;
-            const top = pageRect.height - blockRect.height - 50;
+            const left = (page.clientWidth - block.offsetWidth) / 2;
+            const top = page.clientHeight - block.offsetHeight - 50;
 
             block.style.left = (left > 0 ? left : 50) + "px";
             block.style.top = (top > 0 ? top : 50) + "px";
@@ -86,19 +147,8 @@
         }
 
         function updateHiddenInputs() {
-            const pageRect = page.getBoundingClientRect();
-            const blockRect = block.getBoundingClientRect();
-
-            // Percentages relative to the container 'page'
-            // We use standard Top-Left coords for logic, but backend might expect something else.
-            // Existing backend logic:
-            // xPct = (left / width)
-            // yPct = (bottom / height) ?? 
-            // Previous code: yPct = (bottomPx / pageRect.height) * 100; where bottomPx = height - (top + blockHeight)
-            // This means yPct is distance from bottom.
-
-            const leftPx = block.offsetLeft; // Use offsetLeft relative to parent 'page'
-            const topPx = block.offsetTop;   // Use offsetTop relative to parent 'page'
+            const leftPx = block.offsetLeft;
+            const topPx = block.offsetTop;
 
             const xPct = (leftPx / page.offsetWidth) * 100;
             const bottomPx = page.offsetHeight - (topPx + block.offsetHeight);
@@ -108,10 +158,27 @@
             inputY.value = yPct.toFixed(2);
         }
 
+        function positionFromPercentages() {
+            if (!inputX.value || !inputY.value) return false;
+
+            syncPageSize();
+            updatePreviewScale();
+
+            const posX = parseFloat(inputX.value);
+            const posY = parseFloat(inputY.value);
+            if (isNaN(posX) || isNaN(posY)) return false;
+
+            const leftPx = (posX / 100) * page.clientWidth;
+            const bottomPx = (posY / 100) * page.clientHeight;
+            const topPx = page.clientHeight - bottomPx - block.offsetHeight;
+
+            block.style.left = Math.max(0, Math.min(leftPx, page.clientWidth - block.offsetWidth)) + "px";
+            block.style.top = Math.max(0, Math.min(topPx, page.clientHeight - block.offsetHeight)) + "px";
+            return true;
+        }
+
         block.addEventListener("mousedown", function (e) {
             dragging = true;
-            // Calculate click offset within the block
-            // e.clientX is global. block.getBoundingClientRect().left is global.
             const blockRect = block.getBoundingClientRect();
             offsetX = e.clientX - blockRect.left;
             offsetY = e.clientY - blockRect.top;
@@ -120,15 +187,13 @@
 
         document.addEventListener("mousemove", function (e) {
             if (!dragging) return;
-            e.preventDefault(); // Prevent text selection etc
+            e.preventDefault();
 
-            // We need to calculate the new Left/Top relative to 'page'
             const pageRect = page.getBoundingClientRect();
 
             let newLeft = e.clientX - pageRect.left - offsetX;
             let newTop = e.clientY - pageRect.top - offsetY;
 
-            // Boundaries
             const maxLeft = pageRect.width - block.offsetWidth;
             const maxTop = pageRect.height - block.offsetHeight;
 
@@ -150,12 +215,31 @@
             }
         });
 
-        // Initialize after a short delay to allow PDF embed to render layout
-        window.addEventListener("load", function () {
-            setTimeout(initPosition, 500);
+        sizeScaleControl.addEventListener("input", function () {
+            sizeScaleInput.value = sizeScaleControl.value;
+            sizeScaleValue.textContent = sizeScaleControl.value + "%";
+            if (!positionFromPercentages()) {
+                initPosition();
+            } else {
+                updateHiddenInputs();
+            }
         });
+
+        window.addEventListener("load", function () {
+            setTimeout(function () {
+                syncPageSize();
+                sizeScaleValue.textContent = sizeScaleControl.value + "%";
+                if (!positionFromPercentages()) {
+                    initPosition();
+                }
+            }, 200);
+        });
+
         window.addEventListener("resize", function () {
-            // Ideally re-adjust if container resizes, but keeping simple for now
+            syncPageSize();
+            if (!positionFromPercentages()) {
+                initPosition();
+            }
         });
     })();
 </script>

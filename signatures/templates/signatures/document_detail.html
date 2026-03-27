@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
     <div>
-        <a href="{% if is_designated_signer %}{% url 'signatures:ceo_dashboard' %}{% else %}{% url 'signatures:document_list' %}{% endif %}"
+        <a href="{% if has_signer_dashboard_access %}{% url 'signatures:signer_dashboard' %}{% else %}{% url 'signatures:document_list' %}{% endif %}"
             style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
             <i class="bi bi-arrow-left"></i> Retour à la liste
         </a>
@@ -17,6 +17,15 @@
             <i class="bi bi-person-check"></i> Signataire requis : {{ doc.get_signataire_requis_display }}
             {% if designated_signer_name %}({{ designated_signer_name }}){% endif %}
         </div>
+        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">
+            <i class="bi bi-diagram-3"></i> Pôle concerné : {{ target_pole }}
+        </div>
+        {% if requester_name %}
+        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">
+            <i class="bi bi-person"></i> Demandeur : {{ requester_name }}
+            {% if request_date %}<span>le {{ request_date|date:"d/m/Y H:i" }}</span>{% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 

@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.http import HttpResponseForbidden
 from django.utils import timezone
 from django.conf import settings
+from pypdf import PdfReader
 
 from .models import (
     Document,
@@ -80,6 +81,33 @@ def _can_user_sign_document(user, document):
     return user.is_superuser or user.is_staff or _has_group(user, "POLE_ADMINISTRATIF")
 
 
+def _get_pdf_preview_metadata(document):
+    """
+    Retourne les dimensions de la dernière page du PDF, qui est la page
+    réellement signée par le service PDF.
+    """
+    default_metadata = {
+        "preview_page_number": 1,
+        "preview_page_width": 595.0,
+        "preview_page_height": 842.0,
+    }
+
+    try:
+        reader = PdfReader(document.fichier.path)
+        page_count = len(reader.pages)
+        if page_count == 0:
+            return default_metadata
+
+        last_page = reader.pages[-1]
+        return {
+            "preview_page_number": page_count,
+            "preview_page_width": float(last_page.mediabox.width),
+            "preview_page_height": float(last_page.mediabox.height),
+        }
+    except Exception:
+        return default_metadata
+
+
 @login_required
 @user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def document_list(request):
@@ -90,11 +118,11 @@ def document_list(request):
     - Sinon, dernier statut de l'historique
     """
 
-    if has_ceo_access(request.user) or SignatureRequest.objects.filter(
+    if _can_manage_signature_assets(request.user) or SignatureRequest.objects.filter(
         approver=request.user,
         statut="pending",
     ).exists():
-        return redirect("signatures:ceo_dashboard")
+        return redirect("signatures:signer_dashboard")
 
     documents = (
         Document.objects
@@ -169,14 +197,17 @@ def document_detail(request, pk):
     historiques = doc.historique.order_by("-date_action")
 
     pending_request = doc.demandes_signature.filter(statut="pending").first()
+    latest_request = doc.demandes_signature.select_related("requested_by").order_by("-created_at").first()
 
     is_signed = bool(doc.fichier_signe)
 
     requester_name = None
     request_date = None
-    if pending_request:
-        requester_name = pending_request.requested_by.get_full_name() or pending_request.requested_by.username
-        request_date = pending_request.created_at
+    if latest_request:
+        requester_name = latest_request.requested_by.get_full_name() or latest_request.requested_by.username
+        request_date = latest_request.created_at
+
+    target_pole = "CEO" if doc.signataire_requis == "CEO" else "Administratif"
 
     return render(
         request,
@@ -187,6 +218,9 @@ def document_detail(request, pk):
             "pending_request": pending_request,
             "requester_name": requester_name,
             "request_date": request_date,
+            "target_pole": target_pole,
+            "is_ceo_user": has_ceo_access(request.user),
+            "has_signer_dashboard_access": _can_manage_signature_assets(request.user),
             "is_designated_signer": is_designated_signer,
             "designated_signer_name": (
                 designated_signer.get_full_name() or designated_signer.username
@@ -268,7 +302,14 @@ def ma_signature(request):
     else:
         form = SignatureUserForm(instance=instance)
 
-    return render(request, "signatures/ma_signature.html", {"form": form})
+    return render(
+        request,
+        "signatures/ma_signature.html",
+        {
+            "form": form,
+            "signature_user": instance,
+        },
+    )
 
 
 @login_required
@@ -290,7 +331,14 @@ def tampon_edit(request):
     else:
         form = TamponForm(instance=tampon)
 
-    return render(request, "signatures/tampon_edit.html", {"form": form})
+    return render(
+        request,
+        "signatures/tampon_edit.html",
+        {
+            "form": form,
+            "tampon": tampon,
+        },
+    )
 
 
 @login_required
@@ -337,6 +385,7 @@ def placer_signature(request, pk):
     designated_signer = _get_designated_signer(doc)
     is_designated_signer = _can_user_sign_document(request.user, doc)
     signer_label = doc.get_signataire_requis_display()
+    preview_metadata = _get_pdf_preview_metadata(doc)
 
     # 1) Si déjà signé → on bloque tout
     if doc.fichier_signe:
@@ -357,8 +406,9 @@ def placer_signature(request, pk):
         try:
             pos_x = float(request.POST.get("pos_x_pct"))
             pos_y = float(request.POST.get("pos_y_pct"))
+            size_scale_pct = float(request.POST.get("size_scale_pct", 100))
         except (TypeError, ValueError):
-            messages.error(request, "Position invalide.")
+            messages.error(request, "Position ou taille invalide.")
             return redirect("signatures:placer_signature", pk=doc.pk)
 
         # BRANCHE SIGNATAIRE : il signe directement
@@ -369,6 +419,7 @@ def placer_signature(request, pk):
                     user=request.user,
                     pos_x_pct=pos_x,
                     pos_y_pct=pos_y,
+                    size_scale_pct=size_scale_pct,
                 )
             except Exception as e:
                 HistoriqueSignature.objects.create(
@@ -421,6 +472,7 @@ def placer_signature(request, pk):
             approver=designated_signer,
             pos_x_pct=pos_x,
             pos_y_pct=pos_y,
+            size_scale_pct=size_scale_pct,
         )
 
         # Mettre à jour l'historique
@@ -463,6 +515,8 @@ def placer_signature(request, pk):
         {
             "doc": doc,
             "is_designated_signer": is_designated_signer,
+            "default_size_scale_pct": 100,
+            **preview_metadata,
             "designated_signer_name": (
                 designated_signer.get_full_name() or designated_signer.username
             ) if designated_signer else signer_label,
@@ -484,6 +538,7 @@ def signature_approval(request, token):
         return HttpResponseForbidden("Vous n'êtes pas autorisé à valider cette demande.")
 
     doc = demande.document
+    preview_metadata = _get_pdf_preview_metadata(doc)
 
     if demande.statut != "pending":
         messages.info(
@@ -504,6 +559,7 @@ def signature_approval(request, token):
                     user=request.user,
                     pos_x_pct=demande.pos_x_pct,
                     pos_y_pct=demande.pos_y_pct,
+                    size_scale_pct=demande.size_scale_pct,
                 )
             except Exception as e:
                 demande.marquer_refusee(commentaire=f"Erreur technique : {e}")
@@ -544,17 +600,25 @@ def signature_approval(request, token):
         "requester_name": demande.requested_by.get_full_name() or demande.requested_by.username,
         "formatted_date": demande.created_at.strftime("%d/%m/%Y à %H:%M"),
     }
+    context.update(preview_metadata)
     return render(request, "signatures/signature_approval.html", context)
 
 
 @login_required
 @user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
-def ceo_dashboard(request):
+def signer_dashboard(request):
     """
     Tableau de bord du signataire :
     - Demandes en attente (actionnable)
     - Historique global des 50 derniers documents (tout confondu : signés direct ou via demande)
     """
+    if not _can_manage_signature_assets(request.user) and not SignatureRequest.objects.filter(
+        approver=request.user,
+        statut="pending",
+    ).exists():
+        messages.error(request, "Vous n'avez pas accès au tableau de bord des signatures.")
+        return redirect("signatures:document_list")
+
     pending_requests = (
         SignatureRequest.objects.filter(
             approver=request.user,
@@ -623,6 +687,9 @@ def ceo_dashboard(request):
             "documents_history": documents_history,
         },
     )
+
+
+ceo_dashboard = signer_dashboard
 
 
 # ================== Suppression en masse ==================

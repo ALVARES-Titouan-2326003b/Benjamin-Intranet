@@ -83,6 +83,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('pos_x_pct', models.FloatField()),
                 ('pos_y_pct', models.FloatField()),
+                ('size_scale_pct', models.FloatField(default=100)),
                 ('statut', models.CharField(
                     choices=[
                         ('pending', 'En attente'),

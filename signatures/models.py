@@ -165,6 +165,7 @@ class SignatureRequest(models.Model):
     # position choisie par le collaborateur (en %)
     pos_x_pct = models.FloatField()
     pos_y_pct = models.FloatField()
+    size_scale_pct = models.FloatField(default=100)
 
     statut = models.CharField(max_length=20, choices=STATUTS, default="pending")
 

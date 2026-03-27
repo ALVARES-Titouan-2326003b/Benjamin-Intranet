@@ -17,6 +17,7 @@ urlpatterns = [
         views.signature_approval,
         name="signature_approval",
     ),
+    path("signataire/", views.signer_dashboard, name="signer_dashboard"),
     path("ceo/", views.ceo_dashboard, name="ceo_dashboard"),
     path("bulk-delete/", views.bulk_delete_documents, name="bulk_delete"),
     path("documents/<int:pk>/edit/", views.document_update, name="document_update"),
