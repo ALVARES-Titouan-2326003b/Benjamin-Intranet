@@ -126,6 +126,15 @@ class TestUserInvitationForm:
         assert 'POLE_ADMINISTRATIF' in group_names
         assert 'POLE_TECHNIQUE' in group_names
 
+    def test_first_superuser_is_assigned_ceo_group(self, create_groups):
+        """Le premier superuser créé doit recevoir le groupe CEO automatiquement."""
+        user = User.objects.create_superuser(username='root', email='root@example.com', password='rootpass')
+        ceo_group = Group.objects.get(name='CEO')
+        assert ceo_group in user.groups.all()
+
+        user2 = User.objects.create_superuser(username='admin', email='admin@example.com', password='adminpass')
+        assert ceo_group not in user2.groups.all()
+
     def test_multiple_poles_selection(self, create_groups):
         """Teste la sélection de plusieurs pôles"""
         pole_admin = Group.objects.get(name='POLE_ADMINISTRATIF')

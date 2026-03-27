@@ -5,4 +5,6 @@ class AuthenticationConfig(AppConfig):
     name = 'authentication'
 
     def ready(self):
-        pass
+        # Ensure signal handlers are connected when app is loaded
+        from . import signals  # noqa: F401
+

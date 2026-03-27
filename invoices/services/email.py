@@ -40,8 +40,10 @@ def get_internal_recipients(pole_name=None):
 def send_invoice_status_email(facture, old_status, new_status):
     """
     Envoie un email de notification lors du changement de statut d'une facture.
+    Envoie par défaut aux utilisateurs du pôle financier.
     """
-    recipients = get_internal_recipients(facture.pole)
+    # Envoi par défaut au pôle financier (qui gère les factures)
+    recipients = get_internal_recipients("Comptabilite et Finance")
     if not recipients:
         print("⚠️ Aucun destinataire trouvé pour la notification de changement de statut de facture.")
         return
@@ -75,6 +77,6 @@ def send_invoice_status_email(facture, old_status, new_status):
             to=recipients,
         )
         email.send()
-        print(f"✅ Email de changement de statut envoyé pour la facture {facture.id} à {recipients}")
+        print(f"Email de changement de statut envoyé pour la facture {facture.id} à {recipients}")
     except Exception as e:
-        print(f"❌ Erreur lors de l'envoi de l'email de changement de statut : {e}")
+        print(f"Erreur lors de l'envoi de l'email de changement de statut : {e}")

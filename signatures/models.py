@@ -59,8 +59,18 @@ class Document(models.Model):
         fichier_signe (FileField): PDF signé (null si non signé)
         date_upload (datetime): Date d'ajout
     """
+    SIGNATAIRES_REQUIS = [
+        ("CEO", "CEO"),
+        ("RH", "Pôle administratif"),
+    ]
+
     titre = models.CharField(max_length=255)
     fichier = models.FileField(upload_to="documents/originaux/")
+    signataire_requis = models.CharField(
+        max_length=10,
+        choices=SIGNATAIRES_REQUIS,
+        default="CEO",
+    )
     fichier_signe = models.FileField(
         upload_to="documents/signes/", null=True, blank=True
     )
@@ -127,7 +137,7 @@ class SignatureRequest(models.Model):
         token (str): Jeton de la demande
         created_at (datetime): Date et heure de création de la demande
         decided_at (datetime): Date et heure de la signature
-        commentaire_ceo (str): Commentaire écrit par le CEO
+        commentaire_ceo (str): Commentaire écrit par le signataire
     """
     STATUTS = [
         ("pending", "En attente"),
@@ -173,7 +183,7 @@ class SignatureRequest(models.Model):
         Approuve la demande
 
         Args:
-            commentaire (str): Commentaire du CEO
+            commentaire (str): Commentaire du signataire
         """
         self.statut = "approved"
         self.decided_at = timezone.now()
@@ -185,7 +195,7 @@ class SignatureRequest(models.Model):
         Refuse la demande
 
         Args:
-            commentaire (str): Commentaire du CEO
+            commentaire (str): Commentaire du signataire
         """
         self.statut = "refused"
         self.decided_at = timezone.now()

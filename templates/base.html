@@ -41,8 +41,8 @@
       {# u_groups_str convertit la liste des groupes en chaîne pour la recherche #}
       {% with p=request.path u_groups_str=request.user.groups.all|escape %}
 
-      {% if '/finance/' in p or '/signatures/' in p or '/gestion-des-candidatures/' in p %}
-      <div class="nav-section-label">FINANCE & RH</div>
+      {% if '/finance/' in p %}
+      <div class="nav-section-label">FINANCE</div>
 
       {# --- CORRECTION : Condition séparée pour éviter les erreurs de syntaxe sur les lignes longues --- #}
       {% if user.is_superuser or user.is_staff or "COLLABORATEUR" in u_groups_str or "POLE_FINANCIER" in u_groups_str %}
@@ -51,15 +51,17 @@
       </a>
       {% endif %}
 
-      {% if user.is_superuser or user.is_staff or "POLE_FINANCIER" in u_groups_str %}
+      {% endif %}
+
+      {% if '/finance/' in p or '/signatures/' in p or '/pole-technique/' in p or '/chatbot/' in p or '/administratif/' in p or '/admin/' in p %}
+      <div class="nav-section-label">TOUS LES PÔLES</div>
+
+      {% if user.is_superuser or user.is_staff or "POLE_FINANCIER" in u_groups_str or "POLE_ADMINISTRATIF" in u_groups_str or "POLE_TECHNIQUE" in u_groups_str %}
       <a href="{% url 'signatures:document_list' %}" class="nav-item {% if '/signatures/' in p %}active{% endif %}">
         <i class="bi bi-pen"></i> Signatures
       </a>
-      <a href="{% url 'recrutement:dashboard' %}"
-        class="nav-item {% if '/gestion-des-candidatures/' in p %}active{% endif %}">
-        <i class="bi bi-person-badge"></i> Candidatures
-      </a>
       {% endif %}
+
       {% endif %}
 
       {% if '/pole-technique/' in p or '/chatbot/' in p %}
@@ -79,6 +81,7 @@
          class="nav-item {% if '/email/' in request.path %}active{% endif %}">
         <i class="bi bi-envelope"></i> Emails
       </a>
+
       {% endif %}
       {% endif %}
 
@@ -87,6 +90,10 @@
       {% if user.is_superuser or user.is_staff or "POLE_ADMINISTRATIF" in u_groups_str %}
       <a href="{% url 'admin_view' %}" class="nav-item {% if '/administratif/' in request.path %}active{% endif %}">
         <i class="bi bi-speedometer2"></i> Vue d'ensemble
+      </a>
+      <a href="{% url 'recrutement:dashboard' %}"
+         class="nav-item {% if '/administratif/recrutement/' in p %}active{% endif %}">
+        <i class="bi bi-person-badge"></i> Candidatures
       </a>
       {% endif %}
       {% endif %}

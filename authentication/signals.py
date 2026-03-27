@@ -30,9 +30,20 @@ def log_user_login_failed(sender, credentials, request, **kwargs):
 def log_user_changes(sender, instance, created, dir_created=None, **kwargs):
     """
     Enregistre les modifications importantes d'un compte utilisateur (droits d'administrateur, statut).
+
+    - Si le premier superuser est créé, lui ajoute automatiquement le groupe CEO.
     """
     if created:
         logger.info(f"USER CREATED: '{instance.username}' (ID: {instance.pk})")
+
+        if instance.is_superuser:
+            # S'il n'existe aucun superuser autre que lui, on le marque CEO
+            other_superusers = User.objects.filter(is_superuser=True).exclude(pk=instance.pk).exists()
+            if not other_superusers:
+                from django.contrib.auth.models import Group
+                ceo_group, _ = Group.objects.get_or_create(name='CEO')
+                instance.groups.add(ceo_group)
+                logger.info(f"FIRST SUPERUSER: '{instance.username}' a été attribué au groupe CEO.")
     else:
         if instance.is_superuser:
-             logger.info(f"USER UPDATE: '{instance.username}' is now SUPERUSER")
+            logger.info(f"USER UPDATE: '{instance.username}' is now SUPERUSER")

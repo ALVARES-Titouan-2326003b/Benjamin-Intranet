@@ -48,7 +48,6 @@ INVOICE_STATUS_MAP = {
     'en cours': 'En cours', 'progress': 'En cours',
     'refusee': 'Refusee', 'refusée': 'Refusee', 'rejected': 'Refusee',
     'archivee': 'Archivee', 'archivée': 'Archivee', 'archive': 'Archivee',
-    'en retard': 'En retard', 'retard': 'En retard',
 }
 
 # Résumé ou liste
@@ -335,7 +334,6 @@ INVOICE_STATUS_MAP = {
     'en cours': 'En cours', 'progress': 'En cours',
     'refusee': 'Refusee', 'refusée': 'Refusee', 'rejected': 'Refusee',
     'archivee': 'Archivee', 'archivée': 'Archivee', 'archive': 'Archivee',
-    'en retard': 'En retard', 'retard': 'En retard',
 }
 SUMMARY_KEYWORDS = {'stats', 'résumé', 'resume', 'total', 'synthèse', 'synthese'}
 LIST_KEYWORDS    = {'liste', 'toutes', 'all'}
@@ -354,7 +352,6 @@ def _invoice_by_id(invoice_id: str, user) -> str:
             f"• Fournisseur : {inv.fournisseur}\n"
             f"• Client : {inv.client.nom if inv.client else '—'}\n"
             f"• Montant : {inv.montant}€\n"
-            f"• Pôle : {inv.pole or '—'}\n"
             f"• Dossier : {inv.dossier or '—'}\n"
             f"• Échéance : {inv.echeance.strftime('%d/%m/%Y') if inv.echeance else '—'}\n"
             f"• Titre : {inv.titre or '—'}"
@@ -529,7 +526,6 @@ def _invoice_by_id(invoice_id: str, user) -> str:
             f"• Fournisseur : {inv.fournisseur}\n"
             f"• Client : {inv.client.nom if inv.client else '—'}\n"
             f"• Montant : {inv.montant}€\n"
-            f"• Pôle : {inv.pole or '—'}\n"
             f"• Dossier : {inv.dossier or '—'}\n"
             f"• Échéance : {inv.echeance.strftime('%d/%m/%Y') if inv.echeance else '—'}\n"
             f"• Titre : {inv.titre or '—'}"

@@ -5,13 +5,17 @@
 {% block content %}
 <div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
     <div>
-        <a href="{% if is_ceo %}{% url 'signatures:ceo_dashboard' %}{% else %}{% url 'signatures:document_list' %}{% endif %}"
+        <a href="{% if is_designated_signer %}{% url 'signatures:ceo_dashboard' %}{% else %}{% url 'signatures:document_list' %}{% endif %}"
             style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
             <i class="bi bi-arrow-left"></i> Retour à la liste
         </a>
         <h2>{{ doc.titre }}</h2>
         <div style="font-size: 0.9rem; color: var(--text-secondary);">
             <i class="bi bi-calendar"></i> Ajouté le {{ doc.date_upload|date:"d/m/Y H:i" }}
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">
+            <i class="bi bi-person-check"></i> Signataire requis : {{ doc.get_signataire_requis_display }}
+            {% if designated_signer_name %}({{ designated_signer_name }}){% endif %}
         </div>
     </div>
 </div>
@@ -55,7 +59,7 @@
                 <i class="bi bi-check-circle-fill"></i> Ce document a été signé avec succès.
             </div>
 
-            {% elif is_ceo %}
+            {% elif is_designated_signer %}
             {% if pending_request %}
             <div class="alert alert-warning">
                 <h4 style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">Demande de signature en attente
@@ -81,17 +85,17 @@
             {% if pending_request %}
             <div class="alert alert-info">
                 <i class="bi bi-hourglass-split"></i>
-                Une demande de signature est en attente auprès du CEO (créée le {{ request_date|date:"d/m/Y" }}).
+                Une demande de signature est en attente auprès du signataire (créée le {{ request_date|date:"d/m/Y" }}).
                 <br>Vous serez notifié une fois la signature effectuée.
             </div>
             {% else %}
             <div>
                 <p style="margin-bottom: 1rem;">
                     Vous pouvez préparer le document en plaçant l'emplacement du tampon et de la signature, puis
-                    l'envoyer au CEO pour validation.
+                    l'envoyer au signataire requis pour validation.
                 </p>
                 <a href="{% url 'signatures:placer_signature' doc.pk %}" class="btn btn-primary">
-                    <i class="bi bi-send"></i> Demander la signature du CEO
+                    <i class="bi bi-send"></i> Demander la signature
                 </a>
             </div>
             {% endif %}

@@ -276,8 +276,7 @@ class TestFactureForm:
             fournisseur='OLD-FOURNISSEUR',
             client=entreprise,
             montant=500,
-            statut='En cours',
-            pole='Technique',
+            statut='ongoing',
             dossier='DOS-OLD',
         )
 
@@ -335,8 +334,8 @@ class TestPieceJointeForm:
             fournisseur="TEST-FOURNISSEUR",
             client=entreprise,
             montant=1000,
-            statut="En cours",
-            pole="Technique",
+            statut="ongoing",
+
             dossier="DOS-TEST",
         )
 

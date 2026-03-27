@@ -17,7 +17,7 @@ def signer_pdf_avec_images_position(document: Document, user, pos_x_pct: float, 
         pos_y_pct (float): Position y en pourcentage
     """
 
-    # Signature utilisateur (CEO) et tampon
+    # Signature utilisateur et tampon
     try:
         signature_user = SignatureUser.objects.get(user=user)
     except SignatureUser.DoesNotExist:

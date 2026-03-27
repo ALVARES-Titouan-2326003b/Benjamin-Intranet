@@ -53,6 +53,38 @@ def initiate_oauth(request):
 
 
 @login_required
+def initiate_gmail_oauth(request):
+    """
+    Initie le flux OAuth2 Google/Gmail.
+    Stocke l'URL de retour dans la session avant de partir vers Google.
+
+    URL : /oauth/gmail/
+    URL pôle technique : /oauth/gmail/?next=/pole-technique/email/
+    """
+    # Lire et valider le paramètre next
+    next_url = request.GET.get('next', DEFAULT_REDIRECT)
+    if next_url not in ALLOWED_REDIRECTS:
+        next_url = DEFAULT_REDIRECT
+
+    # Stocker en session pour le récupérer dans le callback
+    request.session['oauth_next'] = next_url
+    request.session['oauth_provider'] = 'google'
+    request.session.modified = True  # forcer la sauvegarde de la session
+
+    redirect_uri = request.build_absolute_uri('/oauth/callback/')
+    authorization_url, state = get_authorization_url(redirect_uri, provider="google")
+    request.session['oauth_state'] = state
+
+    print(f"\n{'='*60}")
+    print(f"   Initiation OAuth Gmail pour {request.user.username}")
+    print(f"   Redirect URI : {redirect_uri}")
+    print(f"   Retour après auth : {next_url}")
+    print(f"{'='*60}\n")
+
+    return redirect(authorization_url)
+
+
+@login_required
 def oauth_callback(request):
     """
     Callback OAuth2 — échange le code et redirige vers next_url.
@@ -63,13 +95,14 @@ def oauth_callback(request):
     state = request.GET.get('state')
     error = request.GET.get('error')
 
-    # Récupérer la destination stockée en session (avec nettoyage)
+    # Récupérer la destination et le provider stockés en session (avec nettoyage)
     next_url = request.session.pop('oauth_next', DEFAULT_REDIRECT)
+    provider = request.session.pop('oauth_provider', 'microsoft')
     if next_url not in ALLOWED_REDIRECTS:
         next_url = DEFAULT_REDIRECT
 
     print(f"\n{'='*60}")
-    print(f"   Callback OAuth pour {request.user.username}")
+    print(f"   Callback OAuth {provider.upper()} pour {request.user.username}")
     print(f"   Code : {code[:20]}..." if code else "   Code : None")
     print(f"   State : {state}")
     print(f"   Retour prévu : {next_url}")
@@ -91,7 +124,7 @@ def oauth_callback(request):
 
     try:
         redirect_uri = request.build_absolute_uri('/oauth/callback/')
-        tokens = exchange_code_for_tokens(code, redirect_uri)
+        tokens = exchange_code_for_tokens(code, redirect_uri, provider=provider)
 
         print(f"   Email : {tokens['email']}")
         print(f"   Refresh token : {'OUI' if tokens['refresh_token'] else 'NON'}")
@@ -108,7 +141,7 @@ def oauth_callback(request):
         _, created = OAuthToken.objects.update_or_create(
             user=request.user,
             defaults={
-                'provider':      'microsoft',
+                'provider':      provider,
                 'email':         tokens['email'],
                 'access_token':  tokens['access_token'],
                 'refresh_token': tokens['refresh_token'],

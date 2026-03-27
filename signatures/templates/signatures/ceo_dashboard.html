@@ -5,7 +5,7 @@
 {% block content %}
 <div class="mb-4 d-flex justify-between align-center" style="margin-bottom: 1.5rem;">
     <div>
-        <h2>Tableau de bord des signatures (CEO)</h2>
+        <h2>Tableau de bord des signatures</h2>
         <p style="color: var(--text-secondary); margin-top: 0.5rem;">Gérez ici les demandes de signatures en attente.
         </p>
     </div>
@@ -103,7 +103,7 @@
                             {% if doc.requester_name %}
                             {{ doc.requester_name }}
                             {% else %}
-                            <span class="text-muted">Direct / CEO</span>
+                            <span class="text-muted">Direct</span>
                             {% endif %}
                         </td>
                         <td>{{ doc.last_action_date|date:"d/m/Y H:i" }}</td>

@@ -171,6 +171,14 @@ class Migration(migrations.Migration):
                     to='technique.technicalproject',
                     verbose_name='Projet'
                 )),
+                ('facture', models.OneToOneField(
+                    blank=True,
+                    null=True,
+                    on_delete=django.db.models.deletion.SET_NULL,
+                    related_name='project_expense',
+                    to='invoices.facture',
+                    verbose_name='Facture associée',
+                )),
             ],
             options={
                 'verbose_name': 'Frais projet',

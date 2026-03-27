@@ -13,15 +13,11 @@ from user_access.user_test_functions import has_administratif_access
 from .email_manager import (
     fetch_new_emails,
     get_email_summary,
-    get_message_metadata,
     get_sent_emails,
     send_email_reply,
 )
 from .models import (
     Activite,
-    DefaultModeleRelance,
-    EmailClient,
-    ModeleRelance,
     TypeActivite,
 )
 
@@ -181,6 +177,7 @@ def get_calendar_activities(request):
     """
     try:
         now = datetime.now()
+        today = now.date()
         month = int(request.GET.get("month", now.month))
         year = int(request.GET.get("year", now.year))
 
@@ -192,7 +189,11 @@ def get_calendar_activities(request):
         )
 
         activites = (
-            Activite.objects.filter(date__gte=start_date, date__lt=end_date)
+            Activite.objects.filter(
+                date__gte=start_date,
+                date__lt=end_date,
+                date__date__gte=today,
+            )
             .select_related("dossier", "type")
             .values(
                 "id",
@@ -251,6 +252,7 @@ def get_calendar_activities_week(request):
             if date_str
             else datetime.now().date()
         )
+        today = datetime.now().date()
 
         monday = ref_date - timedelta(days=ref_date.weekday())
         sunday = monday + timedelta(days=6)
@@ -259,7 +261,11 @@ def get_calendar_activities_week(request):
         end_dt = datetime(sunday.year, sunday.month, sunday.day, 23, 59, 59)
 
         activites = (
-            Activite.objects.filter(date__gte=start_dt, date__lte=end_dt)
+            Activite.objects.filter(
+                date__gte=start_dt,
+                date__lte=end_dt,
+                date__date__gte=today,
+            )
             .select_related("dossier", "type")
             .values(
                 "id",

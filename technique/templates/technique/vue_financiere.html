@@ -87,6 +87,11 @@
         <div class="expense-form-grid">
 
           <div class="field-group">
+            <label for="id_facture">Facture associée</label>
+            {{ expense_form.facture }}
+          </div>
+
+          <div class="field-group">
             <label for="id_label">Libellé</label>
             {{ expense_form.label }}
           </div>
@@ -164,6 +169,7 @@
               <th>Statut</th>
               <th>Échéance</th>
               <th>Paiement</th>
+              <th>Facture</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -182,6 +188,13 @@
               <td>{{ expense.due_date|date:"d/m/Y"|default:"—" }}</td>
               <td>{{ expense.payment_date|date:"d/m/Y"|default:"—" }}</td>
               <td>
+                {% if expense.facture %}
+                <span style="font-weight:600;">{{ expense.facture.id }}</span>
+                {% else %}
+                <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
                 <details>
                   <summary>
                     <span class="action-btn"><i class="bi bi-pencil"></i> Modifier</span>
@@ -189,6 +202,17 @@
                   <form method="post" action="{% url 'technique:technique_project_expense_update' expense.pk %}">
                     {% csrf_token %}
                     <div class="inline-edit-grid">
+                      <div class="field-group">
+                        <label>Facture associÃ©e</label>
+                        <select name="facture" class="form-control">
+                          <option value="">-- Aucune facture --</option>
+                          {% for invoice in expense.selectable_invoices %}
+                          <option value="{{ invoice.pk }}" {% if expense.facture_id == invoice.pk %}selected{% endif %}>
+                            {{ invoice.id }} - {{ invoice.fournisseur }}
+                          </option>
+                          {% endfor %}
+                        </select>
+                      </div>
                       <div class="field-group">
                         <label>Libellé</label>
                         <input type="text" name="label" value="{{ expense.label }}" class="form-control">
@@ -252,6 +276,56 @@
       <p style="margin-top:.75rem; font-size:.8rem; color:var(--gray-400); text-align:center;">
         Comparatif des montants pour le projet.
       </p>
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <span class="section-header__title">Factures liees au projet</span>
+        <span class="badge">
+          {{ project_invoices|length }} facture{% if project_invoices|length > 1 %}s{% endif %}
+        </span>
+      </div>
+
+      {% if project_invoices %}
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Fournisseur</th>
+              <th>Client</th>
+              <th>Montant</th>
+              <th>Statut</th>
+              <th>Echeance</th>
+              <th>Collaborateur</th>
+              <th>DÃ©pense liÃ©e</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for invoice in project_invoices %}
+            <tr>
+              <td style="font-weight:600;">{{ invoice.id }}</td>
+              <td>{{ invoice.fournisseur }}</td>
+              <td>{{ invoice.client }}</td>
+              <td>{{ invoice.montant|default:"-" }} €</td>
+              <td>{{ invoice.get_statut_display }}</td>
+              <td>{{ invoice.echeance|date:"d/m/Y"|default:"-" }}</td>
+              <td>{{ invoice.collaborateur.username|default:"-" }}</td>
+              <td>
+                {% if invoice.linked_expense %}
+                {{ invoice.linked_expense.label }}
+                {% else %}
+                <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">Aucune facture n'est rattachee a ce projet.</div>
+      {% endif %}
     </section>
 
   </div>

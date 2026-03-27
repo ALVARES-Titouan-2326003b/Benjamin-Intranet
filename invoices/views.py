@@ -1,5 +1,8 @@
+import io
+
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.views import View
@@ -7,10 +10,17 @@ from django.utils.decorators import method_decorator
 from django_filters.views import FilterView
 from django.views.generic import DetailView, CreateView, UpdateView
 
+from openpyxl import Workbook
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+
 from user_access.user_test_functions import has_finance_access, has_ceo_access, can_read_facture
 from .filters import FactureFilter
 from .forms import FactureForm, PieceJointeForm
-from .models import Facture, PieceJointe
+from .models import Facture, PieceJointe, FactureHistorique
 
 
 # ================== Liste / Détail ==================
@@ -30,7 +40,7 @@ class FactureListView(FilterView):
     template_name = 'invoices/invoice_list.html'
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related('client', 'collaborateur')
+        qs = super().get_queryset().select_related('client', 'collaborateur', 'dossier')
         user = self.request.user
         
         # Si Finance ou CEO -> Tout voir
@@ -39,6 +49,90 @@ class FactureListView(FilterView):
             
         # Sinon -> Voir seulement ses factures
         return qs.filter(collaborateur=user)
+
+    def get(self, request, *args, **kwargs):
+        # Vérifier si c'est une demande d'export
+        export = request.GET.get('export')
+
+        if export in ('xlsx', 'pdf'):
+            # Applique les filtres et récupère le queryset filtré
+            queryset = self.get_queryset()
+            filterset = self.get_filterset_class()(request.GET, queryset=queryset)
+            filtered_qs = filterset.qs
+
+            if export == 'xlsx':
+                return self.export_to_excel(filtered_qs)
+            elif export == 'pdf':
+                return self.export_to_pdf(filtered_qs)
+
+        # Comportement normal : appel du parent
+        return super().get(request, *args, **kwargs)
+
+    def export_to_excel(self, queryset):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Factures'
+
+        headers = ['ID', 'Dossier', 'Fournisseur', 'Client', 'Montant', 'Statut', 'Échéance', 'Collaborateur']
+        ws.append(headers)
+
+        for invoice in queryset:
+            ws.append([
+                invoice.id,
+                str(invoice.dossier) if invoice.dossier else '',
+                str(invoice.fournisseur) if invoice.fournisseur else '',
+                str(invoice.client) if invoice.client else '',
+                invoice.montant or '',
+                invoice.get_statut_display(),
+                invoice.echeance.strftime('%Y-%m-%d') if invoice.echeance else '',
+                invoice.collaborateur.username if invoice.collaborateur else '',
+            ])
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="factures.xlsx"'
+        return response
+
+    def export_to_pdf(self, queryset):
+        output = io.BytesIO()
+        doc = SimpleDocTemplate(output, pagesize=letter)
+
+        data = [['ID', 'Dossier', 'Fournisseur', 'Client', 'Montant', 'Statut', 'Échéance', 'Collaborateur']]
+
+        for invoice in queryset:
+            data.append([
+                invoice.id,
+                str(invoice.dossier) if invoice.dossier else '',
+                str(invoice.fournisseur) if invoice.fournisseur else '',
+                str(invoice.client) if invoice.client else '',
+                f"{invoice.montant:.2f}" if invoice.montant is not None else '',
+                invoice.get_statut_display(),
+                invoice.echeance.strftime('%Y-%m-%d') if invoice.echeance else '',
+                invoice.collaborateur.username if invoice.collaborateur else '',
+            ])
+
+        table = Table(data, repeatRows=1, hAlign='LEFT')
+        table_style = TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
+        ])
+        table.setStyle(table_style)
+
+        doc.build([table])
+
+        output.seek(0)
+        response = HttpResponse(output.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="factures.pdf"'
+        return response
 
     def get_context_data( self, *, object_list = ..., **kwargs):
         context = super().get_context_data(**kwargs)
@@ -127,6 +221,17 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
     form_class = FactureForm
     template_name = 'invoices/invoice_form.html'
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        FactureHistorique.objects.create(
+            facture=self.object,
+            action='user_action',
+            new_status=self.object.statut,
+            user=self.request.user,
+            details=f"Facture créée par {self.request.user.username}"
+        )
+        return response
+
     def get_success_url(self):
         messages.success(self.request, "Facture créée.")
         return reverse('invoices:detail', args=[self.object.pk])
@@ -145,6 +250,22 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
     model = Facture
     form_class = FactureForm
     template_name = 'invoices/invoice_form.html'
+
+    def form_valid(self, form):
+        old_status = self.get_object().statut
+        response = super().form_valid(form)
+        new_status = self.object.statut
+
+        FactureHistorique.objects.create(
+            facture=self.object,
+            action='user_action',
+            old_status=old_status,
+            new_status=new_status,
+            user=self.request.user,
+            details=f"Facture modifiée par {self.request.user.username}"
+        )
+
+        return response
 
     def get_success_url(self):
         messages.success(self.request, "Facture mise à jour.")

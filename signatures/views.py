@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseForbidden
 from django.utils import timezone
+from django.conf import settings
 
 from .models import (
     Document,
@@ -25,11 +26,62 @@ from .services.workflow import (
     signer_document_avec_position,
 )
 from .services.email import envoyer_demande_signature
-from user_access.user_test_functions import (has_ceo_access, has_finance_access)
+from user_access.user_test_functions import (
+    has_administratif_access,
+    has_all_poles_access,
+    has_ceo_access,
+)
+
+
+def _has_group(user, group_name):
+    return user.groups.filter(name=group_name).exists()
+
+
+def _can_manage_signature_assets(user):
+    return has_ceo_access(user) or has_administratif_access(user)
+
+
+def _get_designated_signer(document):
+    """
+    Retourne l'utilisateur désigné pour signer ce document selon sa catégorie.
+    """
+    User = get_user_model()
+
+    if document.signataire_requis == "CEO":
+        return User.objects.filter(groups__name="CEO").first()
+
+    admin_username = getattr(settings, "SIGNATURE_ADMIN_USERNAME", None)
+    if not admin_username:
+        admin_username = getattr(settings, "SIGNATURE_RH_USERNAME", None)
+    if admin_username:
+        admin_by_username = User.objects.filter(username=admin_username).first()
+        if admin_by_username:
+            return admin_by_username
+
+    # On cible en priorité un membre du pôle administratif qui n'est pas CEO.
+    admin_user = (
+        User.objects.filter(groups__name="POLE_ADMINISTRATIF")
+        .exclude(groups__name="CEO")
+        .first()
+    )
+    if admin_user:
+        return admin_user
+
+    return User.objects.filter(groups__name="POLE_ADMINISTRATIF").first()
+
+
+def _can_user_sign_document(user, document):
+    if not user.is_authenticated:
+        return False
+
+    if document.signataire_requis == "CEO":
+        return _has_group(user, "CEO")
+
+    return user.is_superuser or user.is_staff or _has_group(user, "POLE_ADMINISTRATIF")
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def document_list(request):
     """
     Liste des documents avec un statut "intelligent" :
@@ -38,7 +90,10 @@ def document_list(request):
     - Sinon, dernier statut de l'historique
     """
 
-    if has_ceo_access(request.user):
+    if has_ceo_access(request.user) or SignatureRequest.objects.filter(
+        approver=request.user,
+        statut="pending",
+    ).exists():
         return redirect("signatures:ceo_dashboard")
 
     documents = (
@@ -80,7 +135,7 @@ def document_list(request):
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def upload_document(request):
     """
     Affiche une vue permettant d'enregistrer un document
@@ -99,7 +154,7 @@ def upload_document(request):
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def document_detail(request, pk):
     """
     Affiche une vue qui présente les informations d'un document
@@ -109,6 +164,8 @@ def document_detail(request, pk):
         pk (int): Identifiant du document
     """
     doc = get_object_or_404(Document, pk=pk)
+    designated_signer = _get_designated_signer(doc)
+    is_designated_signer = _can_user_sign_document(request.user, doc)
     historiques = doc.historique.order_by("-date_action")
 
     pending_request = doc.demandes_signature.filter(statut="pending").first()
@@ -130,7 +187,10 @@ def document_detail(request, pk):
             "pending_request": pending_request,
             "requester_name": requester_name,
             "request_date": request_date,
-            "is_ceo": has_ceo_access(request.user),
+            "is_designated_signer": is_designated_signer,
+            "designated_signer_name": (
+                designated_signer.get_full_name() or designated_signer.username
+            ) if designated_signer else None,
             "is_signed": is_signed,
         },
     )
@@ -139,9 +199,11 @@ def document_detail(request, pk):
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def document_update(request, pk):
     doc = get_object_or_404(Document, pk=pk)
+    messages.error(request, "La modification des documents a signer n'est plus autorisee.")
+    return redirect("signatures:document_detail", pk=doc.pk)
 
     # Règle métier : si déjà signé, on bloque l'édition du fichier
     is_signed = bool(doc.fichier_signe)
@@ -151,8 +213,11 @@ def document_update(request, pk):
 
         if form.is_valid():
             # Si signé, empêcher toute tentative de remplacement de fichier
-            if is_signed and "fichier" in form.changed_data:
-                messages.error(request, "Document déjà signé : le fichier ne peut plus être modifié.")
+            if is_signed and ("fichier" in form.changed_data or "signataire_requis" in form.changed_data):
+                messages.error(
+                    request,
+                    "Document déjà signé : le fichier et le signataire ne peuvent plus être modifiés.",
+                )
                 return redirect("signatures:document_detail", pk=doc.pk)
 
             form.save()
@@ -164,11 +229,12 @@ def document_update(request, pk):
         # Option UX : si signé, rendre le champ fichier non modifiable dans le form
         if is_signed:
             form.fields["fichier"].disabled = True
+            form.fields["signataire_requis"].disabled = True
 
     return render(request, "signatures/document_update.html", {"doc": doc, "form": form, "is_signed": is_signed})
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def envoyer_signature(request, pk):
     """
     Ancienne action "mettre en attente de signature".
@@ -181,10 +247,10 @@ def envoyer_signature(request, pk):
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def ma_signature(request):
     """
-    Permet à l'utilisateur courant (ex : CEO) de déposer/modifier son image de signature.
+    Permet à l'utilisateur courant de déposer/modifier son image de signature.
     """
     try:
         instance = request.user.signature_profile  # lié à SignatureUser.user
@@ -206,8 +272,8 @@ def ma_signature(request):
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
-@user_passes_test(has_ceo_access, login_url="/signatures", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
+@user_passes_test(_can_manage_signature_assets, login_url="/signatures", redirect_field_name=None)
 def tampon_edit(request):
     """
     Permet de créer/modifier le tampon numérique global.
@@ -228,7 +294,7 @@ def tampon_edit(request):
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def config_placement(request, pk):
     """
     (Optionnel) Permet de définir manuellement des positions en base.
@@ -253,30 +319,33 @@ def config_placement(request, pk):
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def placer_signature(request, pk):
     """
     Page de placement du bloc tampon+signature.
 
-    - Si l'utilisateur est CEO :
+    - Si l'utilisateur est autorisé à signer ce document :
         → placement + signature immédiate du document.
-    - Si l'utilisateur est un employé :
-        → placement + création d'une SignatureRequest pour le CEO.
+    - Sinon :
+        → placement + création d'une demande de signature pour le signataire cible.
 
     Une fois qu'une demande est en attente pour ce document,
     les employés ne peuvent plus re-placer la signature.
     Si le document est déjà signé, plus personne ne peut accéder à cette page.
     """
     doc = get_object_or_404(Document, pk=pk)
+    designated_signer = _get_designated_signer(doc)
+    is_designated_signer = _can_user_sign_document(request.user, doc)
+    signer_label = doc.get_signataire_requis_display()
 
     # 1) Si déjà signé → on bloque tout
     if doc.fichier_signe:
         messages.info(request, "Ce document est déjà signé.")
         return redirect("signatures:document_detail", pk=doc.pk)
 
-    # 2) Si employé (non-CEO) et qu'il existe déjà une demande pending → on bloque
+    # 2) Si le demandeur n'est pas signataire et qu'il existe déjà une demande pending → on bloque
     existing_pending = doc.demandes_signature.filter(statut="pending").first()
-    if not has_ceo_access(request.user) and existing_pending:
+    if not is_designated_signer and existing_pending:
         messages.info(
             request,
             "Une demande de signature est déjà en attente pour ce document. "
@@ -292,8 +361,8 @@ def placer_signature(request, pk):
             messages.error(request, "Position invalide.")
             return redirect("signatures:placer_signature", pk=doc.pk)
 
-        # BRANCHE CEO : il signe directement
-        if has_ceo_access(request.user):
+        # BRANCHE SIGNATAIRE : il signe directement
+        if is_designated_signer:
             try:
                 signer_document_avec_position(
                     document=doc,
@@ -305,7 +374,7 @@ def placer_signature(request, pk):
                 HistoriqueSignature.objects.create(
                     document=doc,
                     statut="erreur",
-                    commentaire=f"Erreur lors de la signature directe par le CEO : {e}",
+                    commentaire=f"Erreur lors de la signature directe par le signataire : {e}",
                 )
                 messages.error(
                     request,
@@ -316,7 +385,7 @@ def placer_signature(request, pk):
             HistoriqueSignature.objects.create(
                 document=doc,
                 statut="signe",
-                commentaire="Document signé directement par le CEO.",
+                commentaire="Document signé directement par le signataire désigné.",
             )
 
             # On peut marquer d'éventuelles demandes en attente comme expirées
@@ -328,14 +397,11 @@ def placer_signature(request, pk):
             messages.success(request, "Document signé avec succès.")
             return redirect("signatures:document_detail", pk=doc.pk)
 
-        # BRANCHE EMPLOYÉ : création d'une demande pour le CEO
-        User = get_user_model()
-        # ceo = User.objects.filter(groups__name="CEO").first()
-        ceo = User.objects.filter(groups__name="CEO").first()
-        if not ceo or not ceo.email:
+        # BRANCHE EMPLOYÉ : création d'une demande pour le signataire désigné
+        if not designated_signer or not designated_signer.email:
             messages.error(
                 request,
-                "Aucun CEO configuré pour recevoir la demande.",
+                f"Aucun signataire configuré pour '{signer_label}'.",
             )
             return redirect("signatures:document_detail", pk=doc.pk)
 
@@ -352,7 +418,7 @@ def placer_signature(request, pk):
         demande = SignatureRequest.objects.create(
             document=doc,
             requested_by=request.user,
-            approver=ceo,
+            approver=designated_signer,
             pos_x_pct=pos_x,
             pos_y_pct=pos_y,
         )
@@ -361,7 +427,11 @@ def placer_signature(request, pk):
         HistoriqueSignature.objects.create(
             document=doc,
             statut="en_attente",
-            commentaire=f"Demande de signature envoyée au CEO ({ceo.email}).",
+            commentaire=(
+                "Demande de signature envoyée à "
+                f"{designated_signer.get_full_name() or designated_signer.username}"
+                f" ({designated_signer.email})."
+            ),
         )
 
         # Construire l'URL d'approbation
@@ -373,7 +443,7 @@ def placer_signature(request, pk):
 
         # Utilisation du service email
         try:
-            envoyer_demande_signature(ceo.email, approval_url, doc)
+            envoyer_demande_signature(designated_signer.email, approval_url, doc)
         except Exception as e:
             messages.warning(
                 request,
@@ -382,7 +452,7 @@ def placer_signature(request, pk):
 
         messages.success(
             request,
-            "Demande de signature envoyée au CEO. En attente de validation.",
+            "Demande de signature envoyée. En attente de validation.",
         )
         return redirect("signatures:document_detail", pk=doc.pk)
 
@@ -392,23 +462,25 @@ def placer_signature(request, pk):
         "signatures/placer_signature.html",
         {
             "doc": doc,
-            "is_ceo": has_ceo_access,
+            "is_designated_signer": is_designated_signer,
+            "designated_signer_name": (
+                designated_signer.get_full_name() or designated_signer.username
+            ) if designated_signer else signer_label,
         },
     )
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
-@user_passes_test(has_ceo_access, login_url="/signatures", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def signature_approval(request, token):
     """
-    Page d'approbation CEO : le lien contient un token.
-    Le CEO voit le doc + position prévue, et peut approuver ou refuser.
+    Page d'approbation signataire : le lien contient un token.
+    Le signataire désigné voit le doc + position prévue, et peut approuver ou refuser.
     """
     demande = get_object_or_404(SignatureRequest, token=token)
 
-    # Double sécurité : il faut être le bon approver (CEO)
-    if request.user != demande.approver:
+    # Double sécurité : il faut être le bon approver
+    if request.user != demande.approver and not _can_user_sign_document(request.user, demande.document):
         return HttpResponseForbidden("Vous n'êtes pas autorisé à valider cette demande.")
 
     doc = demande.document
@@ -438,7 +510,7 @@ def signature_approval(request, token):
                 HistoriqueSignature.objects.create(
                     document=doc,
                     statut="erreur",
-                    commentaire=f"Erreur lors de la signature par le CEO : {e}",
+                    commentaire=f"Erreur lors de la signature par le signataire : {e}",
                 )
                 messages.error(
                     request,
@@ -450,7 +522,7 @@ def signature_approval(request, token):
             HistoriqueSignature.objects.create(
                 document=doc,
                 statut="signe",
-                commentaire="Document signé et approuvé par le CEO.",
+                commentaire="Document signé et approuvé par le signataire désigné.",
             )
             messages.success(request, "Document signé et approuvé.")
             return redirect("signatures:document_detail", pk=doc.pk)
@@ -460,7 +532,7 @@ def signature_approval(request, token):
             HistoriqueSignature.objects.create(
                 document=doc,
                 statut="refuse",
-                commentaire="Demande refusée par le CEO.",
+                commentaire="Demande refusée par le signataire désigné.",
             )
             messages.info(request, "Demande de signature refusée.")
             return redirect("signatures:document_detail", pk=doc.pk)
@@ -476,11 +548,10 @@ def signature_approval(request, token):
 
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
-@user_passes_test(has_ceo_access, login_url="/signatures", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def ceo_dashboard(request):
     """
-    Tableau de bord du CEO :
+    Tableau de bord du signataire :
     - Demandes en attente (actionnable)
     - Historique global des 50 derniers documents (tout confondu : signés direct ou via demande)
     """
@@ -557,7 +628,7 @@ def ceo_dashboard(request):
 # ================== Suppression en masse ==================
 
 @login_required
-@user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def bulk_delete_documents(request):
     """
     Vue pour supprimer plusieurs documents en une seule action
