@@ -14,6 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from openpyxl import Workbook
 from .services.documents import extract_text_from_file
 from .services.ai_summary import summarize_document
+from invoices.models import Facture
 from .models import DocumentTechnique, TechnicalProject, ProjectExpense, TechnicalEmail
 from .forms import (
     DocumentTechniqueUploadForm,
@@ -24,6 +25,21 @@ from .forms import (
 )
 from user_access.user_test_functions import has_technique_access
 from django.db.models import Q
+
+
+def _get_available_project_invoices(project, current_expense=None):
+    invoices = Facture.objects.filter(dossier=project).select_related(
+        "fournisseur",
+        "client",
+        "collaborateur",
+    )
+
+    if current_expense and current_expense.facture_id:
+        return invoices.filter(
+            Q(project_expense__isnull=True) | Q(pk=current_expense.facture_id)
+        ).order_by("-echeance", "id")
+
+    return invoices.filter(project_expense__isnull=True).order_by("-echeance", "id")
 
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
@@ -399,7 +415,12 @@ def financial_project_detail(request, pk):
     expense_q = (request.GET.get("expense_q") or "").strip()
     expense_status = (request.GET.get("expense_status") or "").strip()
 
-    expenses = project.expenses.all().order_by("-due_date", "-id")
+    expenses = project.expenses.select_related("facture").all().order_by("-due_date", "-id")
+    invoices = (
+        Facture.objects.filter(dossier=project)
+        .select_related("fournisseur", "client", "collaborateur")
+        .order_by("-echeance", "id")
+    )
 
     if expense_q:
         expenses = expenses.filter(label__icontains=expense_q)
@@ -410,6 +431,16 @@ def financial_project_detail(request, pk):
         expenses = expenses.filter(is_paid=False)
 
     expense_form = ProjectExpenseForm()
+    expense_form.fields["facture"].queryset = _get_available_project_invoices(project)
+
+    for expense in expenses:
+        expense.selectable_invoices = _get_available_project_invoices(project, current_expense=expense)
+
+    for invoice in invoices:
+        try:
+            invoice.linked_expense = invoice.project_expense
+        except Facture.project_expense.RelatedObjectDoesNotExist:
+            invoice.linked_expense = None
 
     budget_ratio = 0
     if project.total_estimated and project.total_estimated > 0:
@@ -433,6 +464,7 @@ def financial_project_detail(request, pk):
             "form": form,
             "expense_form": expense_form,
             "expenses": expenses,
+            "project_invoices": invoices,
             "expense_q": expense_q,
             "expense_status": expense_status,
             "frais_engages": project.frais_engages,
@@ -453,6 +485,7 @@ def project_expense_create(request, pk):
 
     if request.method == "POST":
         form = ProjectExpenseForm(request.POST)
+        form.fields["facture"].queryset = _get_available_project_invoices(project)
         if form.is_valid():
             expense = form.save(commit=False)
             expense.project = project
@@ -472,6 +505,7 @@ def project_expense_update(request, expense_pk):
 
     if request.method == "POST":
         form = ProjectExpenseForm(request.POST, instance=expense)
+        form.fields["facture"].queryset = _get_available_project_invoices(project, current_expense=expense)
         if form.is_valid():
             form.save()
             messages.success(request, "Dépense modifiée avec succès.")

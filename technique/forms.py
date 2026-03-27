@@ -40,7 +40,7 @@ class DocumentTechniqueUpdateForm(forms.ModelForm):
 class ProjectExpenseForm(forms.ModelForm):
     class Meta:
         model = ProjectExpense
-        fields = ["label", "amount", "is_paid", "due_date", "payment_date"]
+        fields = ["facture", "label", "amount", "is_paid", "due_date", "payment_date"]
         widgets = {
             "due_date": forms.DateInput(attrs={"type": "date"}),
             "payment_date": forms.DateInput(attrs={"type": "date"}),

@@ -30,7 +30,7 @@ class Migration(migrations.Migration):
                 (
                     'signataire_requis',
                     models.CharField(
-                        choices=[('CEO', 'CEO (Rudy)'), ('RH', 'RH')],
+                        choices=[('CEO', 'CEO'), ('RH', 'Pôle administratif')],
                         default='CEO',
                         max_length=10,
                     ),

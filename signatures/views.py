@@ -26,7 +26,19 @@ from .services.workflow import (
     signer_document_avec_position,
 )
 from .services.email import envoyer_demande_signature
-from user_access.user_test_functions import (has_ceo_access, has_all_poles_access)
+from user_access.user_test_functions import (
+    has_administratif_access,
+    has_all_poles_access,
+    has_ceo_access,
+)
+
+
+def _has_group(user, group_name):
+    return user.groups.filter(name=group_name).exists()
+
+
+def _can_manage_signature_assets(user):
+    return has_ceo_access(user) or has_administratif_access(user)
 
 
 def _get_designated_signer(document):
@@ -38,27 +50,34 @@ def _get_designated_signer(document):
     if document.signataire_requis == "CEO":
         return User.objects.filter(groups__name="CEO").first()
 
-    rh_username = getattr(settings, "SIGNATURE_RH_USERNAME", None)
-    if rh_username:
-        rh_by_username = User.objects.filter(username=rh_username).first()
-        if rh_by_username:
-            return rh_by_username
+    admin_username = getattr(settings, "SIGNATURE_ADMIN_USERNAME", None)
+    if not admin_username:
+        admin_username = getattr(settings, "SIGNATURE_RH_USERNAME", None)
+    if admin_username:
+        admin_by_username = User.objects.filter(username=admin_username).first()
+        if admin_by_username:
+            return admin_by_username
 
-    # RH: on cible en priorité un membre du pôle financier qui n'est pas CEO.
-    rh_user = (
-        User.objects.filter(groups__name="POLE_FINANCIER")
+    # On cible en priorité un membre du pôle administratif qui n'est pas CEO.
+    admin_user = (
+        User.objects.filter(groups__name="POLE_ADMINISTRATIF")
         .exclude(groups__name="CEO")
         .first()
     )
-    if rh_user:
-        return rh_user
+    if admin_user:
+        return admin_user
 
-    return User.objects.filter(groups__name="POLE_FINANCIER").first()
+    return User.objects.filter(groups__name="POLE_ADMINISTRATIF").first()
 
 
-def _is_designated_signer(user, document):
-    signer = _get_designated_signer(document)
-    return bool(signer and signer.pk == user.pk)
+def _can_user_sign_document(user, document):
+    if not user.is_authenticated:
+        return False
+
+    if document.signataire_requis == "CEO":
+        return _has_group(user, "CEO")
+
+    return user.is_superuser or user.is_staff or _has_group(user, "POLE_ADMINISTRATIF")
 
 
 @login_required
@@ -146,7 +165,7 @@ def document_detail(request, pk):
     """
     doc = get_object_or_404(Document, pk=pk)
     designated_signer = _get_designated_signer(doc)
-    is_designated_signer = _is_designated_signer(request.user, doc)
+    is_designated_signer = _can_user_sign_document(request.user, doc)
     historiques = doc.historique.order_by("-date_action")
 
     pending_request = doc.demandes_signature.filter(statut="pending").first()
@@ -183,6 +202,8 @@ def document_detail(request, pk):
 @user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def document_update(request, pk):
     doc = get_object_or_404(Document, pk=pk)
+    messages.error(request, "La modification des documents a signer n'est plus autorisee.")
+    return redirect("signatures:document_detail", pk=doc.pk)
 
     # Règle métier : si déjà signé, on bloque l'édition du fichier
     is_signed = bool(doc.fichier_signe)
@@ -229,7 +250,7 @@ def envoyer_signature(request, pk):
 @user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def ma_signature(request):
     """
-    Permet à l'utilisateur courant (ex : CEO) de déposer/modifier son image de signature.
+    Permet à l'utilisateur courant de déposer/modifier son image de signature.
     """
     try:
         instance = request.user.signature_profile  # lié à SignatureUser.user
@@ -252,7 +273,7 @@ def ma_signature(request):
 
 @login_required
 @user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
-@user_passes_test(has_ceo_access, login_url="/signatures", redirect_field_name=None)
+@user_passes_test(_can_manage_signature_assets, login_url="/signatures", redirect_field_name=None)
 def tampon_edit(request):
     """
     Permet de créer/modifier le tampon numérique global.
@@ -303,10 +324,10 @@ def placer_signature(request, pk):
     """
     Page de placement du bloc tampon+signature.
 
-    - Si l'utilisateur est CEO :
+    - Si l'utilisateur est autorisé à signer ce document :
         → placement + signature immédiate du document.
-    - Si l'utilisateur est un employé :
-        → placement + création d'une SignatureRequest pour le CEO.
+    - Sinon :
+        → placement + création d'une demande de signature pour le signataire cible.
 
     Une fois qu'une demande est en attente pour ce document,
     les employés ne peuvent plus re-placer la signature.
@@ -314,7 +335,7 @@ def placer_signature(request, pk):
     """
     doc = get_object_or_404(Document, pk=pk)
     designated_signer = _get_designated_signer(doc)
-    is_designated_signer = bool(designated_signer and designated_signer.pk == request.user.pk)
+    is_designated_signer = _can_user_sign_document(request.user, doc)
     signer_label = doc.get_signataire_requis_display()
 
     # 1) Si déjà signé → on bloque tout
@@ -322,7 +343,7 @@ def placer_signature(request, pk):
         messages.info(request, "Ce document est déjà signé.")
         return redirect("signatures:document_detail", pk=doc.pk)
 
-    # 2) Si employé (non-CEO) et qu'il existe déjà une demande pending → on bloque
+    # 2) Si le demandeur n'est pas signataire et qu'il existe déjà une demande pending → on bloque
     existing_pending = doc.demandes_signature.filter(statut="pending").first()
     if not is_designated_signer and existing_pending:
         messages.info(
@@ -459,7 +480,7 @@ def signature_approval(request, token):
     demande = get_object_or_404(SignatureRequest, token=token)
 
     # Double sécurité : il faut être le bon approver
-    if request.user != demande.approver:
+    if request.user != demande.approver and not _can_user_sign_document(request.user, demande.document):
         return HttpResponseForbidden("Vous n'êtes pas autorisé à valider cette demande.")
 
     doc = demande.document

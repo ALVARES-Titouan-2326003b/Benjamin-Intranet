@@ -24,6 +24,6 @@ class TechnicalProjectAdmin(admin.ModelAdmin):
 
 @admin.register(ProjectExpense)
 class ProjectExpenseAdmin(admin.ModelAdmin):
-    list_display = ("id", "project", "label", "amount", "is_paid", "due_date", "payment_date")
+    list_display = ("id", "project", "facture", "label", "amount", "is_paid", "due_date", "payment_date")
     list_filter = ("is_paid", "due_date", "payment_date")
-    search_fields = ("label", "project__reference", "project__name")
+    search_fields = ("label", "project__reference", "project__name", "facture__id")

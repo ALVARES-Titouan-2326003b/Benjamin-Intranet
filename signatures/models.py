@@ -60,8 +60,8 @@ class Document(models.Model):
         date_upload (datetime): Date d'ajout
     """
     SIGNATAIRES_REQUIS = [
-        ("CEO", "CEO (Rudy)"),
-        ("RH", "RH"),
+        ("CEO", "CEO"),
+        ("RH", "Pôle administratif"),
     ]
 
     titre = models.CharField(max_length=255)
@@ -137,7 +137,7 @@ class SignatureRequest(models.Model):
         token (str): Jeton de la demande
         created_at (datetime): Date et heure de création de la demande
         decided_at (datetime): Date et heure de la signature
-        commentaire_ceo (str): Commentaire écrit par le CEO
+        commentaire_ceo (str): Commentaire écrit par le signataire
     """
     STATUTS = [
         ("pending", "En attente"),
@@ -183,7 +183,7 @@ class SignatureRequest(models.Model):
         Approuve la demande
 
         Args:
-            commentaire (str): Commentaire du CEO
+            commentaire (str): Commentaire du signataire
         """
         self.statut = "approved"
         self.decided_at = timezone.now()
@@ -195,7 +195,7 @@ class SignatureRequest(models.Model):
         Refuse la demande
 
         Args:
-            commentaire (str): Commentaire du CEO
+            commentaire (str): Commentaire du signataire
         """
         self.statut = "refused"
         self.decided_at = timezone.now()

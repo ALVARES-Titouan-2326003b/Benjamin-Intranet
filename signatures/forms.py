@@ -13,7 +13,7 @@ class DocumentUploadForm(forms.ModelForm):
             "signataire_requis": "Qui doit signer ?",
         }
         help_texts = {
-            "signataire_requis": "CEO pour les documents officiels, RH pour contrats/factures.",
+            "signataire_requis": "CEO pour les documents officiels, pôle administratif pour les contrats et documents administratifs.",
         }
 
 

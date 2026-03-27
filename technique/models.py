@@ -117,6 +117,14 @@ class TechnicalProject(models.Model):
 
 class ProjectExpense(models.Model):
     project = models.ForeignKey(TechnicalProject, related_name="expenses", on_delete=models.CASCADE, verbose_name="Projet")
+    facture = models.OneToOneField(
+        "invoices.Facture",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="project_expense",
+        verbose_name="Facture associée",
+    )
     label = models.CharField("Libellé", max_length=255)
     amount = models.DecimalField("Montant", max_digits=12, decimal_places=2)
     is_paid = models.BooleanField("Déjà payé", default=False)
