@@ -128,6 +128,14 @@ class Migration(migrations.Migration):
                     related_name='factures',
                     to=settings.AUTH_USER_MODEL
                 )),
+                ('created_by', models.ForeignKey(
+                    blank=True,
+                    db_column='created_by_id',
+                    null=True,
+                    on_delete=django.db.models.deletion.SET_NULL,
+                    related_name='factures_created',
+                    to=settings.AUTH_USER_MODEL
+                )),
                 ('dossier', models.ForeignKey(
                     db_column='dossier',
                     on_delete=django.db.models.deletion.CASCADE,

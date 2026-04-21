@@ -11,7 +11,7 @@
     <h2>Facture #{{ object.id }}</h2>
   </div>
 
-  {%if access_finance %}
+  {% if can_edit_invoice %}
   <a class="btn btn-primary" href="{% url 'invoices:edit' object.pk %}">
     <i class="bi bi-pencil"></i> Modifier
   </a>

@@ -95,20 +95,27 @@
         {{ form.dossier }}
       </div>
 
+      {% if form.collaborateur %}
       <div class="form-group">
         <label class="form-label">{{ form.collaborateur.label }}</label>
         {{ form.collaborateur }}
+        {% if form.collaborateur.help_text %}
+        <small style="display: block; color: var(--text-secondary); margin-top: 0.25rem;">{{ form.collaborateur.help_text }}</small>
+        {% endif %}
       </div>
+      {% endif %}
 
       <div class="form-group">
         <label class="form-label">{{ form.montant.label }}</label>
         {{ form.montant }}
       </div>
 
+      {% if form.statut %}
       <div class="form-group">
         <label class="form-label">{{ form.statut.label }}</label>
         {{ form.statut }}
       </div>
+      {% endif %}
 
       <div class="form-group">
         <label class="form-label">{{ form.echeance.label }}</label>

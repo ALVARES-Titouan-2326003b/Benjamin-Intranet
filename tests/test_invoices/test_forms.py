@@ -7,7 +7,7 @@ from datetime import datetime
 from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from unittest.mock import patch
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.urls import reverse
 
 from invoices.forms import (
@@ -501,3 +501,135 @@ class TestFactureListViewFiltersAndExport:
         assert response_pdf.status_code == 200
         assert response_pdf['Content-Type'] == 'application/pdf'
         assert response_pdf.content[:4] == b'%PDF'
+
+
+@pytest.mark.django_db
+class TestCollaborateurInvoicePermissions:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        from technique.models import TechnicalProject
+
+        self.collab_group = Group.objects.get_or_create(name='COLLABORATEUR')[0]
+        self.finance_user = User.objects.create_user(username='finance2', password='finance2', is_staff=True)
+        self.collaborateur = User.objects.create_user(username='collab', password='collab', email='collab@example.com')
+        self.other_collaborateur = User.objects.create_user(username='other-collab', password='collab', email='other@example.com')
+        self.collaborateur.groups.add(self.collab_group)
+        self.other_collaborateur.groups.add(self.collab_group)
+        self.dossier = TechnicalProject.objects.create(reference='DOS-COLLAB', name='Dossier Collaborateur')
+
+    def _create_invoice(self, invoice_id, collaborateur=None, created_by=None, status='ongoing'):
+        acteur_client = ActeurExterne.objects.create(id=f'CLIENT-{invoice_id}')
+        client = Client.objects.create(id=acteur_client)
+        Entreprise.objects.create(id=client, nom=f'Client {invoice_id}')
+
+        acteur_fournisseur = ActeurExterne.objects.create(id=f'FOURN-{invoice_id}')
+        fournisseur = Fournisseur.objects.create(id=acteur_fournisseur, nom=f'Fournisseur {invoice_id}')
+
+        return Facture.objects.create(
+            id=invoice_id,
+            fournisseur=fournisseur,
+            client=client,
+            montant=100.0,
+            statut=status,
+            dossier=self.dossier,
+            collaborateur=collaborateur,
+            created_by=created_by,
+            titre=f'Titre {invoice_id}',
+        )
+
+    def test_collaborateur_list_shows_only_assigned_invoices_and_create_button(self, client):
+        own_invoice = self._create_invoice('FAC-OWN', collaborateur=self.collaborateur, created_by=self.other_collaborateur)
+        self._create_invoice('FAC-OTHER', collaborateur=self.other_collaborateur, created_by=self.collaborateur)
+
+        client.force_login(self.collaborateur)
+        response = client.get(reverse('invoices:list'))
+
+        content = response.content.decode('utf-8')
+        assert response.status_code == 200
+        assert own_invoice.id in content
+        assert 'FAC-OTHER' not in content
+        assert reverse('invoices:create') in content
+        assert 'Export Excel' not in content
+        assert 'Lancer la relance manuelle' not in content
+        assert 'name="invoice_ids"' not in content
+
+    def test_collaborateur_can_view_only_assigned_invoice_detail_and_sees_edit_button(self, client):
+        own_invoice = self._create_invoice('FAC-DETAIL-OWN', collaborateur=self.collaborateur)
+        other_invoice = self._create_invoice('FAC-DETAIL-OTHER', collaborateur=self.other_collaborateur)
+
+        client.force_login(self.collaborateur)
+
+        own_response = client.get(reverse('invoices:detail', args=[own_invoice.pk]))
+        own_content = own_response.content.decode('utf-8')
+        assert own_response.status_code == 200
+        assert reverse('invoices:edit', args=[own_invoice.pk]) in own_content
+
+        other_response = client.get(reverse('invoices:detail', args=[other_invoice.pk]))
+        assert other_response.status_code == 404
+
+    @patch('invoices.forms.ensure_dossier_exists')
+    def test_collaborateur_can_create_invoice_but_cannot_set_status_or_assignment(self, mock_ensure, client):
+        client.force_login(self.collaborateur)
+
+        response = client.post(reverse('invoices:create'), data={
+            'fournisseur_input': 'Fournisseur Creation',
+            'client_input': 'Client Creation',
+            'dossier': self.dossier.pk,
+            'montant': '123.45',
+            'echeance': '2026-05-01',
+            'titre': 'Facture collaborative',
+            'statut': 'paid',
+            'collaborateur': self.other_collaborateur.pk,
+        })
+
+        facture = Facture.objects.get(titre='Facture collaborative')
+        assert response.status_code == 302
+        assert facture.created_by == self.collaborateur
+        assert facture.collaborateur == self.collaborateur
+        assert facture.statut == 'ongoing'
+
+    def test_collaborateur_edit_form_hides_restricted_fields(self, client):
+        invoice = self._create_invoice('FAC-FORM', collaborateur=self.collaborateur)
+
+        client.force_login(self.collaborateur)
+        response = client.get(reverse('invoices:edit', args=[invoice.pk]))
+
+        content = response.content.decode('utf-8')
+        assert response.status_code == 200
+        assert 'name="collaborateur"' in content
+        assert 'disabled' in content
+        assert 'name="statut"' not in content
+
+    def test_collaborateur_can_edit_assigned_invoice_but_not_other_invoice(self, client):
+        own_invoice = self._create_invoice('FAC-EDIT-OWN', collaborateur=self.collaborateur, status='ongoing')
+        other_invoice = self._create_invoice('FAC-EDIT-OTHER', collaborateur=self.other_collaborateur, status='ongoing')
+
+        client.force_login(self.collaborateur)
+
+        response = client.post(reverse('invoices:edit', args=[own_invoice.pk]), data={
+            'fournisseur_input': own_invoice.fournisseur_id,
+            'client_input': own_invoice.client_id,
+            'dossier': self.dossier.pk,
+            'montant': '999.99',
+            'echeance': '2026-06-01',
+            'titre': 'Titre modifie',
+            'statut': 'paid',
+            'collaborateur': self.other_collaborateur.pk,
+        })
+
+        own_invoice.refresh_from_db()
+        assert response.status_code == 302
+        assert own_invoice.montant == 999.99
+        assert own_invoice.titre == 'Titre modifie'
+        assert own_invoice.statut == 'ongoing'
+        assert own_invoice.collaborateur == self.collaborateur
+
+        forbidden_response = client.post(reverse('invoices:edit', args=[other_invoice.pk]), data={
+            'fournisseur_input': other_invoice.fournisseur_id,
+            'client_input': other_invoice.client_id,
+            'dossier': self.dossier.pk,
+            'montant': '500.00',
+            'echeance': '2026-06-01',
+            'titre': 'Interdit',
+        })
+        assert forbidden_response.status_code == 404

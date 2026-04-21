@@ -80,7 +80,75 @@ def can_read_facture(user):
         user (User):  L'utilisateur
     """
     user = User.objects.get(username=user.username)
-    if has_finance_access(user) or has_collaborateur_access(user):
+    if has_finance_access(user) or has_ceo_access(user) or has_collaborateur_access(user):
         return True
     else:
         return False
+
+
+def can_create_facture(user):
+    """
+    Renvoie vrai si un utilisateur peut créer des factures
+    Les collaborateurs et le finance peuvent créer des factures
+
+    Args:
+        user (User):  L'utilisateur
+    """
+    user = User.objects.get(username=user.username)
+    return has_finance_access(user) or has_collaborateur_access(user)
+
+
+def is_facture_creator(user, facture):
+    """
+    Vérifie si l'utilisateur a créé la facture
+
+    Args:
+        user (User):  L'utilisateur
+        facture (Facture):  La facture
+    """
+    return facture.created_by_id == user.id
+
+
+def can_edit_facture(user, facture):
+    """
+    Vérifie si l'utilisateur peut éditer la facture
+    - Finance: peut éditer toutes les factures
+    - Collaborateurs: peuvent éditer seulement leurs propres factures
+
+    Args:
+        user (User):  L'utilisateur
+        facture (Facture):  La facture
+    """
+    user = User.objects.get(username=user.username)
+    if has_finance_access(user):
+        return True
+    if has_collaborateur_access(user):
+        return facture.collaborateur_id == user.id
+    return False
+
+
+def can_edit_facture_field(user, facture, field):
+    """
+    Vérifie si l'utilisateur peut éditer un champ spécifique de la facture
+    - Finance: peut éditer tous les champs
+    - Collaborateurs: peuvent éditer tous les champs SAUF 'statut' et 'collaborateur'
+
+    Args:
+        user (User):  L'utilisateur
+        facture (Facture):  La facture
+        field (str):  Le nom du champ
+    """
+    user = User.objects.get(username=user.username)
+    
+    # Finance peut éditer tous les champs
+    if has_finance_access(user):
+        return True
+    
+    # Collaborateurs ne peuvent éditer que s'ils sont les créateurs
+    # et seulement certains champs
+    if has_collaborateur_access(user) and facture.collaborateur_id == user.id:
+        # Ces champs ne peuvent pas être édités par les collaborateurs
+        forbidden_fields = ['statut', 'collaborateur']
+        return field not in forbidden_fields
+    
+    return False

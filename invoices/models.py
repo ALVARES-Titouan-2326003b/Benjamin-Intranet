@@ -135,6 +135,8 @@ class Facture(models.Model):
     titre = models.CharField(max_length=255, null=True, blank=True)
     collaborateur = models.ForeignKey(Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
                                       db_column='collaborateur_id', related_name='factures')
+    created_by = models.ForeignKey(Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+                                   db_column='created_by_id', related_name='factures_created')
 
     def __str__(self):
         return f"{self.fournisseur} — {self.montant}€ — {self.statut}"

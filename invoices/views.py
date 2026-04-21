@@ -17,7 +17,7 @@ from reportlab.lib.units import cm
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
-from user_access.user_test_functions import has_finance_access, has_ceo_access, can_read_facture
+from user_access.user_test_functions import has_finance_access, has_ceo_access, can_read_facture, can_create_facture, can_edit_facture, has_collaborateur_access
 from .filters import FactureFilter
 from .forms import FactureForm, PieceJointeForm
 from .models import Facture, PieceJointe, FactureHistorique
@@ -137,6 +137,11 @@ class FactureListView(FilterView):
     def get_context_data( self, *, object_list = ..., **kwargs):
         context = super().get_context_data(**kwargs)
         context['access_finance'] = has_finance_access(self.request.user)
+        context['can_create_invoice'] = can_create_facture(self.request.user)
+        context['can_export_invoices'] = has_finance_access(self.request.user)
+        context['can_manage_bulk_delete'] = has_finance_access(self.request.user)
+        context['can_manage_manual_reminders'] = has_finance_access(self.request.user)
+        context['can_view_dashboard'] = has_finance_access(self.request.user)
         return context
 
 @method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
@@ -165,6 +170,7 @@ class FactureDetailView(DetailView):
     def get_context_data(self, *, object_list=..., **kwargs):
         context = super().get_context_data(**kwargs)
         context['access_finance'] = has_finance_access(self.request.user)
+        context['can_edit_invoice'] = can_edit_facture(self.request.user, self.object)
         return context
 
 
@@ -212,16 +218,27 @@ class _PieceJointeMixin:
 
 # ================== Create / Update ==================
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+@method_decorator([login_required, user_passes_test(can_create_facture, login_url="/", redirect_field_name=None)], name='dispatch')
 class FactureCreateView(_PieceJointeMixin, CreateView):
     """
     Vue pour créer une facture
     """
     model = Facture
-    form_class = FactureForm
     template_name = 'invoices/invoice_form.html'
 
+    def get_form_class(self):
+        # Les collaborateurs ont une forme sans le champ statut
+        if has_collaborateur_access(self.request.user):
+            from .forms import FactureFormCollaborateur
+            return FactureFormCollaborateur
+        return FactureForm
+
     def form_valid(self, form):
+        # Auto-set created_by et collaborateur pour les collaborateurs
+        if has_collaborateur_access(self.request.user):
+            form.instance.created_by = self.request.user
+            form.instance.collaborateur = self.request.user
+        
         response = super().form_valid(form)
         FactureHistorique.objects.create(
             facture=self.object,
@@ -239,17 +256,31 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["user_ceo"] = has_ceo_access(self.request.user)
+        context["is_collaborateur"] = has_collaborateur_access(self.request.user)
         return context
 
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+@method_decorator([login_required, user_passes_test(can_create_facture, login_url="/", redirect_field_name=None)], name='dispatch')
 class FactureUpdateView(_PieceJointeMixin, UpdateView):
     """
     Vue pour mettre à jour une facture
     """
     model = Facture
-    form_class = FactureForm
     template_name = 'invoices/invoice_form.html'
+
+    def get_queryset(self):
+        # Les collaborateurs ne peuvent voir/éditer que leurs propres factures
+        queryset = super().get_queryset()
+        if has_collaborateur_access(self.request.user):
+            return queryset.filter(collaborateur=self.request.user)
+        return queryset
+
+    def get_form_class(self):
+        # Les collaborateurs ont une forme sans le champ statut
+        if has_collaborateur_access(self.request.user):
+            from .forms import FactureFormCollaborateur
+            return FactureFormCollaborateur
+        return FactureForm
 
     def form_valid(self, form):
         old_status = self.get_object().statut
@@ -274,6 +305,7 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["user_ceo"] = has_ceo_access(self.request.user)
+        context["is_collaborateur"] = has_collaborateur_access(self.request.user)
         return context
 
 # ================== Relance Manuelle ==================

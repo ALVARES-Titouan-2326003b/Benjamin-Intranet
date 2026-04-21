@@ -201,6 +201,29 @@ class FactureForm(forms.ModelForm):
         return inst
 
 
+class FactureFormCollaborateur(FactureForm):
+    """
+    Formulaire pour les collaborateurs - sans le champ statut et collaborateur verrouillé.
+    Les collaborateurs peuvent créer/modifier leurs propres factures mais pas le statut.
+    """
+    
+    class Meta(FactureForm.Meta):
+        fields = ["dossier", "montant", "echeance", "titre", "collaborateur"]
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Le collaborateur ne peut pas modifier le champ collaborateur (c'est lui-même)
+        # On le rend readonly en utilisant un widget disabled
+        if 'collaborateur' in self.fields:
+            self.fields['collaborateur'].disabled = True
+            self.fields['collaborateur'].help_text = "Vous êtes automatiquement assigné à cette facture"
+        
+        # Supprimer le champ statut pour les collaborateurs
+        if 'statut' in self.fields:
+            del self.fields['statut']
+
+
 # --- Pièce jointe (PDF) ----------------------------------------------------
 
 class PieceJointeForm(forms.ModelForm):

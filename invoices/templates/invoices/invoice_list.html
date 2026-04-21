@@ -6,13 +6,17 @@
     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
     <h2>Factures</h2>
     <div style="display: flex; gap: 0.5rem;">
-        {% if access_finance%}
+        {% if can_view_dashboard %}
         <a class="btn btn-secondary" href="{% url 'invoices:dashboard' %}">
             <i class="bi bi-bar-chart-fill"></i> Tableau de bord
         </a>
+        {% endif %}
+        {% if can_create_invoice %}
         <a class="btn btn-primary" href="{% url 'invoices:create' %}">
             <i class="bi bi-plus-lg"></i> Nouvelle facture
         </a>
+        {% endif %}
+        {% if can_export_invoices %}
         <a class="btn btn-outline-primary" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}export=xlsx">
             <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
         </a>
@@ -23,24 +27,20 @@
     </div>
 </div>
 
-<!-- Filters Card -->
-<!-- Bouton Relance Manuelle avec champ délai -->
-{% if access_finance%}
+{% if can_manage_manual_reminders %}
 <div style="margin-bottom: 1.5rem;">
     <form method="post" action="{% url 'invoices:manual_reminders' %}"
         style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
         {% csrf_token %}
 
-        <!-- Champ délai relance -->
         <div class="form-group" style="margin: 0; flex: 0 0 200px;">
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 0.5rem;">
-                Délai relance (jours)
+                Delai relance (jours)
             </label>
             <input type="number" name="delai_relance" value="1" min="1" class="form-control" style="font-weight: 600;"
                 required>
         </div>
 
-        <!-- Bouton relance -->
         <button type="submit" class="btn btn-warning"
             style="font-weight: 600; padding: 0.75rem 1.5rem; flex: 1; min-width: 200px;"
             onclick="return confirm('Cette action va lancer la relance manuelle.\n\nVoulez-vous continuer ?');">
@@ -49,17 +49,18 @@
     </form>
 
     <small style="display: block; margin-top: 0.5rem; color: var(--text-secondary); font-style: italic;">
-        Le délai sera appliqué à tous les fournisseurs
+        Le delai sera applique a tous les fournisseurs
     </small>
 </div>
 {% endif %}
+
 {% if not is_only_collaborator %}
 <div class="card">
     <div class="card-title">
         <span><i class="bi bi-funnel"></i> Filtres</span>
         <a href="{% url 'invoices:list' %}" class="btn btn-sm btn-secondary"
             style="font-size: 0.8rem; padding: 0.25rem 0.75rem;">
-            Réinitialiser
+            Reinitialiser
         </a>
     </div>
 
@@ -80,7 +81,7 @@
         <div class="form-group" style="margin: 0;">
             <label class="form-label" style="font-size: 0.8rem;">Dossier / Projet</label>
             <input type="text" name="dossier" value="{{ request.GET.dossier }}" class="form-control"
-                placeholder="Référence ou nom...">
+                placeholder="Reference ou nom...">
         </div>
 
         <div class="form-group" style="margin: 0;">
@@ -100,15 +101,15 @@
             <select name="statut" class="form-control">
                 <option value="">Tous</option>
                 <option value="ongoing" {% if request.GET.statut == 'ongoing' %}selected{% endif %}>En cours</option>
-                <option value="received" {% if request.GET.statut == 'received' %}selected{% endif %}>Reçue</option>
-                <option value="paid" {% if request.GET.statut == 'paid' %}selected{% endif %}>Payée</option>
-                <option value="denied" {% if request.GET.statut == 'denied' %}selected{% endif %}>Refusée</option>
-                <option value="archived" {% if request.GET.statut == 'archived' %}selected{% endif %}>Archivée</option>
+                <option value="received" {% if request.GET.statut == 'received' %}selected{% endif %}>Recue</option>
+                <option value="paid" {% if request.GET.statut == 'paid' %}selected{% endif %}>Payee</option>
+                <option value="denied" {% if request.GET.statut == 'denied' %}selected{% endif %}>Refusee</option>
+                <option value="archived" {% if request.GET.statut == 'archived' %}selected{% endif %}>Archivee</option>
             </select>
         </div>
 
         <div class="form-group" style="margin: 0; grid-column: span 2;">
-            <label class="form-label" style="font-size: 0.8rem;">Échéance (Période)</label>
+            <label class="form-label" style="font-size: 0.8rem;">Echeance (Periode)</label>
             <div style="display: flex; gap: 0.5rem;">
                 <input type="date" name="echeance_min" value="{{ request.GET.echeance_min }}" class="form-control">
                 <input type="date" name="echeance_max" value="{{ request.GET.echeance_max }}" class="form-control">
@@ -124,76 +125,74 @@
 </div>
 {% endif %}
 
-
-<!-- Bouton suppression (visible seulement pour finance/staff) -->
-{% if access_finance %}
+{% if can_manage_bulk_delete %}
 <form method="post" action="{% url 'invoices:bulk_delete' %}" id="bulkDeleteForm" style="margin-bottom: 1rem;">
     {% csrf_token %}
-    <button type="submit" class="btn btn-danger" id="deleteSelectedBtn" style="display: none;" 
-            onclick="return confirm('Êtes-vous sûr de vouloir supprimer les factures sélectionnées ? Cette action est irréversible.');">
-        <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedCount">0</span>)
+    <button type="submit" class="btn btn-danger" id="deleteSelectedBtn" style="display: none;"
+        onclick="return confirm('Etes-vous sur de vouloir supprimer les factures selectionnees ? Cette action est irreversible.');">
+        <i class="bi bi-trash"></i> Supprimer la selection (<span id="selectedCount">0</span>)
     </button>
 {% endif %}
 
-<!-- Invoices Table -->
 <div class="card" style="padding: 0; overflow: hidden;">
     <div class="table-responsive">
         <table class="table">
             <thead style="background: var(--bg-table)">
                 <tr>
-                    <th style="padding-left: 1.5rem; width: 40px;"><input type="checkbox" id="selectAll" title="Tout sélectionner"></th>
+                    {% if can_manage_bulk_delete %}
+                    <th style="padding-left: 1.5rem; width: 40px;"><input type="checkbox" id="selectAll" title="Tout selectionner"></th>
+                    {% endif %}
                     <th>ID</th>
                     <th>Dossier</th>
                     <th>Fournisseur</th>
                     <th>Client</th>
                     <th>Montant</th>
                     <th>Statut</th>
-                    <th>Échéance</th>
+                    <th>Echeance</th>
                     <th>Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for invoice in object_list %}
                 <tr>
+                    {% if can_manage_bulk_delete %}
                     <td style="padding-left: 1.5rem;"><input type="checkbox" class="invoice-checkbox" name="invoice_ids" value="{{ invoice.id }}"></td>
+                    {% endif %}
                     <td>
-                        <a href="{% url 'invoices:detail' invoice.pk %}"
-                            style="font-weight: 600; color: var(--accent);">
+                        <a href="{% url 'invoices:detail' invoice.pk %}" style="font-weight: 600; color: var(--accent);">
                             #{{ invoice.id }}
                         </a>
                     </td>
-                    <td>{{ invoice.dossier|default:"—" }}</td>
-                    <td>{{ invoice.fournisseur|default:"—" }}</td>
+                    <td>{{ invoice.dossier|default:"-" }}</td>
+                    <td>{{ invoice.fournisseur|default:"-" }}</td>
                     <td>
                         <div style="display: flex; flex-direction: column;">
-                            <span style="font-weight: 500;">{{ invoice.client|default:"—" }}</span>
+                            <span style="font-weight: 500;">{{ invoice.client|default:"-" }}</span>
                         </div>
                     </td>
                     <td style="font-family: monospace; font-size: 0.95rem;">
                         {% if invoice.montant %}
-                        {{ invoice.montant }} €
+                        {{ invoice.montant }} EUR
                         {% else %}
-                        <span style="color: #ccc;">—</span>
+                        <span style="color: #ccc;">-</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if invoice.statut %}
-                        {% with s=invoice.get_statut_display %}
-                        {% if s == 'Payée' %}<span class="badge badge-success">Payée</span>
-                        {% elif s == 'En cours' %}<span class="badge badge-info text-dark">En cours</span>
-                        {% elif s == 'Refusée' %}<span class="badge badge-danger">Refusée</span>
-                        {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ s }}</span>
+                        {% if invoice.statut == 'paid' %}<span class="badge badge-success">{{ invoice.get_statut_display }}</span>
+                        {% elif invoice.statut == 'ongoing' %}<span class="badge badge-info text-dark">{{ invoice.get_statut_display }}</span>
+                        {% elif invoice.statut == 'denied' %}<span class="badge badge-danger">{{ invoice.get_statut_display }}</span>
+                        {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ invoice.get_statut_display }}</span>
                         {% endif %}
-                        {% endwith %}
                         {% else %}
-                        —
+                        -
                         {% endif %}
                     </td>
                     <td>
                         {% if invoice.echeance %}
                         {{ invoice.echeance|date:"d M Y" }}
                         {% else %}
-                        —
+                        -
                         {% endif %}
                     </td>
                     <td>
@@ -205,9 +204,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucune
-                        facture
-                        trouvée.</td>
+                    <td colspan="{% if can_manage_bulk_delete %}9{% else %}8{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucune facture trouvee.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -215,20 +212,21 @@
     </div>
 </div>
 
+{% if can_manage_bulk_delete %}
 </form>
-<!-- Pagination -->
+{% endif %}
+
 {% if page_obj.has_previous or page_obj.has_next %}
 <div class="d-flex justify-center"
     style="display: flex; justify-content: flex-end; align-items: center; gap: 1rem; margin-top: 1rem;">
     {% if page_obj.has_previous %}
     <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}"
         class="btn btn-secondary">
-        Précédent
+        Precedent
     </a>
     {% endif %}
 
-    <span style="font-size: 0.9rem; color: var(--text-secondary);">Page {{ page_obj.number }} / {{
-        page_obj.paginator.num_pages }}</span>
+    <span style="font-size: 0.9rem; color: var(--text-secondary);">Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
 
     {% if page_obj.has_next %}
     <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}"
@@ -239,45 +237,39 @@
 </div>
 {% endif %}
 
-
 <script>
-// Gestion de la sélection multiple
 document.addEventListener('DOMContentLoaded', function() {
     const selectAllCheckbox = document.getElementById('selectAll');
     const deleteBtn = document.getElementById('deleteSelectedBtn');
     const selectedCountSpan = document.getElementById('selectedCount');
-    const form = document.getElementById('bulkDeleteForm');
-    
-    if (selectAllCheckbox) {
-        // "Tout sélectionner"
-        selectAllCheckbox.addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('.invoice-checkbox');
-            checkboxes.forEach(cb => cb.checked = this.checked);
-            updateDeleteButton();
-        });
-        
-        // Mise à jour individuelle
-        document.querySelectorAll('.invoice-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', updateDeleteButton);
-        });
+
+    if (!selectAllCheckbox || !deleteBtn || !selectedCountSpan) {
+        return;
     }
-    
+
+    selectAllCheckbox.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.invoice-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateDeleteButton();
+    });
+
+    document.querySelectorAll('.invoice-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateDeleteButton);
+    });
+
     function updateDeleteButton() {
         const checkedBoxes = document.querySelectorAll('.invoice-checkbox:checked');
         const count = checkedBoxes.length;
-        
+
         if (count > 0) {
             deleteBtn.style.display = 'inline-block';
             selectedCountSpan.textContent = count;
         } else {
             deleteBtn.style.display = 'none';
         }
-        
-        // Mettre à jour l'état de "Tout sélectionner"
+
         const allCheckboxes = document.querySelectorAll('.invoice-checkbox');
-        if (selectAllCheckbox) {
-            selectAllCheckbox.checked = allCheckboxes.length > 0 && count === allCheckboxes.length;
-        }
+        selectAllCheckbox.checked = allCheckboxes.length > 0 && count === allCheckboxes.length;
     }
 });
 </script>
