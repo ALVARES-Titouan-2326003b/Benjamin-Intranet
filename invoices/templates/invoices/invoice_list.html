@@ -10,9 +10,13 @@
         <a class="btn btn-secondary" href="{% url 'invoices:dashboard' %}">
             <i class="bi bi-bar-chart-fill"></i> Tableau de bord
         </a>
+        {% endif %}
+        {% if can_create_invoice %}
         <a class="btn btn-primary" href="{% url 'invoices:create' %}">
             <i class="bi bi-plus-lg"></i> Nouvelle facture
         </a>
+        {% endif %}
+        {% if access_finance%}
         <a class="btn btn-outline-primary" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}export=xlsx">
             <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
         </a>

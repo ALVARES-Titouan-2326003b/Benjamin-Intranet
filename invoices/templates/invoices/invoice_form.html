@@ -95,20 +95,28 @@
         {{ form.dossier }}
       </div>
 
+      {% if form.collaborateur.is_hidden %}
+      {{ form.collaborateur }}
+      {% else %}
       <div class="form-group">
         <label class="form-label">{{ form.collaborateur.label }}</label>
         {{ form.collaborateur }}
       </div>
+      {% endif %}
 
       <div class="form-group">
         <label class="form-label">{{ form.montant.label }}</label>
         {{ form.montant }}
       </div>
 
+      {% if form.statut.is_hidden %}
+      {{ form.statut }}
+      {% else %}
       <div class="form-group">
         <label class="form-label">{{ form.statut.label }}</label>
         {{ form.statut }}
       </div>
+      {% endif %}
 
       <div class="form-group">
         <label class="form-label">{{ form.echeance.label }}</label>

@@ -127,10 +127,26 @@ class FactureForm(forms.ModelForm):
         fields = ["dossier", "montant", "statut", "echeance", "titre", "collaborateur"]
 
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
         # Statut : utilise directement les choices du modèle
         self.fields["statut"].choices = Facture.STATUS
+
+        is_only_collaborator = (
+            self.user
+            and self.user.is_authenticated
+            and not self.user.is_superuser
+            and not self.user.is_staff
+            and self.user.groups.filter(name="COLLABORATEUR").exists()
+        )
+
+        if is_only_collaborator:
+            self.fields["collaborateur"].queryset = User.objects.filter(pk=self.user.pk)
+            self.fields["collaborateur"].initial = self.user.pk
+            self.fields["collaborateur"].widget = forms.HiddenInput()
+            self.fields["statut"].initial = "ongoing"
+            self.fields["statut"].widget = forms.HiddenInput()
 
         # Pré-remplir l'échéance avec la date existante (mode édition)
         if self.instance.echeance:
@@ -194,6 +210,16 @@ class FactureForm(forms.ModelForm):
         # ----- ID facture auto si nouvelle -----
         if not inst.pk:
             inst.id = f"FAC-{uuid4().hex[:8].upper()}"
+
+        if (
+            self.user
+            and self.user.is_authenticated
+            and not self.user.is_superuser
+            and not self.user.is_staff
+            and self.user.groups.filter(name="COLLABORATEUR").exists()
+        ):
+            inst.collaborateur = self.user
+            inst.statut = "ongoing"
 
         if commit:
             inst.save()

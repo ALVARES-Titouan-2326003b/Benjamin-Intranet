@@ -137,6 +137,7 @@ class FactureListView(FilterView):
     def get_context_data( self, *, object_list = ..., **kwargs):
         context = super().get_context_data(**kwargs)
         context['access_finance'] = has_finance_access(self.request.user)
+        context['can_create_invoice'] = can_read_facture(self.request.user)
         return context
 
 @method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
@@ -212,7 +213,7 @@ class _PieceJointeMixin:
 
 # ================== Create / Update ==================
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+@method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name='dispatch')
 class FactureCreateView(_PieceJointeMixin, CreateView):
     """
     Vue pour créer une facture
@@ -220,6 +221,11 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
     model = Facture
     form_class = FactureForm
     template_name = 'invoices/invoice_form.html'
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     def form_valid(self, form):
         response = super().form_valid(form)
