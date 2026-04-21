@@ -52,8 +52,6 @@ INVOICE_STATUS_MAP = {
     'payee': 'Payee', 'payée': 'Payee', 'payé': 'Payee', 'paid': 'Payee',
     'recu': 'Recue', 'reçue': 'Recue',
     'en cours': 'En cours', 'progress': 'En cours',
-    'refusee': 'Refusee', 'refusée': 'Refusee', 'rejected': 'Refusee',
-    'archivee': 'Archivee', 'archivée': 'Archivee', 'archive': 'Archivee',
 }
 
 # Résumé ou liste

@@ -112,9 +112,7 @@ class Migration(migrations.Migration):
                     choices=[
                         ('ongoing', 'En cours'),
                         ('received', 'Reçue'),
-                        ('denied', 'Refusée'),
-                        ('paid', 'Payée'),
-                        ('archived', 'Archivée')
+                        ('paid', 'Payée')
                     ],
                     default='ongoing'
                 )),

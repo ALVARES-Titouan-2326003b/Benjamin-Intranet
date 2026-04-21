@@ -120,9 +120,7 @@ class Facture(models.Model):
     STATUS = [
         ("ongoing", "En cours"),
         ("received", "Reçue"),
-        ("denied", "Refusée"),
         ("paid", "Payée"),
-        ("archived", "Archivée"),
     ]
 
     id = models.CharField(primary_key=True, max_length=255)

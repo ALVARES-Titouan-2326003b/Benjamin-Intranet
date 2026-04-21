@@ -53,6 +53,7 @@
 
       {% endif %}
 
+      {% if not is_only_collaborator %}
       {% if '/finance/' in p or '/signatures/' in p or '/pole-technique/' in p or '/chatbot/' in p or '/administratif/' in p or '/admin/' in p %}
       <div class="nav-section-label">TOUS LES PÔLES</div>
 
@@ -62,6 +63,7 @@
       </a>
       {% endif %}
 
+      {% endif %}
       {% endif %}
 
       {% if '/pole-technique/' in p or '/chatbot/' in p %}

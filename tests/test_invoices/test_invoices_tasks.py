@@ -123,9 +123,9 @@ class TestBuildChoices:
 
     def test_build_choices_with_accents(self):
         """Teste avec des labels accentués"""
-        labels = ["Payée", "En cours", "Archivée"]
+        labels = ["Payée", "En cours", "Reçue"]
         result = build_choices(labels)
-        assert result == [("Payée", "Payée"), ("En cours", "En cours"), ("Archivée", "Archivée")]
+        assert result == [("Payée", "Payée"), ("En cours", "En cours"), ("Reçue", "Reçue")]
 
 
 @pytest.mark.django_db
@@ -148,7 +148,7 @@ class TestFactureForm:
         with patch('invoices.forms.get_enum_labels') as mock:
             def side_effect(enum_name):
                 if enum_name == "statut":
-                    return ["Reçue", "En cours", "Payée", "Archivée"]
+                    return ["Reçue", "En cours", "Payée"]
                 elif enum_name == "poles":
                     return ["Comptabilité et Finance", "Technique", "Administratif"]
                 elif enum_name == "type_dossier":

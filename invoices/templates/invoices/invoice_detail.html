@@ -49,7 +49,7 @@
           {% with s=object.statut %}
           {% if 'Payée' in s %}<span class="badge badge-success">Payée</span>
           {% elif 'En cours' in s %}<span class="badge badge-info text-dark">En cours</span>
-          {% elif 'Retard' in s or 'Refusée' in s %}<span class="badge badge-danger">{{ s }}</span>
+          {% elif 'Retard' in s %}<span class="badge badge-danger">{{ s }}</span>
           {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ s }}</span>
           {% endif %}
           {% endwith %}

@@ -52,8 +52,8 @@ class DashboardView(TemplateView):
         paid_aggregate = qs.filter(statut='paid').aggregate(total=Sum('montant'))
         paid_amount = paid_aggregate['total'] or 0
 
-        # En attente (Tout ce qui n'est pas payé ni annulé/archivé)
-        pending_qs = qs.exclude(statut__in=['paid', 'archived'])
+        # En attente (Tout ce qui n'est pas payé)
+        pending_qs = qs.exclude(statut='paid')
         pending_aggregate = pending_qs.aggregate(total=Sum('montant'))
         pending_amount = pending_aggregate['total'] or 0
 

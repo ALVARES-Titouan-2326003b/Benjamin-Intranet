@@ -102,8 +102,6 @@
                 <option value="ongoing" {% if request.GET.statut == 'ongoing' %}selected{% endif %}>En cours</option>
                 <option value="received" {% if request.GET.statut == 'received' %}selected{% endif %}>Reçue</option>
                 <option value="paid" {% if request.GET.statut == 'paid' %}selected{% endif %}>Payée</option>
-                <option value="denied" {% if request.GET.statut == 'denied' %}selected{% endif %}>Refusée</option>
-                <option value="archived" {% if request.GET.statut == 'archived' %}selected{% endif %}>Archivée</option>
             </select>
         </div>
 
@@ -181,7 +179,6 @@
                         {% with s=invoice.get_statut_display %}
                         {% if s == 'Payée' %}<span class="badge badge-success">Payée</span>
                         {% elif s == 'En cours' %}<span class="badge badge-info text-dark">En cours</span>
-                        {% elif s == 'Refusée' %}<span class="badge badge-danger">Refusée</span>
                         {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ s }}</span>
                         {% endif %}
                         {% endwith %}
