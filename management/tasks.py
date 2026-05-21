@@ -4,6 +4,7 @@ import traceback
 from datetime import datetime, timedelta
 
 from celery import shared_task
+from django.conf import settings
 from django.core.mail import EmailMessage
 from django.utils import timezone
 from django.contrib.auth import get_user_model
@@ -15,6 +16,8 @@ from .models import (
     TempsRelance,
     EmailClient,
     Activite,
+    HistoriqueRappelActivite,
+    NotificationInterne,
     OAuthToken,
 )
 from .email_manager import send_auto_relance, get_sent_emails
@@ -22,6 +25,8 @@ from .email_manager import send_auto_relance, get_sent_emails
 Utilisateur = get_user_model()
 
 logger = logging.getLogger(__name__)
+
+ACTIVITY_REMINDER_DAYS = [10, 7, 4, 1]
 
 
 @shared_task
@@ -212,9 +217,8 @@ def check_and_send_auto_relances():
 @shared_task
 def check_and_send_activite_reminders():
     """
-    Tâche périodique qui vérifie les activités à venir
-    et envoie des rappels 10, 7, 4 et 1 jour(s) avant la date prévue
-    INCHANGÉ : Ne nécessite pas de modification pour OAuth2
+    Tâche périodique qui vérifie les activités à venir et envoie les rappels
+    J-10, J-7, J-4 et J-1 sans doublon.
     """
     logger.info("\n" + "=" * 60)
     logger.info("DÉBUT - Vérification des rappels d'activités")
@@ -227,15 +231,23 @@ def check_and_send_activite_reminders():
     date_limite = today + timedelta(days=10)
     logger.info(f"Date limite : {date_limite} (dans 10 jours)")
 
-    activites = Activite.objects.filter(
-        date__date__gt=today,
-        date__date__lte=date_limite
-    ).order_by('date')
+    activites = (
+        Activite.objects.filter(
+            date__date__gt=today,
+            date__date__lte=date_limite,
+        )
+        .exclude(statut__in=["done", "cancelled"])
+        .select_related("dossier", "type", "responsable", "created_by")
+        .order_by("date")
+    )
 
     logger.info(f"Activités trouvées dans les 10 prochains jours : {activites.count()}")
 
     activites_traitees = 0
     rappels_envoyes = 0
+    notifications_creees = 0
+    doublons_ignores = 0
+    erreurs = 0
 
     for activite in activites:
         try:
@@ -252,25 +264,57 @@ def check_and_send_activite_reminders():
 
             should_send = False
 
-            if jours_restants in [1, 4, 7, 10]:
+            if jours_restants in ACTIVITY_REMINDER_DAYS:
                 should_send = True
                 logger.info(f"   Rappel nécessaire (J-{jours_restants})")
             else:
                 logger.info(f"   Pas de rappel pour J-{jours_restants}")
 
             if should_send:
+                recipient_user = activite.responsable or activite.created_by
+                recipient_email = ""
+                if activite.responsable and activite.responsable.email:
+                    recipient_email = activite.responsable.email
+                elif activite.created_by and activite.created_by.email:
+                    recipient_email = activite.created_by.email
+                else:
+                    recipient_email = getattr(settings, "EMAIL_HOST_USER", "") or os.getenv("EMAIL_HOST_USER", "")
+
+                if not recipient_email:
+                    logger.warning("   Aucun destinataire email disponible")
+                    continue
+
+                email_already_sent = HistoriqueRappelActivite.objects.filter(
+                    activite=activite,
+                    canal="email",
+                    destinataire=recipient_email,
+                    jours_avant_echeance=jours_restants,
+                    statut="sent",
+                ).exists()
+                if email_already_sent:
+                    doublons_ignores += 1
+                    logger.info("   Rappel déjà envoyé, doublon ignoré")
+                    continue
+
                 objet = f"Rappel d'activité - J-{jours_restants}"
 
                 message = f"""Bonjour,
 
 Ceci est un rappel automatique concernant l'activité suivante :
 
+- Titre : {activite.titre or activite.type}
 - Dossier : {activite.dossier}
 - Type : {activite.type}
+- Statut : {activite.get_statut_display()}
+- Priorité : {activite.get_priorite_display()}
 - Date prévue : {date_activite.strftime('%d/%m/%Y')}
 - Échéance : dans {jours_restants} jour(s)
 
 """
+                if activite.client:
+                    message += f"Client : {activite.client}\n"
+                if activite.contact_externe:
+                    message += f"Contact externe : {activite.contact_externe}\n"
 
                 if activite.commentaire:
                     message += f"Commentaire : {activite.commentaire}\n\n"
@@ -284,17 +328,61 @@ Système de rappel Benjamin Immobilier"""
                     email = EmailMessage(
                         subject=objet,
                         body=message,
-                        from_email=os.getenv("EMAIL_HOST_USER"),
-                        to=[os.getenv("EMAIL_HOST_USER")],
+                        from_email=getattr(settings, "EMAIL_HOST_USER", "") or os.getenv("EMAIL_HOST_USER"),
+                        to=[recipient_email],
                     )
 
                     email.send()
+                    HistoriqueRappelActivite.objects.update_or_create(
+                        activite=activite,
+                        canal="email",
+                        destinataire=recipient_email,
+                        jours_avant_echeance=jours_restants,
+                        defaults={"statut": "sent", "erreur": ""},
+                    )
                     rappels_envoyes += 1
                     logger.info("   Rappel envoyé avec succès")
                 except Exception as e:
                     logger.error(f"   Erreur envoi email : {e}")
+                    erreurs += 1
+                    HistoriqueRappelActivite.objects.update_or_create(
+                        activite=activite,
+                        canal="email",
+                        destinataire=recipient_email,
+                        jours_avant_echeance=jours_restants,
+                        defaults={"statut": "failed", "erreur": str(e)},
+                    )
+
+                if recipient_user:
+                    internal_dest = str(recipient_user.pk)
+                    internal_already_sent = HistoriqueRappelActivite.objects.filter(
+                        activite=activite,
+                        canal="interne",
+                        destinataire=internal_dest,
+                        jours_avant_echeance=jours_restants,
+                        statut="sent",
+                    ).exists()
+                    if not internal_already_sent:
+                        NotificationInterne.objects.create(
+                            user=recipient_user,
+                            activite=activite,
+                            titre=objet,
+                            message=(
+                                f"{activite.titre or activite.type} arrive à échéance "
+                                f"dans {jours_restants} jour(s)."
+                            ),
+                        )
+                        HistoriqueRappelActivite.objects.create(
+                            activite=activite,
+                            canal="interne",
+                            destinataire=internal_dest,
+                            jours_avant_echeance=jours_restants,
+                            statut="sent",
+                        )
+                        notifications_creees += 1
 
         except Exception as e:
+            erreurs += 1
             logger.error(f"Erreur traitement activité {activite.id}: {e}")
             traceback.print_exc()
             continue
@@ -304,10 +392,15 @@ Système de rappel Benjamin Immobilier"""
     logger.info("Résumé :")
     logger.info(f"   - Activités traitées : {activites_traitees}")
     logger.info(f"   - Rappels envoyés : {rappels_envoyes}")
+    logger.info(f"   - Notifications créées : {notifications_creees}")
+    logger.info(f"   - Doublons ignorés : {doublons_ignores}")
     logger.info("=" * 60 + "\n")
 
     return {
         'success': True,
         'activites_traitees': activites_traitees,
-        'rappels_envoyes': rappels_envoyes
+        'rappels_envoyes': rappels_envoyes,
+        'notifications_creees': notifications_creees,
+        'doublons_ignores': doublons_ignores,
+        'erreurs': erreurs,
     }

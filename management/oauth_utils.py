@@ -25,6 +25,7 @@ MICROSOFT_SCOPES = [
     "Mail.Read",
     "Mail.Send",
     "Mail.ReadWrite",
+    "Calendars.ReadWrite",
 ]
 
 GOOGLE_SCOPES = [

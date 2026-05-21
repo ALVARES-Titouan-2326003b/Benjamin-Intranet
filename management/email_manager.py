@@ -1,5 +1,7 @@
 import requests
+from datetime import timedelta
 from management.models import OAuthToken
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from management.oauth_utils import (
     GRAPH_URL,
@@ -245,3 +247,117 @@ def send_auto_relance(user, to_email, subject, message_text, objet_custom=None, 
             "success": False,
             "message": str(e),
         }
+
+
+def _activity_event_payload(activite):
+    start = activite.date
+    if timezone.is_naive(start):
+        start = timezone.make_aware(start, timezone.get_current_timezone())
+
+    end = start + timedelta(hours=1)
+    subject = activite.titre or f"{activite.type} - {activite.dossier}"
+
+    details = [
+        f"Dossier : {activite.dossier}",
+        f"Type : {activite.type}",
+        f"Statut : {activite.get_statut_display()}",
+        f"Priorité : {activite.get_priorite_display()}",
+    ]
+    if activite.client:
+        details.append(f"Client : {activite.client}")
+    if activite.contact_externe:
+        details.append(f"Contact externe : {activite.contact_externe}")
+    if activite.commentaire:
+        details.append("")
+        details.append(activite.commentaire)
+
+    return {
+        "subject": subject,
+        "body": {
+            "contentType": "Text",
+            "content": "\n".join(details),
+        },
+        "start": {
+            "dateTime": start.strftime("%Y-%m-%dT%H:%M:%S"),
+            "timeZone": "Europe/Paris",
+        },
+        "end": {
+            "dateTime": end.strftime("%Y-%m-%dT%H:%M:%S"),
+            "timeZone": "Europe/Paris",
+        },
+    }
+
+
+def _has_microsoft_sync(user):
+    return OAuthToken.objects.filter(user=user, provider="microsoft").exists()
+
+
+def create_outlook_event(user, activite):
+    if not _has_microsoft_sync(user):
+        return {
+            "success": False,
+            "message": "Boîte Microsoft non synchronisée pour cet utilisateur.",
+        }
+
+    try:
+        response = requests.post(
+            f"{GRAPH_URL}/me/events",
+            headers=get_graph_headers(user),
+            json=_activity_event_payload(activite),
+            timeout=20,
+        )
+        if response.status_code in (200, 201):
+            return {
+                "success": True,
+                "event_id": response.json().get("id", ""),
+            }
+        return {"success": False, "message": response.text}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+def update_outlook_event(user, activite):
+    if not activite.outlook_event_id:
+        return {"success": False, "message": "Aucun événement Outlook associé."}
+
+    if not _has_microsoft_sync(user):
+        return {
+            "success": False,
+            "message": "Boîte Microsoft non synchronisée pour cet utilisateur.",
+        }
+
+    try:
+        response = requests.patch(
+            f"{GRAPH_URL}/me/events/{activite.outlook_event_id}",
+            headers=get_graph_headers(user),
+            json=_activity_event_payload(activite),
+            timeout=20,
+        )
+        if response.status_code in (200, 202):
+            return {"success": True, "event_id": activite.outlook_event_id}
+        return {"success": False, "message": response.text}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+def delete_outlook_event(user, event_id):
+    if not event_id:
+        return {"success": True}
+
+    if not _has_microsoft_sync(user):
+        return {
+            "success": False,
+            "message": "Boîte Microsoft non synchronisée pour cet utilisateur.",
+        }
+
+    try:
+        response = requests.delete(
+            f"{GRAPH_URL}/me/events/{event_id}",
+            headers=get_graph_headers(user),
+            timeout=20,
+        )
+        if response.status_code in (202, 204, 404):
+            return {"success": True}
+        return {"success": False, "message": response.text}
+    except Exception as e:
+        return {"success": False, "message": str(e)}

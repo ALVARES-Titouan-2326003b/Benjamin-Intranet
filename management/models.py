@@ -107,19 +107,124 @@ class Activite(models.Model):
         ("date", "Date")
     ]
 
+    STATUTS = [
+        ("todo", "À faire"),
+        ("in_progress", "En cours"),
+        ("done", "Terminé"),
+        ("cancelled", "Annulé"),
+    ]
+
+    PRIORITES = [
+        ("low", "Basse"),
+        ("normal", "Normale"),
+        ("high", "Haute"),
+        ("urgent", "Urgente"),
+    ]
+
     id = models.TextField(primary_key=True)
+    titre = models.CharField(max_length=255, blank=True)
     dossier = models.ForeignKey(TechnicalProject, on_delete=models.CASCADE, db_column='dossier')
     type = models.ForeignKey(TypeActivite, on_delete=models.CASCADE, db_column='type')
     date = models.DateTimeField(blank=True, null=True)
     date_type = models.TextField(choices=TYPES, default="echeance")
     commentaire = models.TextField(blank=True, null=True)
+    statut = models.CharField(max_length=20, choices=STATUTS, default="todo")
+    priorite = models.CharField(max_length=20, choices=PRIORITES, default="normal")
+    responsable = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activites_assignees",
+    )
+    created_by = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activites_creees",
+    )
+    updated_by = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activites_modifiees",
+    )
+    client = models.CharField(max_length=255, blank=True)
+    contact_externe = models.CharField(max_length=255, blank=True)
+    outlook_event_id = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'activite'
         ordering = ['date']
 
     def __str__(self):
-        return f"{self.type} - {self.dossier} ({self.date.strftime('%Y-%m-%d')})"
+        date_label = self.date.strftime('%Y-%m-%d') if self.date else "sans date"
+        return f"{self.titre or self.type} - {self.dossier} ({date_label})"
+
+
+class HistoriqueRappelActivite(models.Model):
+    CANAUX = [
+        ("email", "E-mail"),
+        ("interne", "Notification interne"),
+    ]
+
+    STATUTS = [
+        ("sent", "Envoyé"),
+        ("failed", "Échec"),
+    ]
+
+    activite = models.ForeignKey(
+        Activite,
+        on_delete=models.CASCADE,
+        related_name="rappels",
+    )
+    canal = models.CharField(max_length=20, choices=CANAUX)
+    destinataire = models.CharField(max_length=255, blank=True)
+    jours_avant_echeance = models.IntegerField()
+    statut = models.CharField(max_length=20, choices=STATUTS)
+    erreur = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "historique_rappel_activite"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["activite", "canal", "destinataire", "jours_avant_echeance"],
+                name="uniq_rappel_activite_canal_dest_jour",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.activite_id} J-{self.jours_avant_echeance} {self.canal}"
+
+
+class NotificationInterne(models.Model):
+    user = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.CASCADE,
+        related_name="notifications_internes",
+    )
+    activite = models.ForeignKey(
+        Activite,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    titre = models.CharField(max_length=255)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "notification_interne"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user} - {self.titre}"
 
 
 class OAuthToken(models.Model):

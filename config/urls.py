@@ -6,7 +6,8 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
 from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities, \
-    create_activity_view, delete_activity_view, get_calendar_activities_week
+    create_activity_view, delete_activity_view, get_calendar_activities_week, update_activity_view, \
+    mark_notification_read_view
 from technique import views as technique_views
 from home.views import dashboard_view, global_search
 
@@ -28,8 +29,12 @@ urlpatterns = [
     path('api/calendar-activities/', get_calendar_activities, name='calendar_activities'),
     #API pour l'ajout d'activité
     path('api/create-activity/', create_activity_view, name='create_activity'),
+    #API pour modifier une activité
+    path('api/update-activity/<str:activity_id>/', update_activity_view, name='update_activity'),
     #API pour supprimer une activité
     path('api/delete-activity/', delete_activity_view, name='delete_activity'),
+    #API pour marquer une notification interne comme lue
+    path('api/notifications/<int:notification_id>/read/', mark_notification_read_view, name='mark_notification_read'),
 
     # LIGNES RESTAURÉES POUR LOGOUT
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),

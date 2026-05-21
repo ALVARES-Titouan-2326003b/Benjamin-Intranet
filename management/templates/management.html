@@ -24,6 +24,29 @@
    </div>
 </div>
 
+{% if notifications %}
+<div class="card" style="margin-bottom: 1.5rem;">
+   <div class="card-title">
+      <span><i class="bi bi-bell"></i> Notifications</span>
+      <span class="status-badge" style="background:#fef3c7;color:#92400e;">{{ notification_count }} non lue{{ notification_count|pluralize }}</span>
+   </div>
+   <div style="display:grid;gap:.65rem;">
+      {% for notification in notifications %}
+      <div class="notification-row" style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;border:1px solid #e2e8f0;border-left:4px solid #f97316;border-radius:8px;padding:.75rem;background:#fff;">
+         <div>
+            <strong style="display:block;color:#1f2937;">{{ notification.titre }}</strong>
+            <span style="display:block;color:var(--text-secondary);font-size:.86rem;">{{ notification.message }}</span>
+            <small style="color:#64748b;">{{ notification.created_at|date:"d/m/Y H:i" }}</small>
+         </div>
+         <button type="button" class="btn btn-secondary mark-notification-read" data-notification-id="{{ notification.id }}" style="white-space:nowrap;">
+            <i class="bi bi-check2"></i> Lu
+         </button>
+      </div>
+      {% endfor %}
+   </div>
+</div>
+{% endif %}
+
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
 
       <!-- Card Calendrier -->
@@ -163,6 +186,13 @@
       <form id="activity-form" class="activity-form">
          {% csrf_token %}
 
+         <!-- Titre -->
+         <div class="form-group">
+            <label class="form-label">Titre</label>
+            <input type="text" id="activity-title" name="titre" class="form-control"
+                   placeholder="Ex. Relance compromis, échéance notaire…">
+         </div>
+
          <!-- Dossier avec recherche -->
          <div class="form-group">
             <label class="form-label">Dossier *</label>
@@ -193,11 +223,59 @@
             <input type="datetime-local" id="activity-date" name="date" class="form-control" required>
          </div>
 
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
+            <div class="form-group">
+               <label class="form-label">Responsable</label>
+               <select id="activity-responsable" name="responsable" class="form-control">
+                  <option value="">-- Aucun responsable --</option>
+                  {% for admin_user in users %}
+                  <option value="{{ admin_user.pk }}">{{ admin_user.get_full_name|default:admin_user.username }}</option>
+                  {% endfor %}
+               </select>
+            </div>
+
+            <div class="form-group">
+               <label class="form-label">Statut</label>
+               <select id="activity-statut" name="statut" class="form-control">
+                  <option value="todo">À faire</option>
+                  <option value="in_progress">En cours</option>
+                  <option value="done">Terminé</option>
+                  <option value="cancelled">Annulé</option>
+               </select>
+            </div>
+
+            <div class="form-group">
+               <label class="form-label">Priorité</label>
+               <select id="activity-priorite" name="priorite" class="form-control">
+                  <option value="low">Basse</option>
+                  <option value="normal" selected>Normale</option>
+                  <option value="high">Haute</option>
+                  <option value="urgent">Urgente</option>
+               </select>
+            </div>
+         </div>
+
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
+            <div class="form-group">
+               <label class="form-label">Client</label>
+               <input type="text" id="activity-client" name="client" class="form-control">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Contact externe</label>
+               <input type="text" id="activity-contact-externe" name="contact_externe" class="form-control">
+            </div>
+         </div>
+
          <!-- Commentaire -->
          <div class="form-group">
             <label class="form-label">Commentaire</label>
             <textarea id="activity-commentaire" name="commentaire" class="form-control"
                       rows="3" placeholder="Informations complémentaires…"></textarea>
+         </div>
+
+         <div class="form-group" style="display:flex;align-items:center;gap:.5rem;">
+            <input type="checkbox" id="activity-sync-outlook" name="sync_outlook">
+            <label class="form-label" for="activity-sync-outlook" style="margin:0;">Ajouter à Outlook</label>
          </div>
 
          <!-- Status -->
@@ -303,11 +381,35 @@ async function loadUpcomingActivities() {
 
 document.addEventListener('DOMContentLoaded', loadUpcomingActivities);
 document.addEventListener('activity-changed', loadUpcomingActivities);
+
+document.addEventListener('click', async function(event) {
+   const btn = event.target.closest('.mark-notification-read');
+   if (!btn) return;
+
+   const csrftoken = document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+   const id = btn.dataset.notificationId;
+   btn.disabled = true;
+
+   try {
+      const resp = await fetch(`/api/notifications/${id}/read/`, {
+         method: 'POST',
+         headers: { 'X-CSRFToken': decodeURIComponent(csrftoken || '') }
+      });
+      const data = await resp.json();
+      if (data.success) {
+         btn.closest('.notification-row')?.remove();
+      } else {
+         btn.disabled = false;
+      }
+   } catch (error) {
+      btn.disabled = false;
+   }
+});
 </script>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static '/js/mails.js' %}?v=4"></script>
-<script src="{% static '/js/calendar.js' %}?v=4"></script>
+<script src="{% static '/js/calendar.js' %}?v=5"></script>
 <script src="{% static '/js/oauth_status.js' %}?v=4"></script>
 {% endblock %}
