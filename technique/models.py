@@ -149,6 +149,53 @@ class ProjectExpense(models.Model):
         super().delete(*args, **kwargs)
         project.refresh_amounts_from_expenses()
 
+
+class TechnicalProjectHistory(models.Model):
+    ACTION_CHOICES = [
+        ("project_created", "Projet créé"),
+        ("budget_updated", "Budget modifié"),
+        ("expense_created", "Dépense créée"),
+        ("expense_updated", "Dépense modifiée"),
+        ("expense_deleted", "Dépense supprimée"),
+        ("project_deleted", "Projet supprimé"),
+    ]
+
+    project = models.ForeignKey(
+        TechnicalProject,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="history",
+        verbose_name="Projet",
+    )
+    project_reference = models.CharField("Référence projet", max_length=50, blank=True)
+    project_name = models.CharField("Nom du projet", max_length=255, blank=True)
+    user = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="technical_project_history",
+        verbose_name="Utilisateur",
+    )
+    action = models.CharField("Action", max_length=30, choices=ACTION_CHOICES)
+    target_type = models.CharField("Type de cible", max_length=50)
+    target_label = models.CharField("Libellé cible", max_length=255, blank=True)
+    before = models.JSONField("Avant", default=dict, blank=True)
+    after = models.JSONField("Après", default=dict, blank=True)
+    created_at = models.DateTimeField("Créé le", auto_now_add=True)
+
+    class Meta:
+        db_table = "historique_projet_technique"
+        ordering = ["-created_at", "-id"]
+        verbose_name = "Historique projet technique"
+        verbose_name_plural = "Historiques projets techniques"
+
+    def __str__(self):
+        project_label = self.project_reference or "Projet supprimé"
+        return f"{project_label} - {self.get_action_display()}"
+
+
 class TechnicalEmail(models.Model):
     STATUS_CHOICES = [
         ("classified", "Classé"),

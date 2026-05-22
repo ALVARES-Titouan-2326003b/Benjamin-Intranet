@@ -193,11 +193,11 @@
                    placeholder="Ex. Relance compromis, échéance notaire…">
          </div>
 
-         <!-- Dossier avec recherche -->
+         <!-- Projet administratif avec recherche -->
          <div class="form-group">
-            <label class="form-label">Dossier *</label>
+            <label class="form-label">Projet administratif *</label>
             <select id="activity-dossier" name="dossier" class="form-control" required>
-               <option value="">-- Sélectionner un dossier --</option>
+               <option value="">-- Sélectionner un projet --</option>
                {% for dossier in dossiers %}
                <option value="{{ dossier.reference }}" data-nom="{{ dossier.name }}">
                   {{ dossier.reference }} — {{ dossier.name }}

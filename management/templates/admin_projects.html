@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Projets administratifs - Benjamin Immobilier{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static '/css/management.css' %}?v=5" />
+{% endblock %}
+
+{% block content %}
+{{ projets|json_script:"admin-projects-data" }}
+
+<div class="card admin-projects-card">
+   <div class="card-title">
+      <span><i class="bi bi-kanban"></i> Projets</span>
+      <button id="add-project-btn" class="btn btn-primary" type="button">
+         <i class="bi bi-plus-circle"></i> Nouveau projet
+      </button>
+   </div>
+
+   <div class="project-toolbar">
+      <input type="search" id="project-search" class="form-control"
+             placeholder="Rechercher une référence ou un nom">
+      <select id="project-type-filter" class="form-control">
+         <option value="">Tous les types</option>
+         {% for value, label in project_type_choices %}
+         <option value="{{ value }}">{{ label }}</option>
+         {% endfor %}
+      </select>
+   </div>
+
+   <div class="table-responsive project-table-wrap">
+      <table class="table project-table">
+         <thead>
+            <tr>
+               <th>Référence</th>
+               <th>Nom</th>
+               <th>Type</th>
+               <th>Budget estimé</th>
+               <th>Activités</th>
+               <th>Actions</th>
+            </tr>
+         </thead>
+         <tbody id="projects-table-body"></tbody>
+      </table>
+   </div>
+
+   <div id="projects-empty-state" class="project-empty-state" style="display:none;">
+      Aucun projet ne correspond à la recherche.
+   </div>
+</div>
+
+<div id="project-modal" class="activity-modal" style="display:none;">
+   <div class="activity-modal-content project-modal-content">
+      <div class="activity-modal-header">
+         <h3 id="project-modal-title"><i class="bi bi-kanban"></i> Nouveau projet</h3>
+         <button id="close-project-modal-btn" class="activity-modal-close" type="button">&times;</button>
+      </div>
+
+      <form id="project-form" class="activity-form">
+         {% csrf_token %}
+         <input type="hidden" id="project-id">
+
+         <div class="form-group">
+            <label class="form-label">Référence *</label>
+            <input type="text" id="project-reference" class="form-control" required
+                   placeholder="Ex. ADM-001">
+         </div>
+
+         <div class="form-group">
+            <label class="form-label">Nom du projet *</label>
+            <input type="text" id="project-name" class="form-control" required
+                   placeholder="Ex. Résidence Les Oliviers">
+         </div>
+
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
+            <div class="form-group">
+               <label class="form-label">Type</label>
+               <select id="project-type" class="form-control">
+                  {% for value, label in project_type_choices %}
+                  <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+               </select>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Budget estimé</label>
+               <input type="number" id="project-total-estimated" class="form-control"
+                      min="0" step="0.01" value="0">
+            </div>
+         </div>
+
+         <div id="project-form-status" style="display:none;"></div>
+
+         <div style="display:flex;gap:.75rem;margin-top:1rem;">
+            <button type="submit" class="btn btn-primary" style="flex:1;">
+               <i class="bi bi-check-lg"></i> Enregistrer
+            </button>
+            <button type="button" id="delete-project-btn" class="btn btn-danger"
+                    style="flex:0 0 auto;display:none;">
+               <i class="bi bi-trash3"></i> Supprimer
+            </button>
+            <button type="button" id="cancel-project-btn" class="btn btn-secondary"
+                    style="flex:0 0 auto;">
+               Annuler
+            </button>
+         </div>
+      </form>
+   </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static '/js/admin_projects.js' %}?v=1"></script>
+{% endblock %}

@@ -7,7 +7,7 @@ from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
 from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities, \
     create_activity_view, delete_activity_view, get_calendar_activities_week, update_activity_view, \
-    mark_notification_read_view
+    mark_notification_read_view, admin_projects_view, create_project_view, update_project_view, delete_project_view
 from technique import views as technique_views
 from home.views import dashboard_view, global_search
 
@@ -17,6 +17,7 @@ urlpatterns = [
     path('', dashboard_view, name='home'),
     path('recherche/', global_search, name='global_search'),
     path('administratif/', administratif_view, name='admin_view'),
+    path('administratif/projets/', admin_projects_view, name='admin_projects'),
     path('api/calendar-activities-week/', get_calendar_activities_week, name='calendar_activities_week'),
     
     # On met ceci AVANT les autres pour être sûr que les URLs de login sont prioritaires
@@ -35,6 +36,10 @@ urlpatterns = [
     path('api/delete-activity/', delete_activity_view, name='delete_activity'),
     #API pour marquer une notification interne comme lue
     path('api/notifications/<int:notification_id>/read/', mark_notification_read_view, name='mark_notification_read'),
+    #API pour la gestion des projets administratifs
+    path('api/admin-projects/create/', create_project_view, name='admin_project_create'),
+    path('api/admin-projects/<int:project_id>/update/', update_project_view, name='admin_project_update'),
+    path('api/admin-projects/<int:project_id>/delete/', delete_project_view, name='admin_project_delete'),
 
     # LIGNES RESTAURÉES POUR LOGOUT
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),

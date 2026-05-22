@@ -3,7 +3,6 @@ Modèles pour la partie administrative - Gestion des relances
 """
 from django.db import models
 from invoices.models import Contact
-from technique.models import TechnicalProject
 from django.contrib.auth import get_user_model
 Utilisateur = get_user_model()
 
@@ -96,6 +95,42 @@ class TypeActivite(models.Model):
         db_table = 'type_activite'
 
 
+class AdministrativeProject(models.Model):
+    PROJECT_TYPES = [
+        ("client", "Client"),
+        ("juridique", "Juridique"),
+        ("interne", "Interne"),
+    ]
+
+    reference = models.CharField("Référence projet", max_length=50, unique=True)
+    name = models.CharField("Nom du projet", max_length=255)
+    type = models.CharField(max_length=20, choices=PROJECT_TYPES, default="client")
+    total_estimated = models.DecimalField("Budget estimé", max_digits=12, decimal_places=2, default=0)
+    created_by = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="admin_projects_created",
+    )
+    updated_by = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="admin_projects_updated",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "administrative_project"
+        ordering = ["reference"]
+
+    def __str__(self):
+        return f"{self.reference} - {self.name}"
+
+
 class Activite(models.Model):
     """
     Modèle représentant la table Activites
@@ -123,7 +158,7 @@ class Activite(models.Model):
 
     id = models.TextField(primary_key=True)
     titre = models.CharField(max_length=255, blank=True)
-    dossier = models.ForeignKey(TechnicalProject, on_delete=models.CASCADE, db_column='dossier')
+    dossier = models.ForeignKey(AdministrativeProject, on_delete=models.CASCADE, db_column='dossier')
     type = models.ForeignKey(TypeActivite, on_delete=models.CASCADE, db_column='type')
     date = models.DateTimeField(blank=True, null=True)
     date_type = models.TextField(choices=TYPES, default="echeance")

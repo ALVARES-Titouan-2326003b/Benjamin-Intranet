@@ -40,7 +40,7 @@ class Client(models.Model):
         # Essayer d'abord comme entreprise
         try:
             entreprise = self.entreprise
-            return entreprise.nom or self.id
+            return entreprise.nom or str(self.id_id)
         except Entreprise.DoesNotExist:
             pass
 
@@ -52,7 +52,7 @@ class Client(models.Model):
             pass
 
         # Fallback sur l'ID
-        return self.id
+        return str(self.id_id)
 
 
 class ClientDossier(models.Model):
@@ -72,7 +72,7 @@ class Entreprise(models.Model):
         db_table = 'entreprise'
 
     def __str__(self):
-        return self.nom or self.id
+        return self.nom or str(self.id_id)
 
 
 class Particulier(models.Model):
@@ -113,7 +113,7 @@ class Fournisseur(models.Model):
         db_table = 'fournisseur'
 
     def __str__(self):
-        return self.nom or self.id
+        return self.nom or str(self.id_id)
 
 
 class Facture(models.Model):

@@ -8,12 +8,12 @@ from django.utils import timezone
 
 from management.models import (
     Activite,
+    AdministrativeProject,
     HistoriqueRappelActivite,
     NotificationInterne,
     TypeActivite,
 )
 from management.tasks import check_and_send_activite_reminders
-from technique.models import TechnicalProject
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def responsable(db):
 
 @pytest.fixture
 def dossier(db):
-    return TechnicalProject.objects.create(
+    return AdministrativeProject.objects.create(
         reference="ADM-001",
         name="Dossier administratif",
     )
@@ -110,6 +110,84 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
     assert response.status_code == 200
     assert response.json()["deleted_count"] == 1
     assert not Activite.objects.filter(pk=activity.pk).exists()
+
+
+@pytest.mark.django_db
+def test_admin_project_create_update_delete_and_block_when_used(client, admin_user, type_activite):
+    client.force_login(admin_user)
+
+    response = _post_json(
+        client,
+        "/api/admin-projects/create/",
+        {
+            "reference": "adm-new",
+            "name": "Projet administratif",
+            "type": "juridique",
+            "total_estimated": "125000.50",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    project = AdministrativeProject.objects.get(pk=data["project"]["id"])
+    assert project.reference == "ADM-NEW"
+    assert project.name == "Projet administratif"
+    assert project.type == "juridique"
+
+    response = _post_json(
+        client,
+        f"/api/admin-projects/{project.pk}/update/",
+        {
+            "reference": "ADM-UPD",
+            "name": "Projet administratif modifié",
+            "type": "client",
+            "total_estimated": "130000",
+        },
+    )
+
+    assert response.status_code == 200
+    project.refresh_from_db()
+    assert project.reference == "ADM-UPD"
+    assert project.name == "Projet administratif modifié"
+    assert project.type == "client"
+
+    Activite.objects.create(
+        id="project-blocked",
+        titre="Activité liée",
+        dossier=project,
+        type=type_activite,
+        date=timezone.now() + timedelta(days=2),
+        date_type="date",
+        statut="todo",
+        priorite="normal",
+        created_by=admin_user,
+    )
+
+    response = client.post(f"/api/admin-projects/{project.pk}/delete/")
+    assert response.status_code == 409
+    assert response.json()["success"] is False
+    assert AdministrativeProject.objects.filter(pk=project.pk).exists()
+
+    Activite.objects.filter(dossier=project).delete()
+    response = client.post(f"/api/admin-projects/{project.pk}/delete/")
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+    assert not AdministrativeProject.objects.filter(pk=project.pk).exists()
+
+
+@pytest.mark.django_db
+def test_admin_overview_and_projects_are_split(client, admin_user, dossier):
+    client.force_login(admin_user)
+
+    overview = client.get("/administratif/")
+    projects = client.get("/administratif/projets/")
+
+    assert overview.status_code == 200
+    assert projects.status_code == 200
+    assert b"admin-projects-data" not in overview.content
+    assert b"admin-projects-data" in projects.content
+    assert dossier.reference.encode() in projects.content
 
 
 @pytest.mark.django_db

@@ -203,7 +203,7 @@
                     {% csrf_token %}
                     <div class="inline-edit-grid">
                       <div class="field-group">
-                        <label>Facture associÃ©e</label>
+                        <label>Facture associée</label>
                         <select name="facture" class="form-control">
                           <option value="">-- Aucune facture --</option>
                           {% for invoice in expense.selectable_invoices %}
@@ -280,11 +280,51 @@
 
     <section class="card">
       <div class="section-header">
-        <span class="section-header__title">Factures liees au projet</span>
+        <span class="section-header__title">Factures liées au projet</span>
         <span class="badge">
           {{ project_invoices|length }} facture{% if project_invoices|length > 1 %}s{% endif %}
         </span>
       </div>
+
+      <form method="get" class="filter-grid">
+        <input type="hidden" name="expense_q" value="{{ expense_q }}">
+        <input type="hidden" name="expense_status" value="{{ expense_status }}">
+        <div class="field-group">
+          <label>Fournisseur</label>
+          <input type="text" name="invoice_supplier" class="form-control" placeholder="Nom fournisseur..." value="{{ invoice_supplier }}">
+        </div>
+        <div class="field-group">
+          <label>Statut</label>
+          <select name="invoice_status" class="form-control">
+            <option value="">Tous</option>
+            {% for value, label in invoice_status_choices %}
+            <option value="{{ value }}" {% if invoice_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Échéance du</label>
+          <input type="date" name="invoice_due_from" class="form-control" value="{{ invoice_due_from }}">
+        </div>
+        <div class="field-group">
+          <label>Échéance au</label>
+          <input type="date" name="invoice_due_to" class="form-control" value="{{ invoice_due_to }}">
+        </div>
+        <div class="field-group">
+          <label>Association</label>
+          <select name="invoice_association" class="form-control">
+            <option value="">Toutes</option>
+            <option value="linked" {% if invoice_association == "linked" %}selected{% endif %}>Associées à une dépense</option>
+            <option value="unlinked" {% if invoice_association == "unlinked" %}selected{% endif %}>Sans dépense</option>
+          </select>
+        </div>
+        <div class="filter-actions">
+          <button type="submit" class="btn btn-secondary">Filtrer</button>
+          <a href="{% url 'technique:technique_financial_project_detail' project.pk %}?expense_q={{ expense_q }}&expense_status={{ expense_status }}" class="btn btn-ghost">
+            Réinitialiser
+          </a>
+        </div>
+      </form>
 
       {% if project_invoices %}
       <div class="table-responsive">
@@ -296,9 +336,9 @@
               <th>Client</th>
               <th>Montant</th>
               <th>Statut</th>
-              <th>Echeance</th>
+              <th>Échéance</th>
               <th>Collaborateur</th>
-              <th>DÃ©pense liÃ©e</th>
+              <th>Dépense liée</th>
             </tr>
           </thead>
           <tbody>
@@ -324,7 +364,43 @@
         </table>
       </div>
       {% else %}
-      <div class="empty-state">Aucune facture n'est rattachee a ce projet.</div>
+      <div class="empty-state">Aucune facture n'est rattachée à ce projet.</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <span class="section-header__title">Historique financier</span>
+        <span class="badge">
+          {{ history_entries|length }} entrée{% if history_entries|length > 1 %}s{% endif %}
+        </span>
+      </div>
+
+      {% if history_entries %}
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Action</th>
+              <th>Cible</th>
+              <th>Utilisateur</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in history_entries %}
+            <tr>
+              <td>{{ entry.created_at|date:"d/m/Y H:i" }}</td>
+              <td>{{ entry.get_action_display }}</td>
+              <td>{{ entry.target_label|default:"-" }}</td>
+              <td>{{ entry.user.username|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">Aucune modification financière enregistrée pour ce projet.</div>
       {% endif %}
     </section>
 

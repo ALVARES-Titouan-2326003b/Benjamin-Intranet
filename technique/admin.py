@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import DocumentTechnique, TechnicalProject, ProjectExpense
+from .models import DocumentTechnique, TechnicalProject, ProjectExpense, TechnicalProjectHistory
 
 
 @admin.register(DocumentTechnique)
@@ -27,3 +27,11 @@ class ProjectExpenseAdmin(admin.ModelAdmin):
     list_display = ("id", "project", "facture", "label", "amount", "is_paid", "due_date", "payment_date")
     list_filter = ("is_paid", "due_date", "payment_date")
     search_fields = ("label", "project__reference", "project__name", "facture__id")
+
+
+@admin.register(TechnicalProjectHistory)
+class TechnicalProjectHistoryAdmin(admin.ModelAdmin):
+    list_display = ("id", "project_reference", "action", "target_type", "target_label", "user", "created_at")
+    list_filter = ("action", "target_type", "created_at")
+    search_fields = ("project_reference", "project_name", "target_label", "user__username")
+    readonly_fields = ("project", "project_reference", "project_name", "user", "action", "target_type", "target_label", "before", "after", "created_at")

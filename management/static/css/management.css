@@ -205,6 +205,74 @@
     border: 1px solid #f5c6cb;
 }
 
+/* Section projets administratifs */
+.admin-projects-card {
+    margin-bottom: 1.5rem;
+}
+
+.project-toolbar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.project-table-wrap {
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+}
+
+.project-table th,
+.project-table td {
+    padding: 0.85rem 1rem;
+}
+
+.project-table td:last-child {
+    white-space: nowrap;
+}
+
+.project-empty-state {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    padding: 1rem;
+    text-align: center;
+}
+
+.project-status {
+    border-radius: 6px;
+    font-weight: 500;
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+}
+
+.project-status.success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.project-status.error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.btn-danger {
+    background: #dc2626;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 720px) {
+    .project-toolbar {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* style de calendar.html */
 
 .wrapper {

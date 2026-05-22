@@ -1,6 +1,7 @@
 import json
 import traceback
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse
@@ -8,7 +9,6 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from technique.models import TechnicalProject
 from user_access.user_test_functions import has_administratif_access
 
 from .email_manager import (
@@ -22,6 +22,7 @@ from .email_manager import (
 )
 from .models import (
     Activite,
+    AdministrativeProject,
     NotificationInterne,
     TypeActivite,
 )
@@ -129,6 +130,59 @@ def _serialize_activity(activity, include_datetime=False):
     return payload
 
 
+def _serialize_project(project):
+    return {
+        "id": project.pk,
+        "reference": project.reference,
+        "name": project.name,
+        "type": project.type,
+        "type_label": project.get_type_display(),
+        "total_estimated": str(project.total_estimated),
+        "activities_count": Activite.objects.filter(dossier=project).count(),
+    }
+
+
+def _project_form_data(data, existing_project=None):
+    reference = (data.get("reference") or "").strip().upper()
+    name = (data.get("name") or "").strip()
+    project_type = (data.get("type") or "client").strip()
+    total_raw = str(data.get("total_estimated") or "0").replace(",", ".").strip()
+
+    if not reference or not name:
+        raise ValueError("La référence et le nom du projet sont obligatoires.")
+    if project_type not in dict(AdministrativeProject.PROJECT_TYPES):
+        raise ValueError("Type de projet invalide.")
+
+    try:
+        total_estimated = Decimal(total_raw)
+    except (InvalidOperation, ValueError):
+        raise ValueError("Le budget estimé doit être un nombre valide.")
+    if total_estimated < 0:
+        raise ValueError("Le budget estimé ne peut pas être négatif.")
+
+    duplicate = AdministrativeProject.objects.filter(reference=reference)
+    if existing_project:
+        duplicate = duplicate.exclude(pk=existing_project.pk)
+    if duplicate.exists():
+        raise ValueError(f'La référence "{reference}" existe déjà.')
+
+    return {
+        "reference": reference,
+        "name": name,
+        "type": project_type,
+        "total_estimated": total_estimated,
+    }
+
+
+def _project_delete_blockers(project):
+    blockers = []
+    activities_count = Activite.objects.filter(dossier=project).count()
+
+    if activities_count:
+        blockers.append(f"{activities_count} activité(s)")
+    return blockers
+
+
 def _apply_calendar_filters(queryset, params):
     type_label = (params.get("type") or "").strip()
     dossier_ref = (params.get("dossier") or "").strip()
@@ -169,7 +223,7 @@ def _activity_form_data(data):
     if not dossier_ref or not type_label or not date_str:
         raise ValueError("Champs obligatoires manquants")
 
-    dossier_obj = TechnicalProject.objects.filter(reference=dossier_ref).first()
+    dossier_obj = AdministrativeProject.objects.filter(reference=dossier_ref).first()
     if not dossier_obj:
         raise LookupError(f'Dossier introuvable : "{dossier_ref}"')
 
@@ -247,7 +301,7 @@ def administratif_view(request):
     emails = get_sent_emails(user, limit=20)
     emails_data = [get_email_summary(email) for email in emails]
 
-    dossiers = TechnicalProject.objects.all().order_by("reference")
+    dossiers = AdministrativeProject.objects.all().order_by("reference")
     types = TypeActivite.objects.all().order_by("type")
     users = Utilisateur.objects.filter(is_active=True).order_by(
         "last_name",
@@ -271,6 +325,21 @@ def administratif_view(request):
             "users": users,
             "notifications": notifications,
             "notification_count": len(notifications),
+        },
+    )
+
+
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def admin_projects_view(request):
+    projects = AdministrativeProject.objects.all().order_by("reference")
+    return render(
+        request,
+        "admin_projects.html",
+        {
+            "pole_name": "Administratif",
+            "projets": [_serialize_project(project) for project in projects],
+            "project_type_choices": AdministrativeProject.PROJECT_TYPES,
         },
     )
 
@@ -600,7 +669,7 @@ def delete_activity_view(request):
         if not dossier_ref or not type_label or not date_str:
             return _json_error("Champs obligatoires manquants")
 
-        dossier_obj = TechnicalProject.objects.filter(reference=dossier_ref).first()
+        dossier_obj = AdministrativeProject.objects.filter(reference=dossier_ref).first()
         if not dossier_obj:
             return _json_error(f'Dossier introuvable : "{dossier_ref}"', status=404)
 
@@ -662,3 +731,82 @@ def mark_notification_read_view(request, notification_id):
     if not updated:
         return _json_error("Notification introuvable", status=404)
     return JsonResponse({"success": True})
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def create_project_view(request):
+    try:
+        data = _parse_request_json(request)
+        project_data = _project_form_data(data)
+        project = AdministrativeProject.objects.create(
+            created_by=request.user,
+            updated_by=request.user,
+            **project_data,
+        )
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Projet créé avec succès.",
+                "project": _serialize_project(project),
+            }
+        )
+    except ValueError as e:
+        return _json_error(str(e))
+    except Exception as e:
+        traceback.print_exc()
+        return _json_error(f"Erreur : {str(e)}", status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def update_project_view(request, project_id):
+    try:
+        project = AdministrativeProject.objects.filter(pk=project_id).first()
+        if not project:
+            return _json_error("Projet introuvable", status=404)
+
+        project_data = _project_form_data(_parse_request_json(request), existing_project=project)
+        for field, value in project_data.items():
+            setattr(project, field, value)
+        project.updated_by = request.user
+        project.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Projet mis à jour avec succès.",
+                "project": _serialize_project(project),
+            }
+        )
+    except ValueError as e:
+        return _json_error(str(e))
+    except Exception as e:
+        traceback.print_exc()
+        return _json_error(f"Erreur : {str(e)}", status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def delete_project_view(request, project_id):
+    try:
+        project = AdministrativeProject.objects.filter(pk=project_id).first()
+        if not project:
+            return _json_error("Projet introuvable", status=404)
+
+        blockers = _project_delete_blockers(project)
+        if blockers:
+            return _json_error(
+                "Suppression impossible : ce projet est lié à "
+                + ", ".join(blockers)
+                + ".",
+                status=409,
+            )
+
+        project.delete()
+        return JsonResponse({"success": True, "message": "Projet supprimé avec succès."})
+    except Exception as e:
+        traceback.print_exc()
+        return _json_error(f"Erreur : {str(e)}", status=500)

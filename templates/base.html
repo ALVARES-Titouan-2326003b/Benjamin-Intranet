@@ -88,8 +88,12 @@
       {% if '/administratif/' in request.path or '/admin/' in request.path %}
       <div class="nav-section-label">ADMINISTRATIF</div>
       {% if user.is_superuser or user.is_staff or "POLE_ADMINISTRATIF" in u_groups_str %}
-      <a href="{% url 'admin_view' %}" class="nav-item {% if '/administratif/' in request.path %}active{% endif %}">
+      <a href="{% url 'admin_view' %}" class="nav-item {% if p == '/administratif/' %}active{% endif %}">
         <i class="bi bi-speedometer2"></i> Vue d'ensemble
+      </a>
+      <a href="{% url 'admin_projects' %}"
+         class="nav-item {% if '/administratif/projets/' in p %}active{% endif %}">
+        <i class="bi bi-kanban"></i> Projets
       </a>
       <a href="{% url 'recrutement:dashboard' %}"
          class="nav-item {% if '/administratif/recrutement/' in p %}active{% endif %}">

@@ -1,5 +1,6 @@
 import json
 import csv
+from decimal import Decimal
 from django.views.decorators.http import require_http_methods
 from reportlab.lib import colors
 from django.shortcuts import render, redirect, get_object_or_404
@@ -15,7 +16,13 @@ from openpyxl import Workbook
 from .services.documents import extract_text_from_file
 from .services.ai_summary import summarize_document
 from invoices.models import Facture
-from .models import DocumentTechnique, TechnicalProject, ProjectExpense, TechnicalEmail
+from .models import (
+    DocumentTechnique,
+    TechnicalProject,
+    ProjectExpense,
+    TechnicalEmail,
+    TechnicalProjectHistory,
+)
 from .forms import (
     DocumentTechniqueUploadForm,
     TechnicalProjectCreateForm,
@@ -40,6 +47,52 @@ def _get_available_project_invoices(project, current_expense=None):
         ).order_by("-echeance", "id")
 
     return invoices.filter(project_expense__isnull=True).order_by("-echeance", "id")
+
+
+def _history_value(value):
+    if isinstance(value, Decimal):
+        return str(value)
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
+
+
+def _snapshot_project(project):
+    return {
+        "reference": project.reference,
+        "name": project.name,
+        "type": project.type,
+        "engaged_amount": _history_value(project.engaged_amount),
+        "paid_amount": _history_value(project.paid_amount),
+        "total_estimated": _history_value(project.total_estimated),
+    }
+
+
+def _snapshot_expense(expense):
+    return {
+        "id": expense.pk,
+        "facture": expense.facture_id or "",
+        "label": expense.label,
+        "amount": _history_value(expense.amount),
+        "is_paid": expense.is_paid,
+        "due_date": _history_value(expense.due_date),
+        "payment_date": _history_value(expense.payment_date),
+    }
+
+
+def _log_project_history(project, user, action, target_type, target_label="", before=None, after=None):
+    TechnicalProjectHistory.objects.create(
+        project=project if project and project.pk else None,
+        project_reference=project.reference if project else "",
+        project_name=project.name if project else "",
+        user=user if getattr(user, "is_authenticated", False) else None,
+        action=action,
+        target_type=target_type,
+        target_label=target_label,
+        before=before or {},
+        after=after or {},
+    )
+
 
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
@@ -369,7 +422,15 @@ def financial_overview(request):
     if request.method == "POST":
         form = TechnicalProjectCreateForm(request.POST)
         if form.is_valid():
-            form.save()
+            project = form.save()
+            _log_project_history(
+                project=project,
+                user=request.user,
+                action="project_created",
+                target_type="project",
+                target_label=project.reference,
+                after=_snapshot_project(project),
+            )
             messages.success(request, "Projet créé avec succès.")
             return redirect("technique:technique_financial_overview")
     else:
@@ -404,9 +465,21 @@ def financial_project_detail(request, pk):
     project.refresh_amounts_from_expenses()
 
     if request.method == "POST" and "total_estimated" in request.POST:
+        before_project = _snapshot_project(project)
         form = TechnicalProjectFinanceForm(request.POST, instance=project)
         if form.is_valid():
-            form.save()
+            project = form.save()
+            after_project = _snapshot_project(project)
+            if before_project.get("total_estimated") != after_project.get("total_estimated"):
+                _log_project_history(
+                    project=project,
+                    user=request.user,
+                    action="budget_updated",
+                    target_type="project",
+                    target_label=project.reference,
+                    before={"total_estimated": before_project.get("total_estimated")},
+                    after={"total_estimated": after_project.get("total_estimated")},
+                )
             messages.success(request, "Budget prévisionnel mis à jour.")
             return redirect("technique:technique_financial_project_detail", pk=project.pk)
     else:
@@ -421,6 +494,7 @@ def financial_project_detail(request, pk):
         .select_related("fournisseur", "client", "collaborateur")
         .order_by("-echeance", "id")
     )
+    history_entries = project.history.select_related("user").all()[:25]
 
     if expense_q:
         expenses = expenses.filter(label__icontains=expense_q)
@@ -429,6 +503,29 @@ def financial_project_detail(request, pk):
         expenses = expenses.filter(is_paid=True)
     elif expense_status == "unpaid":
         expenses = expenses.filter(is_paid=False)
+
+    invoice_supplier = (request.GET.get("invoice_supplier") or "").strip()
+    invoice_status = (request.GET.get("invoice_status") or "").strip()
+    invoice_due_from = (request.GET.get("invoice_due_from") or "").strip()
+    invoice_due_to = (request.GET.get("invoice_due_to") or "").strip()
+    invoice_association = (request.GET.get("invoice_association") or "").strip()
+
+    if invoice_supplier:
+        invoices = invoices.filter(fournisseur__nom__icontains=invoice_supplier)
+
+    if invoice_status:
+        invoices = invoices.filter(statut=invoice_status)
+
+    if invoice_due_from:
+        invoices = invoices.filter(echeance__date__gte=invoice_due_from)
+
+    if invoice_due_to:
+        invoices = invoices.filter(echeance__date__lte=invoice_due_to)
+
+    if invoice_association == "linked":
+        invoices = invoices.filter(project_expense__isnull=False)
+    elif invoice_association == "unlinked":
+        invoices = invoices.filter(project_expense__isnull=True)
 
     expense_form = ProjectExpenseForm()
     expense_form.fields["facture"].queryset = _get_available_project_invoices(project)
@@ -465,8 +562,15 @@ def financial_project_detail(request, pk):
             "expense_form": expense_form,
             "expenses": expenses,
             "project_invoices": invoices,
+            "history_entries": history_entries,
             "expense_q": expense_q,
             "expense_status": expense_status,
+            "invoice_supplier": invoice_supplier,
+            "invoice_status": invoice_status,
+            "invoice_due_from": invoice_due_from,
+            "invoice_due_to": invoice_due_to,
+            "invoice_association": invoice_association,
+            "invoice_status_choices": Facture.STATUS,
             "frais_engages": project.frais_engages,
             "frais_payes": project.frais_payes,
             "frais_restants": project.frais_restants,
@@ -490,6 +594,14 @@ def project_expense_create(request, pk):
             expense = form.save(commit=False)
             expense.project = project
             expense.save()
+            _log_project_history(
+                project=project,
+                user=request.user,
+                action="expense_created",
+                target_type="expense",
+                target_label=expense.label,
+                after=_snapshot_expense(expense),
+            )
             messages.success(request, "Dépense ajoutée avec succès.")
         else:
             messages.error(request, "Impossible d'ajouter la dépense.")
@@ -504,10 +616,22 @@ def project_expense_update(request, expense_pk):
     project = expense.project
 
     if request.method == "POST":
+        before_expense = _snapshot_expense(expense)
         form = ProjectExpenseForm(request.POST, instance=expense)
         form.fields["facture"].queryset = _get_available_project_invoices(project, current_expense=expense)
         if form.is_valid():
-            form.save()
+            expense = form.save()
+            after_expense = _snapshot_expense(expense)
+            if before_expense != after_expense:
+                _log_project_history(
+                    project=project,
+                    user=request.user,
+                    action="expense_updated",
+                    target_type="expense",
+                    target_label=expense.label,
+                    before=before_expense,
+                    after=after_expense,
+                )
             messages.success(request, "Dépense modifiée avec succès.")
         else:
             messages.error(request, "Impossible de modifier la dépense.")
@@ -521,7 +645,16 @@ def project_expense_delete(request, expense_pk):
     project = expense.project
 
     if request.method == "POST":
+        before_expense = _snapshot_expense(expense)
         expense.delete()
+        _log_project_history(
+            project=project,
+            user=request.user,
+            action="expense_deleted",
+            target_type="expense",
+            target_label=before_expense.get("label", ""),
+            before=before_expense,
+        )
         messages.success(request, "Dépense supprimée avec succès.")
 
     return redirect("technique:technique_financial_project_detail", pk=project.pk)
@@ -754,7 +887,7 @@ def email_list(request):
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def mail_assign_project(request, pk):
-    email = get_object_or_404(TechnicalEmail, pk=pk)
+    email = get_object_or_404(TechnicalEmail, pk=pk, imported_by=request.user)
 
     if request.method == "POST":
         project_id = request.POST.get("project_id")
@@ -833,6 +966,7 @@ def email_detail(request, pk):
         TechnicalEmail.objects.select_related("project", "imported_by")
         .prefetch_related("attachments__linked_document"),
         pk=pk,
+        imported_by=request.user,
     )
 
     return render(
@@ -860,7 +994,7 @@ def email_ai_classify(request, pk):
     """
     from technique.services.ai_classify import classify_and_save
 
-    email = get_object_or_404(TechnicalEmail, pk=pk)
+    email = get_object_or_404(TechnicalEmail, pk=pk, imported_by=request.user)
     projects = TechnicalProject.objects.order_by("reference")
 
     # sleep=0 : pas de pause pour un email individuel (l'utilisateur attend la reponse)
@@ -904,7 +1038,10 @@ def email_ai_classify_bulk(request):
     """
     from technique.services.ai_classify import classify_and_save, BULK_SLEEP
 
-    emails = TechnicalEmail.objects.filter(status="unassigned").order_by("-received_at")
+    emails = TechnicalEmail.objects.filter(
+        status="unassigned",
+        imported_by=request.user,
+    ).order_by("-received_at")
     projects = list(TechnicalProject.objects.order_by("reference"))
 
     stats = {"classified": 0, "pending": 0, "skipped": 0, "errors": 0}
@@ -973,7 +1110,19 @@ def bulk_delete_projects(request):
         messages.warning(request, "Aucun projet sélectionné.")
         return redirect("technique:technique_financial_overview")
 
-    deleted_count, _ = TechnicalProject.objects.filter(id__in=ids).delete()
+    projects_to_delete = list(TechnicalProject.objects.filter(id__in=ids))
+    for project in projects_to_delete:
+        _log_project_history(
+            project=project,
+            user=request.user,
+            action="project_deleted",
+            target_type="project",
+            target_label=project.reference,
+            before=_snapshot_project(project),
+        )
+
+    TechnicalProject.objects.filter(id__in=[p.id for p in projects_to_delete]).delete()
+    deleted_count = len(projects_to_delete)
     messages.success(request, f"{deleted_count} projet(s) supprimé(s) avec succès.")
     return redirect("technique:technique_financial_overview")
 

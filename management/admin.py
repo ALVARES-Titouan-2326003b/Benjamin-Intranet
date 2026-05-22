@@ -1,7 +1,14 @@
 
 from django.contrib import admin
 
-from .models import Activite, HistoriqueRappelActivite, NotificationInterne
+from .models import Activite, AdministrativeProject, HistoriqueRappelActivite, NotificationInterne
+
+
+@admin.register(AdministrativeProject)
+class AdministrativeProjectAdmin(admin.ModelAdmin):
+    list_display = ("reference", "name", "type", "total_estimated", "created_at")
+    list_filter = ("type", "created_at")
+    search_fields = ("reference", "name")
 
 
 @admin.register(Activite)
