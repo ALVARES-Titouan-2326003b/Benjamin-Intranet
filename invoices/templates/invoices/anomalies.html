@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+        <a href="{% url 'invoices:list' %}" style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem;">
+            <i class="bi bi-arrow-left"></i> Retour aux factures
+        </a>
+        <h2 style="margin-top: 0.5rem;">Contrôles de cohérence</h2>
+    </div>
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Facture</th>
+                    <th>Sévérité</th>
+                    <th>Anomalie</th>
+                    <th>Dossier</th>
+                    <th>Fournisseur</th>
+                    <th>Montant</th>
+                    <th>Échéance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for anomaly in anomalies %}
+                <tr>
+                    <td><a href="{% url 'invoices:detail' anomaly.facture.pk %}">#{{ anomaly.facture.id }}</a></td>
+                    <td>
+                        {% if anomaly.severity == "error" %}
+                        <span class="badge badge-danger">Erreur</span>
+                        {% else %}
+                        <span class="badge" style="background: #fef3c7; color: #92400e;">Avertissement</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ anomaly.message }}</td>
+                    <td>{{ anomaly.facture.dossier|default:"-" }}</td>
+                    <td>{{ anomaly.facture.fournisseur|default:"-" }}</td>
+                    <td>{{ anomaly.facture.montant|default_if_none:"-" }}</td>
+                    <td>{{ anomaly.facture.echeance|date:"d/m/Y"|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                        Aucune anomalie détectée.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

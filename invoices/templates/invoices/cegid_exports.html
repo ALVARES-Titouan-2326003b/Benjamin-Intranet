@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+        <a href="{% url 'invoices:list' %}" style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem;">
+            <i class="bi bi-arrow-left"></i> Retour aux factures
+        </a>
+        <h2 style="margin-top: 0.5rem;">Exports Cegid locaux</h2>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">Nouvel export pré-Cegid</div>
+    <form method="post" action="{% url 'invoices:cegid_export_create' %}"
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: end;">
+        {% csrf_token %}
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label">Échéance après le</label>
+            <input type="date" name="period_start" class="form-control">
+        </div>
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label">Échéance avant le</label>
+            <input type="date" name="period_end" class="form-control">
+        </div>
+        <button type="submit" class="btn btn-primary">Générer l'export</button>
+    </form>
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Statut</th>
+                    <th>Lignes</th>
+                    <th>Montant</th>
+                    <th>Anomalies</th>
+                    <th>Utilisateur</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for export in exports %}
+                <tr>
+                    <td>{{ export.started_at|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        {% if export.status == "success" %}
+                        <span class="badge badge-success">{{ export.get_status_display }}</span>
+                        {% elif export.status == "error" %}
+                        <span class="badge badge-danger">{{ export.get_status_display }}</span>
+                        {% else %}
+                        <span class="badge">{{ export.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ export.line_count }}</td>
+                    <td>{{ export.total_amount|floatformat:2 }} €</td>
+                    <td title="{{ export.warning_summary }}">{{ export.anomaly_count }}</td>
+                    <td>{{ export.triggered_by.username|default:"Système" }}</td>
+                    <td>
+                        {% if export.status == "success" and export.file %}
+                        <a class="btn btn-sm btn-secondary" href="{% url 'invoices:cegid_export_download' export.pk %}">
+                            Télécharger
+                        </a>
+                        {% elif export.error_message %}
+                        {{ export.error_message }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                        Aucun export généré.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

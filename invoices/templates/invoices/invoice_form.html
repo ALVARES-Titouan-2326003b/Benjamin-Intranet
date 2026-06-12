@@ -110,6 +110,11 @@
         {{ form.montant }}
       </div>
 
+      <div class="form-group">
+        <label class="form-label">{{ form.service.label }}</label>
+        {{ form.service }}
+      </div>
+
       {% if form.statut %}
       <div class="form-group">
         <label class="form-label">{{ form.statut.label }}</label>

@@ -4,14 +4,15 @@ from .models import Facture
 
 
 class FactureFilter(django_filters.FilterSet):
-    fournisseur = django_filters.CharFilter(
-        field_name='fournisseur',
-        lookup_expr='icontains'
-    )
+    fournisseur = django_filters.CharFilter(method='filter_fournisseur')
     client = django_filters.CharFilter(method='filter_client')
     dossier = django_filters.CharFilter(method='filter_dossier')
     statut = django_filters.CharFilter(
         field_name='statut',
+        lookup_expr='icontains'
+    )
+    service = django_filters.CharFilter(
+        field_name='service',
         lookup_expr='icontains'
     )
 
@@ -22,6 +23,12 @@ class FactureFilter(django_filters.FilterSet):
             | Q(client__particulier__nom__icontains=value)
             | Q(client__particulier__prenom__icontains=value)
             | Q(client_id__icontains=value)
+        )
+
+    def filter_fournisseur(self, queryset, name, value):
+        return queryset.filter(
+            Q(fournisseur__nom__icontains=value)
+            | Q(fournisseur_id__icontains=value)
         )
 
     def filter_dossier(self, queryset, name, value):

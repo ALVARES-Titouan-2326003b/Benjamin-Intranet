@@ -32,6 +32,24 @@
         </div>
         <div style="font-size: 0.8rem; color: var(--danger);">{{ kpi.overdue_count }} factures échues</div>
     </div>
+
+    <div class="card" style="border-left: 4px solid var(--accent);">
+        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Traitement moyen</div>
+        <div style="font-size: 1.5rem; font-weight: 700;">
+            {% if kpi.avg_processing_days is not None %}
+            {{ kpi.avg_processing_days|floatformat:1 }} jours
+            {% else %}
+            —
+            {% endif %}
+        </div>
+        <div style="font-size: 0.8rem;">{{ kpi.pending_percent|floatformat:0 }}% en attente</div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid #64748b;">
+        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Anomalies</div>
+        <div style="font-size: 1.5rem; font-weight: 700;">{{ anomaly_count }}</div>
+        <div style="font-size: 0.8rem;"><a href="{% url 'invoices:anomalies' %}">Voir les contrôles</a></div>
+    </div>
 </div>
 
 <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; margin-bottom: 2rem;">
@@ -50,8 +68,9 @@
     </div>
 </div>
 
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
 <div class="card">
-    <h3>Fournisseurs à Risque (Top 5 Retards)</h3>
+    <h3>Fournisseurs à Risque</h3>
     <div class="table-responsive">
         <table class="table">
             <thead>
@@ -77,6 +96,35 @@
             </tbody>
         </table>
     </div>
+</div>
+
+<div class="card">
+    <h3>Top 10 Fournisseurs</h3>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Fournisseur</th>
+                    <th>Montant total</th>
+                    <th>Factures</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for supplier in top_suppliers %}
+                <tr>
+                    <td style="font-weight: 600;">{{ supplier.fournisseur }}</td>
+                    <td>{{ supplier.total|floatformat:2 }} €</td>
+                    <td>{{ supplier.count }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" style="text-align: center; color: var(--text-secondary);">Aucune donnée fournisseur.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 </div>
 
 {{ chart_status.labels|json_script:"status-labels-data" }}

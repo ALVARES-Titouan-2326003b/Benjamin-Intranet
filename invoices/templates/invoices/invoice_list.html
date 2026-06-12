@@ -11,6 +11,16 @@
             <i class="bi bi-bar-chart-fill"></i> Tableau de bord
         </a>
         {% endif %}
+        {% if can_view_anomalies %}
+        <a class="btn btn-secondary" href="{% url 'invoices:anomalies' %}">
+            <i class="bi bi-exclamation-triangle"></i> Anomalies
+        </a>
+        {% endif %}
+        {% if can_view_exports %}
+        <a class="btn btn-secondary" href="{% url 'invoices:cegid_exports' %}">
+            <i class="bi bi-filetype-txt"></i> Exports Cegid
+        </a>
+        {% endif %}
         {% if can_create_invoice %}
         <a class="btn btn-primary" href="{% url 'invoices:create' %}">
             <i class="bi bi-plus-lg"></i> Nouvelle facture
@@ -108,6 +118,12 @@
             </select>
         </div>
 
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Service</label>
+            <input type="text" name="service" value="{{ request.GET.service }}" class="form-control"
+                placeholder="Compta, syndic...">
+        </div>
+
         <div class="form-group" style="margin: 0; grid-column: span 2;">
             <label class="form-label" style="font-size: 0.8rem;">Echeance (Periode)</label>
             <div style="display: flex; gap: 0.5rem;">
@@ -144,6 +160,7 @@
                     {% endif %}
                     <th>ID</th>
                     <th>Dossier</th>
+                    <th>Service</th>
                     <th>Fournisseur</th>
                     <th>Client</th>
                     <th>Montant</th>
@@ -164,6 +181,7 @@
                         </a>
                     </td>
                     <td>{{ invoice.dossier|default:"-" }}</td>
+                    <td>{{ invoice.service|default:"-" }}</td>
                     <td>{{ invoice.fournisseur|default:"-" }}</td>
                     <td>
                         <div style="display: flex; flex-direction: column;">
@@ -204,7 +222,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="{% if can_manage_bulk_delete %}9{% else %}8{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucune facture trouvee.</td>
+                    <td colspan="{% if can_manage_bulk_delete %}10{% else %}9{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucune facture trouvee.</td>
                 </tr>
                 {% endfor %}
             </tbody>

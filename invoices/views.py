@@ -1,14 +1,15 @@
 import io
+from datetime import datetime
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.views import View
 from django.utils.decorators import method_decorator
 from django_filters.views import FilterView
-from django.views.generic import DetailView, CreateView, UpdateView
+from django.views.generic import DetailView, CreateView, UpdateView, TemplateView
 
 from openpyxl import Workbook
 from reportlab.lib.pagesizes import letter
@@ -20,7 +21,9 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from user_access.user_test_functions import has_finance_access, has_ceo_access, can_read_facture, can_create_facture, can_edit_facture, has_collaborateur_access
 from .filters import FactureFilter
 from .forms import FactureForm, PieceJointeForm
-from .models import Facture, PieceJointe, FactureHistorique
+from .models import ExportCegidRun, Facture, PieceJointe, FactureHistorique
+from .services.cegid import generate_cegid_export
+from .services.quality import get_invoice_anomalies
 
 
 # ================== Liste / Détail ==================
@@ -73,13 +76,14 @@ class FactureListView(FilterView):
         ws = wb.active
         ws.title = 'Factures'
 
-        headers = ['ID', 'Dossier', 'Fournisseur', 'Client', 'Montant', 'Statut', 'Échéance', 'Collaborateur']
+        headers = ['ID', 'Dossier', 'Service', 'Fournisseur', 'Client', 'Montant', 'Statut', 'Échéance', 'Collaborateur']
         ws.append(headers)
 
         for invoice in queryset:
             ws.append([
                 invoice.id,
                 str(invoice.dossier) if invoice.dossier else '',
+                invoice.service or '',
                 str(invoice.fournisseur) if invoice.fournisseur else '',
                 str(invoice.client) if invoice.client else '',
                 invoice.montant or '',
@@ -103,12 +107,13 @@ class FactureListView(FilterView):
         output = io.BytesIO()
         doc = SimpleDocTemplate(output, pagesize=letter)
 
-        data = [['ID', 'Dossier', 'Fournisseur', 'Client', 'Montant', 'Statut', 'Échéance', 'Collaborateur']]
+        data = [['ID', 'Dossier', 'Service', 'Fournisseur', 'Client', 'Montant', 'Statut', 'Échéance', 'Collaborateur']]
 
         for invoice in queryset:
             data.append([
                 invoice.id,
                 str(invoice.dossier) if invoice.dossier else '',
+                invoice.service or '',
                 str(invoice.fournisseur) if invoice.fournisseur else '',
                 str(invoice.client) if invoice.client else '',
                 f"{invoice.montant:.2f}" if invoice.montant is not None else '',
@@ -142,6 +147,8 @@ class FactureListView(FilterView):
         context['can_manage_bulk_delete'] = has_finance_access(self.request.user)
         context['can_manage_manual_reminders'] = has_finance_access(self.request.user)
         context['can_view_dashboard'] = has_finance_access(self.request.user)
+        context['can_view_exports'] = has_finance_access(self.request.user)
+        context['can_view_anomalies'] = has_finance_access(self.request.user)
         return context
 
 @method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
@@ -388,3 +395,67 @@ class BulkDeleteInvoicesView(View):
             messages.error(request, f"Erreur lors de la suppression : {str(e)}")
         
         return redirect('invoices:list')
+
+
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+class InvoiceAnomaliesView(TemplateView):
+    template_name = 'invoices/anomalies.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['anomalies'] = get_invoice_anomalies()
+        return context
+
+
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+class CegidExportListView(TemplateView):
+    template_name = 'invoices/cegid_exports.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['exports'] = ExportCegidRun.objects.select_related('triggered_by')[:50]
+        return context
+
+
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+class CegidExportCreateView(View):
+    def post(self, request, *args, **kwargs):
+        try:
+            period_start = _parse_optional_date(request.POST.get('period_start'))
+            period_end = _parse_optional_date(request.POST.get('period_end'))
+        except ValueError:
+            messages.error(request, "Les dates d'export doivent respecter le format AAAA-MM-JJ.")
+            return redirect('invoices:cegid_exports')
+
+        if period_start and period_end and period_start > period_end:
+            messages.error(request, "La date de début doit être antérieure à la date de fin.")
+            return redirect('invoices:cegid_exports')
+
+        run = generate_cegid_export(
+            user=request.user,
+            period_start=period_start,
+            period_end=period_end,
+        )
+        if run.status == "success":
+            messages.success(
+                request,
+                f"Export Cegid généré : {run.line_count} ligne(s), {run.anomaly_count} anomalie(s).",
+            )
+        else:
+            messages.error(request, f"Export Cegid en erreur : {run.error_message}")
+        return redirect('invoices:cegid_exports')
+
+
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+class CegidExportDownloadView(View):
+    def get(self, request, pk, *args, **kwargs):
+        run = ExportCegidRun.objects.filter(pk=pk, status="success").first()
+        if not run or not run.file:
+            raise Http404("Export introuvable")
+        return FileResponse(run.file.open("rb"), as_attachment=True, filename=run.file.name.split("/")[-1])
+
+
+def _parse_optional_date(value):
+    if not value:
+        return None
+    return datetime.strptime(value, "%Y-%m-%d").date()

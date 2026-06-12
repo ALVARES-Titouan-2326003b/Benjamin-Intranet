@@ -46,17 +46,20 @@
         <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Statut</label>
         <div>
           {% if object.statut %}
-          {% with s=object.statut %}
-          {% if 'Payée' in s %}<span class="badge badge-success">Payée</span>
-          {% elif 'En cours' in s %}<span class="badge badge-info text-dark">En cours</span>
-          {% elif 'Retard' in s or 'Refusée' in s %}<span class="badge badge-danger">{{ s }}</span>
-          {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ s }}</span>
+          {% if object.statut == 'paid' %}<span class="badge badge-success">{{ object.get_statut_display }}</span>
+          {% elif object.statut == 'ongoing' %}<span class="badge badge-info text-dark">{{ object.get_statut_display }}</span>
+          {% elif object.statut == 'denied' %}<span class="badge badge-danger">{{ object.get_statut_display }}</span>
+          {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ object.get_statut_display }}</span>
           {% endif %}
-          {% endwith %}
           {% else %}
           —
           {% endif %}
         </div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Service</label>
+        <div>{{ object.service|default:"—" }}</div>
       </div>
 
       <div>

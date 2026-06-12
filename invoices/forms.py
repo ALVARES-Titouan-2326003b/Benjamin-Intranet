@@ -124,7 +124,7 @@ class FactureForm(forms.ModelForm):
 
     class Meta:
         model = Facture
-        fields = ["dossier", "montant", "statut", "echeance", "titre", "collaborateur"]
+        fields = ["dossier", "montant", "statut", "service", "echeance", "titre", "collaborateur"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -208,7 +208,7 @@ class FactureFormCollaborateur(FactureForm):
     """
     
     class Meta(FactureForm.Meta):
-        fields = ["dossier", "montant", "echeance", "titre", "collaborateur"]
+        fields = ["dossier", "montant", "service", "echeance", "titre", "collaborateur"]
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

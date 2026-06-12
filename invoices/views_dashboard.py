@@ -9,6 +9,7 @@ from django.utils import timezone
 from user_access.user_test_functions import has_finance_access
 from .models import Facture
 from django.db.models.functions import TruncMonth
+from .services.quality import get_invoice_anomalies
 
 @method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
 class DashboardView(TemplateView):
@@ -77,6 +78,8 @@ class DashboardView(TemplateView):
             'overdue_amount': overdue_amount,
             'overdue_count': overdue_count,
             'paid_percent': (paid_amount / total_amount * 100) if total_amount > 0 else 0,
+            'pending_percent': (pending_amount / total_amount * 100) if total_amount > 0 else 0,
+            'avg_processing_days': self._average_processing_days(qs),
         }
 
         # 3. Chart 1: Répartition par Statut (Pie Chart)
@@ -124,7 +127,7 @@ class DashboardView(TemplateView):
         # 5. Risk Analysis: Top Suppliers with Overdue Invoices
         # Group by fournisseur, filter overdue
         risky_suppliers = (
-            overdue_qs.values('fournisseur')
+            overdue_qs.values('fournisseur', 'fournisseur__nom')
             .annotate(
                 total_retard=Sum('montant'),
                 count_retard=Count('id')
@@ -133,5 +136,24 @@ class DashboardView(TemplateView):
         )
         
         context['risky_suppliers'] = risky_suppliers
+        context['top_suppliers'] = (
+            qs.values('fournisseur', 'fournisseur__nom')
+            .annotate(total=Sum('montant'), count=Count('id'))
+            .order_by('-total')[:10]
+        )
+        context['anomaly_count'] = len(get_invoice_anomalies(qs))
 
         return context
+
+    def _average_processing_days(self, queryset):
+        durations = []
+        paid_invoices = queryset.filter(statut='paid').prefetch_related('historique')
+        for invoice in paid_invoices:
+            history = list(invoice.historique.all().order_by('created_at'))
+            paid_event = next((event for event in history if event.new_status == 'paid'), None)
+            if not paid_event or not history:
+                continue
+            durations.append((paid_event.created_at - history[0].created_at).total_seconds() / 86400)
+        if not durations:
+            return None
+        return sum(durations) / len(durations)

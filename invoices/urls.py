@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     FactureListView, FactureDetailView,
     FactureCreateView, FactureUpdateView, ManualInvoiceRemindersView,
-    BulkDeleteInvoicesView,
+    BulkDeleteInvoicesView, CegidExportCreateView, CegidExportDownloadView,
+    CegidExportListView, InvoiceAnomaliesView,
 )
 
 from .views_dashboard import DashboardView
@@ -17,4 +18,8 @@ urlpatterns = [
     path('facture/<str:pk>/', FactureDetailView.as_view(), name='detail'),
     path('manual-reminders/', ManualInvoiceRemindersView.as_view(), name='manual_reminders'),
     path('bulk-delete/', BulkDeleteInvoicesView.as_view(), name='bulk_delete'),
+    path('exports/cegid/', CegidExportListView.as_view(), name='cegid_exports'),
+    path('exports/cegid/new/', CegidExportCreateView.as_view(), name='cegid_export_create'),
+    path('exports/cegid/<int:pk>/download/', CegidExportDownloadView.as_view(), name='cegid_export_download'),
+    path('anomalies/', InvoiceAnomaliesView.as_view(), name='anomalies'),
 ]
