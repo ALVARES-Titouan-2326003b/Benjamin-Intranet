@@ -72,13 +72,14 @@ class TechnicalProject(models.Model):
         total_estimated (Decimal): Total estimé du projet
     """
     DOSSIER_TYPES = [
-        ("client", "Client"),
-        ("juridique", "Juridique"),
+        ("marchands_de_bien", "Marchands de bien"),
+        ("promotion", "Promotion"),
+        ("patrimoine", "Patrimoine")
     ]
 
     reference = models.CharField("Référence projet", max_length=50, unique=True, db_column="reference")
     name = models.CharField("Nom du projet", max_length=255, db_column="nom")
-    type = models.TextField(choices=DOSSIER_TYPES, default="client")
+    type = models.TextField(choices=DOSSIER_TYPES, default="marchands_de_bien")
     engaged_amount = models.DecimalField("Frais engagés", max_digits=12, decimal_places=2, default=0, db_column="frais_eng")
     paid_amount = models.DecimalField("Frais déjà payés", max_digits=12, decimal_places=2, default=0, db_column="frais_payes")
     total_estimated = models.DecimalField("Total estimé du projet", max_digits=12, decimal_places=2, default=0, db_column="total_estim")

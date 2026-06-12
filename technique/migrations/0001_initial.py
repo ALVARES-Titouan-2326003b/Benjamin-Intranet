@@ -30,8 +30,12 @@ class Migration(migrations.Migration):
                     verbose_name='Nom du projet'
                 )),
                 ('type', models.TextField(
-                    choices=[('client', 'Client'), ('juridique', 'Juridique')],
-                    default='client'
+                    choices=[
+                        ('marchands_de_bien', 'Marchands de bien'),
+                        ('promotion', 'Promotion'),
+                        ('patrimoine', 'Patrimoine')
+                    ],
+                    default='marchands_de_bien'
                 )),
                 ('engaged_amount', models.DecimalField(
                     db_column='frais_eng',

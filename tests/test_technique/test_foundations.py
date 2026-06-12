@@ -3,6 +3,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import Group
 from django.urls import reverse
 from django.utils import timezone
@@ -40,7 +41,7 @@ def project(db):
     return TechnicalProject.objects.create(
         reference="TECH-001",
         name="Projet Technique",
-        type="client",
+        type="marchands_de_bien",
         total_estimated=Decimal("1000.00"),
     )
 
@@ -71,6 +72,37 @@ def create_invoice(project, actors, invoice_id, supplier_name="Alpha BTP", statu
         echeance=due or timezone.datetime(2026, 5, 20, tzinfo=timezone.get_current_timezone()),
         titre=f"Facture {invoice_id}",
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("activity_type", "label"),
+    [
+        ("marchands_de_bien", "Marchands de bien"),
+        ("promotion", "Promotion"),
+        ("patrimoine", "Patrimoine"),
+    ],
+)
+def test_project_accepts_new_activity_types(activity_type, label):
+    project = TechnicalProject(
+        reference=f"TYPE-{activity_type}",
+        name="Projet typé",
+        type=activity_type,
+    )
+
+    project.full_clean()
+
+    assert project.get_type_display() == label
+
+
+@pytest.mark.django_db
+def test_project_defaults_to_marchands_de_bien_and_rejects_old_type():
+    project = TechnicalProject(reference="TYPE-DEFAULT", name="Projet par défaut")
+    assert project.type == "marchands_de_bien"
+
+    project.type = "client"
+    with pytest.raises(ValidationError):
+        project.full_clean()
 
 
 @pytest.mark.django_db
@@ -172,12 +204,13 @@ def test_financial_history_is_created_for_project_budget_and_expense_changes(
         {
             "name": "Nouveau Projet",
             "reference": "TECH-NEW",
-            "type": "client",
+            "type": "promotion",
             "total_estimated": "500.00",
         },
     )
     assert response.status_code == 302
     new_project = TechnicalProject.objects.get(reference="TECH-NEW")
+    assert new_project.type == "promotion"
     assert TechnicalProjectHistory.objects.filter(
         project=new_project,
         action="project_created",

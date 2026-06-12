@@ -14,8 +14,6 @@ from django.views.generic import DetailView, CreateView, UpdateView, TemplateVie
 from openpyxl import Workbook
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.lib.units import cm
-from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
 from user_access.user_test_functions import has_finance_access, has_ceo_access, can_read_facture, can_create_facture, can_edit_facture, has_collaborateur_access
