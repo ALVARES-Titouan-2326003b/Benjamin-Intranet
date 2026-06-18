@@ -23,7 +23,7 @@ class TechnicalProjectFinanceForm(forms.ModelForm):
     """
     On ne modifie ici que le budget prévisionnel.
     Les montants engagés et payés sont calculés automatiquement
-    depuis les dépenses projet.
+    depuis les dépenses du dossier.
     """
 
     class Meta:

@@ -1,4 +1,4 @@
-// Gestion de la sélection multiple pour les projets
+// Gestion de la sélection multiple pour les dossiers
 document.addEventListener('DOMContentLoaded', function() {
     const selectAllProjects = document.getElementById('selectAllProjects');
     const deleteProjectsBtn = document.getElementById('deleteProjectsBtn');

@@ -131,7 +131,7 @@
     <!-- Liste des dépenses -->
     <section class="card">
       <div class="section-header">
-        <span class="section-header__title">Dépenses du projet</span>
+        <span class="section-header__title">Dépenses du dossier</span>
         <span class="badge">
           {{ expenses|length }} dépense{% if expenses|length > 1 %}s{% endif %}
         </span>
@@ -260,7 +260,7 @@
         </table>
       </div>
       {% else %}
-      <div class="empty-state">Aucune dépense enregistrée pour ce projet.</div>
+      <div class="empty-state">Aucune dépense enregistrée pour ce dossier.</div>
       {% endif %}
     </section>
 
@@ -274,13 +274,13 @@
         <canvas id="barChart"></canvas>
       </div>
       <p style="margin-top:.75rem; font-size:.8rem; color:var(--gray-400); text-align:center;">
-        Comparatif des montants pour le projet.
+        Comparatif des montants pour le dossier.
       </p>
     </section>
 
     <section class="card">
       <div class="section-header">
-        <span class="section-header__title">Factures liées au projet</span>
+        <span class="section-header__title">Factures liées au dossier</span>
         <span class="badge">
           {{ project_invoices|length }} facture{% if project_invoices|length > 1 %}s{% endif %}
         </span>
@@ -364,7 +364,7 @@
         </table>
       </div>
       {% else %}
-      <div class="empty-state">Aucune facture n'est rattachée à ce projet.</div>
+      <div class="empty-state">Aucune facture n'est rattachée à ce dossier.</div>
       {% endif %}
     </section>
 
@@ -400,7 +400,7 @@
         </table>
       </div>
       {% else %}
-      <div class="empty-state">Aucune modification financière enregistrée pour ce projet.</div>
+      <div class="empty-state">Aucune modification financière enregistrée pour ce dossier.</div>
       {% endif %}
     </section>
 

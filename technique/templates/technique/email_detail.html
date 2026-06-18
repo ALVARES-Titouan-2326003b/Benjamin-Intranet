@@ -75,7 +75,7 @@
         </div>
 
         <div>
-          <label style="color:var(--text-secondary); font-size:0.82rem; display:block; margin-bottom:0.2rem;">Projet associé</label>
+          <label style="color:var(--text-secondary); font-size:0.82rem; display:block; margin-bottom:0.2rem;">Dossier associé</label>
           {% if email.project %}
             <a href="{% url 'technique:technique_financial_project_detail' email.project.pk %}"
                style="color:var(--primary); font-weight:500; text-decoration:none;">
@@ -183,7 +183,7 @@
       <div class="card-title"><i class="bi bi-robot"></i> Classement IA</div>
 
       <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1rem;">
-        L'IA analyse l'objet, l'expéditeur et le contenu pour suggérer le projet le plus probable.
+        L'IA analyse l'objet, l'expéditeur et le contenu pour suggérer le dossier le plus probable.
       </p>
 
       <button id="classifyBtn" class="btn btn-primary" style="width:100%; margin-bottom:0.75rem;"
@@ -195,7 +195,7 @@
     </div>
 
     <div class="card">
-      <div class="card-title"><i class="bi bi-folder2-open"></i> Rattacher à un projet</div>
+      <div class="card-title"><i class="bi bi-folder2-open"></i> Rattacher à un dossier</div>
 
       {% if email.status == "classified" and email.project %}
         <div style="padding:0.75rem; background:rgba(34,197,94,.08); border-radius:var(--radius-md);
@@ -208,9 +208,9 @@
       <form method="post" action="{% url 'technique:mail_assign_project' email.pk %}">
         {% csrf_token %}
         <div style="margin-bottom:0.75rem;">
-          <label for="project_id" style="display:block; margin-bottom:0.35rem; font-size:0.9rem;">Projet</label>
+          <label for="project_id" style="display:block; margin-bottom:0.35rem; font-size:0.9rem;">Dossier</label>
           <select id="project_id" name="project_id" class="form-control">
-            <option value="">-- Sélectionner un projet --</option>
+            <option value="">-- Sélectionner un dossier --</option>
             {% for project in projects %}
               <option value="{{ project.id }}"
                 {% if email.project and email.project.id == project.id %}selected{% endif %}>
@@ -221,7 +221,7 @@
         </div>
         <button type="submit" class="btn btn-secondary" style="width:100%;">
           <i class="bi bi-check-lg"></i>
-          {% if email.status == "classified" %}Changer de projet{% else %}Rattacher{% endif %}
+          {% if email.status == "classified" %}Changer de dossier{% else %}Rattacher{% endif %}
         </button>
       </form>
     </div>
@@ -357,7 +357,7 @@ function showResult(conf, projectLabel, reason, saved, newStatus) {
       <div style="font-weight:600; color:${style.color}; margin-bottom:0.5rem;">
         ${style.label}
       </div>
-      ${projectLabel ? `<div style="margin-bottom:0.4rem;"><strong>Projet suggéré :</strong> ${projectLabel}</div>` : ''}
+      ${projectLabel ? `<div style="margin-bottom:0.4rem;"><strong>Dossier suggéré :</strong> ${projectLabel}</div>` : ''}
       ${reason       ? `<div style="font-size:0.88rem; color:var(--text-secondary);">${reason}</div>` : ''}
       ${savedMsg}
     </div>`;

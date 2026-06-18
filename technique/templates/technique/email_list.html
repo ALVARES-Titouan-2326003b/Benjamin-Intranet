@@ -8,7 +8,7 @@
   <div>
     <h2>Emails techniques</h2>
     <p style="margin:0.35rem 0 0; color:var(--text-secondary);">
-      Centralisez les échanges reçus et rattachez-les aux projets techniques.
+      Centralisez les échanges reçus et rattachez-les aux dossiers techniques.
     </p>
   </div>
   <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
@@ -41,7 +41,7 @@
     <div>
       <label for="q" style="display:block; margin-bottom:0.35rem;">Recherche</label>
       <input type="text" id="q" name="q" value="{{ q }}"
-             placeholder="Objet, expéditeur, projet…" class="form-control">
+             placeholder="Objet, expéditeur, dossier…" class="form-control">
     </div>
     <div>
       <label for="status_filter" style="display:block; margin-bottom:0.35rem;">Statut</label>
@@ -53,7 +53,7 @@
       </select>
     </div>
     <div>
-      <label for="project" style="display:block; margin-bottom:0.35rem;">Projet</label>
+      <label for="project" style="display:block; margin-bottom:0.35rem;">Dossier</label>
       <select id="project" name="project" class="form-control">
         <option value="">Tous</option>
         {% for project in projects %}
@@ -94,7 +94,7 @@
         <tr style="border-bottom:1px solid var(--border-color); text-align:left;">
           <th style="padding:0.85rem;">Objet</th>
           <th style="padding:0.85rem;">Expéditeur</th>
-          <th style="padding:0.85rem;">Projet</th>
+          <th style="padding:0.85rem;">Dossier</th>
           <th style="padding:0.85rem;">Statut</th>
           <th style="padding:0.85rem;">PJ</th>
           <th style="padding:0.85rem;">Réception</th>

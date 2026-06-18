@@ -317,7 +317,7 @@ def document_resume_pdf(request, pk):
     y -= 20
 
     write_line(f"Titre : {doc.titre}", size=11)
-    write_line(f"Projet : {doc.projet or '—'}", size=11)
+    write_line(f"Dossier : {doc.projet or '—'}", size=11)
     write_line(f"Type : {doc.get_type_document_display()}", size=11)
     y -= 10 
 
@@ -384,7 +384,7 @@ def documents_update(request, pk):
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def financial_overview(request):
     """
-    Affiche la liste des projets techniques
+    Affiche la liste des dossiers techniques
     avec recherche et filtres.
     """
     projects = TechnicalProject.objects.all()
@@ -431,7 +431,7 @@ def financial_overview(request):
                 target_label=project.reference,
                 after=_snapshot_project(project),
             )
-            messages.success(request, "Projet créé avec succès.")
+            messages.success(request, "Dossier créé avec succès.")
             return redirect("technique:technique_financial_overview")
     else:
         form = TechnicalProjectCreateForm()
@@ -459,7 +459,7 @@ def financial_project_detail(request, pk):
 
     Args:
         request (HttpRequest): Requête HTTP
-        pk (str): Identifiant du projet
+        pk (str): Identifiant du dossier
     """
     project = get_object_or_404(TechnicalProject, pk=pk)
     project.refresh_amounts_from_expenses()
@@ -667,7 +667,7 @@ def financial_project_pdf(request, pk):
 
     Args:
         request (HttpRequest): Requête HTTP
-        pk (str): Identifiant du projet
+        pk (str): Identifiant du dossier
     """
     project = get_object_or_404(TechnicalProject, pk=pk)
     project.refresh_amounts_from_expenses()
@@ -718,10 +718,10 @@ def financial_project_pdf(request, pk):
             y -= leading
 
     p.setFont("Helvetica-Bold", 14)
-    p.drawString(x_margin, y, f"Budget projet - {project.reference}")
+    p.drawString(x_margin, y, f"Budget dossier - {project.reference}")
     y -= 20
 
-    write_line(f"Projet : {project.name}", size=11)
+    write_line(f"Dossier : {project.name}", size=11)
     write_line(f"Type : {project.get_type_display()}", size=11)
     write_line(f"Budget estimé : {project.total_estimated} €", size=11)
     write_line(f"Frais engagés : {project.frais_engages} €", size=11)
@@ -731,7 +731,7 @@ def financial_project_pdf(request, pk):
     y -= 10
 
     p.setFont("Helvetica-Bold", 12)
-    p.drawString(x_margin, y, "Dépenses du projet")
+    p.drawString(x_margin, y, "Dépenses du dossier")
     y -= 18
 
     if expenses.exists():
@@ -762,7 +762,7 @@ def financial_project_csv(request, pk):
     response["Content-Disposition"] = f'attachment; filename="budget_{project.reference}.csv"'
 
     writer = csv.writer(response, delimiter=";")
-    writer.writerow(["Projet", project.name])
+    writer.writerow(["Dossier", project.name])
     writer.writerow(["Référence", project.reference])
     writer.writerow(["Type", project.get_type_display()])
     writer.writerow(["Budget estimé", project.total_estimated])
@@ -794,9 +794,9 @@ def financial_project_excel(request, pk):
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Budget projet"
+    ws.title = "Budget dossier"
 
-    ws.append(["Projet", project.name])
+    ws.append(["Dossier", project.name])
     ws.append(["Référence", project.reference])
     ws.append(["Type", project.get_type_display()])
     ws.append(["Budget estimé", float(project.total_estimated)])
@@ -901,12 +901,12 @@ def mail_assign_project(request, pk):
             if processing.get("launched"):
                 messages.success(
                     request,
-                    "Email rattaché au projet. Le traitement des pièces jointes a été lancé.",
+                    "Email rattaché au dossier. Le traitement des pièces jointes a été lancé.",
                 )
             else:
                 messages.warning(
                     request,
-                    "Email rattaché au projet, mais le traitement des pièces jointes "
+                    "Email rattaché au dossier, mais le traitement des pièces jointes "
                     f"n'a pas pu être lancé : {processing.get('error', 'aucune pièce jointe')}",
                 )
 
@@ -976,7 +976,7 @@ def email_detail(request, pk):
     - headers (expéditeur, destinataires, cc, date)
     - corps du message
     - pièces jointes téléchargeables
-    - formulaire de rattachement à un projet
+    - formulaire de rattachement à un dossier
     - documents techniques liés (via les pièces jointes)
     """
     email = get_object_or_404(
@@ -991,7 +991,7 @@ def email_detail(request, pk):
         "technique/email_detail.html",
         {
             "email": email,
-            # Liste des projets pour le sélecteur de rattachement
+            # Liste des dossiers pour le sélecteur de rattachement
             "projects": TechnicalProject.objects.order_by("reference"),
         },
     )
@@ -1137,14 +1137,14 @@ def email_ai_classify_bulk(request):
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def bulk_delete_projects(request):
     """
-    Vue pour supprimer plusieurs projets techniques en une seule action
+    Vue pour supprimer plusieurs dossiers techniques en une seule action
     """
     if request.method != "POST":
         return redirect("technique:technique_financial_overview")
 
     ids = request.POST.getlist("project_ids")
     if not ids:
-        messages.warning(request, "Aucun projet sélectionné.")
+        messages.warning(request, "Aucun dossier sélectionné.")
         return redirect("technique:technique_financial_overview")
 
     projects_to_delete = list(TechnicalProject.objects.filter(id__in=ids))
@@ -1160,7 +1160,7 @@ def bulk_delete_projects(request):
 
     TechnicalProject.objects.filter(id__in=[p.id for p in projects_to_delete]).delete()
     deleted_count = len(projects_to_delete)
-    messages.success(request, f"{deleted_count} projet(s) supprimé(s) avec succès.")
+    messages.success(request, f"{deleted_count} dossier(s) supprimé(s) avec succès.")
     return redirect("technique:technique_financial_overview")
 
 
@@ -1189,4 +1189,3 @@ def bulk_delete_documents(request):
         messages.error(request, f"Erreur lors de la suppression : {str(e)}")
     
     return redirect("technique:documents_list")
-

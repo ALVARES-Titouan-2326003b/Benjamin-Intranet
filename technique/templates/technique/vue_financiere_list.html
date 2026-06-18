@@ -10,17 +10,17 @@
     <div>
         <h2>Vue financière – Pôle technique</h2>
         <p style="color: var(--text-secondary); margin-top: 0.5rem;">
-            Suivi des budgets, frais engagés et paiements projet par projet.
+            Suivi des budgets, frais engagés et paiements dossier par dossier.
         </p>
     </div>
     <button class="btn btn-primary" id="showCreateFormBtn">
-        <i class="bi bi-plus-lg"></i> Créer un projet
+        <i class="bi bi-plus-lg"></i> Créer un dossier
     </button>
 </div>
 
 <!-- Formulaire Création (Hidden by default) -->
 <div class="card mb-4" id="createProjectForm" style="display: none; margin-bottom: 1.5rem;">
-    <div class="card-title">Créer un nouveau projet</div>
+    <div class="card-title">Créer un nouveau dossier</div>
     <form method="post">
         {% csrf_token %}
         <div
@@ -28,7 +28,7 @@
             {{ form.as_p }}
         </div>
         <div style="display: flex; justify-content: flex-end;">
-            <button type="submit" class="btn btn-primary">Créer le projet</button>
+            <button type="submit" class="btn btn-primary">Créer le dossier</button>
         </div>
     </form>
 </div>
@@ -40,7 +40,7 @@
           style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr; gap: 1rem; align-items: end;">
         <div>
             <label style="display:block; margin-bottom: .4rem; font-weight:500;">Recherche</label>
-            <input type="text" name="q" class="form-control" placeholder="Nom ou référence du projet..." value="{{ q }}">
+            <input type="text" name="q" class="form-control" placeholder="Nom ou référence du dossier..." value="{{ q }}">
         </div>
 
         <div>
@@ -81,9 +81,9 @@
 
 <div class="card">
     <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-        <span>Projets techniques</span>
+        <span>Dossiers techniques</span>
         <span class="badge" style="background: var(--bg-secondary); color: var(--text-secondary);">
-            {{ page_obj.paginator.count }} projet{% if page_obj.paginator.count > 1 %}s{% endif %}
+            {{ page_obj.paginator.count }} dossier{% if page_obj.paginator.count > 1 %}s{% endif %}
         </span>
     </div>
 
@@ -93,7 +93,7 @@
 
         <div style="margin-bottom: 1rem;">
             <button type="submit" class="btn btn-danger" id="deleteProjectsBtn" style="display: none;"
-                    onclick="return confirm('Êtes-vous sûr de vouloir supprimer les projets sélectionnés ? Cette action est irréversible.');">
+                    onclick="return confirm('Êtes-vous sûr de vouloir supprimer les dossiers sélectionnés ? Cette action est irréversible.');">
                 <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedProjectsCount">0</span>)
             </button>
         </div>
@@ -139,7 +139,7 @@
     {% else %}
     <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
         <i class="bi bi-folder-x" style="font-size: 2rem; display: block; margin-bottom: 1rem;"></i>
-        Aucun projet technique pour le moment.
+        Aucun dossier technique pour le moment.
     </div>
     {% endif %}
 </div>

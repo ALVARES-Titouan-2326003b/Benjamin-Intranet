@@ -10,7 +10,7 @@ class DocumentTechnique(models.Model):
     Modèle représentant un document du pôle technique
 
     Attributes:
-        projet (str): Projet de l'entreprise
+        projet (str): Dossier de l'entreprise
         titre (str): Titre du document
         type_document (str): Type de document
         fichier (FieldFile): Document PDF
@@ -32,7 +32,7 @@ class DocumentTechnique(models.Model):
         ("autre", "Autre"),
     ]
 
-    projet = models.CharField("Projet", max_length=255, blank=True)
+    projet = models.CharField("Dossier", max_length=255, blank=True)
     titre = models.CharField("Titre du document", max_length=255)
     type_document = models.CharField(
         "Type de document", max_length=50, choices=TYPE_CHOICES, default="autre",
@@ -56,20 +56,20 @@ class DocumentTechnique(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.titre} ({self.projet or 'Sans projet'})"
+        return f"{self.titre} ({self.projet or 'Sans dossier'})"
 
 
 class TechnicalProject(models.Model):
     """
-    Modèle représentant un projet du pôle technique
+    Modèle représentant un dossier du pôle technique
 
     Attributes:
-        reference (str): Reference du projet
-        name (str): Nom du projet
+        reference (str): Reference du dossier
+        name (str): Nom du dossier
         type (str): Type de dossier
         engaged_amount (Decimal): Frais engagés
         paid_amount (Decimal): Frais payés
-        total_estimated (Decimal): Total estimé du projet
+        total_estimated (Decimal): Total estimé du dossier
     """
     DOSSIER_TYPES = [
         ("marchands_de_bien", "Marchands de bien"),
@@ -77,15 +77,17 @@ class TechnicalProject(models.Model):
         ("patrimoine", "Patrimoine")
     ]
 
-    reference = models.CharField("Référence projet", max_length=50, unique=True, db_column="reference")
-    name = models.CharField("Nom du projet", max_length=255, db_column="nom")
+    reference = models.CharField("Référence dossier", max_length=50, unique=True, db_column="reference")
+    name = models.CharField("Nom du dossier", max_length=255, db_column="nom")
     type = models.TextField(choices=DOSSIER_TYPES, default="marchands_de_bien")
     engaged_amount = models.DecimalField("Frais engagés", max_digits=12, decimal_places=2, default=0, db_column="frais_eng")
     paid_amount = models.DecimalField("Frais déjà payés", max_digits=12, decimal_places=2, default=0, db_column="frais_payes")
-    total_estimated = models.DecimalField("Total estimé du projet", max_digits=12, decimal_places=2, default=0, db_column="total_estim")
+    total_estimated = models.DecimalField("Total estimé du dossier", max_digits=12, decimal_places=2, default=0, db_column="total_estim")
 
     class Meta:
         db_table = "dossier"
+        verbose_name = "Dossier technique"
+        verbose_name_plural = "Dossiers techniques"
 
     def __str__(self):
         return f"{self.reference} - {self.name}"
@@ -117,7 +119,7 @@ class TechnicalProject(models.Model):
 
 
 class ProjectExpense(models.Model):
-    project = models.ForeignKey(TechnicalProject, related_name="expenses", on_delete=models.CASCADE, verbose_name="Projet")
+    project = models.ForeignKey(TechnicalProject, related_name="expenses", on_delete=models.CASCADE, verbose_name="Dossier")
     facture = models.OneToOneField(
         "invoices.Facture",
         null=True,
@@ -134,8 +136,8 @@ class ProjectExpense(models.Model):
 
     class Meta:
         db_table = "depense_projet"
-        verbose_name = "Frais projet"
-        verbose_name_plural = "Frais projets"
+        verbose_name = "Frais dossier"
+        verbose_name_plural = "Frais dossiers"
         ordering = ["due_date", "id"]
 
     def __str__(self):
@@ -153,12 +155,12 @@ class ProjectExpense(models.Model):
 
 class TechnicalProjectHistory(models.Model):
     ACTION_CHOICES = [
-        ("project_created", "Projet créé"),
+        ("project_created", "Dossier créé"),
         ("budget_updated", "Budget modifié"),
         ("expense_created", "Dépense créée"),
         ("expense_updated", "Dépense modifiée"),
         ("expense_deleted", "Dépense supprimée"),
-        ("project_deleted", "Projet supprimé"),
+        ("project_deleted", "Dossier supprimé"),
     ]
 
     project = models.ForeignKey(
@@ -167,10 +169,10 @@ class TechnicalProjectHistory(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="history",
-        verbose_name="Projet",
+        verbose_name="Dossier",
     )
-    project_reference = models.CharField("Référence projet", max_length=50, blank=True)
-    project_name = models.CharField("Nom du projet", max_length=255, blank=True)
+    project_reference = models.CharField("Référence dossier", max_length=50, blank=True)
+    project_name = models.CharField("Nom du dossier", max_length=255, blank=True)
     user = models.ForeignKey(
         User,
         null=True,
@@ -189,11 +191,11 @@ class TechnicalProjectHistory(models.Model):
     class Meta:
         db_table = "historique_projet_technique"
         ordering = ["-created_at", "-id"]
-        verbose_name = "Historique projet technique"
-        verbose_name_plural = "Historiques projets techniques"
+        verbose_name = "Historique dossier technique"
+        verbose_name_plural = "Historiques dossiers techniques"
 
     def __str__(self):
-        project_label = self.project_reference or "Projet supprimé"
+        project_label = self.project_reference or "Dossier supprimé"
         return f"{project_label} - {self.get_action_display()}"
 
 
@@ -227,7 +229,7 @@ class TechnicalEmail(models.Model):
     has_attachments = models.BooleanField("Pièces jointes", default=False)
     project = models.ForeignKey(
         TechnicalProject, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="emails", verbose_name="Projet associé",
+        related_name="emails", verbose_name="Dossier associé",
     )
     status = models.CharField(
         "Statut de classement", max_length=20, choices=STATUS_CHOICES, default="unassigned",
