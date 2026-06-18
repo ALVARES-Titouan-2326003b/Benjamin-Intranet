@@ -38,14 +38,31 @@
 </div>
 
 {% if can_manage_manual_reminders %}
-<div style="margin-bottom: 1.5rem;">
+<div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-title">Relances Gmail après échéance</div>
+    <form method="post" action="{% url 'invoices:reminder_settings' %}"
+        style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1rem;">
+        {% csrf_token %}
+        <div class="form-group" style="margin:0;min-width:280px;flex:1;">
+            <label class="form-label">Compte Gmail expéditeur</label>
+            <select name="sender_id" class="form-control" required>
+                <option value="">-- Sélectionner --</option>
+                {% for sender in gmail_senders %}
+                <option value="{{ sender.pk }}" {% if reminder_settings.sender_id == sender.pk %}selected{% endif %}>
+                    {{ sender.get_full_name|default:sender.username }} — {{ sender.email }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-secondary">Enregistrer l'expéditeur</button>
+    </form>
     <form method="post" action="{% url 'invoices:manual_reminders' %}"
         style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
         {% csrf_token %}
 
         <div class="form-group" style="margin: 0; flex: 0 0 200px;">
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 0.5rem;">
-                Delai relance (jours)
+                Intervalle après échéance (jours)
             </label>
             <input type="number" name="delai_relance" value="1" min="1" class="form-control" style="font-weight: 600;"
                 required>
@@ -59,7 +76,7 @@
     </form>
 
     <small style="display: block; margin-top: 0.5rem; color: var(--text-secondary); font-style: italic;">
-        Le delai sera applique a tous les fournisseurs
+        Première relance à J+X, puis tous les X jours. L'envoi utilise le compte Gmail désigné.
     </small>
 </div>
 {% endif %}

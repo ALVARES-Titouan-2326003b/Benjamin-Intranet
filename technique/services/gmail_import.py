@@ -19,14 +19,21 @@ def import_technique_emails(user, max_results: int = 50) -> dict:
     pour deux utilisateurs différents sans conflit.
     """
     try:
-        OAuthToken.objects.get(user=user)
+        OAuthToken.objects.get(user=user, provider="google")
     except OAuthToken.DoesNotExist:
         raise ValueError(
             f"L'utilisateur {user.username} n'a pas synchronisé sa boîte mail. "
             "Cliquez sur « Synchroniser boîte mail » pour autoriser l'accès."
         )
 
-    stats = {"imported": 0, "skipped": 0, "errors": 0}
+    stats = {
+        "imported": 0,
+        "skipped": 0,
+        "errors": 0,
+        "attachments_imported": 0,
+        "attachment_errors": 0,
+        "attachment_processing_launched": 0,
+    }
 
     try:
         service = get_gmail_service(user)
@@ -60,7 +67,14 @@ def import_technique_emails(user, max_results: int = 50) -> dict:
                 email_obj = _create_technical_email(msg_data, user)
 
                 if email_obj:
-                    _process_attachments(service, gmail_id, msg_data, email_obj)
+                    attachment_stats = _process_attachments(
+                        service,
+                        gmail_id,
+                        msg_data,
+                        email_obj,
+                    )
+                    stats["attachments_imported"] += attachment_stats["imported"]
+                    stats["attachment_errors"] += attachment_stats["errors"]
                     stats["imported"] += 1
                 else:
                     stats["skipped"] += 1
@@ -107,6 +121,7 @@ def _create_technical_email(msg_data: dict, user) -> TechnicalEmail | None:
 
     return TechnicalEmail.objects.create(
         external_id=gmail_id,
+        thread_id=msg_data.get("threadId", ""),
         subject=subject,
         sender=sender,
         recipients=recipients,
@@ -165,10 +180,18 @@ def _has_attachments(payload: dict) -> bool:
 
 def _process_attachments(service, gmail_id: str, msg_data: dict, email_obj: TechnicalEmail):
     payload = msg_data.get("payload", {})
-    _process_parts(service, gmail_id, payload.get("parts", []), email_obj)
+    stats = {"imported": 0, "errors": 0}
+    _process_parts(service, gmail_id, payload.get("parts", []), email_obj, stats)
+    return stats
 
 
-def _process_parts(service, gmail_id: str, parts: list, email_obj: TechnicalEmail):
+def _process_parts(
+    service,
+    gmail_id: str,
+    parts: list,
+    email_obj: TechnicalEmail,
+    stats: dict,
+):
     for part in parts:
         filename      = part.get("filename", "")
         attachment_id = part.get("body", {}).get("attachmentId")
@@ -193,9 +216,11 @@ def _process_parts(service, gmail_id: str, parts: list, email_obj: TechnicalEmai
                 )
                 attachment.file.save(filename, ContentFile(file_data), save=True)
                 print(f"[gmail_import] PJ sauvegardée : {filename}")
+                stats["imported"] += 1
 
             except Exception as exc:
                 print(f"[gmail_import] Erreur PJ {filename} : {exc}")
+                stats["errors"] += 1
 
         if part.get("parts"):
-            _process_parts(service, gmail_id, part["parts"], email_obj)
+            _process_parts(service, gmail_id, part["parts"], email_obj, stats)

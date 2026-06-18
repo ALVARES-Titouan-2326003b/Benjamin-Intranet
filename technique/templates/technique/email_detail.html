@@ -134,6 +134,18 @@
                 </div>
                 <div style="font-size:0.8rem; color:var(--text-secondary);">
                   {{ attachment.content_type|default:"Inconnu" }}
+                  &nbsp;·&nbsp;
+                  {% if attachment.processing_status == "linked" %}
+                    <span style="color:#15803d;"><i class="bi bi-check-circle"></i> Document créé</span>
+                  {% elif attachment.processing_status == "processing" %}
+                    <span style="color:#0369a1;"><i class="bi bi-hourglass-split"></i> Traitement en cours</span>
+                  {% elif attachment.processing_status == "skipped" %}
+                    <span style="color:#64748b;"><i class="bi bi-skip-forward"></i> Ignoré</span>
+                  {% elif attachment.processing_status == "error" %}
+                    <span style="color:#dc2626;"><i class="bi bi-exclamation-circle"></i> Erreur</span>
+                  {% else %}
+                    <span style="color:#b45309;"><i class="bi bi-clock"></i> En attente</span>
+                  {% endif %}
                   {% if attachment.linked_document %}
                     &nbsp;·&nbsp;
                     <span style="color:#22c55e;">
@@ -144,6 +156,11 @@
                     </span>
                   {% endif %}
                 </div>
+                {% if attachment.processing_error %}
+                <div style="font-size:.78rem;color:#dc2626;margin-top:.2rem;">
+                  {{ attachment.processing_error }}
+                </div>
+                {% endif %}
               </div>
             </div>
             <a href="{{ attachment.file.url }}" target="_blank" class="btn btn-secondary"
@@ -304,6 +321,13 @@ async function classifyEmail() {
     // Si classé ou mis en attente, met à jour le badge de statut en haut de page
     if (data.saved) {
       refreshStatusBadge(data.status);
+    }
+    if (data.attachment_processing && data.attachment_processing.launched) {
+      const count = data.attachment_processing.attachments || 0;
+      result.insertAdjacentHTML(
+        'beforeend',
+        `<div style="margin-top:.5rem;color:#0369a1;">Traitement lancé pour ${count} pièce(s) jointe(s).</div>`,
+      );
     }
 
   } catch (err) {

@@ -973,7 +973,7 @@
             client:      document.getElementById('activity-client').value.trim(),
             contact_externe: document.getElementById('activity-contact-externe').value.trim(),
             commentaire: document.getElementById('activity-commentaire').value.trim(),
-            sync_outlook: document.getElementById('activity-sync-outlook').checked
+            sync_outlook: document.getElementById('activity-sync-outlook')?.checked || false
         };
 
         if (!formData.dossier || !formData.type || !formData.date) {

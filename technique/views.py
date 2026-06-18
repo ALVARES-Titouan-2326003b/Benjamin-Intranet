@@ -892,10 +892,23 @@ def mail_assign_project(request, pk):
     if request.method == "POST":
         project_id = request.POST.get("project_id")
         if project_id:
-            email.project_id = project_id
+            project = get_object_or_404(TechnicalProject, pk=project_id)
+            email.project = project
             email.status = "classified"
             email.save(update_fields=["project", "status"])
-            messages.success(request, "Email rattaché au projet avec succès.")
+            from technique.tasks import enqueue_email_attachment_processing
+            processing = enqueue_email_attachment_processing(email)
+            if processing.get("launched"):
+                messages.success(
+                    request,
+                    "Email rattaché au projet. Le traitement des pièces jointes a été lancé.",
+                )
+            else:
+                messages.warning(
+                    request,
+                    "Email rattaché au projet, mais le traitement des pièces jointes "
+                    f"n'a pas pu être lancé : {processing.get('error', 'aucune pièce jointe')}",
+                )
 
     return redirect("technique:mail_detail", pk=email.pk)
 
@@ -927,7 +940,8 @@ def email_import_gmail(request):
         message = (
             f"{stats['imported']} email(s) importé(s), "
             f"{stats['skipped']} déjà présent(s), "
-            f"{stats['errors']} erreur(s)."
+            f"{stats['errors']} erreur(s), "
+            f"{stats['attachments_imported']} pièce(s) jointe(s) enregistrée(s)."
         )
 
         return JsonResponse({
@@ -935,6 +949,9 @@ def email_import_gmail(request):
             "imported": stats["imported"],
             "skipped": stats["skipped"],
             "errors": stats["errors"],
+            "attachments_imported": stats["attachments_imported"],
+            "attachment_errors": stats["attachment_errors"],
+            "attachment_processing_launched": stats["attachment_processing_launched"],
             "message": message,
         })
 
@@ -999,6 +1016,11 @@ def email_ai_classify(request, pk):
 
     # sleep=0 : pas de pause pour un email individuel (l'utilisateur attend la reponse)
     result = classify_and_save(email, projects, sleep=0)
+    processing = {"launched": False, "attachments": 0, "task_id": ""}
+    email.refresh_from_db(fields=["status", "project"])
+    if result.get("saved") and email.status == "classified" and email.project_id:
+        from technique.tasks import enqueue_email_attachment_processing
+        processing = enqueue_email_attachment_processing(email)
 
     project_label = None
     if result.get("project_id"):
@@ -1017,6 +1039,7 @@ def email_ai_classify(request, pk):
         "saved": result.get("saved", False),
         "status": email.status,
         "error": result.get("error"),
+        "attachment_processing": processing,
     })
 
 
@@ -1044,7 +1067,13 @@ def email_ai_classify_bulk(request):
     ).order_by("-received_at")
     projects = list(TechnicalProject.objects.order_by("reference"))
 
-    stats = {"classified": 0, "pending": 0, "skipped": 0, "errors": 0}
+    stats = {
+        "classified": 0,
+        "pending": 0,
+        "skipped": 0,
+        "errors": 0,
+        "attachment_processing_launched": 0,
+    }
     total = emails.count()
 
     print(f"[bulk_classify] Debut classement de {total} email(s) non classes (pause={BULK_SLEEP}s entre chaque)")
@@ -1062,6 +1091,13 @@ def email_ai_classify_bulk(request):
                 email.refresh_from_db(fields=["status"])
                 if email.status == "classified":
                     stats["classified"] += 1
+                    from technique.tasks import enqueue_email_attachment_processing
+                    processing = enqueue_email_attachment_processing(email)
+                    if processing.get("launched"):
+                        stats["attachment_processing_launched"] += processing.get(
+                            "attachments",
+                            0,
+                        )
                 else:
                     stats["pending"] += 1
             else:
@@ -1086,6 +1122,7 @@ def email_ai_classify_bulk(request):
         "skipped": stats["skipped"],
         "errors": stats["errors"],
         "total": processed,
+        "attachment_processing_launched": stats["attachment_processing_launched"],
         "message": (
             f"{stats['classified']} classé(s) automatiquement, "
             f"{stats['pending']} à valider, "
@@ -1152,5 +1189,4 @@ def bulk_delete_documents(request):
         messages.error(request, f"Erreur lors de la suppression : {str(e)}")
     
     return redirect("technique:documents_list")
-
 

@@ -14,8 +14,10 @@ from invoices.models import (
     Facture,
     FactureHistorique,
     Fournisseur,
+    InvoiceReminderSettings,
     RelanceFournisseur,
 )
+from management.models import OAuthToken
 from invoices.services.cegid import build_cegid_line, generate_cegid_export
 from invoices.services.quality import get_invoice_anomalies
 from invoices.tasks import check_and_send_invoice_reminders
@@ -65,6 +67,18 @@ def invoice(db, project, supplier, client_entity):
     )
 
 
+def configure_gmail_sender(user):
+    OAuthToken.objects.create(
+        user=user,
+        provider="google",
+        email=user.email,
+        access_token="access",
+        refresh_token="refresh",
+        token_expiry=timezone.now() + timedelta(hours=1),
+    )
+    InvoiceReminderSettings.objects.create(sender=user)
+
+
 @pytest.mark.django_db
 def test_cegid_line_is_ascii_and_deterministic(invoice):
     line = build_cegid_line(invoice)
@@ -97,12 +111,18 @@ def test_invoice_anomalies_detect_missing_amount_and_overdue(invoice):
 
 
 @pytest.mark.django_db
-def test_invoice_reminder_sends_once_per_day(invoice, supplier):
+def test_invoice_reminder_sends_once_per_day(invoice, supplier, finance_user):
+    configure_gmail_sender(finance_user)
+    invoice.echeance = timezone.now() - timedelta(days=4)
+    invoice.save(update_fields=["echeance"])
     RelanceFournisseur.objects.create(id="default", message="Facture {facture_id}", temps=3)
     contact = Contact.objects.create(id="CONTACT-1", acteur=supplier.id, nom="Contact")
     EmailFournisseur.objects.create(contact=contact, email="supplier@example.com")
 
-    with patch("invoices.tasks.EmailMessage.send", return_value=1):
+    with patch(
+        "invoices.tasks.send_message",
+        return_value={"success": True, "message_id": "gmail-finance"},
+    ):
         first = check_and_send_invoice_reminders()
         second = check_and_send_invoice_reminders()
 
@@ -112,7 +132,10 @@ def test_invoice_reminder_sends_once_per_day(invoice, supplier):
 
 
 @pytest.mark.django_db
-def test_invoice_reminder_records_missing_supplier_email(invoice):
+def test_invoice_reminder_records_missing_supplier_email(invoice, finance_user):
+    configure_gmail_sender(finance_user)
+    invoice.echeance = timezone.now() - timedelta(days=4)
+    invoice.save(update_fields=["echeance"])
     RelanceFournisseur.objects.create(id="default", message="Facture {facture_id}", temps=3)
 
     result = check_and_send_invoice_reminders()

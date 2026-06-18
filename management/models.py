@@ -301,3 +301,80 @@ class OAuthToken(models.Model):
         """Vérifie si l'access_token est expiré"""
         from django.utils import timezone
         return timezone.now() >= self.token_expiry
+
+
+class GmailConversation(models.Model):
+    STATUS_CHOICES = [
+        ("open", "Ouvert"),
+        ("reminded", "Relancé"),
+        ("replied", "Répondu"),
+    ]
+
+    owner = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.CASCADE,
+        related_name="gmail_conversations",
+    )
+    thread_id = models.CharField(max_length=255)
+    initial_message_id = models.CharField(max_length=255, blank=True, default="")
+    last_message_id = models.CharField(max_length=255, blank=True, default="")
+    subject = models.CharField(max_length=500, blank=True, default="")
+    recipient = models.EmailField(blank=True, default="")
+    preview = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
+    sent_at = models.DateTimeField(null=True, blank=True)
+    last_reminded_at = models.DateTimeField(null=True, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    replied_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "gmail_conversation"
+        ordering = ["-sent_at", "-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "thread_id"],
+                name="uniq_gmail_conversation_owner_thread",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.subject or '(Sans objet)'} - {self.get_status_display()}"
+
+
+class GmailConversationEvent(models.Model):
+    EVENT_CHOICES = [
+        ("synced", "Synchronisation"),
+        ("reminder_sent", "Relance envoyée"),
+        ("status_changed", "Statut modifié"),
+        ("reply_detected", "Réponse détectée"),
+        ("note", "Note"),
+        ("error", "Erreur"),
+    ]
+
+    conversation = models.ForeignKey(
+        GmailConversation,
+        on_delete=models.CASCADE,
+        related_name="events",
+    )
+    event_type = models.CharField(max_length=30, choices=EVENT_CHOICES)
+    user = models.ForeignKey(
+        Utilisateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="gmail_conversation_events",
+    )
+    old_status = models.CharField(max_length=20, blank=True, default="")
+    new_status = models.CharField(max_length=20, blank=True, default="")
+    note = models.TextField(blank=True, default="")
+    external_message_id = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "gmail_conversation_event"
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.conversation_id} - {self.get_event_type_display()}"

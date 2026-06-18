@@ -1,7 +1,14 @@
 
 from django.contrib import admin
 
-from .models import Activite, AdministrativeProject, HistoriqueRappelActivite, NotificationInterne
+from .models import (
+    Activite,
+    AdministrativeProject,
+    HistoriqueRappelActivite,
+    NotificationInterne,
+    GmailConversation,
+    GmailConversationEvent,
+)
 
 
 @admin.register(AdministrativeProject)
@@ -30,3 +37,27 @@ class NotificationInterneAdmin(admin.ModelAdmin):
     list_display = ("titre", "user", "activite", "is_read", "created_at")
     list_filter = ("is_read", "created_at")
     search_fields = ("titre", "message", "user__username")
+
+
+@admin.register(GmailConversation)
+class GmailConversationAdmin(admin.ModelAdmin):
+    list_display = ("subject", "owner", "recipient", "status", "sent_at", "last_synced_at")
+    list_filter = ("status", "sent_at")
+    search_fields = ("subject", "recipient", "thread_id")
+
+
+@admin.register(GmailConversationEvent)
+class GmailConversationEventAdmin(admin.ModelAdmin):
+    list_display = ("conversation", "event_type", "user", "created_at")
+    list_filter = ("event_type", "created_at")
+    search_fields = ("conversation__subject", "note", "external_message_id")
+    readonly_fields = (
+        "conversation",
+        "event_type",
+        "user",
+        "old_status",
+        "new_status",
+        "note",
+        "external_message_id",
+        "created_at",
+    )

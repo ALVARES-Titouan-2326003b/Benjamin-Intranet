@@ -12,6 +12,9 @@ from .views import (
     create_project_view,
     update_project_view,
     delete_project_view,
+    sync_gmail_journal_view,
+    update_gmail_conversation_status,
+    add_gmail_conversation_note,
 )
 
 app_name = 'management'
@@ -22,6 +25,9 @@ urlpatterns = [
 
     path('api/send-reply/', send_reply_view, name='send_reply'),
     path('api/generate-message/', generate_auto_message_view, name='generate_message'),
+    path('api/gmail-journal/sync/', sync_gmail_journal_view, name='gmail_journal_sync'),
+    path('api/gmail-journal/<int:conversation_id>/status/', update_gmail_conversation_status, name='gmail_journal_status'),
+    path('api/gmail-journal/<int:conversation_id>/notes/', add_gmail_conversation_note, name='gmail_journal_note'),
     path('api/calendar-activities/', get_calendar_activities, name='calendar_activities'),
     path('api/delete-activity/', delete_activity_view, name='delete_activity'),
     path('api/create-activity/', create_activity_view, name='create_activity'),

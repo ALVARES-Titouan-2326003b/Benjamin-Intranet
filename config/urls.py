@@ -8,6 +8,7 @@ from django.views.generic import RedirectView
 from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities, \
     create_activity_view, delete_activity_view, get_calendar_activities_week, update_activity_view, \
     mark_notification_read_view, admin_projects_view, create_project_view, update_project_view, delete_project_view
+from management.views import sync_gmail_journal_view, update_gmail_conversation_status, add_gmail_conversation_note
 from technique import views as technique_views
 from home.views import dashboard_view, global_search
 
@@ -26,6 +27,9 @@ urlpatterns = [
     path('api/send-reply/', send_reply_view, name='send_reply'),
     # API pour la génération automatique de messages
     path('api/generate-message/', generate_auto_message_view, name='generate_message'),
+    path('api/gmail-journal/sync/', sync_gmail_journal_view, name='gmail_journal_sync'),
+    path('api/gmail-journal/<int:conversation_id>/status/', update_gmail_conversation_status, name='gmail_journal_status'),
+    path('api/gmail-journal/<int:conversation_id>/notes/', add_gmail_conversation_note, name='gmail_journal_note'),
     # API pour le calendrier
     path('api/calendar-activities/', get_calendar_activities, name='calendar_activities'),
     #API pour l'ajout d'activité

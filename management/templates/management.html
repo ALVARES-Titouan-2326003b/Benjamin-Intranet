@@ -81,49 +81,54 @@
       </div>
    </div>
 
-   <!-- Card Relance automatique -->
+   <!-- Journal des relances Gmail -->
    <div class="card" style="height: 100%; display: flex; flex-direction: column;">
-      <div class="card-title">Relance automatique</div>
+      <div class="card-title">
+         <span><i class="bi bi-google"></i> Journal des relances Gmail</span>
+         <button type="button" id="sync-gmail-journal-btn" class="btn btn-secondary" style="white-space:nowrap;">
+            <i class="bi bi-arrow-repeat"></i> Synchroniser
+         </button>
+      </div>
 
-      <!-- Menu déroulant pour sélectionner un email -->
-       <div class="reply-selector" style="margin-bottom: 1rem;">
-           <label for="email-select" class="form-label">Répondre à un email :</label>
-           <input
-              type="text"
-              id="email-select"
-              list="email-datalist"
-              class="form-control"
-              placeholder="-- Sélectionner ou taper pour rechercher --"
-              autocomplete="off"
-           >
-<datalist id="email-datalist">
-   {% for email in emails %}
-   {% if email.status == 'pending' %}
-   <option value="{{ email.subject|default:'(Sans objet)' }} ({{ email.date|date:'d/m/Y H:i' }})"></option>
-   {% endif %}
-   {% endfor %}
-</datalist>
-<small id="email-error" style="color: var(--danger); display: none; margin-top: 0.5rem;">
-   ⚠️ Cet email n'existe pas dans la liste
-</small>
-</div>
+      <div id="gmail-sync-status" style="margin-bottom:1rem;color:var(--text-secondary);font-size:.85rem;">
+         {% if last_journal_sync %}
+         Dernière synchronisation : {{ last_journal_sync|date:"d/m/Y H:i" }}
+         {% else %}
+         Journal pas encore synchronisé.
+         {% endif %}
+      </div>
 
-<!-- Script pour injecter les données emails en JavaScript -->
-<script id="emails-data" type="application/json">
-{
-   {% for email in emails %}
-   {% if email.status == 'pending' %}
-   "{{ email.subject|default:'(Sans objet)' }} ({{ email.date|date:'d/m/Y H:i' }})": {
-      "id": "{{ email.id }}",
-      "to": "{{ email.to }}",
-      "subject": "{{ email.subject|default:'(Sans objet)' }}"
-   }{% if not forloop.last %},{% endif %}
-   {% endif %}
-   {% endfor %}
-}
-</script>
+      <form method="get" style="display:grid;grid-template-columns:1fr minmax(130px,.45fr) auto;gap:.5rem;margin-bottom:1rem;">
+         <input type="search" name="journal_q" value="{{ journal_q }}" class="form-control"
+                placeholder="Sujet, destinataire, aperçu">
+         <select name="journal_status" class="form-control">
+            <option value="">Tous les statuts</option>
+            {% for value, label in journal_status_choices %}
+            <option value="{{ value }}" {% if journal_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+         </select>
+         <button type="submit" class="btn btn-secondary"><i class="bi bi-funnel"></i> Filtrer</button>
+      </form>
 
-      <!-- Formulaire de réponse (caché par défaut) -->
+      <div class="reply-selector" style="margin-bottom: 1rem;">
+         <label for="email-select" class="form-label">Relancer une conversation :</label>
+         <input type="text" id="email-select" list="email-datalist" class="form-control"
+                placeholder="Sélectionner ou rechercher une conversation" autocomplete="off">
+         <datalist id="email-datalist">
+            {% for conversation in conversations %}
+               {% if conversation.status != "replied" %}
+               <option value="{{ conversation.subject|default:'(Sans objet)' }} — {{ conversation.recipient }} [{{ conversation.pk }}]"
+                       data-id="{{ conversation.pk }}"
+                       data-to="{{ conversation.recipient }}"
+                       data-subject="{{ conversation.subject|default:'(Sans objet)' }}"></option>
+               {% endif %}
+            {% endfor %}
+         </datalist>
+         <small id="email-error" style="color: var(--danger); display: none; margin-top: 0.5rem;">
+            Cette conversation n'existe pas dans la liste.
+         </small>
+      </div>
+
       <div id="reply-form"
          style="display: none; background: #f8fafc; border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--border-light);">
          <div class="reply-info" style="margin-bottom: 1rem; font-size: 0.9rem;">
@@ -141,33 +146,56 @@
             placeholder="Écrivez votre message ici..."></textarea>
 
          <button onclick="sendReply()" class="btn btn-success send-btn"
-            style="width: 100%; justify-content: center;">Envoyer
-            📨</button>
+            style="width: 100%; justify-content: center;">Envoyer via Gmail</button>
 
          <div id="reply-status" style="display: none; margin-top: 1rem;"></div>
       </div>
 
-      {% if emails %}
+      {% if conversations %}
       <div class="emails-list" style="flex: 1; overflow-y: auto; padding-right: 5px;">
-         {% for email in emails %}
-         <div class="email-item {% if email.status == 'replied' %}email-replied{% endif %}"
-            style="border: 1px solid #e2e8f0; border-left-width: 4px;">
+         {% for conversation in conversations %}
+         <div class="email-item {% if conversation.status == 'replied' %}email-replied{% endif %}"
+              data-conversation-id="{{ conversation.pk }}"
+              style="border:1px solid #e2e8f0;border-left-width:4px;margin-bottom:.75rem;">
             <div class="email-header">
                <div>
-                  <span class="status-badge" style="background: #e2e8f0;"
-                  >{{ email.status_emoji }} {{ email.status_text }}</span>
-                  <strong style="display: block; margin-top: 4px;">{{ email.subject|default:"(Sans objet)" }}</strong>
+                  <select class="form-control gmail-status-select"
+                          data-conversation-id="{{ conversation.pk }}"
+                          {% if conversation.status == "replied" %}disabled{% endif %}
+                          style="padding:.25rem .45rem;font-size:.8rem;width:auto;">
+                     {% for value, label in journal_status_choices %}
+                     <option value="{{ value }}" {% if conversation.status == value %}selected{% endif %}>{{ label }}</option>
+                     {% endfor %}
+                  </select>
+                  <strong style="display:block;margin-top:6px;">{{ conversation.subject|default:"(Sans objet)" }}</strong>
                </div>
-               <span class="email-date" style="font-size: 0.8rem;">{{ email.date|date:"d/m/Y H:i" }}</span>
+               <span class="email-date" style="font-size:.8rem;">{{ conversation.sent_at|date:"d/m/Y H:i" }}</span>
             </div>
-            <div class="email-from">A: {{ email.to }}</div>
-            <div class="email-preview">{{ email.body_text|truncatewords:20 }}</div>
+            <div class="email-from">À : {{ conversation.recipient|default:"Destinataire inconnu" }}</div>
+            <div class="email-preview">{{ conversation.preview|default:"Aucun aperçu"|truncatewords:24 }}</div>
+
+            <div style="display:flex;gap:.4rem;margin-top:.65rem;">
+               <input type="text" class="form-control gmail-note-input"
+                      data-conversation-id="{{ conversation.pk }}" placeholder="Ajouter une note horodatée">
+               <button type="button" class="btn btn-secondary gmail-note-btn"
+                       data-conversation-id="{{ conversation.pk }}">Note</button>
+            </div>
+            <div class="gmail-events" style="margin-top:.5rem;font-size:.78rem;color:var(--text-secondary);">
+               {% for event in conversation.events.all|slice:":4" %}
+               <div>
+                  {{ event.created_at|date:"d/m/Y H:i" }} · {{ event.get_event_type_display }}
+                  {% if event.note %} — {{ event.note|truncatewords:14 }}{% endif %}
+               </div>
+               {% empty %}
+               <div>Aucun événement enregistré.</div>
+               {% endfor %}
+            </div>
          </div>
          {% endfor %}
       </div>
       {% else %}
       <p style="color: var(--text-secondary); text-align: center; margin-top: 2rem;">
-         Aucun email pour le moment.
+         Aucune conversation Gmail dans le journal.
       </p>
       {% endif %}
    </div>
@@ -271,11 +299,6 @@
             <label class="form-label">Commentaire</label>
             <textarea id="activity-commentaire" name="commentaire" class="form-control"
                       rows="3" placeholder="Informations complémentaires…"></textarea>
-         </div>
-
-         <div class="form-group" style="display:flex;align-items:center;gap:.5rem;">
-            <input type="checkbox" id="activity-sync-outlook" name="sync_outlook">
-            <label class="form-label" for="activity-sync-outlook" style="margin:0;">Ajouter à Outlook</label>
          </div>
 
          <!-- Status -->
@@ -409,7 +432,7 @@ document.addEventListener('click', async function(event) {
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static '/js/mails.js' %}?v=4"></script>
+<script src="{% static '/js/mails.js' %}?v=5"></script>
 <script src="{% static '/js/calendar.js' %}?v=5"></script>
 <script src="{% static '/js/oauth_status.js' %}?v=4"></script>
 {% endblock %}

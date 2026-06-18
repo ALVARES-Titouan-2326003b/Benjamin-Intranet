@@ -1,261 +1,241 @@
-/**
- * ============================================
- * GESTION DES EMAILS - RELANCES AUTOMATIQUES
- * ============================================
- */
+let conversationsData = {};
 
-// ============================================
-// CHARGEMENT DES DONNÉES
-// ============================================
-
-let emailsData = {};
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Charger les données emails depuis le script JSON
-    const emailsScript = document.getElementById('emails-data');
-    if (emailsScript) {
-        try {
-            emailsData = JSON.parse(emailsScript.textContent);
-            console.log('📧 Emails chargés:', Object.keys(emailsData).length);
-        } catch (e) {
-            console.error('Erreur chargement emails:', e);
-        }
+document.addEventListener('DOMContentLoaded', () => {
+    const datalist = document.getElementById('email-datalist');
+    if (datalist) {
+        datalist.querySelectorAll('option').forEach(option => {
+            conversationsData[option.value] = {
+                id: option.dataset.id,
+                to: option.dataset.to,
+                subject: option.dataset.subject,
+            };
+        });
     }
 
-    // Attacher l'événement sur le champ email-select
-    const emailInput = document.getElementById('email-select');
-    if (emailInput) {
-        emailInput.addEventListener('input', showReplyForm);
-        emailInput.addEventListener('change', showReplyForm);
-    }
+    const input = document.getElementById('email-select');
+    input?.addEventListener('input', showReplyForm);
+    input?.addEventListener('change', showReplyForm);
+
+    document.querySelectorAll('.gmail-status-select').forEach(select => {
+        select.dataset.previous = select.value;
+        select.addEventListener('change', updateConversationStatus);
+    });
+    document.querySelectorAll('.gmail-note-btn').forEach(button => {
+        button.addEventListener('click', addConversationNote);
+    });
+
+    document
+        .getElementById('sync-gmail-journal-btn')
+        ?.addEventListener('click', syncGmailJournal);
 });
 
-// ============================================
-// AFFICHAGE DU FORMULAIRE
-// ============================================
+function selectedConversation() {
+    const value = document.getElementById('email-select')?.value.trim();
+    return value ? conversationsData[value] : null;
+}
 
-/**
- * Affiche le formulaire de réponse si l'email sélectionné est valide
- */
 function showReplyForm() {
     const input = document.getElementById('email-select');
     const form = document.getElementById('reply-form');
-    const status = document.getElementById('reply-status');
-    const errorMsg = document.getElementById('email-error');
+    const error = document.getElementById('email-error');
+    const conversation = selectedConversation();
 
-    const selectedSubject = input.value.trim();
-
-    // Si le champ est vide
-    if (!selectedSubject) {
+    if (!input?.value.trim()) {
         form.style.display = 'none';
-        errorMsg.style.display = 'none';
+        error.style.display = 'none';
+        return;
+    }
+    if (!conversation) {
+        form.style.display = 'none';
+        error.style.display = 'block';
         return;
     }
 
-    // Vérifier si l'email existe dans les données
-    if (emailsData[selectedSubject]) {
-        const email = emailsData[selectedSubject];
-
-        // Extraire le sujet sans la date (tout avant la dernière parenthèse)
-        const subjectOnly = email.subject;
-
-        // Remplir les informations du destinataire
-        document.getElementById('reply-to').textContent = email.to;
-        document.getElementById('reply-subject').textContent = 'Re: ' + subjectOnly;
-        document.getElementById('reply-message').value = '';
-
-        // Afficher le formulaire et cacher l'erreur
-        form.style.display = 'block';
-        errorMsg.style.display = 'none';
-        status.style.display = 'none';
-    } else {
-        // Email invalide : cacher le formulaire et afficher l'erreur
-        form.style.display = 'none';
-        errorMsg.style.display = 'block';
-    }
+    document.getElementById('reply-to').textContent = conversation.to;
+    document.getElementById('reply-subject').textContent =
+        conversation.subject.toLowerCase().startsWith('re:')
+            ? conversation.subject
+            : `Re: ${conversation.subject}`;
+    document.getElementById('reply-message').value = '';
+    document.getElementById('reply-status').style.display = 'none';
+    form.style.display = 'block';
+    error.style.display = 'none';
 }
 
-// ============================================
-// AUTO-GÉNÉRATION DU MESSAGE
-// ============================================
+async function autoGenerate() {
+    const conversation = selectedConversation();
+    if (!conversation) {
+        alert('Veuillez sélectionner une conversation valide.');
+        return;
+    }
 
-/**
- * Auto-génère un message personnalisé basé sur les données de la BD
- * Appelle l'API /api/generate-message/ avec l'email_id
- */
-function autoGenerate() {
-    const input = document.getElementById('email-select');
-    const selectedSubject = input.value.trim();
     const textarea = document.getElementById('reply-message');
     const status = document.getElementById('reply-status');
-    const autoBtn = document.querySelector('.auto-btn');
-
-    // Vérifier que l'email existe
-    if (!emailsData[selectedSubject]) {
-        alert('Veuillez d\'abord sélectionner un email valide');
-        return;
-    }
-
-    const email_id = emailsData[selectedSubject].id;
-
-    // Désactiver pendant le chargement
+    const button = document.querySelector('.auto-btn');
     textarea.value = 'Génération en cours...';
     textarea.disabled = true;
-    autoBtn.disabled = true;
-    autoBtn.textContent = '⏳ Génération...';
+    button.disabled = true;
 
-    const csrftoken = getCookie('csrftoken');
-
-    // Appel API
-    fetch('/api/generate-message/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrftoken
-        },
-        body: JSON.stringify({
-            email_id: email_id
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        textarea.disabled = false;
-        autoBtn.disabled = false;
-        autoBtn.textContent = '🤖 Auto-générer le message';
-
-        if (data.success) {
-            textarea.value = data.message;
-
-            status.style.display = 'block';
-            status.className = 'success';
-            status.textContent = '✅ Message généré automatiquement';
-
-            setTimeout(() => {
-                status.style.display = 'none';
-            }, 3000);
-        } else {
-            textarea.value = '';
-            status.style.display = 'block';
-            status.className = 'error';
-            status.textContent = '❌ ' + data.message;
-        }
-    })
-    .catch(error => {
-        textarea.disabled = false;
-        autoBtn.disabled = false;
-        autoBtn.textContent = '🤖 Auto-générer le message';
+    try {
+        const response = await fetch('/api/generate-message/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({ conversation_id: conversation.id }),
+        });
+        const data = await response.json();
+        textarea.value = data.success ? data.message : '';
+        showStatus(status, data.success, data.success ? 'Message généré.' : data.message);
+    } catch (error) {
         textarea.value = '';
-
-        status.style.display = 'block';
-        status.className = 'error';
-        status.textContent = '❌ Erreur réseau: ' + error;
-
-        console.error('Erreur auto-génération:', error);
-    });
+        showStatus(status, false, `Erreur réseau : ${error}`);
+    } finally {
+        textarea.disabled = false;
+        button.disabled = false;
+    }
 }
 
-// ============================================
-// ENVOI DE LA RÉPONSE
-// ============================================
-
-/**
- * Envoie la relance à l'email sélectionné
- */
-function sendReply() {
-    const input = document.getElementById('email-select');
-    const selectedSubject = input.value.trim();
+async function sendReply() {
+    const conversation = selectedConversation();
     const message = document.getElementById('reply-message').value.trim();
     const status = document.getElementById('reply-status');
-    const btn = document.querySelector('.send-btn');
-
-    // Validation 1 : Email valide ?
-    if (!emailsData[selectedSubject]) {
-        alert('⚠️ Veuillez sélectionner un email valide dans la liste');
+    const button = document.querySelector('.send-btn');
+    if (!conversation || !message) {
+        alert('Sélectionnez une conversation et saisissez un message.');
         return;
     }
 
-    // Validation 2 : Message non vide ?
-    if (!message) {
-        alert('⚠️ Veuillez écrire un message');
-        return;
+    button.disabled = true;
+    try {
+        const response = await fetch('/api/send-reply/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({
+                conversation_id: conversation.id,
+                message: message,
+            }),
+        });
+        const data = await response.json();
+        showStatus(status, data.success, data.message);
+        if (data.success) setTimeout(() => window.location.reload(), 800);
+    } catch (error) {
+        showStatus(status, false, `Erreur réseau : ${error}`);
+    } finally {
+        button.disabled = false;
     }
+}
 
-    const email = emailsData[selectedSubject];
-    const to_email = email.to;
-    const subject = email.subject;
-    const email_id = email.id;
-
-    console.log('Envoi email vers:', to_email, 'sujet:', subject);
-
-    // Désactiver le bouton pendant l'envoi
-    btn.disabled = true;
-    btn.textContent = 'Envoi en cours...';
-
-    const csrftoken = getCookie('csrftoken');
-
-    fetch('/api/send-reply/', {
+async function updateConversationStatus(event) {
+    const select = event.currentTarget;
+    const previous = select.dataset.previous || '';
+    const response = await fetch(`/api/gmail-journal/${select.dataset.conversationId}/status/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': csrftoken
+            'X-CSRFToken': getCookie('csrftoken'),
         },
-        body: JSON.stringify({
-            email_id: email_id,
-            message: message,
-            to_email: to_email,
-            subject: subject
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        status.style.display = 'block';
-
-        if (data.success) {
-            status.className = 'success';
-            status.textContent = '✅ ' + data.message;
-
-            // Recharger la page après 2 secondes
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-        } else {
-            status.className = 'error';
-            status.textContent = '❌ ' + data.message;
-            btn.disabled = false;
-            btn.textContent = 'Envoyer 📨';
-        }
-    })
-    .catch(error => {
-        status.style.display = 'block';
-        status.className = 'error';
-        status.textContent = '❌ Erreur réseau: ' + error;
-        btn.disabled = false;
-        btn.textContent = 'Envoyer 📨';
-
-        console.error('Erreur envoi email:', error);
+        body: JSON.stringify({ status: select.value }),
     });
+    const data = await response.json();
+    if (!data.success) {
+        if (previous) select.value = previous;
+        alert(data.message || 'Le statut n’a pas pu être modifié.');
+        return;
+    }
+    select.dataset.previous = select.value;
 }
 
-// ============================================
-// UTILITAIRES
-// ============================================
+async function addConversationNote(event) {
+    const button = event.currentTarget;
+    const id = button.dataset.conversationId;
+    const input = document.querySelector(`.gmail-note-input[data-conversation-id="${id}"]`);
+    const note = input.value.trim();
+    if (!note) return;
 
-/**
- * Récupère un cookie par son nom (nécessaire pour le token CSRF)
- * @param {string} name - Nom du cookie
- * @returns {string|null} - Valeur du cookie ou null
- */
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
+    button.disabled = true;
+    try {
+        const response = await fetch(`/api/gmail-journal/${id}/notes/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({ note }),
+        });
+        const data = await response.json();
+        if (!data.success) {
+            alert(data.message || 'La note n’a pas pu être ajoutée.');
+            return;
         }
+        const events = button.closest('.email-item').querySelector('.gmail-events');
+        events.insertAdjacentHTML(
+            'afterbegin',
+            `<div>${escapeHtml(data.created_at)} · Note — ${escapeHtml(data.note)}</div>`,
+        );
+        input.value = '';
+    } finally {
+        button.disabled = false;
     }
-    return cookieValue;
+}
+
+async function syncGmailJournal(event) {
+    const button = event.currentTarget;
+    const status = document.getElementById('gmail-sync-status');
+    const previousLabel = button.innerHTML;
+
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-arrow-repeat"></i> Synchronisation...';
+    if (status) {
+        status.style.color = 'var(--text-secondary)';
+        status.textContent = 'Synchronisation Gmail en cours...';
+    }
+
+    try {
+        const response = await fetch('/api/gmail-journal/sync/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        });
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Synchronisation impossible.');
+        }
+        if (status) {
+            status.style.color = '#16a34a';
+            status.textContent = `${data.synced || 0} conversation(s) synchronisée(s), ${data.replied || 0} réponse(s) détectée(s).`;
+        }
+        setTimeout(() => window.location.reload(), 700);
+    } catch (error) {
+        if (status) {
+            status.style.color = '#dc2626';
+            status.textContent = error.message || 'Synchronisation impossible.';
+        }
+        button.disabled = false;
+        button.innerHTML = previousLabel;
+    }
+}
+
+function showStatus(element, success, message) {
+    element.style.display = 'block';
+    element.className = success ? 'success' : 'error';
+    element.textContent = `${success ? 'OK' : 'Erreur'} : ${message || ''}`;
+}
+
+function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value || '';
+    return div.innerHTML;
+}
+
+function getCookie(name) {
+    const prefix = `${name}=`;
+    for (const item of (document.cookie || '').split(';')) {
+        const cookie = item.trim();
+        if (cookie.startsWith(prefix)) return decodeURIComponent(cookie.slice(prefix.length));
+    }
+    return '';
 }

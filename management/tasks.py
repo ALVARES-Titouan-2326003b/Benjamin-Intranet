@@ -19,8 +19,10 @@ from .models import (
     HistoriqueRappelActivite,
     NotificationInterne,
     OAuthToken,
+    GmailConversation,
+    GmailConversationEvent,
 )
-from .email_manager import send_auto_relance, get_sent_emails
+from .gmail_service import send_conversation_reminder, sync_conversation_journal
 
 Utilisateur = get_user_model()
 
@@ -31,9 +33,6 @@ ACTIVITY_REMINDER_DAYS = [10, 7, 4, 1]
 
 @shared_task
 def check_and_send_auto_relances():
-
-
-
     today = timezone.now().date()
     relances_envoyees = 0
     emails_traites = 0
@@ -58,7 +57,7 @@ def check_and_send_auto_relances():
     }
 
     try:
-        oauth_users = OAuthToken.objects.all()
+        oauth_users = OAuthToken.objects.filter(provider="google").select_related("user")
 
         if oauth_users.count() == 0:
             return {
@@ -80,28 +79,16 @@ def check_and_send_auto_relances():
 
 
             try:
-                sent_emails = get_sent_emails(user, limit=100)
+                sync_conversation_journal(user, limit=100)
+                conversations = GmailConversation.objects.filter(
+                    owner=user,
+                    status__in=["open", "reminded"],
+                )
 
-                print(f"   {len(sent_emails)} emails trouvés dans SENT")
-
-                #pending_count = sum(1 for e in sent_emails if e.get('status') == 'pending')
-                #replied_count = sum(1 for e in sent_emails if e.get('status') == 'replied')
-
-                print("\n   ANALYSE DÉTAILLÉE DE CHAQUE EMAIL:")
-                print(f"   {'─'*66}")
-
-                for idx, email_data in enumerate(sent_emails, 1):
+                for conversation in conversations:
                     emails_traites += 1
-
-
                     try:
-                        status = email_data.get('status', 'pending')
-
-                        if status != 'pending':
-                            blocked_at['status_replied'] += 1
-                            continue
-
-                        date_envoi = email_data.get('date')
+                        date_envoi = conversation.sent_at
                         if not date_envoi:
                             blocked_at['date_missing'] += 1
                             continue
@@ -114,7 +101,7 @@ def check_and_send_auto_relances():
                             continue
 
 
-                        destinataire_email = email_data.get('to', '')
+                        destinataire_email = conversation.recipient
 
                         if not destinataire_email:
                             blocked_at['email_missing'] += 1
@@ -122,12 +109,6 @@ def check_and_send_auto_relances():
 
                         if '<' in destinataire_email and '>' in destinataire_email:
                             destinataire_email = destinataire_email.split('<')[1].split('>')[0].strip()
-
-                        try:
-                            utilisateur = user
-                        except Utilisateur.DoesNotExist:
-                            blocked_at['utilisateur_not_found'] += 1
-                            continue
 
                         try:
                             intervalle = TempsRelance.objects.get(id=user).temps
@@ -167,17 +148,18 @@ def check_and_send_auto_relances():
                             blocked_at['message_empty'] += 1
                             continue
 
-                        objet_original = email_data.get('subject', '(Sans objet)')
-                        objet_relance = f"Relance - {objet_original}"
+                        already_sent_today = GmailConversationEvent.objects.filter(
+                            conversation=conversation,
+                            event_type="reminder_sent",
+                            created_at__date=today,
+                        ).exists()
+                        if already_sent_today:
+                            continue
 
-
-                        result = send_auto_relance(
-                            to_email=destinataire_email,
-                            subject=email_data.get('subject', '(Sans objet)'),
-                            message_text=message_relance,
-                            objet_custom=objet_relance,
-                            original_message_id=email_data.get('id'),
-                            user=utilisateur
+                        result = send_conversation_reminder(
+                            conversation=conversation,
+                            user=user,
+                            body=message_relance,
                         )
 
                         if result['success']:
@@ -187,7 +169,13 @@ def check_and_send_auto_relances():
                             blocked_at['send_failed'] += 1
                             erreurs += 1
 
-                    except Exception:
+                    except Exception as exc:
+                        GmailConversationEvent.objects.create(
+                            conversation=conversation,
+                            event_type="error",
+                            user=user,
+                            note=str(exc),
+                        )
                         traceback.print_exc()
                         erreurs += 1
                         continue

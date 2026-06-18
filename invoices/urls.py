@@ -4,6 +4,7 @@ from .views import (
     FactureCreateView, FactureUpdateView, ManualInvoiceRemindersView,
     BulkDeleteInvoicesView, CegidExportCreateView, CegidExportDownloadView,
     CegidExportListView, InvoiceAnomaliesView,
+    InvoiceReminderSettingsView,
 )
 
 from .views_dashboard import DashboardView
@@ -17,6 +18,7 @@ urlpatterns = [
     path('facture/<str:pk>/edit/', FactureUpdateView.as_view(), name='edit'),
     path('facture/<str:pk>/', FactureDetailView.as_view(), name='detail'),
     path('manual-reminders/', ManualInvoiceRemindersView.as_view(), name='manual_reminders'),
+    path('reminder-settings/', InvoiceReminderSettingsView.as_view(), name='reminder_settings'),
     path('bulk-delete/', BulkDeleteInvoicesView.as_view(), name='bulk_delete'),
     path('exports/cegid/', CegidExportListView.as_view(), name='cegid_exports'),
     path('exports/cegid/new/', CegidExportCreateView.as_view(), name='cegid_export_create'),

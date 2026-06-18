@@ -4,8 +4,9 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
@@ -25,6 +26,12 @@ from .models import (
     AdministrativeProject,
     NotificationInterne,
     TypeActivite,
+    GmailConversation,
+    GmailConversationEvent,
+)
+from .gmail_service import (
+    send_conversation_reminder,
+    sync_conversation_journal,
 )
 
 Utilisateur = get_user_model()
@@ -293,13 +300,22 @@ def _sync_outlook_after_save(request, activity, sync_requested):
 def administratif_view(request):
     """
     Page du pôle administratif.
-    Affiche les emails envoyés depuis Outlook/Microsoft Graph.
+    Affiche le journal persistant des conversations Gmail.
     """
     user = request.user
 
-    fetch_new_emails(user)
-    emails = get_sent_emails(user, limit=20)
-    emails_data = [get_email_summary(email) for email in emails]
+    conversations = GmailConversation.objects.filter(owner=user).prefetch_related("events")
+    journal_status = (request.GET.get("journal_status") or "").strip()
+    journal_q = (request.GET.get("journal_q") or "").strip()
+    if journal_status:
+        conversations = conversations.filter(status=journal_status)
+    if journal_q:
+        conversations = conversations.filter(
+            Q(subject__icontains=journal_q)
+            | Q(recipient__icontains=journal_q)
+            | Q(preview__icontains=journal_q)
+        )
+    conversations = conversations[:100]
 
     dossiers = AdministrativeProject.objects.all().order_by("reference")
     types = TypeActivite.objects.all().order_by("type")
@@ -313,13 +329,23 @@ def administratif_view(request):
         .select_related("activite")
         .order_by("-created_at")[:8]
     )
+    last_journal_sync = (
+        GmailConversation.objects.filter(owner=user, last_synced_at__isnull=False)
+        .order_by("-last_synced_at")
+        .values_list("last_synced_at", flat=True)
+        .first()
+    )
 
     return render(
         request,
         "management.html",
         {
             "pole_name": "Administratif",
-            "emails": emails_data,
+            "conversations": conversations,
+            "journal_status": journal_status,
+            "journal_q": journal_q,
+            "journal_status_choices": GmailConversation.STATUS_CHOICES,
+            "last_journal_sync": last_journal_sync,
             "dossiers": dossiers,
             "types": types,
             "users": users,
@@ -327,6 +353,23 @@ def administratif_view(request):
             "notification_count": len(notifications),
         },
     )
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def sync_gmail_journal_view(request):
+    """
+    Synchronise le journal Gmail à la demande, sans bloquer le rendu de la page.
+    """
+    try:
+        result = sync_conversation_journal(request.user, limit=100)
+        return JsonResponse({"success": True, **result})
+    except ValueError as e:
+        return _json_error(str(e))
+    except Exception as e:
+        traceback.print_exc()
+        return _json_error(f"Erreur : {str(e)}", status=500)
 
 
 @login_required
@@ -349,29 +392,29 @@ def admin_projects_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def send_reply_view(request):
     """
-    Envoie une relance / réponse sur un email Outlook.
-    Si original_message_id est fourni, la réponse part dans le thread existant.
+    Envoie une relance dans une conversation Gmail persistante.
     """
     try:
         data = _parse_request_json(request)
 
-        email_id = (data.get("email_id") or "").strip()
+        conversation_id = data.get("conversation_id")
         message_text = (data.get("message") or "").strip()
-        to_email = (data.get("to_email") or "").strip()
-        subject = (data.get("subject") or "").strip()
 
-        if not email_id:
-            return _json_error("ID email manquant")
+        if not conversation_id:
+            return _json_error("Conversation manquante")
 
         if not message_text:
             return _json_error("Message manquant")
 
-        result = send_email_reply(
+        conversation = get_object_or_404(
+            GmailConversation,
+            pk=conversation_id,
+            owner=request.user,
+        )
+        result = send_conversation_reminder(
+            conversation=conversation,
             user=request.user,
-            original_message_id=email_id,
-            message_text=message_text,
-            subject=subject,
-            to_email=to_email,
+            body=message_text,
         )
 
         return JsonResponse(result, status=200 if result.get("success") else 400)
@@ -389,24 +432,17 @@ def send_reply_view(request):
 def generate_auto_message_view(request):
     try:
         data = json.loads(request.body)
-        email_id = data.get('email_id')
+        conversation_id = data.get("conversation_id")
 
-        if not email_id:
-            return JsonResponse({'success': False, 'message': 'ID email manquant'}, status=400)
+        if not conversation_id:
+            return JsonResponse({"success": False, "message": "Conversation manquante"}, status=400)
 
-        # Récupérer les métadonnées du message via Graph API
-        from management.email_manager import get_message_metadata
-        msg_meta = get_message_metadata(request.user, email_id)
-
-        if not msg_meta:
-            return JsonResponse({'success': False, 'message': 'Email introuvable via Graph API'})
-
-        # Extraire l'adresse du destinataire original
-        to_recipients = msg_meta.get('toRecipients', [])
-        destinataire_email = (
-            to_recipients[0].get('emailAddress', {}).get('address', '')
-            if to_recipients else ''
+        conversation = get_object_or_404(
+            GmailConversation,
+            pk=conversation_id,
+            owner=request.user,
         )
+        destinataire_email = conversation.recipient
 
         if not destinataire_email:
             return JsonResponse({'success': False, 'message': 'Destinataire introuvable'})
@@ -438,6 +474,66 @@ def generate_auto_message_view(request):
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'}, status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def update_gmail_conversation_status(request, conversation_id):
+    conversation = get_object_or_404(
+        GmailConversation,
+        pk=conversation_id,
+        owner=request.user,
+    )
+    data = _parse_request_json(request)
+    status = (data.get("status") or "").strip()
+    if status not in dict(GmailConversation.STATUS_CHOICES):
+        return _json_error("Statut invalide")
+    if conversation.status == "replied" and status != "replied":
+        return _json_error(
+            "Une réponse Gmail a été détectée : le statut répondu est prioritaire.",
+            status=409,
+        )
+
+    old_status = conversation.status
+    conversation.status = status
+    conversation.save(update_fields=["status", "updated_at"])
+    GmailConversationEvent.objects.create(
+        conversation=conversation,
+        event_type="status_changed",
+        user=request.user,
+        old_status=old_status,
+        new_status=status,
+    )
+    return JsonResponse({"success": True, "status": status})
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def add_gmail_conversation_note(request, conversation_id):
+    conversation = get_object_or_404(
+        GmailConversation,
+        pk=conversation_id,
+        owner=request.user,
+    )
+    note = (_parse_request_json(request).get("note") or "").strip()
+    if not note:
+        return _json_error("La note ne peut pas être vide.")
+    event = GmailConversationEvent.objects.create(
+        conversation=conversation,
+        event_type="note",
+        user=request.user,
+        note=note,
+    )
+    return JsonResponse(
+        {
+            "success": True,
+            "note": event.note,
+            "created_at": timezone.localtime(event.created_at).strftime("%d/%m/%Y %H:%M"),
+            "user": request.user.get_full_name() or request.user.username,
+        }
+    )
 
 
 @require_http_methods(["GET"])
@@ -555,11 +651,13 @@ def create_activity_view(request):
             updated_by=request.user,
             **activity_data,
         )
-        warning = _sync_outlook_after_save(
-            request,
-            nouvelle_activite,
-            _truthy(data.get("sync_outlook")),
-        )
+        warning = ""
+        if "sync_outlook" in data:
+            warning = _sync_outlook_after_save(
+                request,
+                nouvelle_activite,
+                _truthy(data.get("sync_outlook")),
+            )
 
         return JsonResponse(
             {
@@ -606,11 +704,13 @@ def update_activity_view(request, activity_id):
         activity.updated_by = request.user
         activity.save()
 
-        warning = _sync_outlook_after_save(
-            request,
-            activity,
-            _truthy(data.get("sync_outlook")),
-        )
+        warning = ""
+        if "sync_outlook" in data:
+            warning = _sync_outlook_after_save(
+                request,
+                activity,
+                _truthy(data.get("sync_outlook")),
+            )
 
         activity.refresh_from_db()
         return JsonResponse(

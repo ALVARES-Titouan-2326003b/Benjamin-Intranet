@@ -8,6 +8,19 @@ from management.oauth_utils import (
     get_graph_headers,
     send_email_via_graph_api,
 )
+from management.gmail_service import (
+    get_message as get_gmail_message,
+    list_messages as list_gmail_messages,
+    reply_to_message as reply_to_gmail_message,
+    send_message as send_gmail_message,
+)
+
+
+def _gmail_headers(message):
+    return {
+        item.get("name", "").lower(): item.get("value", "")
+        for item in message.get("payload", {}).get("headers", [])
+    }
 
 
 def _graph_get(user, url, params=None):
@@ -22,19 +35,15 @@ def _graph_get(user, url, params=None):
 def fetch_new_emails(user):
     """Retourne le nombre d'emails non lus dans la boîte de réception."""
     try:
-        OAuthToken.objects.get(user=user)
+        token = OAuthToken.objects.get(user=user, provider="google")
     except OAuthToken.DoesNotExist:
         return 0
 
     try:
-        data = _graph_get(
-            user,
-            f"{GRAPH_URL}/me/mailFolders/inbox",
-            params={"$select": "unreadItemCount"},
-        )
-        return data.get("unreadItemCount", 0)
+        del token
+        return len(list_gmail_messages(user, label_ids=["INBOX", "UNREAD"], limit=100))
     except Exception as e:
-        print(f"Erreur fetch emails Outlook : {e}")
+        print(f"Erreur fetch emails Gmail : {e}")
         return 0
 
 
@@ -71,59 +80,46 @@ def check_if_replies_exist(user, limit=200):
     dans la boîte de réception.
     """
     try:
-        messages = _list_folder_messages(
-            user=user,
-            folder_name="inbox",
-            limit=limit,
-            select_fields="conversationId",
-        )
         return {
-            msg["conversationId"]
-            for msg in messages
-            if msg.get("conversationId")
+            message.get("threadId")
+            for message in list_gmail_messages(user, label_ids=["INBOX"], limit=limit)
+            if message.get("threadId")
         }
     except Exception as e:
-        print(f"Erreur check_if_replies : {e}")
+        print(f"Erreur check_if_replies Gmail : {e}")
         return set()
 
 
 def get_sent_emails(user, limit=50):
-    """Récupère les emails envoyés depuis Outlook."""
+    """Récupère les emails envoyés depuis Gmail."""
     try:
-        oauth_token = OAuthToken.objects.get(user=user)
+        oauth_token = OAuthToken.objects.get(user=user, provider="google")
     except OAuthToken.DoesNotExist:
         return []
 
     try:
         replied_ids = check_if_replies_exist(user)
-
-        messages = _list_folder_messages(
-            user=user,
-            folder_name="sentitems",
-            limit=limit,
-            select_fields="id,subject,toRecipients,sentDateTime,bodyPreview,conversationId",
-            extra_params={"$orderby": "sentDateTime desc"},
-        )
+        messages = list_gmail_messages(user, label_ids=["SENT"], limit=limit)
 
         detailed = []
         for msg in messages:
-            conversation_id = msg.get("conversationId")
-            status = "replied" if conversation_id in replied_ids else "pending"
-
-            to_recipients = msg.get("toRecipients", [])
-            first_to = ""
-            if to_recipients:
-                first_to = to_recipients[0].get("emailAddress", {}).get("address", "")
-
-            sent_date_raw = msg.get("sentDateTime")
-            sent_date = parse_datetime(sent_date_raw) if sent_date_raw else None
+            headers = _gmail_headers(msg)
+            thread_id = msg.get("threadId")
+            status = "replied" if thread_id in replied_ids else "pending"
+            sent_date_raw = headers.get("date")
+            try:
+                from email.utils import parsedate_to_datetime
+                sent_date = parsedate_to_datetime(sent_date_raw) if sent_date_raw else None
+            except (TypeError, ValueError):
+                sent_date = None
 
             detailed.append({
                 "id": msg.get("id"),
-                "subject": msg.get("subject") or "(Sans objet)",
-                "to": first_to,
+                "thread_id": thread_id,
+                "subject": headers.get("subject") or "(Sans objet)",
+                "to": headers.get("to", ""),
                 "date": sent_date,
-                "body_text": (msg.get("bodyPreview") or "")[:200],
+                "body_text": (msg.get("snippet") or "")[:200],
                 "from": oauth_token.email,
                 "status": status,
                 "status_emoji": "✅" if status == "replied" else "⏳",
@@ -133,7 +129,7 @@ def get_sent_emails(user, limit=50):
         return detailed
 
     except Exception as e:
-        print(f"Erreur get_sent_emails Outlook : {e}")
+        print(f"Erreur get_sent_emails Gmail : {e}")
         return []
 
 
@@ -141,6 +137,7 @@ def get_email_summary(email):
     """Normalise la structure pour le template."""
     return {
         "id": email.get("id"),
+        "thread_id": email.get("thread_id", ""),
         "subject": email.get("subject", "(Sans objet)"),
         "to": email.get("to", ""),
         "from": email.get("from", ""),
@@ -153,17 +150,20 @@ def get_email_summary(email):
 
 
 def get_message_metadata(user, message_id):
-    """Récupère les métadonnées d'un message via Graph."""
+    """Récupère les métadonnées normalisées d'un message Gmail."""
     try:
-        return _graph_get(
-            user,
-            f"{GRAPH_URL}/me/messages/{message_id}",
-            params={
-                "$select": "id,subject,toRecipients,from,conversationId,internetMessageId"
-            },
-        )
+        message = get_gmail_message(user, message_id)
+        headers = _gmail_headers(message)
+        return {
+            "id": message.get("id"),
+            "thread_id": message.get("threadId", ""),
+            "subject": headers.get("subject", ""),
+            "to": headers.get("to", ""),
+            "from": headers.get("from", ""),
+            "message_id": headers.get("message-id", ""),
+        }
     except Exception as e:
-        print(f"Erreur get_message_metadata : {e}")
+        print(f"Erreur get_message_metadata Gmail : {e}")
         return None
 
 
@@ -174,31 +174,20 @@ def send_email_reply(user, original_message_id, message_text, subject=None, to_e
     """
     try:
         if original_message_id:
-            headers = get_graph_headers(user)
-            response = requests.post(
-                f"{GRAPH_URL}/me/messages/{original_message_id}/reply",
-                headers=headers,
-                json={"comment": message_text},
-                timeout=20,
+            return reply_to_gmail_message(
+                user=user,
+                message_id=original_message_id,
+                body=message_text,
+                subject=subject or "",
+                to_email=to_email or "",
             )
 
-            if response.status_code == 202:
-                return {
-                    "success": True,
-                    "message": "Réponse envoyée avec succès dans le thread Outlook.",
-                }
-
-            return {
-                "success": False,
-                "message": response.text,
-            }
-
         if to_email and subject:
-            return send_email_via_graph_api(
+            return send_gmail_message(
                 user=user,
                 to_email=to_email,
                 subject=subject,
-                message_text=message_text,
+                body=message_text,
             )
 
         return {
@@ -234,11 +223,11 @@ def send_auto_relance(user, to_email, subject, message_text, objet_custom=None, 
                 to_email=to_email,
             )
 
-        return send_email_via_graph_api(
+        return send_gmail_message(
             user=user,
             to_email=to_email,
             subject=final_subject,
-            message_text=message_text,
+            body=message_text,
         )
 
     except Exception as e:

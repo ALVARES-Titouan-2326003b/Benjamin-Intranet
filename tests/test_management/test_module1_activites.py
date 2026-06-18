@@ -180,14 +180,31 @@ def test_admin_project_create_update_delete_and_block_when_used(client, admin_us
 def test_admin_overview_and_projects_are_split(client, admin_user, dossier):
     client.force_login(admin_user)
 
-    overview = client.get("/administratif/")
+    with patch("management.views.sync_conversation_journal") as sync_mock:
+        overview = client.get("/administratif/")
     projects = client.get("/administratif/projets/")
 
     assert overview.status_code == 200
+    sync_mock.assert_not_called()
     assert projects.status_code == 200
     assert b"admin-projects-data" not in overview.content
     assert b"admin-projects-data" in projects.content
     assert dossier.reference.encode() in projects.content
+
+
+@pytest.mark.django_db
+def test_gmail_journal_sync_endpoint_runs_on_demand(client, admin_user):
+    client.force_login(admin_user)
+
+    with patch(
+        "management.views.sync_conversation_journal",
+        return_value={"synced": 3, "replied": 1},
+    ) as sync_mock:
+        response = client.post("/api/gmail-journal/sync/")
+
+    assert response.status_code == 200
+    assert response.json() == {"success": True, "synced": 3, "replied": 1}
+    sync_mock.assert_called_once_with(admin_user, limit=100)
 
 
 @pytest.mark.django_db

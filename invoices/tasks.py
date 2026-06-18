@@ -1,261 +1,217 @@
-"""
-Tâches Celery pour les relances de factures impayées - VERSION AVEC DÉLAI PARAMÉTRABLE
-"""
-from celery import shared_task
-from django.utils import timezone
-from django.core.mail import EmailMessage
-from django.conf import settings
 import logging
 
-from .models import Facture, Fournisseur, Contact, EmailFournisseur, RelanceFournisseur, FactureHistorique
+from celery import shared_task
+from django.utils import timezone
+
+from management.gmail_service import send_message
+from management.oauth_utils import get_valid_credentials
+
+from .models import (
+    Contact,
+    EmailFournisseur,
+    Facture,
+    FactureHistorique,
+    InvoiceReminderSettings,
+    RelanceFournisseur,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def send_invoice_reminder(facture, to_email, message_text, jours_avant_echeance):
-    """
-    Envoie une relance préventive avant l'échéance de la facture
-    """
+def _invoice_sender():
+    settings = (
+        InvoiceReminderSettings.objects.select_related("sender", "sender__oauth_token")
+        .filter(pk=1)
+        .first()
+    )
+    sender = settings.sender if settings else None
+    if not sender or not sender.is_active:
+        raise ValueError("Aucun compte Gmail actif n'est désigné pour les relances de factures.")
+    token = getattr(sender, "oauth_token", None)
+    if not token or token.provider != "google":
+        raise ValueError("Le compte expéditeur des relances n'a pas synchronisé Gmail.")
     try:
-        subject = f"Rappel facture {facture.id} - Échéance dans {jours_avant_echeance} jour(s)"
+        get_valid_credentials(token)
+    except Exception as exc:
+        raise ValueError(
+            "Le jeton Gmail du compte expéditeur est invalide ou ne peut pas être renouvelé."
+        ) from exc
+    return sender
 
-        clients = Contact.objects.filter(acteur=facture.client_id)
-        nom = '-'
-        for client in clients:
-            if client.nom:
-                nom = client.nom
-                break
 
-        context = {
-            'facture_id': facture.id,
-            'montant': facture.montant or 0,
-            'echeance': facture.echeance.strftime('%d/%m/%Y') if facture.echeance else '—',
-            'jours_avant_echeance': jours_avant_echeance,
-            'fournisseur': facture.fournisseur,
-            'client': nom,
-        }
+def _supplier_email(facture):
+    contacts = Contact.objects.filter(acteur=facture.fournisseur_id)
+    return (
+        EmailFournisseur.objects.filter(contact__in=contacts)
+        .exclude(email="")
+        .values_list("email", flat=True)
+        .first()
+        or ""
+    )
 
-        try:
-            message_final = message_text.format(**context)
-        except KeyError:
-            message_final = message_text
-            logger.warning(f"Variables manquantes dans le template pour facture {facture.id}")
 
-        email = EmailMessage(
+def _format_message(facture, template, days_overdue):
+    client_name = str(facture.client) if facture.client_id else "-"
+    context = {
+        "facture_id": facture.id,
+        "montant": facture.montant or 0,
+        "echeance": facture.echeance.strftime("%d/%m/%Y") if facture.echeance else "—",
+        "jours_retard": days_overdue,
+        "jours_apres_echeance": days_overdue,
+        # Compatibilité avec les anciens modèles de message.
+        "jours_avant_echeance": days_overdue,
+        "fournisseur": facture.fournisseur,
+        "client": client_name,
+    }
+    try:
+        return template.format(**context)
+    except KeyError:
+        logger.warning("Variables inconnues dans le modèle de relance pour %s", facture.pk)
+        return template
+
+
+def _record_history(
+    facture,
+    action,
+    details,
+    recipient_email="",
+    days_overdue=None,
+    external_message_id="",
+):
+    return FactureHistorique.objects.create(
+        facture=facture,
+        action=action,
+        details=details,
+        recipient_email=recipient_email,
+        days_overdue=days_overdue,
+        external_message_id=external_message_id,
+    )
+
+
+def send_invoice_reminder(facture, to_email, message_text, days_overdue, sender=None):
+    sender = sender or _invoice_sender()
+    subject = f"Relance facture {facture.id} - {days_overdue} jour(s) de retard"
+    body = _format_message(facture, message_text, days_overdue)
+
+    try:
+        result = send_message(
+            user=sender,
+            to_email=to_email,
             subject=subject,
-            body=message_final,
-            from_email=settings.EMAIL_HOST_USER,
-            to=[to_email],
+            body=body,
         )
-
-        email.extra_headers = {
-            'X-Invoice-Reminder': 'true',
-            'X-Invoice-ID': facture.id,
-            'X-Days-Before-Due': str(jours_avant_echeance),
-        }
-
-        email.send()
-
-        # Historique métier - relance envoyée
-        try:
-            FactureHistorique.objects.create(
-                facture=facture,
-                action='reminder_sent',
-                details=f"Relance envoyée à {to_email} à J-{jours_avant_echeance}",
-            )
-        except Exception:
-            logger.exception('Impossible d enregistrer l historique de relance pour facture %s', facture.id)
-
-        return {
-            'success': True,
-            'message': f'Relance envoyée pour facture {facture.id}'
-        }
-
-    except Exception as e:
-        print(f"\nERREUR lors de l'envoi : {e}")
-        import traceback
-        traceback.print_exc()
-        print("=" * 80 + "\n")
-
-        return {
-            'success': False,
-            'message': f'Erreur : {str(e)}'
-        }
-
-
-def _record_reminder_history(facture, action, details):
-    try:
-        FactureHistorique.objects.create(
-            facture=facture,
-            action=action,
-            details=details,
+        _record_history(
+            facture,
+            "reminder_sent",
+            f"Relance Gmail envoyée à {to_email} à J+{days_overdue}",
+            recipient_email=to_email,
+            days_overdue=days_overdue,
+            external_message_id=result.get("message_id", ""),
         )
-    except Exception:
-        logger.exception("Impossible d enregistrer l historique de relance pour facture %s", facture.id)
+        return result
+    except Exception as exc:
+        logger.exception("Erreur d'envoi de la relance pour %s", facture.pk)
+        return {"success": False, "message": str(exc)}
 
 
-def _already_reminded_today(facture, today, intervalle):
-    return FactureHistorique.objects.filter(
+def _last_successful_reminder_delay(facture):
+    return (
+        FactureHistorique.objects.filter(
         facture=facture,
         action="reminder_sent",
-        created_at__date=today,
-        details__icontains=f"J-{intervalle}",
-    ).exists()
+        days_overdue__isnull=False,
+        )
+        .order_by("-days_overdue", "-created_at")
+        .values_list("days_overdue", flat=True)
+        .first()
+    )
 
 
 @shared_task
 def check_and_send_invoice_reminders(delai_relance=None):
-    """
-    Tâche Celery - Vérification et envoi des rappels préventifs
-
-    Args:
-        delai_relance (int, optional): Si fourni, met à jour TOUS les délais
-                                       dans RelanceFournisseur avant la vérification.
-                                       Si None, utilise les délais existants.
-
-    LOGIQUE : Relance à J-X (X = intervalle configuré dans RelanceFournisseur)
-    """
-
-    today = timezone.now().date()
-
-    # ÉTAPE 1 : Mise à jour du délai si fourni
     if delai_relance is not None:
-        try:
-            nb_lignes_avant = RelanceFournisseur.objects.count()
-
-            if nb_lignes_avant == 0:
-                return {
-                    'success': False,
-                    'message': 'Aucune configuration trouvée dans RelanceFournisseur'
-                }
-
-            # UPDATE de toutes les lignes
-            RelanceFournisseur.objects.all().update(temps=delai_relance)
-
-        except Exception as e:
-            print(f"\nERREUR lors de la mise à jour de RelanceFournisseur : {e}")
-            import traceback
-            traceback.print_exc()
+        if delai_relance < 1:
+            return {"success": False, "message": "Le délai doit être supérieur ou égal à 1."}
+        updated = RelanceFournisseur.objects.all().update(temps=delai_relance)
+        if not updated:
             return {
-                'success': False,
-                'message': f'Erreur lors de la mise à jour des délais : {str(e)}'
+                "success": False,
+                "message": "Aucune configuration trouvée dans RelanceFournisseur",
             }
 
-    # ÉTAPE 2 : Vérification et envoi des relances
-    relances_envoyees = 0
-    factures_traitees = 0
-    erreurs = 0
+    relance_config = RelanceFournisseur.objects.first()
+    if not relance_config or not relance_config.temps:
+        return {"success": False, "message": "Aucune configuration de relance disponible."}
+    if not relance_config.message:
+        return {"success": False, "message": "Le modèle de relance est vide."}
 
+    interval = relance_config.temps
     try:
-        factures = Facture.objects.filter(
-            statut="ongoing",
-            echeance__gt=timezone.now()
-        ).select_related('client')
+        sender = _invoice_sender()
+    except ValueError as exc:
+        return {"success": False, "message": str(exc)}
 
-        # Récupérer intervalle
-        relance_config = RelanceFournisseur.objects.all().first()
-        if not relance_config or not relance_config.temps:
-            return {
-                'success': False,
-                'message': "IGNORÉE : Pas de RelanceFournisseur"
-            }
-        intervalle = relance_config.temps
+    today = timezone.localdate()
+    invoices = (
+        Facture.objects.filter(
+            statut__in=["received", "ongoing"],
+            echeance__date__lt=today,
+        )
+        .select_related("client", "fournisseur")
+        .order_by("echeance", "id")
+    )
 
-        for facture in factures:
-            factures_traitees += 1
+    sent = 0
+    processed = 0
+    errors = 0
+    skipped = 0
 
-            try:
-                # Vérifier échéance
-                if not facture.echeance:
-                    continue
+    for facture in invoices:
+        processed += 1
+        days_overdue = (today - facture.echeance.date()).days
+        last_delay = _last_successful_reminder_delay(facture)
+        if last_delay is None and days_overdue < interval:
+            continue
+        if last_delay is not None and days_overdue < last_delay + interval:
+            skipped += 1
+            continue
 
-                # Calculer jours avant échéance
-                jours_avant_echeance = (facture.echeance.date() - today).days
+        recipient = _supplier_email(facture)
+        if not recipient:
+            _record_history(
+                facture,
+                "reminder_skipped",
+                f"Relance ignorée à J+{days_overdue}: aucun e-mail fournisseur",
+                days_overdue=days_overdue,
+            )
+            skipped += 1
+            continue
 
-                if jours_avant_echeance <= 0:
-                    continue
+        result = send_invoice_reminder(
+            facture=facture,
+            to_email=recipient,
+            message_text=relance_config.message,
+            days_overdue=days_overdue,
+            sender=sender,
+        )
+        if result.get("success"):
+            sent += 1
+        else:
+            _record_history(
+                facture,
+                "reminder_error",
+                result.get("message", "Erreur Gmail inconnue"),
+                recipient_email=recipient,
+                days_overdue=days_overdue,
+            )
+            errors += 1
 
-                # Vérifier si c'est le bon jour
-                if jours_avant_echeance != intervalle:
-                    continue
-
-                if _already_reminded_today(facture, today, intervalle):
-                    continue
-
-                # Récupérer l'adresse
-                try:
-                    contacts = Contact.objects.filter(acteur=facture.fournisseur_id)
-                    adresse = ""
-
-                    for contact in contacts:
-                        email = EmailFournisseur.objects.filter(contact=contact).first()
-                        if email and email.email:
-                            adresse = email.email
-                            break
-
-                except Fournisseur.DoesNotExist:
-                    continue
-
-                if not adresse:
-                    _record_reminder_history(
-                        facture,
-                        "reminder_skipped",
-                        f"Relance ignorée à J-{jours_avant_echeance} : aucun email fournisseur",
-                    )
-                    continue
-
-                # Récupérer modèle de relance
-                message_relance = relance_config.message
-
-                if not message_relance:
-                    _record_reminder_history(
-                        facture,
-                        "reminder_skipped",
-                        f"Relance ignorée à J-{jours_avant_echeance} : modèle de relance vide",
-                    )
-                    continue
-
-                # ENVOYER LA RELANCE
-                result = send_invoice_reminder(
-                    facture=facture,
-                    to_email=adresse,
-                    message_text=message_relance,
-                    jours_avant_echeance=jours_avant_echeance
-                )
-
-                if result['success']:
-                    relances_envoyees += 1
-                else:
-                    _record_reminder_history(
-                        facture,
-                        "reminder_error",
-                        result.get("message", "Erreur inconnue lors de la relance"),
-                    )
-                    erreurs += 1
-
-            except Exception:
-                import traceback
-                traceback.print_exc()
-                _record_reminder_history(
-                    facture,
-                    "reminder_error",
-                    "Erreur inattendue lors de la relance",
-                )
-                erreurs += 1
-                continue
-
-        return {
-            'success': True,
-            'factures_traitees': factures_traitees,
-            'relances_envoyees': relances_envoyees,
-            'erreurs': erreurs,
-            'delai_applique': intervalle
-        }
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return {
-            'success': False,
-            'message': str(e)
-        }
+    return {
+        "success": True,
+        "factures_traitees": processed,
+        "relances_envoyees": sent,
+        "relances_ignorees": skipped,
+        "erreurs": errors,
+        "delai_applique": interval,
+        "sender": sender.email,
+    }

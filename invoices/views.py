@@ -19,7 +19,13 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from user_access.user_test_functions import has_finance_access, has_ceo_access, can_read_facture, can_create_facture, can_edit_facture, has_collaborateur_access
 from .filters import FactureFilter
 from .forms import FactureForm, PieceJointeForm
-from .models import ExportCegidRun, Facture, PieceJointe, FactureHistorique
+from .models import (
+    ExportCegidRun,
+    Facture,
+    PieceJointe,
+    FactureHistorique,
+    InvoiceReminderSettings,
+)
 from .services.cegid import generate_cegid_export
 from .services.quality import get_invoice_anomalies
 
@@ -147,6 +153,23 @@ class FactureListView(FilterView):
         context['can_view_dashboard'] = has_finance_access(self.request.user)
         context['can_view_exports'] = has_finance_access(self.request.user)
         context['can_view_anomalies'] = has_finance_access(self.request.user)
+        if has_finance_access(self.request.user):
+            from django.contrib.auth import get_user_model
+
+            user_model = get_user_model()
+            context["gmail_senders"] = (
+                user_model.objects.filter(
+                    is_active=True,
+                    oauth_token__provider="google",
+                )
+                .distinct()
+                .order_by("last_name", "first_name", "username")
+            )
+            context["reminder_settings"] = (
+                InvoiceReminderSettings.objects.select_related("sender")
+                .filter(pk=1)
+                .first()
+            )
         return context
 
 @method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
@@ -393,6 +416,28 @@ class BulkDeleteInvoicesView(View):
             messages.error(request, f"Erreur lors de la suppression : {str(e)}")
         
         return redirect('invoices:list')
+
+
+@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name="dispatch")
+class InvoiceReminderSettingsView(View):
+    def post(self, request, *args, **kwargs):
+        sender_id = request.POST.get("sender_id")
+        from django.contrib.auth import get_user_model
+
+        sender = (
+            get_user_model()
+            .objects.filter(pk=sender_id, is_active=True, oauth_token__provider="google")
+            .first()
+        )
+        if not sender:
+            messages.error(request, "Sélectionnez un utilisateur actif ayant synchronisé Gmail.")
+            return redirect("invoices:list")
+
+        settings_obj, _ = InvoiceReminderSettings.objects.get_or_create(pk=1)
+        settings_obj.sender = sender
+        settings_obj.save(update_fields=["sender", "updated_at"])
+        messages.success(request, f"{sender.email} est désormais l'expéditeur des relances.")
+        return redirect("invoices:list")
 
 
 @method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')

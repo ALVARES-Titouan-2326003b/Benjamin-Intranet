@@ -270,12 +270,26 @@ Les tâches crons suivantes seront exécutées automatiquement en arrière-plan 
 
 ## Synchronisation mail
 
-De par la nature de la relance mail, la mise en place d’une boite mail est nécessaire. **Le domaine du client est hébergé par
-Microsoft**, nous utilisons donc l’api `Microsoft Graph` avec l’outil `Entra`
-(nécessite de rejoindre le Microsoft 365 Developer Program).  
-Depuis `Entra`, nous ajoutons le projet parmi les applications du compte, le paramétrons
-en fonction des besoins puis donnons les permissions aux utilisateurs du tenant.  
-Or, pour ce projet, **n’ayant pas eu accès au tenant du client en tant qu’administrateur, nous n’avons pas pu définir d’autorisations
-ou ajouter notre projet**. Cela **reste donc à implémenter** ; à noter que la synchronisation boîte mail par Microsoft est fonctionnelle
-mais que toute fonctionnalité au-delà de cette étape n’a pas pu être testée,
-telles que la récupération de la boîte "Éléments envoyés" et "Boîte de réception" de l’adresse mail.
+Gmail est le canal de messagerie actif de l'intranet. L'autorisation OAuth Google
+demande l'accès en lecture, la modification des libellés et le scope
+`gmail.send`. Les comptes autorisés avant l'ajout du droit d'envoi doivent
+utiliser le bouton **Re-synchroniser** afin d'accorder les nouveaux droits.
+
+Le pôle administratif synchronise les messages envoyés et les réponses reçues
+dans un journal persistant. Les relances sont envoyées dans le fil Gmail
+existant et chaque synchronisation, envoi, changement de statut, erreur ou note
+est conservé dans l'historique.
+
+Le pôle financier désigne depuis la liste des factures un unique compte Gmail
+actif pour les relances automatiques. Les factures ouvertes sont relancées après
+échéance à J+X, puis lorsque X jours se sont écoulés depuis le dernier envoi
+réussi. Les statuts payée, refusée et archivée arrêtent les relances.
+
+Le pôle technique importe les messages et pièces jointes depuis Gmail. Après
+classement automatique à haute confiance ou validation manuelle du projet, une
+tâche Celery extrait et résume les fichiers PDF, DOC, DOCX et TXT, puis crée le
+`DocumentTechnique` associé. Les autres formats et les erreurs sont affichés
+explicitement dans le détail de l'e-mail.
+
+Le code Microsoft/Outlook est conservé pour une éventuelle réactivation, mais
+ses routes et contrôles ne sont pas exposés dans l'interface.

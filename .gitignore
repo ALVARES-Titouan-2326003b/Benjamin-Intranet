@@ -75,3 +75,4 @@ media/
 *.pdf
 factures/
 uploads/
+.coverage

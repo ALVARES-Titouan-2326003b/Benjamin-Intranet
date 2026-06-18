@@ -217,6 +217,12 @@ class TechnicalEmail(models.Model):
         blank=True,
         null=True,
     )
+    thread_id = models.CharField(
+        "Identifiant de conversation Gmail",
+        max_length=255,
+        blank=True,
+        default="",
+    )
 
     has_attachments = models.BooleanField("Pièces jointes", default=False)
     project = models.ForeignKey(
@@ -248,6 +254,14 @@ class TechnicalEmail(models.Model):
 
 
 class TechnicalEmailAttachment(models.Model):
+    PROCESSING_STATUS_CHOICES = [
+        ("pending", "En attente"),
+        ("processing", "Traitement en cours"),
+        ("linked", "Document créé"),
+        ("skipped", "Ignoré"),
+        ("error", "Erreur"),
+    ]
+
     email = models.ForeignKey(TechnicalEmail, related_name="attachments", on_delete=models.CASCADE, verbose_name="Email")
     file = models.FileField("Fichier", upload_to="documents_tech/emails/")
     original_name = models.CharField("Nom d'origine", max_length=255)
@@ -258,6 +272,14 @@ class TechnicalEmailAttachment(models.Model):
         "DocumentTechnique", null=True, blank=True, on_delete=models.SET_NULL,
         related_name="source_attachments", verbose_name="Document technique lié",
     )
+    processing_status = models.CharField(
+        "État du traitement",
+        max_length=20,
+        choices=PROCESSING_STATUS_CHOICES,
+        default="pending",
+    )
+    processing_error = models.TextField("Erreur de traitement", blank=True)
+    processed_at = models.DateTimeField("Traité le", null=True, blank=True)
     created_at = models.DateTimeField("Créé le", auto_now_add=True)
 
     class Meta:

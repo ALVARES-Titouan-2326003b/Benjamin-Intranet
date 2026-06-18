@@ -138,13 +138,17 @@ def oauth_callback(request):
             request.user.email = tokens['email']
             request.user.save()
 
+        existing_token = OAuthToken.objects.filter(user=request.user).first()
+        refresh_token = tokens["refresh_token"] or (
+            existing_token.refresh_token if existing_token else ""
+        )
         _, created = OAuthToken.objects.update_or_create(
             user=request.user,
             defaults={
                 'provider':      provider,
                 'email':         tokens['email'],
                 'access_token':  tokens['access_token'],
-                'refresh_token': tokens['refresh_token'],
+                'refresh_token': refresh_token,
                 'token_expiry':  tokens['token_expiry'],
             }
         )
@@ -169,7 +173,7 @@ def oauth_callback(request):
 def revoke_oauth(request):
     """Révoque l'accès OAuth. URL : /oauth/revoke/"""
     try:
-        oauth_token = OAuthToken.objects.get(user=request.user)
+        oauth_token = OAuthToken.objects.get(user=request.user, provider="google")
         email = oauth_token.email
         oauth_token.delete()
         messages.success(request, f"Accès à la boîte mail {email} révoqué avec succès.")
@@ -187,7 +191,7 @@ def revoke_oauth(request):
 def oauth_status(request):
     """Statut OAuth de l'utilisateur. URL : /oauth/status/"""
     try:
-        oauth_token = OAuthToken.objects.get(user=request.user)
+        oauth_token = OAuthToken.objects.get(user=request.user, provider="google")
         return JsonResponse({
             'synchronized':  True,
             'email':         oauth_token.email,
