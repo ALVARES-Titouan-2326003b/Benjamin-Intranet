@@ -221,14 +221,14 @@
                    placeholder="Ex. Relance compromis, échéance notaire…">
          </div>
 
-         <!-- Projet administratif avec recherche -->
+         <!-- Dossier administratif avec recherche -->
          <div class="form-group">
-            <label class="form-label">Projet administratif *</label>
+            <label class="form-label">Dossier administratif *</label>
             <select id="activity-dossier" name="dossier" class="form-control" required>
-               <option value="">-- Sélectionner un projet --</option>
+               <option value="">-- Sélectionner un dossier --</option>
                {% for dossier in dossiers %}
-               <option value="{{ dossier.reference }}" data-nom="{{ dossier.name }}">
-                  {{ dossier.reference }} — {{ dossier.name }}
+               <option value="{{ dossier.reference }}" data-nom="{{ dossier.affaire|default:dossier.name }}">
+                  {{ dossier.reference }} — {{ dossier.affaire|default:dossier.name }}
                </option>
                {% endfor %}
             </select>
@@ -280,17 +280,6 @@
                   <option value="high">Haute</option>
                   <option value="urgent">Urgente</option>
                </select>
-            </div>
-         </div>
-
-         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
-            <div class="form-group">
-               <label class="form-label">Client</label>
-               <input type="text" id="activity-client" name="client" class="form-control">
-            </div>
-            <div class="form-group">
-               <label class="form-label">Contact externe</label>
-               <input type="text" id="activity-contact-externe" name="contact_externe" class="form-control">
             </div>
          </div>
 

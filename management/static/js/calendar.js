@@ -590,8 +590,6 @@
             if (!state.filtresStatuts[act.statut || 'todo']) return false;
             if (!state.filtresPriorites[act.priorite || 'normal']) return false;
             if (act.responsable_id && !state.filtresResponsables[act.responsable_id]) return false;
-            if (state.filtreClient && !(act.client || '').toLowerCase().includes(state.filtreClient)) return false;
-            if (state.filtreContact && !(act.contact_externe || '').toLowerCase().includes(state.filtreContact)) return false;
             return true;
         });
     }
@@ -732,8 +730,6 @@
         if (responsableSelect) responsableSelect.value = act.responsable_id || '';
         if (statutSelect) statutSelect.value = act.statut || 'todo';
         if (prioriteSelect) prioriteSelect.value = act.priorite || 'normal';
-        if (clientInput) clientInput.value = act.client || '';
-        if (contactInput) contactInput.value = act.contact_externe || '';
         if (syncInput) syncInput.checked = !!act.outlook_synced;
         if (commentInput)  commentInput.value  = act.commentaire || '';
 
@@ -970,8 +966,6 @@
             responsable: document.getElementById('activity-responsable').value,
             statut:      document.getElementById('activity-statut').value,
             priorite:    document.getElementById('activity-priorite').value,
-            client:      document.getElementById('activity-client').value.trim(),
-            contact_externe: document.getElementById('activity-contact-externe').value.trim(),
             commentaire: document.getElementById('activity-commentaire').value.trim(),
             sync_outlook: document.getElementById('activity-sync-outlook')?.checked || false
         };

@@ -9,6 +9,7 @@ from django.utils import timezone
 from management.models import (
     Activite,
     AdministrativeProject,
+    CategorieDossierAdministratif,
     HistoriqueRappelActivite,
     NotificationInterne,
     TypeActivite,
@@ -35,10 +36,17 @@ def responsable(db):
 
 
 @pytest.fixture
-def dossier(db):
+def categorie(db):
+    return CategorieDossierAdministratif.objects.create(nom="Non classé", is_default=True)
+
+
+@pytest.fixture
+def dossier(db, categorie):
     return AdministrativeProject.objects.create(
         reference="ADM-001",
         name="Dossier administratif",
+        affaire="Dossier administratif",
+        categorie=categorie,
     )
 
 
@@ -113,7 +121,7 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
 
 
 @pytest.mark.django_db
-def test_admin_project_create_update_delete_and_block_when_used(client, admin_user, type_activite):
+def test_admin_dossier_create_update_delete_and_block_when_used(client, admin_user, type_activite, categorie):
     client.force_login(admin_user)
 
     response = _post_json(
@@ -121,9 +129,26 @@ def test_admin_project_create_update_delete_and_block_when_used(client, admin_us
         "/api/admin-projects/create/",
         {
             "reference": "adm-new",
-            "name": "Projet administratif",
-            "type": "juridique",
-            "total_estimated": "125000.50",
+            "affaire": "Dossier administratif",
+            "lot_etage": "Lot 4 / 2e",
+            "adresse_bien": "10 rue de la Paix",
+            "vendeur": "Vendeur Test",
+            "beneficiaire": "Bénéficiaire Test",
+            "locataire": "Locataire Test",
+            "type_dossier": "vente",
+            "activite_metier": "marchand_biens",
+            "etat": "promesse",
+            "categorie_id": categorie.pk,
+            "date_promesse": "2026-07-01",
+            "negociation_externe": "Négociation en cours",
+            "frais": "1500.25",
+            "prix": "125000.50",
+            "dg": "5000",
+            "date_dg": "2026-07-05",
+            "cs_pret": "Condition suspensive active",
+            "date_cs_pret": "2026-07-15",
+            "date_reiteration": "2026-09-01",
+            "acte": "Acte à contrôler",
         },
     )
 
@@ -132,25 +157,36 @@ def test_admin_project_create_update_delete_and_block_when_used(client, admin_us
     assert data["success"] is True
     project = AdministrativeProject.objects.get(pk=data["project"]["id"])
     assert project.reference == "ADM-NEW"
-    assert project.name == "Projet administratif"
-    assert project.type == "juridique"
+    assert project.affaire == "Dossier administratif"
+    assert project.type_dossier == "vente"
+    assert project.activite_metier == "marchand_biens"
+    assert project.etat == "promesse"
+    assert project.categorie == categorie
+    assert str(project.prix) == "125000.50"
+    assert str(project.frais) == "1500.25"
+    assert str(project.dg) == "5000.00"
 
     response = _post_json(
         client,
         f"/api/admin-projects/{project.pk}/update/",
         {
             "reference": "ADM-UPD",
-            "name": "Projet administratif modifié",
-            "type": "client",
-            "total_estimated": "130000",
+            "affaire": "Dossier administratif modifié",
+            "type_dossier": "acquisition",
+            "activite_metier": "patrimoine",
+            "etat": "achete",
+            "categorie_id": categorie.pk,
+            "prix": "130000",
         },
     )
 
     assert response.status_code == 200
     project.refresh_from_db()
     assert project.reference == "ADM-UPD"
-    assert project.name == "Projet administratif modifié"
-    assert project.type == "client"
+    assert project.affaire == "Dossier administratif modifié"
+    assert project.type_dossier == "acquisition"
+    assert project.activite_metier == "patrimoine"
+    assert project.etat == "achete"
 
     Activite.objects.create(
         id="project-blocked",
@@ -177,19 +213,55 @@ def test_admin_project_create_update_delete_and_block_when_used(client, admin_us
 
 
 @pytest.mark.django_db
-def test_admin_overview_and_projects_are_split(client, admin_user, dossier):
+def test_admin_overview_dossiers_and_legacy_projects_redirect_are_split(client, admin_user, dossier):
     client.force_login(admin_user)
 
     with patch("management.views.sync_conversation_journal") as sync_mock:
         overview = client.get("/administratif/")
-    projects = client.get("/administratif/projets/")
+    dossiers = client.get("/administratif/dossiers/")
+    legacy_projects = client.get("/administratif/projets/")
+    detail = client.get(f"/administratif/dossiers/{dossier.pk}/")
 
     assert overview.status_code == 200
     sync_mock.assert_not_called()
-    assert projects.status_code == 200
+    assert dossiers.status_code == 200
+    assert legacy_projects.status_code == 302
+    assert legacy_projects["Location"] == "/administratif/dossiers/"
+    assert detail.status_code == 200
     assert b"admin-projects-data" not in overview.content
-    assert b"admin-projects-data" in projects.content
-    assert dossier.reference.encode() in projects.content
+    assert b"admin-projects-data" in dossiers.content
+    assert dossier.reference.encode() in dossiers.content
+    assert dossier.reference.encode() in detail.content
+
+
+@pytest.mark.django_db
+def test_admin_dossier_rejects_invalid_choices_and_negative_amounts(client, admin_user, categorie):
+    client.force_login(admin_user)
+    base_payload = {
+        "reference": "ADM-INVALID",
+        "affaire": "Dossier invalide",
+        "type_dossier": "vente",
+        "activite_metier": "marchand_biens",
+        "etat": "promesse",
+        "categorie_id": categorie.pk,
+        "prix": "100000",
+    }
+
+    response = _post_json(client, "/api/admin-projects/create/", {**base_payload, "type_dossier": "location"})
+    assert response.status_code == 400
+    assert "Type de dossier invalide" in response.json()["message"]
+
+    response = _post_json(client, "/api/admin-projects/create/", {**base_payload, "reference": "ADM-NEG", "prix": "-1"})
+    assert response.status_code == 400
+    assert "Prix ne peut pas être négatif" in response.json()["message"]
+
+    response = _post_json(
+        client,
+        "/api/admin-projects/create/",
+        {**base_payload, "reference": "ADM-DATE", "date_promesse": "01/07/2026"},
+    )
+    assert response.status_code == 400
+    assert "Date de promesse doit être une date valide" in response.json()["message"]
 
 
 @pytest.mark.django_db

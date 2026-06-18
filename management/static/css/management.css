@@ -205,14 +205,14 @@
     border: 1px solid #f5c6cb;
 }
 
-/* Section projets administratifs */
+/* Section dossiers administratifs */
 .admin-projects-card {
     margin-bottom: 1.5rem;
 }
 
 .project-toolbar {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px);
+    grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) auto;
     gap: 0.75rem;
     margin-bottom: 1rem;
 }
@@ -255,6 +255,10 @@
     background: #f8d7da;
     border: 1px solid #f5c6cb;
     color: #721c24;
+}
+
+.project-modal-content {
+    max-width: 920px;
 }
 
 .btn-danger {

@@ -91,13 +91,9 @@
       <a href="{% url 'admin_view' %}" class="nav-item {% if p == '/administratif/' %}active{% endif %}">
         <i class="bi bi-speedometer2"></i> Vue d'ensemble
       </a>
-      <a href="{% url 'admin_projects' %}"
-         class="nav-item {% if '/administratif/projets/' in p %}active{% endif %}">
-        <i class="bi bi-kanban"></i> Projets
-      </a>
-      <a href="{% url 'recrutement:dashboard' %}"
-         class="nav-item {% if '/administratif/recrutement/' in p %}active{% endif %}">
-        <i class="bi bi-person-badge"></i> Candidatures
+      <a href="{% url 'admin_dossiers' %}"
+         class="nav-item {% if '/administratif/dossiers/' in p or '/administratif/projets/' in p %}active{% endif %}">
+        <i class="bi bi-folder2-open"></i> Dossiers
       </a>
       {% endif %}
       {% endif %}

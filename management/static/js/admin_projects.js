@@ -17,9 +17,26 @@
     const fields = {
         id: document.getElementById('project-id'),
         reference: document.getElementById('project-reference'),
-        name: document.getElementById('project-name'),
+        affaire: document.getElementById('project-affaire'),
         type: document.getElementById('project-type'),
-        total: document.getElementById('project-total-estimated'),
+        activiteMetier: document.getElementById('project-activite-metier'),
+        etat: document.getElementById('project-etat'),
+        categorie: document.getElementById('project-categorie'),
+        lotEtage: document.getElementById('project-lot-etage'),
+        adresseBien: document.getElementById('project-adresse-bien'),
+        vendeur: document.getElementById('project-vendeur'),
+        beneficiaire: document.getElementById('project-beneficiaire'),
+        locataire: document.getElementById('project-locataire'),
+        datePromesse: document.getElementById('project-date-promesse'),
+        negociationExterne: document.getElementById('project-negociation-externe'),
+        frais: document.getElementById('project-frais'),
+        prix: document.getElementById('project-prix'),
+        dg: document.getElementById('project-dg'),
+        dateDg: document.getElementById('project-date-dg'),
+        csPret: document.getElementById('project-cs-pret'),
+        dateCsPret: document.getElementById('project-date-cs-pret'),
+        dateReiteration: document.getElementById('project-date-reiteration'),
+        acte: document.getElementById('project-acte'),
         title: document.getElementById('project-modal-title'),
     };
 
@@ -61,20 +78,30 @@
         const selectedType = typeFilter?.value || '';
         const filtered = projects.filter(project => {
             const matchesQuery = !q
-                || project.reference.toLowerCase().includes(q)
-                || project.name.toLowerCase().includes(q);
-            const matchesType = !selectedType || project.type === selectedType;
+                || (project.reference || '').toLowerCase().includes(q)
+                || (project.affaire || project.name || '').toLowerCase().includes(q)
+                || (project.adresse_bien || '').toLowerCase().includes(q)
+                || (project.vendeur || '').toLowerCase().includes(q)
+                || (project.beneficiaire || '').toLowerCase().includes(q)
+                || (project.locataire || '').toLowerCase().includes(q);
+            const matchesType = !selectedType || project.type_dossier === selectedType || project.type === selectedType;
             return matchesQuery && matchesType;
         });
 
         tbody.innerHTML = filtered.map(project => `
             <tr>
                 <td><strong>${escapeHtml(project.reference)}</strong></td>
-                <td>${escapeHtml(project.name)}</td>
-                <td><span class="status-badge">${escapeHtml(project.type_label)}</span></td>
-                <td>${money(project.total_estimated)}</td>
+                <td>${escapeHtml(project.affaire || project.name)}</td>
+                <td><span class="status-badge">${escapeHtml(project.type_dossier_label || project.type_label)}</span></td>
+                <td>${escapeHtml(project.activite_metier_label)}</td>
+                <td>${escapeHtml(project.etat_label)}</td>
+                <td>${escapeHtml(project.categorie_label || 'Non classé')}</td>
+                <td>${money(project.prix)}</td>
                 <td>${project.activities_count || 0}</td>
-                <td>
+                <td style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                    <a class="btn btn-secondary" href="/administratif/dossiers/${project.id}/">
+                        <i class="bi bi-eye"></i> Voir
+                    </a>
                     <button type="button" class="btn btn-secondary project-edit-btn" data-project-id="${project.id}">
                         <i class="bi bi-pencil-square"></i> Modifier
                     </button>
@@ -87,16 +114,37 @@
         }
     }
 
+    function setValue(input, value) {
+        if (input) input.value = value || '';
+    }
+
     function openProjectModal(project) {
         clearStatus();
-        fields.id.value = project?.id || '';
-        fields.reference.value = project?.reference || '';
-        fields.name.value = project?.name || '';
-        fields.type.value = project?.type || 'client';
-        fields.total.value = project?.total_estimated || '0';
+        setValue(fields.id, project?.id);
+        setValue(fields.reference, project?.reference);
+        setValue(fields.affaire, project?.affaire || project?.name);
+        setValue(fields.type, project?.type_dossier || project?.type || 'vente');
+        setValue(fields.activiteMetier, project?.activite_metier || 'marchand_biens');
+        setValue(fields.etat, project?.etat || 'promesse');
+        setValue(fields.categorie, project?.categorie_id || fields.categorie?.options?.[0]?.value);
+        setValue(fields.lotEtage, project?.lot_etage);
+        setValue(fields.adresseBien, project?.adresse_bien);
+        setValue(fields.vendeur, project?.vendeur);
+        setValue(fields.beneficiaire, project?.beneficiaire);
+        setValue(fields.locataire, project?.locataire);
+        setValue(fields.datePromesse, project?.date_promesse);
+        setValue(fields.negociationExterne, project?.negociation_externe);
+        setValue(fields.frais, project?.frais || '0');
+        setValue(fields.prix, project?.prix || project?.total_estimated || '0');
+        setValue(fields.dg, project?.dg || '0');
+        setValue(fields.dateDg, project?.date_dg);
+        setValue(fields.csPret, project?.cs_pret);
+        setValue(fields.dateCsPret, project?.date_cs_pret);
+        setValue(fields.dateReiteration, project?.date_reiteration);
+        setValue(fields.acte, project?.acte);
         fields.title.innerHTML = project
-            ? '<i class="bi bi-pencil-square"></i> Modifier le projet'
-            : '<i class="bi bi-kanban"></i> Nouveau projet';
+            ? '<i class="bi bi-pencil-square"></i> Modifier le dossier'
+            : '<i class="bi bi-folder-plus"></i> Nouveau dossier';
         deleteBtn.style.display = project ? 'inline-flex' : 'none';
         modal.style.display = 'flex';
         fields.reference.focus();
@@ -108,17 +156,37 @@
         clearStatus();
     }
 
+    function buildPayload() {
+        return {
+            reference: fields.reference.value,
+            affaire: fields.affaire.value,
+            type_dossier: fields.type.value,
+            activite_metier: fields.activiteMetier.value,
+            etat: fields.etat.value,
+            categorie_id: fields.categorie.value,
+            lot_etage: fields.lotEtage.value,
+            adresse_bien: fields.adresseBien.value,
+            vendeur: fields.vendeur.value,
+            beneficiaire: fields.beneficiaire.value,
+            locataire: fields.locataire.value,
+            date_promesse: fields.datePromesse.value,
+            negociation_externe: fields.negociationExterne.value,
+            frais: fields.frais.value || '0',
+            prix: fields.prix.value || '0',
+            dg: fields.dg.value || '0',
+            date_dg: fields.dateDg.value,
+            cs_pret: fields.csPret.value,
+            date_cs_pret: fields.dateCsPret.value,
+            date_reiteration: fields.dateReiteration.value,
+            acte: fields.acte.value,
+        };
+    }
+
     async function submitProject(event) {
         event.preventDefault();
         clearStatus();
 
         const id = fields.id.value;
-        const payload = {
-            reference: fields.reference.value,
-            name: fields.name.value,
-            type: fields.type.value,
-            total_estimated: fields.total.value || '0',
-        };
         const url = id ? `/api/admin-projects/${id}/update/` : '/api/admin-projects/create/';
 
         try {
@@ -128,16 +196,17 @@
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrftoken(),
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(buildPayload()),
             });
             const data = await response.json();
             if (!data.success) throw new Error(data.message || 'Enregistrement impossible');
 
-            const existingIndex = projects.findIndex(project => String(project.id) === String(data.project.id));
+            const dossier = data.dossier || data.project;
+            const existingIndex = projects.findIndex(project => String(project.id) === String(dossier.id));
             if (existingIndex >= 0) {
-                projects[existingIndex] = data.project;
+                projects[existingIndex] = dossier;
             } else {
-                projects.push(data.project);
+                projects.push(dossier);
             }
             projects.sort((a, b) => a.reference.localeCompare(b.reference));
             renderProjects();
@@ -151,7 +220,7 @@
         const id = fields.id.value;
         if (!id) return;
         const project = projects.find(item => String(item.id) === String(id));
-        if (!confirm(`Supprimer le projet ${project?.reference || ''} ?`)) return;
+        if (!confirm(`Supprimer le dossier ${project?.reference || ''} ?`)) return;
 
         try {
             const response = await fetch(`/api/admin-projects/${id}/delete/`, {

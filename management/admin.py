@@ -4,6 +4,7 @@ from django.contrib import admin
 from .models import (
     Activite,
     AdministrativeProject,
+    CategorieDossierAdministratif,
     HistoriqueRappelActivite,
     NotificationInterne,
     GmailConversation,
@@ -11,18 +12,25 @@ from .models import (
 )
 
 
+@admin.register(CategorieDossierAdministratif)
+class CategorieDossierAdministratifAdmin(admin.ModelAdmin):
+    list_display = ("nom", "is_default", "created_at")
+    list_filter = ("is_default",)
+    search_fields = ("nom",)
+
+
 @admin.register(AdministrativeProject)
 class AdministrativeProjectAdmin(admin.ModelAdmin):
-    list_display = ("reference", "name", "type", "total_estimated", "created_at")
-    list_filter = ("type", "created_at")
-    search_fields = ("reference", "name")
+    list_display = ("reference", "affaire", "type_dossier", "activite_metier", "etat", "categorie", "prix")
+    list_filter = ("type_dossier", "activite_metier", "etat", "categorie", "created_at")
+    search_fields = ("reference", "affaire", "name", "adresse_bien", "vendeur", "beneficiaire", "locataire")
 
 
 @admin.register(Activite)
 class ActiviteAdmin(admin.ModelAdmin):
     list_display = ("titre", "dossier", "type", "date", "statut", "priorite", "responsable")
     list_filter = ("statut", "priorite", "type")
-    search_fields = ("titre", "dossier__reference", "client", "contact_externe")
+    search_fields = ("titre", "dossier__reference")
 
 
 @admin.register(HistoriqueRappelActivite)

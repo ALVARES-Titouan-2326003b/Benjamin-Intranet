@@ -1,5 +1,7 @@
 from django.urls import path
 from .views import (
+    admin_dossier_detail_view,
+    admin_dossiers_view,
     admin_projects_view,
     administratif_view,
     send_reply_view,
@@ -21,6 +23,8 @@ app_name = 'management'
 
 urlpatterns = [
     path('administratif/', administratif_view, name='admin'),
+    path('administratif/dossiers/', admin_dossiers_view, name='admin_dossiers'),
+    path('administratif/dossiers/<int:dossier_id>/', admin_dossier_detail_view, name='admin_dossier_detail'),
     path('administratif/projets/', admin_projects_view, name='admin_projects'),
 
     path('api/send-reply/', send_reply_view, name='send_reply'),

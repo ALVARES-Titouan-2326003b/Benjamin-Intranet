@@ -252,10 +252,6 @@ def _activity_event_payload(activite):
         f"Statut : {activite.get_statut_display()}",
         f"Priorité : {activite.get_priorite_display()}",
     ]
-    if activite.client:
-        details.append(f"Client : {activite.client}")
-    if activite.contact_externe:
-        details.append(f"Contact externe : {activite.contact_externe}")
     if activite.commentaire:
         details.append("")
         details.append(activite.commentaire)

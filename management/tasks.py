@@ -299,10 +299,6 @@ Ceci est un rappel automatique concernant l'activité suivante :
 - Échéance : dans {jours_restants} jour(s)
 
 """
-                if activite.client:
-                    message += f"Client : {activite.client}\n"
-                if activite.contact_externe:
-                    message += f"Contact externe : {activite.contact_externe}\n"
 
                 if activite.commentaire:
                     message += f"Commentaire : {activite.commentaire}\n\n"

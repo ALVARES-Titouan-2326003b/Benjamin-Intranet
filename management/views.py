@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
@@ -24,6 +24,7 @@ from .email_manager import (
 from .models import (
     Activite,
     AdministrativeProject,
+    CategorieDossierAdministratif,
     NotificationInterne,
     TypeActivite,
     GmailConversation,
@@ -76,6 +77,27 @@ def _parse_iso_datetime(value):
     return parsed
 
 
+def _parse_iso_date(value, label):
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError(f"{label} doit être une date valide.")
+
+
+def _parse_non_negative_decimal(value, label):
+    raw = str(value or "0").replace(",", ".").strip()
+    try:
+        amount = Decimal(raw)
+    except (InvalidOperation, ValueError):
+        raise ValueError(f"{label} doit être un montant valide.")
+    if amount < 0:
+        raise ValueError(f"{label} ne peut pas être négatif.")
+    return amount
+
+
 def _truthy(value):
     if isinstance(value, bool):
         return value
@@ -105,7 +127,11 @@ def _serialize_activity(activity, include_datetime=False):
         and activity.statut not in {"done", "cancelled"}
     )
     dossier_reference = getattr(activity.dossier, "reference", "") or ""
-    dossier_nom = getattr(activity.dossier, "name", "") or dossier_reference
+    dossier_nom = (
+        getattr(activity.dossier, "affaire", "")
+        or getattr(activity.dossier, "name", "")
+        or dossier_reference
+    )
     payload = {
         "id": activity.id,
         "titre": activity.titre or "",
@@ -120,8 +146,6 @@ def _serialize_activity(activity, include_datetime=False):
         "priorite_label": activity.get_priorite_display(),
         "responsable_id": activity.responsable_id or "",
         "responsable_label": _user_label(activity.responsable),
-        "client": activity.client or "",
-        "contact_externe": activity.contact_externe or "",
         "is_overdue": is_overdue,
         "status_color": STATUS_COLORS.get(activity.statut, STATUS_COLORS["todo"]),
         "priority_color": PRIORITY_COLORS.get(activity.priorite, PRIORITY_COLORS["normal"]),
@@ -137,13 +161,46 @@ def _serialize_activity(activity, include_datetime=False):
     return payload
 
 
+def _default_categorie():
+    category, _ = CategorieDossierAdministratif.objects.get_or_create(
+        nom="Non classé",
+        defaults={"is_default": True},
+    )
+    return category
+
+
 def _serialize_project(project):
+    categorie = project.categorie
     return {
         "id": project.pk,
         "reference": project.reference,
-        "name": project.name,
-        "type": project.type,
-        "type_label": project.get_type_display(),
+        "name": project.affaire or project.name,
+        "affaire": project.affaire or project.name,
+        "lot_etage": project.lot_etage,
+        "adresse_bien": project.adresse_bien,
+        "vendeur": project.vendeur,
+        "beneficiaire": project.beneficiaire,
+        "locataire": project.locataire,
+        "type": project.type_dossier,
+        "type_label": project.get_type_dossier_display(),
+        "type_dossier": project.type_dossier,
+        "type_dossier_label": project.get_type_dossier_display(),
+        "activite_metier": project.activite_metier,
+        "activite_metier_label": project.get_activite_metier_display(),
+        "etat": project.etat,
+        "etat_label": project.get_etat_display(),
+        "categorie_id": categorie.pk if categorie else "",
+        "categorie_label": categorie.nom if categorie else "",
+        "date_promesse": project.date_promesse.isoformat() if project.date_promesse else "",
+        "negociation_externe": project.negociation_externe,
+        "frais": str(project.frais),
+        "prix": str(project.prix),
+        "dg": str(project.dg),
+        "date_dg": project.date_dg.isoformat() if project.date_dg else "",
+        "cs_pret": project.cs_pret,
+        "date_cs_pret": project.date_cs_pret.isoformat() if project.date_cs_pret else "",
+        "date_reiteration": project.date_reiteration.isoformat() if project.date_reiteration else "",
+        "acte": project.acte,
         "total_estimated": str(project.total_estimated),
         "activities_count": Activite.objects.filter(dossier=project).count(),
     }
@@ -151,21 +208,32 @@ def _serialize_project(project):
 
 def _project_form_data(data, existing_project=None):
     reference = (data.get("reference") or "").strip().upper()
-    name = (data.get("name") or "").strip()
-    project_type = (data.get("type") or "client").strip()
-    total_raw = str(data.get("total_estimated") or "0").replace(",", ".").strip()
+    affaire = (data.get("affaire") or data.get("name") or "").strip()
+    type_dossier = (data.get("type_dossier") or data.get("type") or "vente").strip()
+    activite_metier = (data.get("activite_metier") or "marchand_biens").strip()
+    etat = (data.get("etat") or "promesse").strip()
+    categorie_id = str(data.get("categorie_id") or data.get("categorie") or "").strip()
 
-    if not reference or not name:
-        raise ValueError("La référence et le nom du projet sont obligatoires.")
-    if project_type not in dict(AdministrativeProject.PROJECT_TYPES):
-        raise ValueError("Type de projet invalide.")
+    if not reference or not affaire:
+        raise ValueError("La référence et l'affaire du dossier sont obligatoires.")
+    if type_dossier not in dict(AdministrativeProject.DOSSIER_TYPES):
+        raise ValueError("Type de dossier invalide.")
+    if activite_metier not in dict(AdministrativeProject.ACTIVITES_METIER):
+        raise ValueError("Activité métier invalide.")
+    if etat not in dict(AdministrativeProject.ETATS):
+        raise ValueError("État de dossier invalide.")
 
-    try:
-        total_estimated = Decimal(total_raw)
-    except (InvalidOperation, ValueError):
-        raise ValueError("Le budget estimé doit être un nombre valide.")
-    if total_estimated < 0:
-        raise ValueError("Le budget estimé ne peut pas être négatif.")
+    categorie = None
+    if categorie_id:
+        categorie = CategorieDossierAdministratif.objects.filter(pk=categorie_id).first()
+        if not categorie:
+            raise ValueError("Catégorie de dossier invalide.")
+    else:
+        categorie = _default_categorie()
+
+    frais = _parse_non_negative_decimal(data.get("frais"), "Frais")
+    prix = _parse_non_negative_decimal(data.get("prix") or data.get("total_estimated"), "Prix")
+    dg = _parse_non_negative_decimal(data.get("dg"), "DG")
 
     duplicate = AdministrativeProject.objects.filter(reference=reference)
     if existing_project:
@@ -175,9 +243,28 @@ def _project_form_data(data, existing_project=None):
 
     return {
         "reference": reference,
-        "name": name,
-        "type": project_type,
-        "total_estimated": total_estimated,
+        "name": affaire,
+        "affaire": affaire,
+        "lot_etage": (data.get("lot_etage") or "").strip(),
+        "adresse_bien": (data.get("adresse_bien") or "").strip(),
+        "vendeur": (data.get("vendeur") or "").strip(),
+        "beneficiaire": (data.get("beneficiaire") or "").strip(),
+        "locataire": (data.get("locataire") or "").strip(),
+        "type_dossier": type_dossier,
+        "activite_metier": activite_metier,
+        "etat": etat,
+        "categorie": categorie,
+        "date_promesse": _parse_iso_date(data.get("date_promesse"), "Date de promesse"),
+        "negociation_externe": (data.get("negociation_externe") or "").strip(),
+        "frais": frais,
+        "prix": prix,
+        "dg": dg,
+        "date_dg": _parse_iso_date(data.get("date_dg"), "Date DG"),
+        "cs_pret": (data.get("cs_pret") or "").strip(),
+        "date_cs_pret": _parse_iso_date(data.get("date_cs_pret"), "Date CS prêt"),
+        "date_reiteration": _parse_iso_date(data.get("date_reiteration"), "Date de réitération"),
+        "acte": (data.get("acte") or "").strip(),
+        "total_estimated": prix,
     }
 
 
@@ -211,10 +298,6 @@ def _apply_calendar_filters(queryset, params):
         queryset = queryset.filter(statut=statut)
     if priorite:
         queryset = queryset.filter(priorite=priorite)
-    if client:
-        queryset = queryset.filter(client__icontains=client)
-    if contact:
-        queryset = queryset.filter(contact_externe__icontains=contact)
     if date_from:
         queryset = queryset.filter(date__date__gte=datetime.strptime(date_from, "%Y-%m-%d").date())
     if date_to:
@@ -265,8 +348,6 @@ def _activity_form_data(data):
         "statut": statut,
         "priorite": priorite,
         "responsable": responsable,
-        "client": (data.get("client") or "").strip(),
-        "contact_externe": (data.get("contact_externe") or "").strip(),
     }
 
 
@@ -374,15 +455,60 @@ def sync_gmail_journal_view(request):
 
 @login_required
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
-def admin_projects_view(request):
-    projects = AdministrativeProject.objects.all().order_by("reference")
+def admin_dossiers_view(request):
+    _default_categorie()
+    q = (request.GET.get("q") or "").strip()
+    dossiers = AdministrativeProject.objects.select_related("categorie").order_by("reference")
+    if q:
+        dossiers = dossiers.filter(
+            Q(reference__icontains=q)
+            | Q(affaire__icontains=q)
+            | Q(name__icontains=q)
+            | Q(adresse_bien__icontains=q)
+            | Q(vendeur__icontains=q)
+            | Q(beneficiaire__icontains=q)
+            | Q(locataire__icontains=q)
+        )
     return render(
         request,
         "admin_projects.html",
         {
             "pole_name": "Administratif",
-            "projets": [_serialize_project(project) for project in projects],
-            "project_type_choices": AdministrativeProject.PROJECT_TYPES,
+            "projets": [_serialize_project(dossier) for dossier in dossiers],
+            "dossier_type_choices": AdministrativeProject.DOSSIER_TYPES,
+            "activite_metier_choices": AdministrativeProject.ACTIVITES_METIER,
+            "etat_choices": AdministrativeProject.ETATS,
+            "categories": CategorieDossierAdministratif.objects.all(),
+            "search_query": q,
+        },
+    )
+
+
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def admin_projects_view(request):
+    return redirect("/administratif/dossiers/")
+
+
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def admin_dossier_detail_view(request, dossier_id):
+    dossier = get_object_or_404(
+        AdministrativeProject.objects.select_related("categorie"),
+        pk=dossier_id,
+    )
+    activites = (
+        Activite.objects.filter(dossier=dossier)
+        .select_related("type", "responsable")
+        .order_by("date", "id")
+    )
+    return render(
+        request,
+        "admin_dossier_detail.html",
+        {
+            "pole_name": "Administratif",
+            "dossier": dossier,
+            "activites": activites,
         },
     )
 
@@ -848,8 +974,9 @@ def create_project_view(request):
         return JsonResponse(
             {
                 "success": True,
-                "message": "Projet créé avec succès.",
+                "message": "Dossier créé avec succès.",
                 "project": _serialize_project(project),
+                "dossier": _serialize_project(project),
             }
         )
     except ValueError as e:
@@ -866,7 +993,7 @@ def update_project_view(request, project_id):
     try:
         project = AdministrativeProject.objects.filter(pk=project_id).first()
         if not project:
-            return _json_error("Projet introuvable", status=404)
+            return _json_error("Dossier introuvable", status=404)
 
         project_data = _project_form_data(_parse_request_json(request), existing_project=project)
         for field, value in project_data.items():
@@ -876,8 +1003,9 @@ def update_project_view(request, project_id):
         return JsonResponse(
             {
                 "success": True,
-                "message": "Projet mis à jour avec succès.",
+                "message": "Dossier mis à jour avec succès.",
                 "project": _serialize_project(project),
+                "dossier": _serialize_project(project),
             }
         )
     except ValueError as e:
@@ -894,19 +1022,19 @@ def delete_project_view(request, project_id):
     try:
         project = AdministrativeProject.objects.filter(pk=project_id).first()
         if not project:
-            return _json_error("Projet introuvable", status=404)
+            return _json_error("Dossier introuvable", status=404)
 
         blockers = _project_delete_blockers(project)
         if blockers:
             return _json_error(
-                "Suppression impossible : ce projet est lié à "
+                "Suppression impossible : ce dossier est lié à "
                 + ", ".join(blockers)
                 + ".",
                 status=409,
             )
 
         project.delete()
-        return JsonResponse({"success": True, "message": "Projet supprimé avec succès."})
+        return JsonResponse({"success": True, "message": "Dossier supprimé avec succès."})
     except Exception as e:
         traceback.print_exc()
         return _json_error(f"Erreur : {str(e)}", status=500)

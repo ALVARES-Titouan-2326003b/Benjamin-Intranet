@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Projets administratifs - Benjamin Immobilier{% endblock %}
+{% block title %}Dossiers administratifs - Benjamin Immobilier{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static '/css/management.css' %}?v=5" />
+<link rel="stylesheet" href="{% static '/css/management.css' %}?v=6" />
 {% endblock %}
 
 {% block content %}
@@ -12,31 +12,37 @@
 
 <div class="card admin-projects-card">
    <div class="card-title">
-      <span><i class="bi bi-kanban"></i> Projets</span>
+      <span><i class="bi bi-folder2-open"></i> Dossiers administratifs</span>
       <button id="add-project-btn" class="btn btn-primary" type="button">
-         <i class="bi bi-plus-circle"></i> Nouveau projet
+         <i class="bi bi-plus-circle"></i> Nouveau dossier
       </button>
    </div>
 
-   <div class="project-toolbar">
-      <input type="search" id="project-search" class="form-control"
-             placeholder="Rechercher une référence ou un nom">
+   <form method="get" class="project-toolbar">
+      <input type="search" id="project-search" name="q" value="{{ search_query }}" class="form-control"
+             placeholder="Rechercher affaire, adresse, vendeur, bénéficiaire ou locataire">
       <select id="project-type-filter" class="form-control">
          <option value="">Tous les types</option>
-         {% for value, label in project_type_choices %}
+         {% for value, label in dossier_type_choices %}
          <option value="{{ value }}">{{ label }}</option>
          {% endfor %}
       </select>
-   </div>
+      <button type="submit" class="btn btn-secondary">
+         <i class="bi bi-search"></i> Rechercher
+      </button>
+   </form>
 
    <div class="table-responsive project-table-wrap">
       <table class="table project-table">
          <thead>
             <tr>
                <th>Référence</th>
-               <th>Nom</th>
+               <th>Affaire</th>
                <th>Type</th>
-               <th>Budget estimé</th>
+               <th>Activité</th>
+               <th>État</th>
+               <th>Catégorie</th>
+               <th>Prix</th>
                <th>Activités</th>
                <th>Actions</th>
             </tr>
@@ -46,14 +52,14 @@
    </div>
 
    <div id="projects-empty-state" class="project-empty-state" style="display:none;">
-      Aucun projet ne correspond à la recherche.
+      Aucun dossier ne correspond à la recherche.
    </div>
 </div>
 
 <div id="project-modal" class="activity-modal" style="display:none;">
    <div class="activity-modal-content project-modal-content">
       <div class="activity-modal-header">
-         <h3 id="project-modal-title"><i class="bi bi-kanban"></i> Nouveau projet</h3>
+         <h3 id="project-modal-title"><i class="bi bi-folder-plus"></i> Nouveau dossier</h3>
          <button id="close-project-modal-btn" class="activity-modal-close" type="button">&times;</button>
       </div>
 
@@ -61,46 +67,134 @@
          {% csrf_token %}
          <input type="hidden" id="project-id">
 
-         <div class="form-group">
-            <label class="form-label">Référence *</label>
-            <input type="text" id="project-reference" class="form-control" required
-                   placeholder="Ex. ADM-001">
-         </div>
-
-         <div class="form-group">
-            <label class="form-label">Nom du projet *</label>
-            <input type="text" id="project-name" class="form-control" required
-                   placeholder="Ex. Résidence Les Oliviers">
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
+            <div class="form-group">
+               <label class="form-label">Référence *</label>
+               <input type="text" id="project-reference" class="form-control" required placeholder="Ex. ADM-001">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Affaire *</label>
+               <input type="text" id="project-affaire" class="form-control" required placeholder="Ex. Résidence Les Oliviers">
+            </div>
          </div>
 
          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
             <div class="form-group">
-               <label class="form-label">Type</label>
-               <select id="project-type" class="form-control">
-                  {% for value, label in project_type_choices %}
+               <label class="form-label">Type de dossier *</label>
+               <select id="project-type" class="form-control" required>
+                  {% for value, label in dossier_type_choices %}
                   <option value="{{ value }}">{{ label }}</option>
                   {% endfor %}
                </select>
             </div>
             <div class="form-group">
-               <label class="form-label">Budget estimé</label>
-               <input type="number" id="project-total-estimated" class="form-control"
-                      min="0" step="0.01" value="0">
+               <label class="form-label">Activité métier *</label>
+               <select id="project-activite-metier" class="form-control" required>
+                  {% for value, label in activite_metier_choices %}
+                  <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+               </select>
             </div>
+            <div class="form-group">
+               <label class="form-label">État *</label>
+               <select id="project-etat" class="form-control" required>
+                  {% for value, label in etat_choices %}
+                  <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+               </select>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Catégorie *</label>
+               <select id="project-categorie" class="form-control" required>
+                  {% for categorie in categories %}
+                  <option value="{{ categorie.pk }}">{{ categorie.nom }}</option>
+                  {% endfor %}
+               </select>
+            </div>
+         </div>
+
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
+            <div class="form-group">
+               <label class="form-label">Lot / étage</label>
+               <input type="text" id="project-lot-etage" class="form-control">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Vendeur</label>
+               <input type="text" id="project-vendeur" class="form-control">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Bénéficiaire</label>
+               <input type="text" id="project-beneficiaire" class="form-control">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Locataire</label>
+               <input type="text" id="project-locataire" class="form-control">
+            </div>
+         </div>
+
+         <div class="form-group">
+            <label class="form-label">Adresse du bien</label>
+            <textarea id="project-adresse-bien" class="form-control" rows="2"></textarea>
+         </div>
+
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
+            <div class="form-group">
+               <label class="form-label">Date de promesse</label>
+               <input type="date" id="project-date-promesse" class="form-control">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Prix</label>
+               <input type="number" id="project-prix" class="form-control" min="0" step="0.01" value="0">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Frais</label>
+               <input type="number" id="project-frais" class="form-control" min="0" step="0.01" value="0">
+            </div>
+            <div class="form-group">
+               <label class="form-label">DG</label>
+               <input type="number" id="project-dg" class="form-control" min="0" step="0.01" value="0">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Date DG</label>
+               <input type="date" id="project-date-dg" class="form-control">
+            </div>
+         </div>
+
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
+            <div class="form-group">
+               <label class="form-label">CS prêt</label>
+               <textarea id="project-cs-pret" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Date CS prêt</label>
+               <input type="date" id="project-date-cs-pret" class="form-control">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Date de réitération</label>
+               <input type="date" id="project-date-reiteration" class="form-control">
+            </div>
+         </div>
+
+         <div class="form-group">
+            <label class="form-label">Négociation externe</label>
+            <textarea id="project-negociation-externe" class="form-control" rows="2"></textarea>
+         </div>
+
+         <div class="form-group">
+            <label class="form-label">Acte</label>
+            <textarea id="project-acte" class="form-control" rows="2"></textarea>
          </div>
 
          <div id="project-form-status" style="display:none;"></div>
 
-         <div style="display:flex;gap:.75rem;margin-top:1rem;">
+         <div style="display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap;">
             <button type="submit" class="btn btn-primary" style="flex:1;">
                <i class="bi bi-check-lg"></i> Enregistrer
             </button>
-            <button type="button" id="delete-project-btn" class="btn btn-danger"
-                    style="flex:0 0 auto;display:none;">
+            <button type="button" id="delete-project-btn" class="btn btn-danger" style="flex:0 0 auto;display:none;">
                <i class="bi bi-trash3"></i> Supprimer
             </button>
-            <button type="button" id="cancel-project-btn" class="btn btn-secondary"
-                    style="flex:0 0 auto;">
+            <button type="button" id="cancel-project-btn" class="btn btn-secondary" style="flex:0 0 auto;">
                Annuler
             </button>
          </div>
@@ -110,5 +204,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static '/js/admin_projects.js' %}?v=1"></script>
+<script src="{% static '/js/admin_projects.js' %}?v=2"></script>
 {% endblock %}
