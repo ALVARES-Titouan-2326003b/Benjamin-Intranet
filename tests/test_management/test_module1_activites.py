@@ -37,7 +37,10 @@ def responsable(db):
 
 @pytest.fixture
 def categorie(db):
-    return CategorieDossierAdministratif.objects.create(nom="Non classé", is_default=True)
+    return CategorieDossierAdministratif.objects.create(
+        nom=CategorieDossierAdministratif.DEFAULT_NOM,
+        is_default=True,
+    )
 
 
 @pytest.fixture
@@ -210,6 +213,59 @@ def test_admin_dossier_create_update_delete_and_block_when_used(client, admin_us
     assert response.status_code == 200
     assert response.json()["success"] is True
     assert not AdministrativeProject.objects.filter(pk=project.pk).exists()
+
+
+@pytest.mark.django_db
+def test_admin_dossier_accepts_promotion_immobiliere_fields(client, admin_user, categorie):
+    client.force_login(admin_user)
+
+    response = _post_json(
+        client,
+        "/api/admin-projects/create/",
+        {
+            "reference": "adm-promo",
+            "affaire": "Promotion immobilière",
+            "type_dossier": "acquisition",
+            "activite_metier": "promotion_immobiliere",
+            "etat": "promesse",
+            "categorie_id": categorie.pk,
+            "parcelles": "AB 123, AB 124",
+            "premiere_periode": "Janvier 2026",
+            "deuxieme_periode": "Février 2026",
+            "avenant_1": "Avenant signé",
+            "avenant_2": "Avenant à préparer",
+            "avenant_3": "Sans objet",
+            "depot_permis": "2026-07-01",
+            "obtention_permis": "2026-09-15",
+            "diags": "Diagnostics en cours",
+            "bornage": "Bornage validé",
+            "etude_sol_geotechnique": "G2 demandée",
+            "etude_pollution": "RAS",
+            "etude_impact": "Étude à relire",
+            "prorogation": "Prorogation possible",
+            "releves_compte": "Relevés transmis",
+            "prix": "250000",
+        },
+    )
+
+    assert response.status_code == 200
+    project = AdministrativeProject.objects.get(reference="ADM-PROMO")
+    assert project.activite_metier == "promotion_immobiliere"
+    assert project.get_activite_metier_display() == "Promotion immobilière"
+    assert project.categorie == categorie
+    assert project.parcelles == "AB 123, AB 124"
+    assert project.premiere_periode == "Janvier 2026"
+    assert project.deuxieme_periode == "Février 2026"
+    assert project.avenant_1 == "Avenant signé"
+    assert project.depot_permis.isoformat() == "2026-07-01"
+    assert project.obtention_permis.isoformat() == "2026-09-15"
+    assert project.diags == "Diagnostics en cours"
+    assert project.bornage == "Bornage validé"
+    assert project.etude_sol_geotechnique == "G2 demandée"
+    assert project.etude_pollution == "RAS"
+    assert project.etude_impact == "Étude à relire"
+    assert project.prorogation == "Prorogation possible"
+    assert project.releves_compte == "Relevés transmis"
 
 
 @pytest.mark.django_db

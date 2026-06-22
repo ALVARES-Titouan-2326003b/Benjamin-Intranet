@@ -96,6 +96,18 @@ class TypeActivite(models.Model):
 
 
 class CategorieDossierAdministratif(models.Model):
+    CATEGORIES_OFFICIELLES = [
+        "En cours d’acquisition",
+        "En cours de vente",
+        "Acheté",
+        "Vendu",
+        "Caduque",
+        "Vente annulée",
+        "Acquisition annulée",
+        "Adjudication",
+    ]
+    DEFAULT_NOM = CATEGORIES_OFFICIELLES[0]
+
     nom = models.CharField(max_length=120, unique=True)
     is_default = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -120,16 +132,13 @@ class AdministrativeProject(models.Model):
     ]
     ACTIVITES_METIER = [
         ("marchand_biens", "Marchands de bien"),
+        ("promotion_immobiliere", "Promotion immobilière"),
         ("patrimoine", "Patrimoine"),
     ]
     ETATS = [
         ("promesse", "En cours de promesse"),
         ("vendu", "Vendu"),
         ("achete", "Acheté"),
-        ("attente", "En attente"),
-        ("signe", "Signé"),
-        ("annule", "Annulé"),
-        ("archive", "Archivé"),
     ]
 
     reference = models.CharField("Référence dossier", max_length=50, unique=True)
@@ -139,6 +148,7 @@ class AdministrativeProject(models.Model):
     affaire = models.CharField("Affaire", max_length=255, blank=True)
     lot_etage = models.CharField("Lot / étage", max_length=120, blank=True)
     adresse_bien = models.TextField("Adresse du bien", blank=True)
+    parcelles = models.TextField(blank=True)
     vendeur = models.CharField(max_length=255, blank=True)
     beneficiaire = models.CharField("Bénéficiaire", max_length=255, blank=True)
     locataire = models.CharField(max_length=255, blank=True)
@@ -157,15 +167,29 @@ class AdministrativeProject(models.Model):
         related_name="dossiers",
     )
     date_promesse = models.DateField(blank=True, null=True)
+    premiere_periode = models.CharField("1ère période", max_length=120, blank=True)
+    deuxieme_periode = models.CharField("2ème période", max_length=120, blank=True)
+    avenant_1 = models.TextField("Avenant 1", blank=True)
+    avenant_2 = models.TextField("Avenant 2", blank=True)
+    avenant_3 = models.TextField("Avenant 3", blank=True)
     negociation_externe = models.TextField("Négociation externe", blank=True)
     frais = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     prix = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     dg = models.DecimalField("DG", max_digits=12, decimal_places=2, default=0)
     date_dg = models.DateField("Date DG", blank=True, null=True)
+    depot_permis = models.DateField("Dépôt permis", blank=True, null=True)
+    obtention_permis = models.DateField("Obtention permis", blank=True, null=True)
+    diags = models.TextField("Diags", blank=True)
+    bornage = models.TextField(blank=True)
+    etude_sol_geotechnique = models.TextField("Étude sol / géotechnique", blank=True)
+    etude_pollution = models.TextField("Étude pollution", blank=True)
+    etude_impact = models.TextField("Étude d’impact", blank=True)
+    prorogation = models.TextField(blank=True)
     cs_pret = models.TextField("CS prêt", blank=True)
     date_cs_pret = models.DateField("Date CS prêt", blank=True, null=True)
     date_reiteration = models.DateField("Date de réitération", blank=True, null=True)
     acte = models.TextField(blank=True)
+    releves_compte = models.TextField("Relevés de compte", blank=True)
     created_by = models.ForeignKey(
         Utilisateur,
         on_delete=models.SET_NULL,

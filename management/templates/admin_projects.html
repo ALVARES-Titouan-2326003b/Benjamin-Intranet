@@ -4,7 +4,7 @@
 {% block title %}Dossiers administratifs - Benjamin Immobilier{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static '/css/management.css' %}?v=6" />
+<link rel="stylesheet" href="{% static '/css/management.css' %}?v=8" />
 {% endblock %}
 
 {% block content %}
@@ -19,17 +19,84 @@
    </div>
 
    <form method="get" class="project-toolbar">
-      <input type="search" id="project-search" name="q" value="{{ search_query }}" class="form-control"
-             placeholder="Rechercher affaire, adresse, vendeur, bénéficiaire ou locataire">
-      <select id="project-type-filter" class="form-control">
-         <option value="">Tous les types</option>
-         {% for value, label in dossier_type_choices %}
-         <option value="{{ value }}">{{ label }}</option>
-         {% endfor %}
-      </select>
-      <button type="submit" class="btn btn-secondary">
-         <i class="bi bi-search"></i> Rechercher
-      </button>
+      <div class="project-toolbar-main">
+         <div class="project-filter project-filter-search">
+            <label class="form-label" for="project-search">Recherche</label>
+            <input type="search" id="project-search" name="q" value="{{ search_query }}" class="form-control"
+                   placeholder="Affaire, adresse, vendeur, bénéficiaire, locataire">
+         </div>
+         <div class="project-toolbar-actions">
+            <button type="submit" class="btn btn-secondary">
+               <i class="bi bi-search"></i> Rechercher
+            </button>
+            <button type="button" id="project-reset-filters" class="btn btn-secondary">
+               <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
+            </button>
+         </div>
+      </div>
+
+      <div class="project-filter-grid">
+         <div class="project-filter">
+            <label class="form-label" for="project-type-filter">Type</label>
+            <select id="project-type-filter" class="form-control">
+               <option value="">Tous les types</option>
+               {% for value, label in dossier_type_choices %}
+               <option value="{{ value }}">{{ label }}</option>
+               {% endfor %}
+            </select>
+         </div>
+         <div class="project-filter">
+            <label class="form-label" for="project-activite-filter">Activité</label>
+            <select id="project-activite-filter" class="form-control">
+               <option value="">Toutes les activités</option>
+               {% for value, label in activite_metier_choices %}
+               <option value="{{ value }}">{{ label }}</option>
+               {% endfor %}
+            </select>
+         </div>
+         <div class="project-filter">
+            <label class="form-label" for="project-etat-filter">État</label>
+            <select id="project-etat-filter" class="form-control">
+               <option value="">Tous les états</option>
+               {% for value, label in etat_choices %}
+               <option value="{{ value }}">{{ label }}</option>
+               {% endfor %}
+            </select>
+         </div>
+         <div class="project-filter">
+            <label class="form-label" for="project-categorie-filter">Catégorie</label>
+            <select id="project-categorie-filter" class="form-control">
+               <option value="">Toutes les catégories</option>
+               {% for categorie in categories %}
+               <option value="{{ categorie.pk }}">{{ categorie.nom }}</option>
+               {% endfor %}
+            </select>
+         </div>
+         <div class="project-filter">
+            <label class="form-label" for="project-min-price-filter">Prix min.</label>
+            <input type="number" id="project-min-price-filter" class="form-control" min="0" step="1000">
+         </div>
+         <div class="project-filter">
+            <label class="form-label" for="project-max-price-filter">Prix max.</label>
+            <input type="number" id="project-max-price-filter" class="form-control" min="0" step="1000">
+         </div>
+         <div class="project-filter">
+            <label class="form-label" for="project-promise-from-filter">Promesse dès</label>
+            <input type="date" id="project-promise-from-filter" class="form-control">
+         </div>
+         <div class="project-filter">
+            <label class="form-label" for="project-promise-to-filter">Promesse avant</label>
+            <input type="date" id="project-promise-to-filter" class="form-control">
+         </div>
+         <div class="project-filter">
+            <label class="form-label" for="project-activities-filter">Activités</label>
+            <select id="project-activities-filter" class="form-control">
+               <option value="">Tous</option>
+               <option value="with">Avec activités</option>
+               <option value="without">Sans activité</option>
+            </select>
+         </div>
+      </div>
    </form>
 
    <div class="table-responsive project-table-wrap">
@@ -126,10 +193,15 @@
                <label class="form-label">Bénéficiaire</label>
                <input type="text" id="project-beneficiaire" class="form-control">
             </div>
-            <div class="form-group">
+            <div class="form-group" data-activity-scope="general">
                <label class="form-label">Locataire</label>
                <input type="text" id="project-locataire" class="form-control">
             </div>
+         </div>
+
+         <div class="form-group" data-activity-scope="promotion_immobiliere">
+            <label class="form-label">Parcelles</label>
+            <textarea id="project-parcelles" class="form-control" rows="2"></textarea>
          </div>
 
          <div class="form-group">
@@ -139,8 +211,16 @@
 
          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
             <div class="form-group">
-               <label class="form-label">Date de promesse</label>
+               <label class="form-label">Date promesse</label>
                <input type="date" id="project-date-promesse" class="form-control">
+            </div>
+            <div class="form-group" data-activity-scope="promotion_immobiliere">
+               <label class="form-label">1ère période</label>
+               <input type="text" id="project-premiere-periode" class="form-control">
+            </div>
+            <div class="form-group" data-activity-scope="promotion_immobiliere">
+               <label class="form-label">2ème période</label>
+               <input type="text" id="project-deuxieme-periode" class="form-control">
             </div>
             <div class="form-group">
                <label class="form-label">Prix</label>
@@ -170,8 +250,34 @@
                <input type="date" id="project-date-cs-pret" class="form-control">
             </div>
             <div class="form-group">
-               <label class="form-label">Date de réitération</label>
+               <label class="form-label">Date réitération</label>
                <input type="date" id="project-date-reiteration" class="form-control">
+            </div>
+         </div>
+
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;" data-activity-scope="promotion_immobiliere">
+            <div class="form-group">
+               <label class="form-label">Dépôt permis</label>
+               <input type="date" id="project-depot-permis" class="form-control">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Obtention permis</label>
+               <input type="date" id="project-obtention-permis" class="form-control">
+            </div>
+         </div>
+
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;" data-activity-scope="promotion_immobiliere">
+            <div class="form-group">
+               <label class="form-label">Avenant 1</label>
+               <textarea id="project-avenant-1" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Avenant 2</label>
+               <textarea id="project-avenant-2" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Avenant 3</label>
+               <textarea id="project-avenant-3" class="form-control" rows="2"></textarea>
             </div>
          </div>
 
@@ -180,9 +286,41 @@
             <textarea id="project-negociation-externe" class="form-control" rows="2"></textarea>
          </div>
 
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;" data-activity-scope="promotion_immobiliere">
+            <div class="form-group">
+               <label class="form-label">Diags</label>
+               <textarea id="project-diags" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Bornage</label>
+               <textarea id="project-bornage" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Étude sol / géotechnique</label>
+               <textarea id="project-etude-sol-geotechnique" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Étude pollution</label>
+               <textarea id="project-etude-pollution" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Étude d’impact</label>
+               <textarea id="project-etude-impact" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Prorogation</label>
+               <textarea id="project-prorogation" class="form-control" rows="2"></textarea>
+            </div>
+         </div>
+
          <div class="form-group">
             <label class="form-label">Acte</label>
             <textarea id="project-acte" class="form-control" rows="2"></textarea>
+         </div>
+
+         <div class="form-group" data-activity-scope="promotion_immobiliere">
+            <label class="form-label">Relevés de compte</label>
+            <textarea id="project-releves-compte" class="form-control" rows="2"></textarea>
          </div>
 
          <div id="project-form-status" style="display:none;"></div>
@@ -204,5 +342,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static '/js/admin_projects.js' %}?v=2"></script>
+<script src="{% static '/js/admin_projects.js' %}?v=5"></script>
 {% endblock %}

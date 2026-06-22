@@ -44,6 +44,29 @@
       <div><strong>Acte</strong><br>{{ dossier.acte|linebreaksbr|default:"-" }}</div>
    </div>
 
+   {% if dossier.activite_metier == "promotion_immobiliere" %}
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">
+      <div><strong>Parcelles</strong><br>{{ dossier.parcelles|linebreaksbr|default:"-" }}</div>
+      <div><strong>1ère période</strong><br>{{ dossier.premiere_periode|default:"-" }}</div>
+      <div><strong>2ème période</strong><br>{{ dossier.deuxieme_periode|default:"-" }}</div>
+      <div><strong>Dépôt permis</strong><br>{{ dossier.depot_permis|date:"d/m/Y"|default:"-" }}</div>
+      <div><strong>Obtention permis</strong><br>{{ dossier.obtention_permis|date:"d/m/Y"|default:"-" }}</div>
+      <div><strong>Diags</strong><br>{{ dossier.diags|linebreaksbr|default:"-" }}</div>
+      <div><strong>Bornage</strong><br>{{ dossier.bornage|linebreaksbr|default:"-" }}</div>
+      <div><strong>Étude sol / géotechnique</strong><br>{{ dossier.etude_sol_geotechnique|linebreaksbr|default:"-" }}</div>
+      <div><strong>Étude pollution</strong><br>{{ dossier.etude_pollution|linebreaksbr|default:"-" }}</div>
+      <div><strong>Étude d’impact</strong><br>{{ dossier.etude_impact|linebreaksbr|default:"-" }}</div>
+      <div><strong>Prorogation</strong><br>{{ dossier.prorogation|linebreaksbr|default:"-" }}</div>
+      <div><strong>Relevés de compte</strong><br>{{ dossier.releves_compte|linebreaksbr|default:"-" }}</div>
+   </div>
+
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">
+      <div><strong>Avenant 1</strong><br>{{ dossier.avenant_1|linebreaksbr|default:"-" }}</div>
+      <div><strong>Avenant 2</strong><br>{{ dossier.avenant_2|linebreaksbr|default:"-" }}</div>
+      <div><strong>Avenant 3</strong><br>{{ dossier.avenant_3|linebreaksbr|default:"-" }}</div>
+   </div>
+   {% endif %}
+
    <h3 style="font-size:1rem;color:#1e3c72;margin-bottom:.75rem;">Activités liées</h3>
    <div class="table-responsive project-table-wrap">
       <table class="table project-table">

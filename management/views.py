@@ -163,10 +163,31 @@ def _serialize_activity(activity, include_datetime=False):
 
 def _default_categorie():
     category, _ = CategorieDossierAdministratif.objects.get_or_create(
-        nom="Non classé",
+        nom=CategorieDossierAdministratif.DEFAULT_NOM,
         defaults={"is_default": True},
     )
+    CategorieDossierAdministratif.objects.exclude(pk=category.pk).filter(is_default=True).update(is_default=False)
     return category
+
+
+def _admin_project_categories():
+    categories = {}
+    for index, nom in enumerate(CategorieDossierAdministratif.CATEGORIES_OFFICIELLES):
+        category, _ = CategorieDossierAdministratif.objects.get_or_create(
+            nom=nom,
+            defaults={"is_default": index == 0},
+        )
+        categories[nom] = category
+
+    default_category = categories[CategorieDossierAdministratif.DEFAULT_NOM]
+    CategorieDossierAdministratif.objects.exclude(pk=default_category.pk).filter(is_default=True).update(
+        is_default=False
+    )
+    if not default_category.is_default:
+        default_category.is_default = True
+        default_category.save(update_fields=["is_default"])
+
+    return [categories[nom] for nom in CategorieDossierAdministratif.CATEGORIES_OFFICIELLES]
 
 
 def _serialize_project(project):
@@ -178,6 +199,7 @@ def _serialize_project(project):
         "affaire": project.affaire or project.name,
         "lot_etage": project.lot_etage,
         "adresse_bien": project.adresse_bien,
+        "parcelles": project.parcelles,
         "vendeur": project.vendeur,
         "beneficiaire": project.beneficiaire,
         "locataire": project.locataire,
@@ -192,15 +214,29 @@ def _serialize_project(project):
         "categorie_id": categorie.pk if categorie else "",
         "categorie_label": categorie.nom if categorie else "",
         "date_promesse": project.date_promesse.isoformat() if project.date_promesse else "",
+        "premiere_periode": project.premiere_periode,
+        "deuxieme_periode": project.deuxieme_periode,
+        "avenant_1": project.avenant_1,
+        "avenant_2": project.avenant_2,
+        "avenant_3": project.avenant_3,
         "negociation_externe": project.negociation_externe,
         "frais": str(project.frais),
         "prix": str(project.prix),
         "dg": str(project.dg),
         "date_dg": project.date_dg.isoformat() if project.date_dg else "",
+        "depot_permis": project.depot_permis.isoformat() if project.depot_permis else "",
+        "obtention_permis": project.obtention_permis.isoformat() if project.obtention_permis else "",
+        "diags": project.diags,
+        "bornage": project.bornage,
+        "etude_sol_geotechnique": project.etude_sol_geotechnique,
+        "etude_pollution": project.etude_pollution,
+        "etude_impact": project.etude_impact,
+        "prorogation": project.prorogation,
         "cs_pret": project.cs_pret,
         "date_cs_pret": project.date_cs_pret.isoformat() if project.date_cs_pret else "",
         "date_reiteration": project.date_reiteration.isoformat() if project.date_reiteration else "",
         "acte": project.acte,
+        "releves_compte": project.releves_compte,
         "total_estimated": str(project.total_estimated),
         "activities_count": Activite.objects.filter(dossier=project).count(),
     }
@@ -225,7 +261,10 @@ def _project_form_data(data, existing_project=None):
 
     categorie = None
     if categorie_id:
-        categorie = CategorieDossierAdministratif.objects.filter(pk=categorie_id).first()
+        categorie = CategorieDossierAdministratif.objects.filter(
+            pk=categorie_id,
+            nom__in=CategorieDossierAdministratif.CATEGORIES_OFFICIELLES,
+        ).first()
         if not categorie:
             raise ValueError("Catégorie de dossier invalide.")
     else:
@@ -247,6 +286,7 @@ def _project_form_data(data, existing_project=None):
         "affaire": affaire,
         "lot_etage": (data.get("lot_etage") or "").strip(),
         "adresse_bien": (data.get("adresse_bien") or "").strip(),
+        "parcelles": (data.get("parcelles") or "").strip(),
         "vendeur": (data.get("vendeur") or "").strip(),
         "beneficiaire": (data.get("beneficiaire") or "").strip(),
         "locataire": (data.get("locataire") or "").strip(),
@@ -255,15 +295,29 @@ def _project_form_data(data, existing_project=None):
         "etat": etat,
         "categorie": categorie,
         "date_promesse": _parse_iso_date(data.get("date_promesse"), "Date de promesse"),
+        "premiere_periode": (data.get("premiere_periode") or "").strip(),
+        "deuxieme_periode": (data.get("deuxieme_periode") or "").strip(),
+        "avenant_1": (data.get("avenant_1") or "").strip(),
+        "avenant_2": (data.get("avenant_2") or "").strip(),
+        "avenant_3": (data.get("avenant_3") or "").strip(),
         "negociation_externe": (data.get("negociation_externe") or "").strip(),
         "frais": frais,
         "prix": prix,
         "dg": dg,
         "date_dg": _parse_iso_date(data.get("date_dg"), "Date DG"),
+        "depot_permis": _parse_iso_date(data.get("depot_permis"), "Dépôt permis"),
+        "obtention_permis": _parse_iso_date(data.get("obtention_permis"), "Obtention permis"),
+        "diags": (data.get("diags") or "").strip(),
+        "bornage": (data.get("bornage") or "").strip(),
+        "etude_sol_geotechnique": (data.get("etude_sol_geotechnique") or "").strip(),
+        "etude_pollution": (data.get("etude_pollution") or "").strip(),
+        "etude_impact": (data.get("etude_impact") or "").strip(),
+        "prorogation": (data.get("prorogation") or "").strip(),
         "cs_pret": (data.get("cs_pret") or "").strip(),
         "date_cs_pret": _parse_iso_date(data.get("date_cs_pret"), "Date CS prêt"),
         "date_reiteration": _parse_iso_date(data.get("date_reiteration"), "Date de réitération"),
         "acte": (data.get("acte") or "").strip(),
+        "releves_compte": (data.get("releves_compte") or "").strip(),
         "total_estimated": prix,
     }
 
@@ -456,7 +510,7 @@ def sync_gmail_journal_view(request):
 @login_required
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def admin_dossiers_view(request):
-    _default_categorie()
+    categories = _admin_project_categories()
     q = (request.GET.get("q") or "").strip()
     dossiers = AdministrativeProject.objects.select_related("categorie").order_by("reference")
     if q:
@@ -478,7 +532,7 @@ def admin_dossiers_view(request):
             "dossier_type_choices": AdministrativeProject.DOSSIER_TYPES,
             "activite_metier_choices": AdministrativeProject.ACTIVITES_METIER,
             "etat_choices": AdministrativeProject.ETATS,
-            "categories": CategorieDossierAdministratif.objects.all(),
+            "categories": categories,
             "search_query": q,
         },
     )

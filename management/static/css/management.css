@@ -211,10 +211,47 @@
 }
 
 .project-toolbar {
-    display: grid;
-    grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) auto;
-    gap: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
     margin-bottom: 1rem;
+}
+
+.project-toolbar-main {
+    align-items: end;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(260px, 1fr) auto;
+}
+
+.project-filter-grid {
+    align-items: end;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.project-filter {
+    min-width: 0;
+}
+
+.project-toolbar .form-label {
+    display: block;
+    font-size: 0.78rem;
+    margin-bottom: 0.3rem;
+}
+
+.project-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.project-toolbar-actions .btn {
+    min-height: 42px;
+    margin-top: 0;
+    white-space: nowrap;
 }
 
 .project-table-wrap {
@@ -272,8 +309,17 @@
 }
 
 @media (max-width: 720px) {
-    .project-toolbar {
+    .project-toolbar-main,
+    .project-filter-grid {
         grid-template-columns: 1fr;
+    }
+
+    .project-toolbar-actions {
+        justify-content: stretch;
+    }
+
+    .project-toolbar-actions .btn {
+        flex: 1;
     }
 }
 

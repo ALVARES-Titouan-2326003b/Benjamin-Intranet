@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.http import HttpResponseForbidden
 from django.utils import timezone
 from django.conf import settings
@@ -41,33 +42,73 @@ def _can_manage_signature_assets(user):
     return has_ceo_access(user) or has_administratif_access(user)
 
 
-def _get_designated_signer(document):
-    """
-    Retourne l'utilisateur désigné pour signer ce document selon sa catégorie.
-    """
+def _get_admin_signature_user():
     User = get_user_model()
-
-    if document.signataire_requis == "CEO":
-        return User.objects.filter(groups__name="CEO").first()
 
     admin_username = getattr(settings, "SIGNATURE_ADMIN_USERNAME", None)
     if not admin_username:
         admin_username = getattr(settings, "SIGNATURE_RH_USERNAME", None)
     if admin_username:
-        admin_by_username = User.objects.filter(username=admin_username).first()
+        admin_by_username = (
+            User.objects.filter(username=admin_username, is_active=True)
+            .exclude(email="")
+            .first()
+        )
         if admin_by_username:
             return admin_by_username
 
-    # On cible en priorité un membre du pôle administratif qui n'est pas CEO.
     admin_user = (
-        User.objects.filter(groups__name="POLE_ADMINISTRATIF")
+        User.objects.filter(groups__name="POLE_ADMINISTRATIF", is_active=True)
         .exclude(groups__name="CEO")
+        .exclude(email="")
         .first()
     )
     if admin_user:
         return admin_user
 
-    return User.objects.filter(groups__name="POLE_ADMINISTRATIF").first()
+    return (
+        User.objects.filter(groups__name="POLE_ADMINISTRATIF", is_active=True)
+        .exclude(email="")
+        .first()
+    )
+
+
+def _get_ceo_signature_users():
+    User = get_user_model()
+    return (
+        User.objects.filter(Q(groups__name="CEO") | Q(is_superuser=True), is_active=True)
+        .exclude(email="")
+        .distinct()
+    )
+
+
+def _get_signature_email_recipients(designated_signer=None):
+    emails = []
+
+    for user in (designated_signer, _get_admin_signature_user()):
+        if user and user.email:
+            emails.append(user.email)
+
+    emails.extend(user.email for user in _get_ceo_signature_users() if user.email)
+
+    destinataires = []
+    deja_vus = set()
+    for email in emails:
+        cle = email.lower()
+        if cle not in deja_vus:
+            deja_vus.add(cle)
+            destinataires.append(email)
+    return destinataires
+
+
+def _get_designated_signer(document):
+    """
+    Retourne l'utilisateur désigné pour signer ce document selon sa catégorie.
+    """
+    if document.signataire_requis == "CEO":
+        return _get_ceo_signature_users().first()
+
+    return _get_admin_signature_user()
 
 
 def _can_user_sign_document(user, document):
@@ -75,7 +116,7 @@ def _can_user_sign_document(user, document):
         return False
 
     if document.signataire_requis == "CEO":
-        return _has_group(user, "CEO")
+        return user.is_superuser or _has_group(user, "CEO")
 
     return user.is_superuser or user.is_staff or _has_group(user, "POLE_ADMINISTRATIF")
 
@@ -440,10 +481,11 @@ def placer_signature(request, pk):
         approval_url = request.build_absolute_uri(
             reverse("signatures:signature_approval", args=[demande.token])
         )
+        email_recipients = _get_signature_email_recipients(designated_signer)
 
         # Utilisation du service email
         try:
-            envoyer_demande_signature(designated_signer.email, approval_url, doc)
+            envoyer_demande_signature(email_recipients, approval_url, doc)
         except Exception as e:
             messages.warning(
                 request,

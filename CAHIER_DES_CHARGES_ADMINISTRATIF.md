@@ -476,9 +476,9 @@ Il faudra prévoir :
 | NEGOCIATION EXTERNE | Négociation externe |
 | FRAIS | Frais |
 | PRIX | Prix |
-| DG | DG |
+| DG | DG | (Dépôt de Garantie)
 | DATE DG | Date DG |
-| CS PRÊT | CS prêt |
+| CS PRÊT | CS prêt | (Conditions suspensives)
 | DATE CS PRÊT | Date CS prêt |
 | DATE REITERATION | Date de réitération |
 | ACTE | Acte |
@@ -616,7 +616,6 @@ Le module administratif devra respecter les exigences suivantes :
 Avant développement complet, les points suivants doivent être validés :
 
 - liste exacte des catégories envoyées par Mégane ;
-- signification exacte du champ DG ;
 - liste définitive des états de dossier ;
 - liste définitive des statuts d’activité ;
 - format d’import souhaité pour les anciens fichiers Excel ;
