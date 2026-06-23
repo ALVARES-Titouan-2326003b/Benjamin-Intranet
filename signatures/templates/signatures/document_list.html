@@ -60,7 +60,8 @@
     {% if documents %}
     <div class="table-responsive">
 
-        <!-- Bouton suppression (visible seulement pour finance/staff) -->
+        <!-- Bouton suppression (visible seulement pour les profils autorisés) -->
+        {% if can_delete_documents %}
         <form method="post" action="{% url 'signatures:bulk_delete' %}" id="bulkDeleteForm"
             style="margin-bottom: 1rem;">
             {% csrf_token %}
@@ -68,11 +69,14 @@
                 onclick="return confirm('Êtes-vous sûr de vouloir supprimer les documents sélectionnés ? Cette action est irréversible.');">
                 <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedCount">0</span>)
             </button>
+        {% endif %}
 
             <table class="table table-hover">
                 <thead>
                     <tr>
+                        {% if can_delete_documents %}
                         <th style="width: 40px;"><input type="checkbox" id="selectAll" title="Tout sélectionner"></th>
+                        {% endif %}
                         <th>Titre</th>
                         <th>Date d’upload</th>
                         <th>Signature</th>
@@ -83,8 +87,10 @@
                 <tbody>
                     {% for doc in documents %}
                     <tr>
+                        {% if can_delete_documents %}
                         <td><input type="checkbox" class="document-checkbox" name="document_ids" value="{{ doc.id }}">
                         </td>
+                        {% endif %}
                         <td>
                             <span style="font-weight: 500; color: var(--text-main);">{{ doc.titre }}</span>
                         </td>
@@ -108,7 +114,9 @@
                     {% endfor %}
                 </tbody>
             </table>
+        {% if can_delete_documents %}
         </form>
+        {% endif %}
     </div>
     {% else %}
     <div class="text-center text-muted" style="padding: 2rem;">

@@ -44,6 +44,10 @@ def _can_manage_signature_assets(user):
     return has_ceo_access(user) or has_administratif_access(user)
 
 
+def _can_delete_signature_documents(user):
+    return has_ceo_access(user) or has_administratif_access(user)
+
+
 def _get_admin_signature_users():
     User = get_user_model()
     return (
@@ -163,7 +167,10 @@ def document_list(request):
     return render(
         request,
         "signatures/document_list.html",
-        {"documents": documents},
+        {
+            "documents": documents,
+            "can_delete_documents": _can_delete_signature_documents(request.user),
+        },
     )
 
 
@@ -656,7 +663,7 @@ def ceo_dashboard(request):
 # ================== Suppression en masse ==================
 
 @login_required
-@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
+@user_passes_test(_can_delete_signature_documents, login_url="/", redirect_field_name=None)
 def bulk_delete_documents(request):
     """
     Vue pour supprimer plusieurs documents en une seule action
