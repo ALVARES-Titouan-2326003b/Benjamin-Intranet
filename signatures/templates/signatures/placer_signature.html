@@ -22,7 +22,7 @@
         cliquez sur <strong>Signer</strong>.
         {% else %}
         Déplacez le bloc <strong>“Tampon + Signature”</strong> (cadre rouge) à l’endroit souhaité, puis cliquez sur
-        <strong>Demander la signature à {{ designated_signer_name }}</strong>.
+        <strong>Demander la signature</strong>. Un e-mail sera envoyé au membre administratif choisi et aux CEO.
         {% endif %}
     </div>
 
@@ -44,6 +44,19 @@
         {% csrf_token %}
         <input type="hidden" name="pos_x_pct" id="pos_x_pct">
         <input type="hidden" name="pos_y_pct" id="pos_y_pct">
+
+        {% if not is_designated_signer %}
+        <label style="display: flex; flex-direction: column; gap: 0.35rem; min-width: 260px; margin-right: auto;">
+            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);">Membre administratif</span>
+            <select name="admin_signer_id" required
+                style="width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); background: white;">
+                <option value="">Sélectionner un membre</option>
+                {% for admin_signer in admin_signers %}
+                <option value="{{ admin_signer.pk }}">{{ admin_signer.get_full_name|default:admin_signer.username }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        {% endif %}
 
         <a href="{{ doc.fichier.url }}" target="_blank" class="btn btn-ghost">
             <i class="bi bi-eye"></i> Voir le PDF original

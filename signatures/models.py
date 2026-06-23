@@ -133,6 +133,7 @@ class SignatureRequest(models.Model):
         approver (User): Utilisateur qui reçoie la demande
         pos_x_pct (float): Position x en pourcentage
         pos_y_pct (float): Position y en pourcentage
+        size_scale_pct (float): Echelle du bloc tampon+signature en pourcentage
         statut (str): Statut de la demande
         token (str): Jeton de la demande
         created_at (datetime): Date et heure de création de la demande
@@ -165,6 +166,7 @@ class SignatureRequest(models.Model):
     # position choisie par le collaborateur (en %)
     pos_x_pct = models.FloatField()
     pos_y_pct = models.FloatField()
+    size_scale_pct = models.FloatField(default=100.0)
 
     statut = models.CharField(max_length=20, choices=STATUTS, default="pending")
 

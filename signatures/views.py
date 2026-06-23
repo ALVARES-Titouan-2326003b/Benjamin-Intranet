@@ -6,7 +6,6 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.http import HttpResponseForbidden
 from django.utils import timezone
-from django.conf import settings
 
 from .models import (
     Document,
@@ -34,6 +33,9 @@ from user_access.user_test_functions import (
 )
 
 
+SIGNATURE_SIGNER_LABEL = "CEO ou pôle administratif"
+
+
 def _has_group(user, group_name):
     return user.groups.filter(name=group_name).exists()
 
@@ -42,34 +44,14 @@ def _can_manage_signature_assets(user):
     return has_ceo_access(user) or has_administratif_access(user)
 
 
-def _get_admin_signature_user():
+def _get_admin_signature_users():
     User = get_user_model()
-
-    admin_username = getattr(settings, "SIGNATURE_ADMIN_USERNAME", None)
-    if not admin_username:
-        admin_username = getattr(settings, "SIGNATURE_RH_USERNAME", None)
-    if admin_username:
-        admin_by_username = (
-            User.objects.filter(username=admin_username, is_active=True)
-            .exclude(email="")
-            .first()
-        )
-        if admin_by_username:
-            return admin_by_username
-
-    admin_user = (
+    return (
         User.objects.filter(groups__name="POLE_ADMINISTRATIF", is_active=True)
         .exclude(groups__name="CEO")
         .exclude(email="")
-        .first()
-    )
-    if admin_user:
-        return admin_user
-
-    return (
-        User.objects.filter(groups__name="POLE_ADMINISTRATIF", is_active=True)
-        .exclude(email="")
-        .first()
+        .distinct()
+        .order_by("first_name", "last_name", "username")
     )
 
 
@@ -85,9 +67,8 @@ def _get_ceo_signature_users():
 def _get_signature_email_recipients(designated_signer=None):
     emails = []
 
-    for user in (designated_signer, _get_admin_signature_user()):
-        if user and user.email:
-            emails.append(user.email)
+    if designated_signer and designated_signer.email:
+        emails.append(designated_signer.email)
 
     emails.extend(user.email for user in _get_ceo_signature_users() if user.email)
 
@@ -101,24 +82,35 @@ def _get_signature_email_recipients(designated_signer=None):
     return destinataires
 
 
-def _get_designated_signer(document):
-    """
-    Retourne l'utilisateur désigné pour signer ce document selon sa catégorie.
-    """
-    if document.signataire_requis == "CEO":
-        return _get_ceo_signature_users().first()
-
-    return _get_admin_signature_user()
-
-
 def _can_user_sign_document(user, document):
     if not user.is_authenticated:
         return False
 
-    if document.signataire_requis == "CEO":
-        return user.is_superuser or _has_group(user, "CEO")
+    return (
+        user.is_superuser
+        or user.is_staff
+        or _has_group(user, "CEO")
+        or _has_group(user, "POLE_ADMINISTRATIF")
+    )
 
-    return user.is_superuser or user.is_staff or _has_group(user, "POLE_ADMINISTRATIF")
+
+def _get_pending_signature_requests_for_user(user):
+    pending_requests = SignatureRequest.objects.filter(statut="pending")
+    if user.is_superuser or user.is_staff or _has_group(user, "CEO"):
+        return pending_requests
+    return pending_requests.filter(approver=user)
+
+
+def _can_user_approve_signature_request(user, demande):
+    if not user.is_authenticated:
+        return False
+
+    return (
+        user == demande.approver
+        or user.is_superuser
+        or user.is_staff
+        or _has_group(user, "CEO")
+    )
 
 
 @login_required
@@ -131,10 +123,10 @@ def document_list(request):
     - Sinon, dernier statut de l'historique
     """
 
-    if has_ceo_access(request.user) or SignatureRequest.objects.filter(
-        approver=request.user,
-        statut="pending",
-    ).exists():
+    if (
+        has_ceo_access(request.user)
+        or _get_pending_signature_requests_for_user(request.user).exists()
+    ):
         return redirect("signatures:ceo_dashboard")
 
     documents = (
@@ -205,7 +197,6 @@ def document_detail(request, pk):
         pk (int): Identifiant du document
     """
     doc = get_object_or_404(Document, pk=pk)
-    designated_signer = _get_designated_signer(doc)
     is_designated_signer = _can_user_sign_document(request.user, doc)
     historiques = doc.historique.order_by("-date_action")
 
@@ -229,9 +220,7 @@ def document_detail(request, pk):
             "requester_name": requester_name,
             "request_date": request_date,
             "is_designated_signer": is_designated_signer,
-            "designated_signer_name": (
-                designated_signer.get_full_name() or designated_signer.username
-            ) if designated_signer else None,
+            "signer_label": SIGNATURE_SIGNER_LABEL,
             "is_signed": is_signed,
         },
     )
@@ -254,10 +243,10 @@ def document_update(request, pk):
 
         if form.is_valid():
             # Si signé, empêcher toute tentative de remplacement de fichier
-            if is_signed and ("fichier" in form.changed_data or "signataire_requis" in form.changed_data):
+            if is_signed and "fichier" in form.changed_data:
                 messages.error(
                     request,
-                    "Document déjà signé : le fichier et le signataire ne peuvent plus être modifiés.",
+                    "Document déjà signé : le fichier ne peut plus être modifié.",
                 )
                 return redirect("signatures:document_detail", pk=doc.pk)
 
@@ -270,7 +259,6 @@ def document_update(request, pk):
         # Option UX : si signé, rendre le champ fichier non modifiable dans le form
         if is_signed:
             form.fields["fichier"].disabled = True
-            form.fields["signataire_requis"].disabled = True
 
     return render(request, "signatures/document_update.html", {"doc": doc, "form": form, "is_signed": is_signed})
 
@@ -368,16 +356,16 @@ def placer_signature(request, pk):
     - Si l'utilisateur est autorisé à signer ce document :
         → placement + signature immédiate du document.
     - Sinon :
-        → placement + création d'une demande de signature pour le signataire cible.
+        → placement + création d'une demande de signature pour les signataires autorisés.
 
     Une fois qu'une demande est en attente pour ce document,
     les employés ne peuvent plus re-placer la signature.
     Si le document est déjà signé, plus personne ne peut accéder à cette page.
     """
     doc = get_object_or_404(Document, pk=pk)
-    designated_signer = _get_designated_signer(doc)
     is_designated_signer = _can_user_sign_document(request.user, doc)
-    signer_label = doc.get_signataire_requis_display()
+    signer_label = SIGNATURE_SIGNER_LABEL
+    admin_signers = _get_admin_signature_users()
 
     # 1) Si déjà signé → on bloque tout
     if doc.fichier_signe:
@@ -415,7 +403,7 @@ def placer_signature(request, pk):
                 HistoriqueSignature.objects.create(
                     document=doc,
                     statut="erreur",
-                    commentaire=f"Erreur lors de la signature directe par le signataire : {e}",
+                    commentaire=f"Erreur lors de la signature directe par le signataire autorisé : {e}",
                 )
                 messages.error(
                     request,
@@ -426,7 +414,7 @@ def placer_signature(request, pk):
             HistoriqueSignature.objects.create(
                 document=doc,
                 statut="signe",
-                commentaire="Document signé directement par le signataire désigné.",
+                commentaire="Document signé directement par un signataire autorisé.",
             )
 
             # On peut marquer d'éventuelles demandes en attente comme expirées
@@ -438,11 +426,14 @@ def placer_signature(request, pk):
             messages.success(request, "Document signé avec succès.")
             return redirect("signatures:document_detail", pk=doc.pk)
 
-        # BRANCHE EMPLOYÉ : création d'une demande pour le signataire désigné
-        if not designated_signer or not designated_signer.email:
+        # BRANCHE EMPLOYÉ : création d'une demande pour le membre administratif choisi
+        selected_admin_id = request.POST.get("admin_signer_id")
+        designated_signer = admin_signers.filter(pk=selected_admin_id).first()
+        email_recipients = _get_signature_email_recipients(designated_signer)
+        if not designated_signer or not email_recipients:
             messages.error(
                 request,
-                f"Aucun signataire configuré pour '{signer_label}'.",
+                "Veuillez sélectionner un membre du pôle administratif à notifier.",
             )
             return redirect("signatures:document_detail", pk=doc.pk)
 
@@ -462,6 +453,7 @@ def placer_signature(request, pk):
             approver=designated_signer,
             pos_x_pct=pos_x,
             pos_y_pct=pos_y,
+            size_scale_pct=100.0,
         )
 
         # Mettre à jour l'historique
@@ -469,9 +461,8 @@ def placer_signature(request, pk):
             document=doc,
             statut="en_attente",
             commentaire=(
-                "Demande de signature envoyée à "
-                f"{designated_signer.get_full_name() or designated_signer.username}"
-                f" ({designated_signer.email})."
+                "Demande de signature envoyée au membre administratif choisi et aux CEO : "
+                f"{', '.join(email_recipients)}."
             ),
         )
 
@@ -481,7 +472,6 @@ def placer_signature(request, pk):
         approval_url = request.build_absolute_uri(
             reverse("signatures:signature_approval", args=[demande.token])
         )
-        email_recipients = _get_signature_email_recipients(designated_signer)
 
         # Utilisation du service email
         try:
@@ -505,9 +495,8 @@ def placer_signature(request, pk):
         {
             "doc": doc,
             "is_designated_signer": is_designated_signer,
-            "designated_signer_name": (
-                designated_signer.get_full_name() or designated_signer.username
-            ) if designated_signer else signer_label,
+            "signer_label": signer_label,
+            "admin_signers": admin_signers,
         },
     )
 
@@ -517,12 +506,12 @@ def placer_signature(request, pk):
 def signature_approval(request, token):
     """
     Page d'approbation signataire : le lien contient un token.
-    Le signataire désigné voit le doc + position prévue, et peut approuver ou refuser.
+    Un signataire autorisé voit le doc + position prévue, et peut approuver ou refuser.
     """
     demande = get_object_or_404(SignatureRequest, token=token)
 
-    # Double sécurité : il faut être le bon approver
-    if request.user != demande.approver and not _can_user_sign_document(request.user, demande.document):
+    # Double sécurité : il faut être le membre choisi ou un CEO.
+    if not _can_user_approve_signature_request(request.user, demande):
         return HttpResponseForbidden("Vous n'êtes pas autorisé à valider cette demande.")
 
     doc = demande.document
@@ -564,7 +553,7 @@ def signature_approval(request, token):
             HistoriqueSignature.objects.create(
                 document=doc,
                 statut="signe",
-                commentaire="Document signé et approuvé par le signataire désigné.",
+                commentaire="Document signé et approuvé par un signataire autorisé.",
             )
             messages.success(request, "Document signé et approuvé.")
             return redirect("signatures:document_detail", pk=doc.pk)
@@ -574,7 +563,7 @@ def signature_approval(request, token):
             HistoriqueSignature.objects.create(
                 document=doc,
                 statut="refuse",
-                commentaire="Demande refusée par le signataire désigné.",
+                commentaire="Demande refusée par un signataire autorisé.",
             )
             messages.info(request, "Demande de signature refusée.")
             return redirect("signatures:document_detail", pk=doc.pk)
@@ -598,10 +587,7 @@ def ceo_dashboard(request):
     - Historique global des 50 derniers documents (tout confondu : signés direct ou via demande)
     """
     pending_requests = (
-        SignatureRequest.objects.filter(
-            approver=request.user,
-            statut="pending",
-        )
+        _get_pending_signature_requests_for_user(request.user)
         .select_related("document", "requested_by")
         .order_by("-created_at")
     )
