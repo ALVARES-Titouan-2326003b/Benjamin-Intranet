@@ -10,6 +10,8 @@ Le module administratif doit permettre de suivre les dossiers de vente et d’ac
 
 Ce cahier des charges met à jour l’ancien besoin initial qui parlait principalement de suivi de projets et de relances automatisées. La logique métier attendue est désormais centrée sur la notion de **dossier administratif**.
 
+Note de cadrage : les arbitrages ci-dessous constituent une version de travail. Ils devront être confirmés avec les personnes concernées du pôle administratif avant validation définitive.
+
 ## 2. Périmètre du pôle administratif
 
 Le pôle administratif concerne principalement les activités suivantes :
@@ -32,6 +34,8 @@ Le module doit être conçu pour permettre aux collaborateurs du pôle administr
 Mettre en place un module permettant de créer, consulter, modifier et suivre des dossiers administratifs liés aux affaires immobilières de Benjamin Immobilier.
 
 Le terme **Projet** doit être remplacé par le terme **Dossier** dans l’interface, les menus, les formulaires et les vues concernées.
+
+État actuel : la structure des dossiers administratifs est considérée comme implémentée dans le code. Les évolutions restantes concernent principalement les exports, imports, rappels et validations métier.
 
 ### 3.2 Types de dossiers
 
@@ -68,13 +72,12 @@ Les états doivent être gérés avec une liste déroulante afin d’éviter les
 
 Les dossiers devront être classés selon les catégories transmises par Mégane.
 
-Travail restant :
+État actuel :
 
-- récupérer la liste définitive des catégories ;
-- créer une table ou une liste de catégories ;
-- associer une catégorie à chaque dossier ;
-- permettre la recherche et le filtrage par catégorie ;
-- afficher la catégorie dans la liste des dossiers et dans la fiche détail.
+- les catégories sont implémentées dans le code ;
+- l’association d’une catégorie à chaque dossier est prévue ;
+- la recherche, le filtrage et l’affichage par catégorie sont prévus dans l’interface ;
+- la liste définitive reste à confirmer avec le pôle administratif.
 
 ### 3.5 Informations à stocker sur un dossier
 
@@ -188,34 +191,32 @@ Ces champs doivent être remplacés par une notion de collaborateur interne.
 
 Champs attendus pour une nouvelle activité :
 
-- Société ;
+- Société liée à l’affaire ;
 - Affaire concernée ou dossier concerné ;
 - Collaborateur interne responsable ;
 - Statut ;
-- Date de début ;
-- Date d’échéance ;
-- Date de réalisation ;
+- Date unique de suivi ou d’échéance ;
 - Description ou commentaire ;
-- Pièce jointe éventuelle ;
 - Priorité éventuelle.
 
 Le collaborateur interne doit correspondre à un utilisateur ou à un profil interne de Benjamin Immobilier.
+
+Les pièces jointes ne sont pas retenues dans le formulaire d’activité à ce stade.
 
 ### 5.3 Statuts d’activité
 
 Chaque activité doit disposer d’un statut.
 
-Statuts proposés :
+Statuts retenus pour la version actuelle :
 
 - À faire ;
 - En cours ;
-- En attente d’un tiers ;
-- En attente de signature ;
 - Terminé ;
-- Bloqué ;
 - Annulé.
 
 Ces statuts doivent être filtrables et visibles depuis le tableau de bord.
+
+Les statuts plus détaillés, par exemple "En attente d’un tiers", "En attente de signature" ou "Bloqué", ne sont pas retenus pour l’instant. Ils pourront être ajoutés plus tard si le pôle administratif en exprime le besoin.
 
 ### 5.4 Suivi des activités
 
@@ -248,16 +249,20 @@ Mettre en place une vue calendrier permettant au pôle administratif de visualis
 
 ### 6.2 Dates à afficher
 
-Le calendrier doit afficher notamment :
+Le calendrier doit permettre de suivre les dates importantes, principalement via des activités créées manuellement.
+
+Les dates suivantes peuvent être reprises manuellement dans le calendrier lorsqu’un collaborateur souhaite les suivre :
 
 - date de promesse ;
 - date DG ;
 - date CS prêt ;
 - date de réitération ;
 - date liée à l’acte ;
-- dates d’échéance des activités ;
+- dates de suivi ou d’échéance des activités ;
 - dates de relance ;
 - dates de signature attendues.
+
+Les dates présentes dans la fiche dossier ne doivent pas nécessairement générer automatiquement des événements calendrier dans cette version.
 
 ### 6.3 Fonctionnalités attendues
 
@@ -284,13 +289,10 @@ Réduire les oublis liés aux dates importantes des dossiers administratifs.
 
 Le système doit pouvoir envoyer des rappels :
 
-- avant une date de promesse ;
-- avant une date DG ;
-- avant une date CS prêt ;
-- avant une date de réitération ;
-- avant une date de signature ;
 - lorsqu’une activité arrive à échéance ;
 - lorsqu’une activité est en retard.
+
+Les rappels portent d’abord sur les activités créées dans le calendrier. Si une date de promesse, une date DG, une date CS prêt, une date de réitération ou une date de signature doit faire l’objet d’un rappel, elle peut être saisie manuellement comme activité.
 
 ### 7.3 Paramétrage des rappels
 
@@ -302,30 +304,41 @@ Exemples :
 - 3 jours avant ;
 - le jour même ;
 - 1 jour après échéance ;
-- chaque semaine tant que l’activité n’est pas terminée.
+- chaque semaine tant que l’activité n’est pas terminée, si ce comportement est retenu.
 
-Les notifications peuvent être envoyées par e-mail dans un premier temps.  
+Le paramétrage doit permettre de choisir si le rappel est envoyé avant ou après l’échéance, ainsi que le nombre de jours concerné.
+
+Dans la première version, un e-mail suffit. Il doit être envoyé à la personne associée à l’activité.
+
 Une intégration Outlook, Google Calendar ou autre outil interne pourra être ajoutée plus tard.
 
 ## 8. Module 6 : Signature administrative
 
 ### 8.1 Objectif
 
-Mettre en place un suivi des signatures liées aux dossiers administratifs.
+Mettre en place un suivi des signatures liées aux documents transmis depuis l’intranet.
 
-Le circuit de signature attendu concerne :
+Le circuit de signature attendu fonctionne ainsi :
 
-- Rudy (CEO) ;
-- un collaborateur du pôle administratif.
+- n’importe quel membre de l’intranet peut envoyer un document à signer ;
+- la demande est assignée à un membre du pôle administratif ;
+- un e-mail est envoyé au membre du pôle administratif assigné ainsi qu’à Rudy (CEO) ;
+- Rudy conserve une visibilité complète sur toutes les demandes de signature ;
+- le membre du pôle administratif assigné et Rudy peuvent signer le document.
+
+Ce fonctionnement permet au pôle administratif de traiter les signatures tout en garantissant une traçabilité et une supervision par le CEO.
 
 ### 8.2 Fonctionnalités attendues
 
 Le module doit permettre :
 
 - de lier un document à un dossier ;
-- d’envoyer un document en signature ;
-- de définir Rudy comme signataire ;
-- de définir un collaborateur du pôle administratif comme second signataire ;
+- d’envoyer un document en signature depuis n’importe quel compte intranet autorisé ;
+- d’assigner la demande à un membre du pôle administratif ;
+- d’envoyer un e-mail au membre du pôle administratif assigné et à Rudy ;
+- de permettre au membre du pôle administratif assigné de signer le document ;
+- de permettre à Rudy de signer le document ;
+- de permettre à Rudy de consulter l’ensemble des demandes et documents à signer ;
 - de suivre l’état de la signature ;
 - d’archiver le document signé ;
 - de conserver l’historique de validation.
@@ -342,13 +355,15 @@ Statuts proposés :
 
 L’intégration d’une solution de signature électronique certifiée pourra être étudiée ultérieurement si l’entreprise souhaite un processus juridiquement renforcé.
 
-L'idée est que le pôle administratif peut signer grâce à la permission du CEO, cependant le CEO doit avoir une vue sur tout, donc de préférence, on partagera le mail aux deux, histoire de conserver une trace écrite.
+L’idée retenue est que la signature soit accessible à l’administratif assigné et à Rudy, avec Rudy systématiquement informé pour conserver une trace écrite et une vue globale.
 
 ## 9. Module 7 : Relances externes
 
 ### 9.1 Objectif
 
 Automatiser ou faciliter les relances auprès des interlocuteurs externes lorsqu’une réponse est attendue.
+
+Ce besoin reste à clarifier. Il ne doit pas être considéré comme prioritaire tant que le fonctionnement attendu n’a pas été validé avec le pôle administratif.
 
 Interlocuteurs concernés :
 
@@ -360,9 +375,9 @@ Interlocuteurs concernés :
 - bénéficiaires ;
 - autres interlocuteurs liés aux dossiers.
 
-### 9.2 Fonctionnalités attendues
+### 9.2 Fonctionnalités potentielles à confirmer
 
-Le module de relance doit permettre :
+Le module de relance pourrait permettre :
 
 - de créer une relance liée à un dossier ;
 - de créer une relance liée à une activité ;
@@ -374,7 +389,7 @@ Le module de relance doit permettre :
 
 ### 9.3 Statuts de relance
 
-Statuts proposés :
+Statuts proposés, à confirmer :
 
 - À relancer ;
 - Relance envoyée ;
@@ -425,12 +440,13 @@ Centraliser les documents administratifs liés aux dossiers.
 Le module doit permettre :
 
 - d’ajouter des pièces jointes à un dossier ;
-- d’ajouter des pièces jointes à une activité ;
 - de classer les documents par type ;
 - de rechercher un document ;
 - de télécharger un document ;
 - d’identifier les documents signés ;
 - d’archiver les documents importants.
+
+Les pièces jointes liées directement aux activités ne sont pas retenues à ce stade.
 
 Types de documents possibles :
 
@@ -447,12 +463,13 @@ Types de documents possibles :
 
 ### 12.1 Objectif
 
-Permettre la reprise des données déjà présentes dans les fichiers de suivi existants.
+Permettre la reprise des données déjà présentes dans les fichiers de suivi existants et permettre l’export des dossiers administratifs depuis l’intranet.
 
 ### 12.2 Travail attendu
 
 Il faudra prévoir :
 
+- une fonction d’export des dossiers administratifs au format Excel ou CSV ;
 - une analyse du fichier Excel actuel ;
 - une correspondance entre les colonnes Excel et les champs de l’intranet ;
 - un nettoyage des dates ;
@@ -460,6 +477,8 @@ Il faudra prévoir :
 - une vérification des doublons ;
 - un import initial en base de données ;
 - un contrôle par le pôle administratif après import.
+
+L’export et l’import des dossiers administratifs sont retenus comme fonctions à ajouter.
 
 ### 12.3 Correspondance indicative
 
@@ -476,7 +495,7 @@ Il faudra prévoir :
 | NEGOCIATION EXTERNE | Négociation externe |
 | FRAIS | Frais |
 | PRIX | Prix |
-| DG | DG | (Dépôt de Garantie)
+| DG | Dépôt de garantie |
 | DATE DG | Date DG |
 | CS PRÊT | CS prêt | (Conditions suspensives)
 | DATE CS PRÊT | Date CS prêt |
@@ -554,14 +573,15 @@ Le module administratif devra respecter les exigences suivantes :
 
 ### Priorité 1 : Structure métier des dossiers
 
-À réaliser en premier :
+État actuel : implémenté dans le code.
 
-- remplacer Projet par Dossier ;
-- créer les types Vente et Acquisition ;
-- ajouter les états de dossier ;
-- intégrer les catégories fournies par Mégane ;
-- créer ou adapter la fiche dossier ;
-- ajouter les champs issus du tableau administratif.
+À maintenir et confirmer métier :
+
+- conserver le vocabulaire Dossier ;
+- conserver les types Vente et Acquisition ;
+- conserver les états de dossier actuellement retenus ;
+- confirmer les catégories avec le pôle administratif ;
+- conserver la fiche dossier et les champs issus du tableau administratif.
 
 ### Priorité 2 : Activités administratives
 
@@ -571,38 +591,53 @@ Le module administratif devra respecter les exigences suivantes :
 - retirer Client et Contact ;
 - ajouter Collaborateur interne ;
 - lier l’activité à un dossier ;
-- gérer les statuts et les dates ;
+- gérer les statuts retenus et une date unique ;
 - afficher les activités par dossier.
 
 ### Priorité 3 : Tableau de suivi
 
-À réaliser après la structure métier :
+État actuel : la gestion des dossiers administratifs est considérée comme implémentée.
 
-- créer la vue tableau ;
-- ajouter les filtres ;
-- ajouter la recherche ;
-- ajouter le tri ;
-- prévoir l’export Excel ou CSV.
+À maintenir ou ajouter :
+
+- conserver la vue tableau ;
+- conserver les filtres ;
+- conserver la recherche ;
+- conserver le tri ;
+- ajouter l’export Excel ou CSV si absent.
 
 ### Priorité 4 : Calendrier et rappels
 
 À réaliser ensuite :
 
 - créer la vue calendrier ;
-- afficher les dates importantes ;
+- permettre la saisie manuelle des dates importantes sous forme d’activités ;
 - identifier les échéances en retard ;
-- envoyer des rappels par e-mail.
+- paramétrer les rappels avant ou après échéance ;
+- envoyer les rappels par e-mail à la personne associée à l’activité.
 
 ### Priorité 5 : Signature
 
 À réaliser une fois les dossiers structurés :
 
 - lier les documents à un dossier ;
-- mettre en place le circuit Rudy + collaborateur admin ;
+- permettre à n’importe quel membre de l’intranet d’envoyer un document à signer ;
+- assigner la demande à un membre du pôle administratif ;
+- notifier par e-mail le membre assigné et Rudy ;
+- permettre la signature par le membre administratif assigné ou par Rudy ;
+- donner à Rudy une vue globale sur toutes les demandes ;
 - suivre les statuts de signature ;
 - archiver les documents signés.
 
-### Priorité 6 : Nettoyage de l’existant
+### Priorité 6 : Import / export des dossiers
+
+À réaliser :
+
+- exporter les dossiers administratifs au format Excel ou CSV ;
+- importer les anciens fichiers Excel après validation du mapping ;
+- contrôler les données importées avec le pôle administratif.
+
+### Priorité 7 : Nettoyage de l’existant
 
 À réaliser en parallèle ou en fin de sprint :
 
@@ -617,8 +652,16 @@ Avant développement complet, les points suivants doivent être validés :
 
 - liste exacte des catégories envoyées par Mégane ;
 - liste définitive des états de dossier ;
-- liste définitive des statuts d’activité ;
+- validation du fait que les statuts d’activité actuels suffisent ;
+- confirmation qu’une seule date suffit dans le formulaire d’activité ;
+- confirmation que le champ Société correspond bien à la société liée à l’affaire ;
+- confirmation que les dates dossier doivent être ajoutées manuellement au calendrier ;
+- règles de paramétrage des rappels : avant ou après échéance, nombre de jours, répétition éventuelle ;
+- confirmation que l’e-mail de rappel doit uniquement viser la personne associée à l’activité ;
+- règles de signature : émetteur intranet, membre administratif assigné, notification e-mail à l’assigné et à Rudy, signature possible par les deux ;
+- périmètre réel des relances externes ;
 - format d’import souhaité pour les anciens fichiers Excel ;
+- format d’export souhaité pour les dossiers administratifs ;
 - niveau d’automatisation attendu pour les relances ;
 - besoin ou non d’une signature électronique externe certifiée.
 
@@ -630,11 +673,10 @@ La priorité est de structurer l’intranet autour des dossiers, et non plus aut
 
 Le travail restant consiste principalement à :
 
-- adapter le vocabulaire métier ;
-- créer une fiche dossier complète ;
-- reproduire le tableau de suivi administratif dans l’intranet ;
-- modifier le module d’activité ;
-- ajouter le suivi des échéances ;
-- gérer le circuit de signature Rudy + collaborateur admin ;
-- retirer le système candidature ;
-- préparer l’import des données existantes.
+- confirmer les arbitrages métier avec le pôle administratif ;
+- finaliser le module d’activité avec une date unique et les statuts actuels ;
+- ajouter le paramétrage des rappels par e-mail ;
+- ajouter l’export et l’import des dossiers administratifs ;
+- gérer le circuit de signature ouvert aux membres de l’intranet, assigné à un membre administratif, avec notification et visibilité CEO ;
+- clarifier le périmètre des relances externes ;
+- retirer le système candidature.

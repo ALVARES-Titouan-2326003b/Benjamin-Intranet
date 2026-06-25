@@ -41,7 +41,17 @@
       {# u_groups_str convertit la liste des groupes en chaîne pour la recherche #}
       {% with p=request.path u_groups_str=request.user.groups.all|escape %}
 
-      {% if '/finance/' in p %}
+      {% if '/finance/' in p or '/signatures/' in p or '/pole-technique/' in p or '/chatbot/' in p or '/administratif/' in p or '/admin/' in p %}
+      {% if "CEO" in u_groups_str %}
+      <div class="nav-section-label">DIRECTION</div>
+      <a href="{% url 'signatures:document_list' %}" class="nav-item {% if '/signatures/' in p %}active{% endif %}">
+        <i class="bi bi-pen"></i> Signatures
+      </a>
+      {% endif %}
+      {% endif %}
+
+      {% if '/finance/' in p or '/signatures/' in p %}
+      {% if '/finance/' in p or user.is_superuser or user.is_staff or "POLE_FINANCIER" in u_groups_str %}
       <div class="nav-section-label">FINANCE</div>
 
       {# --- CORRECTION : Condition séparée pour éviter les erreurs de syntaxe sur les lignes longues --- #}
@@ -51,22 +61,20 @@
       </a>
       {% endif %}
 
-      {% endif %}
-
-      {% if '/finance/' in p or '/signatures/' in p or '/pole-technique/' in p or '/chatbot/' in p or '/administratif/' in p or '/admin/' in p %}
-      <div class="nav-section-label">TOUS LES PÔLES</div>
-
-      {% if user.is_superuser or user.is_staff or "POLE_FINANCIER" in u_groups_str or "POLE_ADMINISTRATIF" in u_groups_str or "POLE_TECHNIQUE" in u_groups_str %}
+      {% if "CEO" not in u_groups_str %}
+      {% if user.is_superuser or user.is_staff or "POLE_FINANCIER" in u_groups_str %}
       <a href="{% url 'signatures:document_list' %}" class="nav-item {% if '/signatures/' in p %}active{% endif %}">
         <i class="bi bi-pen"></i> Signatures
       </a>
       {% endif %}
-
       {% endif %}
 
-      {% if '/pole-technique/' in p or '/chatbot/' in p %}
-      <div class="nav-section-label">TECHNIQUE</div>
+      {% endif %}
+      {% endif %}
+
+      {% if '/pole-technique/' in p or '/chatbot/' in p or '/signatures/' in p %}
       {% if user.is_superuser or user.is_staff or "POLE_TECHNIQUE" in u_groups_str %}
+      <div class="nav-section-label">TECHNIQUE</div>
       <a href="{% url 'technique_financial_overview' %}"
         class="nav-item {% if '/vue-financiere/' in request.path %}active{% endif %}">
         <i class="bi bi-graph-up"></i> Vue Financière
@@ -82,12 +90,18 @@
         <i class="bi bi-envelope"></i> Emails
       </a>
 
+      {% if "CEO" not in u_groups_str %}
+      <a href="{% url 'signatures:document_list' %}" class="nav-item {% if '/signatures/' in p %}active{% endif %}">
+        <i class="bi bi-pen"></i> Signatures
+      </a>
+      {% endif %}
+
       {% endif %}
       {% endif %}
 
-      {% if '/administratif/' in request.path or '/admin/' in request.path %}
-      <div class="nav-section-label">ADMINISTRATIF</div>
+      {% if '/administratif/' in request.path or '/admin/' in request.path or '/signatures/' in p %}
       {% if user.is_superuser or user.is_staff or "POLE_ADMINISTRATIF" in u_groups_str %}
+      <div class="nav-section-label">ADMINISTRATIF</div>
       <a href="{% url 'admin_view' %}" class="nav-item {% if p == '/administratif/' %}active{% endif %}">
         <i class="bi bi-speedometer2"></i> Vue d'ensemble
       </a>
@@ -95,6 +109,11 @@
          class="nav-item {% if '/administratif/dossiers/' in p or '/administratif/projets/' in p %}active{% endif %}">
         <i class="bi bi-folder2-open"></i> Dossiers
       </a>
+      {% if "CEO" not in u_groups_str %}
+      <a href="{% url 'signatures:document_list' %}" class="nav-item {% if '/signatures/' in p %}active{% endif %}">
+        <i class="bi bi-pen"></i> Signatures
+      </a>
+      {% endif %}
       {% endif %}
       {% endif %}
 

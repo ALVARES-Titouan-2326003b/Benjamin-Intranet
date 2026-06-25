@@ -8,7 +8,8 @@ from django.views.generic import RedirectView
 from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities, \
     create_activity_view, delete_activity_view, get_calendar_activities_week, update_activity_view, \
     mark_notification_read_view, admin_projects_view, admin_dossiers_view, admin_dossier_detail_view, \
-    create_project_view, update_project_view, delete_project_view
+    create_project_view, update_project_view, delete_project_view, admin_dossiers_export_view, \
+    admin_dossiers_import_view
 from management.views import sync_gmail_journal_view, update_gmail_conversation_status, add_gmail_conversation_note
 from technique import views as technique_views
 from home.views import dashboard_view, global_search
@@ -20,6 +21,8 @@ urlpatterns = [
     path('recherche/', global_search, name='global_search'),
     path('administratif/', administratif_view, name='admin_view'),
     path('administratif/dossiers/', admin_dossiers_view, name='admin_dossiers'),
+    path('administratif/dossiers/export/', admin_dossiers_export_view, name='admin_dossiers_export'),
+    path('administratif/dossiers/import/', admin_dossiers_import_view, name='admin_dossiers_import'),
     path('administratif/dossiers/<int:dossier_id>/', admin_dossier_detail_view, name='admin_dossier_detail'),
     path('administratif/projets/', admin_projects_view, name='admin_projects'),
     path('api/calendar-activities-week/', get_calendar_activities_week, name='calendar_activities_week'),

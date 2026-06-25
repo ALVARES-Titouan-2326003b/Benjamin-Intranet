@@ -1,14 +1,19 @@
+import csv
+import io
 import json
 import traceback
-from datetime import datetime, timedelta
+import unicodedata
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
+from openpyxl import Workbook, load_workbook
 
 from user_access.user_test_functions import has_administratif_access
 
@@ -51,6 +56,105 @@ PRIORITY_COLORS = {
     "urgent": "#dc2626",
 }
 
+ADMIN_PROJECT_EXPORT_COLUMNS = [
+    ("Référence", "reference"),
+    ("Affaire", "affaire"),
+    ("Lot / étage", "lot_etage"),
+    ("Adresse du bien", "adresse_bien"),
+    ("Vendeur", "vendeur"),
+    ("Bénéficiaire", "beneficiaire"),
+    ("Locataire", "locataire"),
+    ("Type de dossier", "type_dossier_label"),
+    ("Activité métier", "activite_metier_label"),
+    ("État", "etat_label"),
+    ("Catégorie", "categorie_label"),
+    ("Date de promesse", "date_promesse"),
+    ("1ère période", "premiere_periode"),
+    ("2ème période", "deuxieme_periode"),
+    ("Négociation externe", "negociation_externe"),
+    ("Frais", "frais"),
+    ("Prix", "prix"),
+    ("DG", "dg"),
+    ("Date DG", "date_dg"),
+    ("CS prêt", "cs_pret"),
+    ("Date CS prêt", "date_cs_pret"),
+    ("Date de réitération", "date_reiteration"),
+    ("Acte", "acte"),
+    ("Parcelles", "parcelles"),
+    ("Dépôt permis", "depot_permis"),
+    ("Obtention permis", "obtention_permis"),
+    ("Diags", "diags"),
+    ("Bornage", "bornage"),
+    ("Étude sol / géotechnique", "etude_sol_geotechnique"),
+    ("Étude pollution", "etude_pollution"),
+    ("Étude d’impact", "etude_impact"),
+    ("Prorogation", "prorogation"),
+    ("Avenant 1", "avenant_1"),
+    ("Avenant 2", "avenant_2"),
+    ("Avenant 3", "avenant_3"),
+    ("Relevés de compte", "releves_compte"),
+]
+
+ADMIN_PROJECT_IMPORT_ALIASES = {
+    "reference": "reference",
+    "ref": "reference",
+    "affaire": "affaire",
+    "affaires": "affaire",
+    "nom du dossier": "affaire",
+    "dossier": "affaire",
+    "lots etage": "lot_etage",
+    "lot etage": "lot_etage",
+    "lot / etage": "lot_etage",
+    "adresse du bien": "adresse_bien",
+    "adresse": "adresse_bien",
+    "vendeur": "vendeur",
+    "beneficiaire": "beneficiaire",
+    "locataire": "locataire",
+    "type": "type_dossier",
+    "type de dossier": "type_dossier",
+    "activite": "activite_metier",
+    "activite metier": "activite_metier",
+    "etat": "etat",
+    "categorie": "categorie",
+    "date promesse": "date_promesse",
+    "date de promesse": "date_promesse",
+    "1ere periode": "premiere_periode",
+    "1re periode": "premiere_periode",
+    "premiere periode": "premiere_periode",
+    "2eme periode": "deuxieme_periode",
+    "deuxieme periode": "deuxieme_periode",
+    "negociation externe": "negociation_externe",
+    "frais": "frais",
+    "prix": "prix",
+    "dg": "dg",
+    "depot de garantie": "dg",
+    "date dg": "date_dg",
+    "cs pret": "cs_pret",
+    "conditions suspensives": "cs_pret",
+    "conditions suspensives pret": "cs_pret",
+    "date cs pret": "date_cs_pret",
+    "date reiteration": "date_reiteration",
+    "date de reiteration": "date_reiteration",
+    "acte": "acte",
+    "parcelles": "parcelles",
+    "depot permis": "depot_permis",
+    "obtention permis": "obtention_permis",
+    "diags": "diags",
+    "bornage": "bornage",
+    "etude sol geotechnique": "etude_sol_geotechnique",
+    "etude pollution": "etude_pollution",
+    "etude impact": "etude_impact",
+    "prorogation": "prorogation",
+    "avenant 1": "avenant_1",
+    "avenant 2": "avenant_2",
+    "avenant 3": "avenant_3",
+    "releves compte": "releves_compte",
+    "releves de compte": "releves_compte",
+}
+
+ADMIN_PROJECT_PROMOTION_SHEET = "Promotion immobilière"
+ADMIN_PROJECT_OTHER_SHEET = "Autres dossiers"
+
 
 def _json_error(message, status=400):
     return JsonResponse({"success": False, "message": message}, status=status)
@@ -88,7 +192,12 @@ def _parse_iso_date(value, label):
 
 
 def _parse_non_negative_decimal(value, label):
-    raw = str(value or "0").replace(",", ".").strip()
+    raw = str(value or "0").strip()
+    raw = raw.replace("\xa0", "").replace(" ", "").replace("€", "")
+    if "," in raw and "." in raw and raw.rfind(",") > raw.rfind("."):
+        raw = raw.replace(".", "").replace(",", ".")
+    else:
+        raw = raw.replace(",", ".")
     try:
         amount = Decimal(raw)
     except (InvalidOperation, ValueError):
@@ -102,6 +211,260 @@ def _truthy(value):
     if isinstance(value, bool):
         return value
     return str(value or "").lower() in {"1", "true", "on", "yes", "oui"}
+
+
+def _normalize_header(value):
+    raw = str(value or "").strip().lower()
+    raw = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii")
+    for char in ["/", "-", "_", ".", ":", ";", "(", ")", "[", "]", "'"]:
+        raw = raw.replace(char, " ")
+    return " ".join(raw.split())
+
+
+def _choice_value(value, choices, label):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    normalized = _normalize_header(raw)
+    for key, display in choices:
+        if normalized in {_normalize_header(key), _normalize_header(display)}:
+            return key
+    raise ValueError(f"{label} invalide : {raw}")
+
+
+def _import_date_value(value, label):
+    if value in (None, ""):
+        return ""
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+
+    raw = str(value).strip()
+    if not raw:
+        return ""
+
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date().isoformat()
+        except ValueError:
+            pass
+    raise ValueError(f"{label} doit être une date valide.")
+
+
+def _import_amount_value(value):
+    if value in (None, ""):
+        return "0"
+    return str(value).strip()
+
+
+def _admin_project_queryset_from_request(request):
+    queryset = AdministrativeProject.objects.select_related("categorie").order_by("reference")
+    q = (request.GET.get("q") or "").strip()
+    if q:
+        queryset = queryset.filter(
+            Q(reference__icontains=q)
+            | Q(affaire__icontains=q)
+            | Q(name__icontains=q)
+            | Q(adresse_bien__icontains=q)
+            | Q(vendeur__icontains=q)
+            | Q(beneficiaire__icontains=q)
+            | Q(locataire__icontains=q)
+        )
+    return queryset
+
+
+def _admin_project_group_queryset(queryset, group):
+    if group == "promotion":
+        return queryset.filter(activite_metier="promotion_immobiliere")
+    if group == "other":
+        return queryset.exclude(activite_metier="promotion_immobiliere")
+    return queryset
+
+
+def _admin_project_export_row(project):
+    serialized = _serialize_project(project)
+    return [serialized.get(field, "") for _, field in ADMIN_PROJECT_EXPORT_COLUMNS]
+
+
+def _size_admin_project_sheet(sheet):
+    for column_cells in sheet.columns:
+        max_length = max(len(str(cell.value or "")) for cell in column_cells)
+        sheet.column_dimensions[column_cells[0].column_letter].width = min(max(max_length + 2, 12), 42)
+
+
+def _append_admin_project_sheet(workbook, title, queryset, use_active=False):
+    sheet = workbook.active if use_active else workbook.create_sheet(title=title)
+    sheet.title = title
+    sheet.append([label for label, _ in ADMIN_PROJECT_EXPORT_COLUMNS])
+    for project in queryset:
+        sheet.append(_admin_project_export_row(project))
+    _size_admin_project_sheet(sheet)
+    return sheet
+
+
+def _unique_import_reference(row_number):
+    candidate = f"ADM-IMP-{int(row_number):04d}"
+    if not AdministrativeProject.objects.filter(reference=candidate).exists():
+        return candidate
+
+    suffix = 1
+    while True:
+        candidate = f"ADM-IMP-{int(row_number):04d}-{suffix}"
+        if not AdministrativeProject.objects.filter(reference=candidate).exists():
+            return candidate
+        suffix += 1
+
+
+def _import_category_id(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if raw.isdigit():
+        return raw
+
+    _admin_project_categories()
+    category = CategorieDossierAdministratif.objects.filter(nom__iexact=raw).first()
+    if not category:
+        raise ValueError(f"Catégorie de dossier invalide : {raw}")
+    return str(category.pk)
+
+
+def _default_activity_from_sheet(title):
+    normalized = _normalize_header(title)
+    if "promotion" in normalized:
+        return "promotion_immobiliere"
+    return "marchand_biens"
+
+
+def _admin_project_payload_from_import(row, row_number, default_activite_metier="marchand_biens"):
+    payload = {}
+    date_fields = {
+        "date_promesse",
+        "date_dg",
+        "date_cs_pret",
+        "date_reiteration",
+        "depot_permis",
+        "obtention_permis",
+    }
+    amount_fields = {"frais", "prix", "dg"}
+
+    for field, value in row.items():
+        if field in date_fields:
+            payload[field] = _import_date_value(value, field)
+        elif field in amount_fields:
+            payload[field] = _import_amount_value(value)
+        elif field == "type_dossier":
+            payload[field] = _choice_value(value, AdministrativeProject.DOSSIER_TYPES, "Type de dossier")
+        elif field == "activite_metier":
+            payload[field] = _choice_value(value, AdministrativeProject.ACTIVITES_METIER, "Activité métier")
+        elif field == "etat":
+            payload[field] = _choice_value(value, AdministrativeProject.ETATS, "État")
+        elif field == "categorie":
+            payload["categorie_id"] = _import_category_id(value)
+        else:
+            payload[field] = str(value or "").strip()
+
+    if not payload.get("reference"):
+        payload["reference"] = _unique_import_reference(row_number)
+    if not payload.get("affaire"):
+        raise ValueError("Affaire obligatoire.")
+    if not payload.get("type_dossier"):
+        payload["type_dossier"] = "vente"
+    if not payload.get("activite_metier"):
+        payload["activite_metier"] = default_activite_metier
+    if not payload.get("etat"):
+        payload["etat"] = "promesse"
+    if not payload.get("categorie_id"):
+        payload["categorie_id"] = str(_default_categorie().pk)
+
+    return payload
+
+
+def _iter_admin_project_import_rows(uploaded_file):
+    filename = (uploaded_file.name or "").lower()
+    if filename.endswith(".csv"):
+        text_file = io.TextIOWrapper(uploaded_file.file, encoding="utf-8-sig")
+        sample = text_file.read(2048)
+        text_file.seek(0)
+        try:
+            dialect = csv.Sniffer().sniff(sample, delimiters=";,") if sample else csv.excel
+            reader = csv.reader(text_file, dialect)
+        except csv.Error:
+            reader = csv.reader(text_file, delimiter=";")
+        rows = list(reader)
+        sheets = [("CSV", rows)]
+    elif filename.endswith(".xlsx"):
+        workbook = load_workbook(uploaded_file, data_only=True)
+        sheets = [
+            (sheet.title, [list(row) for row in sheet.iter_rows(values_only=True)])
+            for sheet in workbook.worksheets
+        ]
+    else:
+        raise ValueError("Format non supporté. Merci d’importer un fichier .xlsx ou .csv.")
+
+    parsed_rows = []
+    for sheet_title, rows in sheets:
+        if not rows:
+            continue
+
+        headers = rows[0]
+        field_by_index = {}
+        for index, header in enumerate(headers):
+            normalized = _normalize_header(header)
+            field = ADMIN_PROJECT_IMPORT_ALIASES.get(normalized)
+            if field:
+                field_by_index[index] = field
+
+        if not field_by_index:
+            continue
+
+        default_activite_metier = _default_activity_from_sheet(sheet_title)
+        for row_number, values in enumerate(rows[1:], start=2):
+            row_data = {}
+            has_value = False
+            for index, field in field_by_index.items():
+                value = values[index] if index < len(values) else ""
+                if value not in (None, ""):
+                    has_value = True
+                row_data[field] = value
+            if has_value:
+                parsed_rows.append((len(parsed_rows) + 2, f"{sheet_title} ligne {row_number}", row_data, default_activite_metier))
+
+    if not parsed_rows:
+        raise ValueError("Aucune colonne reconnue dans le fichier importé.")
+    return parsed_rows
+
+
+def _import_admin_projects(uploaded_file, user):
+    created = 0
+    updated = 0
+    errors = []
+
+    for sequence, row_label, row_data, default_activite_metier in _iter_admin_project_import_rows(uploaded_file):
+        try:
+            payload = _admin_project_payload_from_import(row_data, sequence, default_activite_metier)
+            reference = payload["reference"].strip().upper()
+            existing = AdministrativeProject.objects.filter(reference=reference).first()
+            project_data = _project_form_data(payload, existing_project=existing)
+
+            if existing:
+                for field, value in project_data.items():
+                    setattr(existing, field, value)
+                existing.updated_by = user
+                existing.save()
+                updated += 1
+            else:
+                AdministrativeProject.objects.create(
+                    created_by=user,
+                    updated_by=user,
+                    **project_data,
+                )
+                created += 1
+        except Exception as exc:
+            errors.append(f"{row_label} : {exc}")
+
+    return {"created": created, "updated": updated, "errors": errors}
 
 
 def _next_activity_id():
@@ -512,17 +875,7 @@ def sync_gmail_journal_view(request):
 def admin_dossiers_view(request):
     categories = _admin_project_categories()
     q = (request.GET.get("q") or "").strip()
-    dossiers = AdministrativeProject.objects.select_related("categorie").order_by("reference")
-    if q:
-        dossiers = dossiers.filter(
-            Q(reference__icontains=q)
-            | Q(affaire__icontains=q)
-            | Q(name__icontains=q)
-            | Q(adresse_bien__icontains=q)
-            | Q(vendeur__icontains=q)
-            | Q(beneficiaire__icontains=q)
-            | Q(locataire__icontains=q)
-        )
+    dossiers = _admin_project_queryset_from_request(request)
     return render(
         request,
         "admin_projects.html",
@@ -536,6 +889,80 @@ def admin_dossiers_view(request):
             "search_query": q,
         },
     )
+
+
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def admin_dossiers_export_view(request):
+    queryset = _admin_project_queryset_from_request(request)
+    export_format = (request.GET.get("format") or "xlsx").lower()
+    group = (request.GET.get("group") or "").lower()
+
+    if export_format == "csv":
+        queryset = _admin_project_group_queryset(queryset, group)
+        suffix = "_promotion_immobiliere" if group == "promotion" else "_autres" if group == "other" else ""
+        response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
+        response["Content-Disposition"] = f'attachment; filename="dossiers_administratifs{suffix}.csv"'
+        writer = csv.writer(response, delimiter=";")
+        writer.writerow([label for label, _ in ADMIN_PROJECT_EXPORT_COLUMNS])
+        for project in queryset:
+            writer.writerow(_admin_project_export_row(project))
+        return response
+
+    workbook = Workbook()
+    _append_admin_project_sheet(
+        workbook,
+        ADMIN_PROJECT_PROMOTION_SHEET,
+        queryset.filter(activite_metier="promotion_immobiliere"),
+        use_active=True,
+    )
+    _append_admin_project_sheet(
+        workbook,
+        ADMIN_PROJECT_OTHER_SHEET,
+        queryset.exclude(activite_metier="promotion_immobiliere"),
+    )
+
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = 'attachment; filename="dossiers_administratifs.xlsx"'
+    return response
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def admin_dossiers_import_view(request):
+    uploaded_file = request.FILES.get("file")
+    if not uploaded_file:
+        messages.error(request, "Merci de sélectionner un fichier .xlsx ou .csv à importer.")
+        return redirect("admin_dossiers")
+
+    try:
+        result = _import_admin_projects(uploaded_file, request.user)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("admin_dossiers")
+
+    if result["created"] or result["updated"]:
+        messages.success(
+            request,
+            f"Import terminé : {result['created']} dossier(s) créé(s), "
+            f"{result['updated']} dossier(s) mis à jour.",
+        )
+    else:
+        messages.warning(request, "Aucun dossier n’a été importé.")
+
+    if result["errors"]:
+        preview = " | ".join(result["errors"][:5])
+        extra = f" ({len(result['errors']) - 5} erreur(s) supplémentaire(s))" if len(result["errors"]) > 5 else ""
+        messages.error(request, f"Certaines lignes n’ont pas été importées : {preview}{extra}")
+
+    return redirect("admin_dossiers")
 
 
 @login_required

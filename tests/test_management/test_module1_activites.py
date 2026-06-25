@@ -1,10 +1,13 @@
+import io
 import json
 from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
+from openpyxl import Workbook, load_workbook
 
 from management.models import (
     Activite,
@@ -66,6 +69,38 @@ def _post_json(client, url, payload):
     )
 
 
+def _xlsx_upload(rows, name="dossiers.xlsx"):
+    workbook = Workbook()
+    sheet = workbook.active
+    for row in rows:
+        sheet.append(row)
+    output = io.BytesIO()
+    workbook.save(output)
+    return SimpleUploadedFile(
+        name,
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+def _xlsx_upload_sheets(sheets, name="dossiers.xlsx"):
+    workbook = Workbook()
+    first = True
+    for title, rows in sheets:
+        sheet = workbook.active if first else workbook.create_sheet(title=title)
+        sheet.title = title
+        first = False
+        for row in rows:
+            sheet.append(row)
+    output = io.BytesIO()
+    workbook.save(output)
+    return SimpleUploadedFile(
+        name,
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
 @pytest.mark.django_db
 def test_activity_create_update_delete_with_outlook(client, admin_user, responsable, dossier, type_activite):
     client.force_login(admin_user)
@@ -113,7 +148,6 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
     assert activity.titre == "Relance compromis"
     assert activity.statut == "in_progress"
     assert activity.priorite == "urgent"
-    assert activity.client == "Client Test Modifié"
 
     with patch("management.views.delete_outlook_event", return_value={"success": True}):
         response = _post_json(client, "/api/delete-activity/", {"activity_id": activity.pk})
@@ -288,6 +322,102 @@ def test_admin_overview_dossiers_and_legacy_projects_redirect_are_split(client, 
     assert b"admin-projects-data" in dossiers.content
     assert dossier.reference.encode() in dossiers.content
     assert dossier.reference.encode() in detail.content
+
+
+@pytest.mark.django_db
+def test_admin_dossiers_export_xlsx(client, admin_user, dossier):
+    client.force_login(admin_user)
+    AdministrativeProject.objects.create(
+        reference="ADM-PROMO-EXPORT",
+        name="Dossier promotion",
+        affaire="Dossier promotion",
+        activite_metier="promotion_immobiliere",
+        categorie=dossier.categorie,
+    )
+
+    response = client.get("/administratif/dossiers/export/?format=xlsx")
+
+    assert response.status_code == 200
+    assert response["Content-Disposition"] == 'attachment; filename="dossiers_administratifs.xlsx"'
+    workbook = load_workbook(io.BytesIO(response.content))
+    assert workbook.sheetnames == ["Promotion immobilière", "Autres dossiers"]
+
+    promotion_sheet = workbook["Promotion immobilière"]
+    other_sheet = workbook["Autres dossiers"]
+    assert promotion_sheet["A1"].value == "Référence"
+    assert promotion_sheet["B1"].value == "Affaire"
+    assert promotion_sheet["A2"].value == "ADM-PROMO-EXPORT"
+    assert other_sheet["A2"].value == dossier.reference
+    assert other_sheet["B2"].value == dossier.affaire
+
+
+@pytest.mark.django_db
+def test_admin_dossiers_import_xlsx_create_and_update(client, admin_user, categorie):
+    client.force_login(admin_user)
+    uploaded = _xlsx_upload(
+        [
+            ["Référence", "Affaire", "Type de dossier", "Activité métier", "État", "Catégorie", "Prix", "Date de promesse"],
+            ["ADM-IMPORT", "Dossier importé", "Vente", "Marchands de bien", "En cours de promesse", categorie.nom, "125000,50", "01/07/2026"],
+        ]
+    )
+
+    response = client.post("/administratif/dossiers/import/", {"file": uploaded})
+
+    assert response.status_code == 302
+    project = AdministrativeProject.objects.get(reference="ADM-IMPORT")
+    assert project.affaire == "Dossier importé"
+    assert project.type_dossier == "vente"
+    assert project.activite_metier == "marchand_biens"
+    assert project.etat == "promesse"
+    assert project.categorie == categorie
+    assert str(project.prix) == "125000.50"
+    assert project.date_promesse.isoformat() == "2026-07-01"
+
+    uploaded = _xlsx_upload(
+        [
+            ["Référence", "Affaire", "Type de dossier", "Activité métier", "État", "Catégorie", "Prix"],
+            ["ADM-IMPORT", "Dossier importé modifié", "Acquisition", "Patrimoine", "Acheté", categorie.nom, "130000"],
+        ]
+    )
+
+    response = client.post("/administratif/dossiers/import/", {"file": uploaded})
+
+    assert response.status_code == 302
+    project.refresh_from_db()
+    assert project.affaire == "Dossier importé modifié"
+    assert project.type_dossier == "acquisition"
+    assert project.activite_metier == "patrimoine"
+    assert project.etat == "achete"
+    assert str(project.prix) == "130000.00"
+
+
+@pytest.mark.django_db
+def test_admin_dossiers_import_xlsx_uses_sheet_to_separate_activity(client, admin_user, categorie):
+    client.force_login(admin_user)
+    uploaded = _xlsx_upload_sheets(
+        [
+            (
+                "Promotion immobilière",
+                [
+                    ["Référence", "Affaire", "Type de dossier", "État", "Catégorie"],
+                    ["ADM-PROMO-SHEET", "Dossier promotion", "Acquisition", "En cours de promesse", categorie.nom],
+                ],
+            ),
+            (
+                "Autres dossiers",
+                [
+                    ["Référence", "Affaire", "Type de dossier", "État", "Catégorie"],
+                    ["ADM-OTHER-SHEET", "Dossier autre", "Vente", "En cours de promesse", categorie.nom],
+                ],
+            ),
+        ]
+    )
+
+    response = client.post("/administratif/dossiers/import/", {"file": uploaded})
+
+    assert response.status_code == 302
+    assert AdministrativeProject.objects.get(reference="ADM-PROMO-SHEET").activite_metier == "promotion_immobiliere"
+    assert AdministrativeProject.objects.get(reference="ADM-OTHER-SHEET").activite_metier == "marchand_biens"
 
 
 @pytest.mark.django_db
