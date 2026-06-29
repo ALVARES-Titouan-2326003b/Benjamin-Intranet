@@ -26,14 +26,17 @@
     </p>
 
     <div id="sig-pdf-wrapper"
-        style="position: relative; border: 1px solid var(--border-light); background: #525659; padding: 1rem; overflow: auto; max-width: 100%;">
-        <div id="page" style="position: relative; display: inline-block;">
-            <embed id="pdf-preview" src="{{ doc.fichier.url }}#page=1&zoom=page-width&toolbar=0&navpanes=0"
-                type="application/pdf" width="100%" height="600px" style="display: block;">
+        style="position: relative; border: 1px solid var(--border-light); background: #525659; padding: 1rem; overflow: auto; max-width: 100%; max-height: 72vh;">
+        <div id="page"
+            style="position: relative; width: min(820px, 100%); aspect-ratio: {{ pdf_page_width_css }} / {{ pdf_page_height_css }}; background: white; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);">
+            <embed id="pdf-preview"
+                src="{{ doc.fichier.url }}#page={{ pdf_page_count }}&zoom=page-fit&toolbar=0&navpanes=0&scrollbar=0"
+                type="application/pdf" width="100%" height="100%"
+                style="display: block; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;">
 
-            <div id="sig-block" data-pos-x="{{ demande.pos_x_pct }}" data-pos-y="{{ demande.pos_y_pct }}"
-                style="position: absolute; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.1); color: #dc2626; padding: 10px; font-weight: bold; pointer-events: none; white-space: nowrap;">
-                Tampon + Signature (aperçu)
+            <div id="sig-block" data-pos-x="{{ signature_request_pos_x_css }}" data-pos-y="{{ signature_request_pos_y_css }}"
+                style="position: absolute; width: {{ signature_block_width_pct_css }}%; height: {{ signature_block_height_pct_css }}%; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.08); color: #dc2626; font-weight: bold; pointer-events: none; display: flex; align-items: center; justify-content: center; text-align: center; z-index: 2;">
+                <span style="font-size: clamp(0.7rem, 1.2vw, 0.9rem); line-height: 1.2;">Tampon + Signature</span>
             </div>
         </div>
     </div>
@@ -69,31 +72,20 @@
 
         function positionnerBloc() {
             if (!page || !block) return;
-            const pageRect = page.getBoundingClientRect();
-
-            // Note: embed might not give correct rect if not fully loaded.
-            // Using a somewhat fixed sizing approach or relative percentages.
-            // The original logic relied on pageRect.width. width of embed is 100%.
 
             const posX = parseFloat(block.dataset.posX);
             const posY = parseFloat(block.dataset.posY);
 
             if (isNaN(posX) || isNaN(posY)) return;
 
-            // Simplified positioning based on % of container
-            block.style.left = posX + "%";
-            block.style.bottom = posY + "%";
-            // Warning: Original logic used (posY / 100) * pageRect.height => Bottom distance ?
-            // Original: topPx = pageRect.height - bottomPx - blockRect.height;
-            // Let's try to stick to % if possible for responsiveness, OR replicate the logic exactly if layout is fixed.
+            const leftPx = (posX / 100) * page.clientWidth;
+            const bottomPx = (posY / 100) * page.clientHeight;
+            const maxLeft = page.clientWidth - block.offsetWidth;
+            const maxTop = page.clientHeight - block.offsetHeight;
+            const topPx = page.clientHeight - bottomPx - block.offsetHeight;
 
-            // Replicating original exact pixel logic for safety, assuming pageRect is valid:
-            const leftPx = (posX / 100) * pageRect.width;
-            const bottomPx = (posY / 100) * pageRect.height;
-            const topPx = pageRect.height - bottomPx - block.offsetHeight; // Use offsetHeight
-
-            block.style.left = leftPx + "px";
-            block.style.top = topPx + "px";
+            block.style.left = Math.min(Math.max(leftPx, 0), Math.max(maxLeft, 0)) + "px";
+            block.style.top = Math.min(Math.max(topPx, 0), Math.max(maxTop, 0)) + "px";
         }
 
         window.addEventListener("load", function () {

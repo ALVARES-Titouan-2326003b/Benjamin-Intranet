@@ -5,7 +5,62 @@ from pypdf import PdfReader, PdfWriter
 from signatures.models import Document, SignatureUser, Tampon
 
 
-def signer_pdf_avec_images_position(document: Document, user, pos_x_pct: float, pos_y_pct: float) -> None:
+STAMP_WIDTH = 140
+STAMP_HEIGHT = 140
+SIGNATURE_WIDTH = 160
+SIGNATURE_HEIGHT = 70
+SIGNATURE_OFFSET_X = 30
+SIGNATURE_OFFSET_Y = -10
+
+
+def _scaled(value, scale_pct):
+    return value * (scale_pct / 100.0)
+
+
+def get_pdf_last_page_info(document: Document) -> dict:
+    reader = PdfReader(document.fichier.path)
+    last_page = reader.pages[-1]
+    return {
+        "page_count": len(reader.pages),
+        "page_width": float(last_page.mediabox.width),
+        "page_height": float(last_page.mediabox.height),
+    }
+
+
+def get_signature_block_metrics(size_scale_pct: float = 100.0) -> dict:
+    stamp_width = _scaled(STAMP_WIDTH, size_scale_pct)
+    stamp_height = _scaled(STAMP_HEIGHT, size_scale_pct)
+    sig_width = _scaled(SIGNATURE_WIDTH, size_scale_pct)
+    sig_height = _scaled(SIGNATURE_HEIGHT, size_scale_pct)
+    sig_offset_x = _scaled(SIGNATURE_OFFSET_X, size_scale_pct)
+    sig_offset_y = _scaled(SIGNATURE_OFFSET_Y, size_scale_pct)
+
+    min_x = min(0, sig_offset_x)
+    min_y = min(0, sig_offset_y)
+    max_x = max(stamp_width, sig_offset_x + sig_width)
+    max_y = max(stamp_height, sig_offset_y + sig_height)
+
+    return {
+        "stamp_width": stamp_width,
+        "stamp_height": stamp_height,
+        "signature_width": sig_width,
+        "signature_height": sig_height,
+        "signature_offset_x": sig_offset_x,
+        "signature_offset_y": sig_offset_y,
+        "min_x": min_x,
+        "min_y": min_y,
+        "block_width": max_x - min_x,
+        "block_height": max_y - min_y,
+    }
+
+
+def signer_pdf_avec_images_position(
+    document: Document,
+    user,
+    pos_x_pct: float,
+    pos_y_pct: float,
+    size_scale_pct: float = 100.0,
+) -> None:
     """
     Signe le PDF en plaçant le bloc tampon+signature à la position donnée
     (en % de la page, à partir de la GAUCHE et du BAS).
@@ -13,8 +68,9 @@ def signer_pdf_avec_images_position(document: Document, user, pos_x_pct: float, 
     Args:
         document (Document): Document à signer
         user (User): Utilisateur qui signe le document
-        pos_x_pct (float): Position x en pourcentage
-        pos_y_pct (float): Position y en pourcentage
+        pos_x_pct (float): Position x du bloc complet en pourcentage
+        pos_y_pct (float): Position y du bloc complet en pourcentage
+        size_scale_pct (float): Échelle du bloc tampon+signature
     """
 
     # Signature utilisateur et tampon
@@ -42,25 +98,31 @@ def signer_pdf_avec_images_position(document: Document, user, pos_x_pct: float, 
     signature_path = signature_user.image.path
     tampon_path = tampon.image.path
 
-    # Tailles en points
-    stamp_width, stamp_height = 140, 140
-    sig_width, sig_height = 160, 70
+    metrics = get_signature_block_metrics(size_scale_pct)
 
     # Conversion % → coordonnées PDF (origine en bas à gauche)
-    tampon_x = page_width * (pos_x_pct / 100.0)
-    tampon_y = page_height * (pos_y_pct / 100.0)
+    block_x = page_width * (pos_x_pct / 100.0)
+    block_y = page_height * (pos_y_pct / 100.0)
+
+    # On borne le bloc complet pour éviter qu'une partie du tampon ou de la
+    # signature sorte de la page lorsque l'utilisateur place le cadre au bord.
+    block_x = min(max(block_x, 0), max(page_width - metrics["block_width"], 0))
+    block_y = min(max(block_y, 0), max(page_height - metrics["block_height"], 0))
+
+    tampon_x = block_x - metrics["min_x"]
+    tampon_y = block_y - metrics["min_y"]
 
     # Signature légèrement décalée sur le tampon
-    signature_x = tampon_x + 30
-    signature_y = tampon_y - 10
+    signature_x = tampon_x + metrics["signature_offset_x"]
+    signature_y = tampon_y + metrics["signature_offset_y"]
 
     # Dessin du tampon
     c.drawImage(
         tampon_path,
         tampon_x,
         tampon_y,
-        width=stamp_width,
-        height=stamp_height,
+        width=metrics["stamp_width"],
+        height=metrics["stamp_height"],
         mask="auto",
     )
 
@@ -69,8 +131,8 @@ def signer_pdf_avec_images_position(document: Document, user, pos_x_pct: float, 
         signature_path,
         signature_x,
         signature_y,
-        width=sig_width,
-        height=sig_height,
+        width=metrics["signature_width"],
+        height=metrics["signature_height"],
         mask="auto",
     )
 

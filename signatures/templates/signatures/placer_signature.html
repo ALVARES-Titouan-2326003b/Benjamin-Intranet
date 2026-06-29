@@ -28,14 +28,18 @@
 
     <!-- PDF & Drag Area -->
     <div id="sig-pdf-wrapper"
-        style="position: relative; border: 1px solid var(--border-light); background: #525659; padding: 1rem; overflow: auto; max-width: 100%; margin-bottom: 1.5rem;">
-        <div id="page" style="position: relative; display: inline-block;">
-            <embed id="pdf-preview" src="{{ doc.fichier.url }}#page=1&zoom=page-width&toolbar=0&navpanes=0"
-                type="application/pdf" width="100%" height="600px" style="display: block;">
+        style="position: relative; border: 1px solid var(--border-light); background: #525659; padding: 1rem; overflow: auto; max-width: 100%; max-height: 72vh; margin-bottom: 1.5rem;">
+        <div id="page"
+            style="position: relative; width: min(820px, 100%); aspect-ratio: {{ pdf_page_width_css }} / {{ pdf_page_height_css }}; background: white; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);">
+            <embed id="pdf-preview"
+                src="{{ doc.fichier.url }}#page={{ pdf_page_count }}&zoom=page-fit&toolbar=0&navpanes=0&scrollbar=0"
+                type="application/pdf" width="100%" height="100%"
+                style="display: block; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;">
 
             <div id="sig-block"
-                style="position: absolute; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.1); color: #dc2626; padding: 10px; font-weight: bold; cursor: move; white-space: nowrap; user-select: none;">
-                <i class="bi bi-arrows-move"></i> Tampon + Signature
+                tabindex="0"
+                style="position: absolute; width: {{ signature_block_width_pct_css }}%; height: {{ signature_block_height_pct_css }}%; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.08); color: #dc2626; font-weight: bold; cursor: move; user-select: none; touch-action: none; display: flex; align-items: center; justify-content: center; text-align: center; z-index: 2;">
+                <span style="font-size: clamp(0.7rem, 1.2vw, 0.9rem); line-height: 1.2;"><i class="bi bi-arrows-move"></i> Tampon + Signature</span>
             </div>
         </div>
     </div>
@@ -44,6 +48,7 @@
         {% csrf_token %}
         <input type="hidden" name="pos_x_pct" id="pos_x_pct">
         <input type="hidden" name="pos_y_pct" id="pos_y_pct">
+        <input type="hidden" name="size_scale_pct" id="size_scale_pct" value="{{ signature_scale_pct_css }}">
 
         {% if not is_designated_signer %}
         <label style="display: flex; flex-direction: column; gap: 0.35rem; min-width: 260px; margin-right: auto;">
@@ -85,13 +90,13 @@
 
         function initPosition() {
             if (!page || !block) return;
-            const pageRect = page.getBoundingClientRect();
-            const blockRect = block.getBoundingClientRect();
+            const pageWidth = page.clientWidth;
+            const pageHeight = page.clientHeight;
+            const blockWidth = block.offsetWidth;
+            const blockHeight = block.offsetHeight;
 
-            // Default center/bottom placement attempt
-            // Note: pageRect might be 0 if PDF not loaded or embed weirdness.
-            const left = (pageRect.width - blockRect.width) / 2;
-            const top = pageRect.height - blockRect.height - 50;
+            const left = (pageWidth - blockWidth) / 2;
+            const top = pageHeight - blockHeight - Math.max(pageHeight * 0.08, 32);
 
             block.style.left = (left > 0 ? left : 50) + "px";
             block.style.top = (top > 0 ? top : 50) + "px";
@@ -99,39 +104,47 @@
         }
 
         function updateHiddenInputs() {
-            const pageRect = page.getBoundingClientRect();
-            const blockRect = block.getBoundingClientRect();
-
-            // Percentages relative to the container 'page'
-            // We use standard Top-Left coords for logic, but backend might expect something else.
-            // Existing backend logic:
-            // xPct = (left / width)
-            // yPct = (bottom / height) ?? 
-            // Previous code: yPct = (bottomPx / pageRect.height) * 100; where bottomPx = height - (top + blockHeight)
-            // This means yPct is distance from bottom.
-
             const leftPx = block.offsetLeft; // Use offsetLeft relative to parent 'page'
             const topPx = block.offsetTop;   // Use offsetTop relative to parent 'page'
 
-            const xPct = (leftPx / page.offsetWidth) * 100;
-            const bottomPx = page.offsetHeight - (topPx + block.offsetHeight);
-            const yPct = (bottomPx / page.offsetHeight) * 100;
+            const xPct = (leftPx / page.clientWidth) * 100;
+            const bottomPx = page.clientHeight - (topPx + block.offsetHeight);
+            const yPct = (bottomPx / page.clientHeight) * 100;
 
-            inputX.value = xPct.toFixed(2);
-            inputY.value = yPct.toFixed(2);
+            inputX.value = xPct.toFixed(4);
+            inputY.value = yPct.toFixed(4);
         }
 
-        block.addEventListener("mousedown", function (e) {
+        function moveBlock(left, top) {
+            const maxLeft = page.clientWidth - block.offsetWidth;
+            const maxTop = page.clientHeight - block.offsetHeight;
+
+            const boundedLeft = Math.min(Math.max(left, 0), Math.max(maxLeft, 0));
+            const boundedTop = Math.min(Math.max(top, 0), Math.max(maxTop, 0));
+
+            block.style.left = boundedLeft + "px";
+            block.style.top = boundedTop + "px";
+            updateHiddenInputs();
+        }
+
+        function moveBlockFromPercent(xPct, yPct) {
+            const left = (xPct / 100) * page.clientWidth;
+            const bottom = (yPct / 100) * page.clientHeight;
+            const top = page.clientHeight - bottom - block.offsetHeight;
+            moveBlock(left, top);
+        }
+
+        block.addEventListener("pointerdown", function (e) {
             dragging = true;
-            // Calculate click offset within the block
-            // e.clientX is global. block.getBoundingClientRect().left is global.
+            block.focus();
+            block.setPointerCapture(e.pointerId);
             const blockRect = block.getBoundingClientRect();
             offsetX = e.clientX - blockRect.left;
             offsetY = e.clientY - blockRect.top;
             block.style.opacity = "0.8";
         });
 
-        document.addEventListener("mousemove", function (e) {
+        block.addEventListener("pointermove", function (e) {
             if (!dragging) return;
             e.preventDefault(); // Prevent text selection etc
 
@@ -140,27 +153,39 @@
 
             let newLeft = e.clientX - pageRect.left - offsetX;
             let newTop = e.clientY - pageRect.top - offsetY;
-
-            // Boundaries
-            const maxLeft = pageRect.width - block.offsetWidth;
-            const maxTop = pageRect.height - block.offsetHeight;
-
-            if (newLeft < 0) newLeft = 0;
-            if (newTop < 0) newTop = 0;
-            if (newLeft > maxLeft) newLeft = maxLeft;
-            if (newTop > maxTop) newTop = maxTop;
-
-            block.style.left = newLeft + "px";
-            block.style.top = newTop + "px";
-
-            updateHiddenInputs();
+            moveBlock(newLeft, newTop);
         });
 
-        document.addEventListener("mouseup", function () {
+        block.addEventListener("pointerup", function (e) {
             if (dragging) {
                 dragging = false;
+                if (block.hasPointerCapture(e.pointerId)) {
+                    block.releasePointerCapture(e.pointerId);
+                }
                 block.style.opacity = "1";
             }
+        });
+
+        block.addEventListener("pointercancel", function () {
+            dragging = false;
+            block.style.opacity = "1";
+        });
+
+        block.addEventListener("keydown", function (e) {
+            const arrows = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+            if (!arrows.includes(e.key)) return;
+            e.preventDefault();
+
+            const step = e.shiftKey ? 10 : 1;
+            let left = block.offsetLeft;
+            let top = block.offsetTop;
+
+            if (e.key === "ArrowLeft") left -= step;
+            if (e.key === "ArrowRight") left += step;
+            if (e.key === "ArrowUp") top -= step;
+            if (e.key === "ArrowDown") top += step;
+
+            moveBlock(left, top);
         });
 
         // Initialize after a short delay to allow PDF embed to render layout
@@ -168,7 +193,13 @@
             setTimeout(initPosition, 500);
         });
         window.addEventListener("resize", function () {
-            // Ideally re-adjust if container resizes, but keeping simple for now
+            const xPct = parseFloat(inputX.value);
+            const yPct = parseFloat(inputY.value);
+            if (isNaN(xPct) || isNaN(yPct)) {
+                updateHiddenInputs();
+                return;
+            }
+            moveBlockFromPercent(xPct, yPct);
         });
     })();
 </script>

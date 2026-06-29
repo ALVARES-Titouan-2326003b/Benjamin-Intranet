@@ -25,6 +25,7 @@ from .services.workflow import (
     lancer_signature,
     signer_document_avec_position,
 )
+from .services.pdf_signing import get_pdf_last_page_info, get_signature_block_metrics
 from .services.email import envoyer_demande_signature
 from user_access.user_test_functions import (
     has_administratif_access,
@@ -34,6 +35,7 @@ from user_access.user_test_functions import (
 
 
 SIGNATURE_SIGNER_LABEL = "CEO ou pôle administratif"
+DEFAULT_SIGNATURE_SCALE = 100.0
 
 
 def _has_group(user, group_name):
@@ -84,6 +86,31 @@ def _get_signature_email_recipients(designated_signer=None):
             deja_vus.add(cle)
             destinataires.append(email)
     return destinataires
+
+
+def _signature_preview_context(doc, size_scale_pct=DEFAULT_SIGNATURE_SCALE):
+    page_info = get_pdf_last_page_info(doc)
+    block_metrics = get_signature_block_metrics(size_scale_pct)
+    page_width = page_info["page_width"] or 1
+    page_height = page_info["page_height"] or 1
+
+    block_width_pct = (block_metrics["block_width"] / page_width) * 100
+    block_height_pct = (block_metrics["block_height"] / page_height) * 100
+
+    return {
+        "pdf_page_count": page_info["page_count"],
+        "pdf_page_width": page_width,
+        "pdf_page_height": page_height,
+        "pdf_page_width_css": f"{page_width:.4f}",
+        "pdf_page_height_css": f"{page_height:.4f}",
+        "pdf_page_ratio": page_width / page_height,
+        "signature_scale_pct": size_scale_pct,
+        "signature_scale_pct_css": f"{size_scale_pct:.4f}",
+        "signature_block_width_pct": block_width_pct,
+        "signature_block_height_pct": block_height_pct,
+        "signature_block_width_pct_css": f"{block_width_pct:.4f}",
+        "signature_block_height_pct_css": f"{block_height_pct:.4f}",
+    }
 
 
 def _can_user_sign_document(user, document):
@@ -393,9 +420,12 @@ def placer_signature(request, pk):
         try:
             pos_x = float(request.POST.get("pos_x_pct"))
             pos_y = float(request.POST.get("pos_y_pct"))
+            size_scale = float(request.POST.get("size_scale_pct") or DEFAULT_SIGNATURE_SCALE)
         except (TypeError, ValueError):
             messages.error(request, "Position invalide.")
             return redirect("signatures:placer_signature", pk=doc.pk)
+
+        size_scale = min(max(size_scale, 50.0), 150.0)
 
         # BRANCHE SIGNATAIRE : il signe directement
         if is_designated_signer:
@@ -405,6 +435,7 @@ def placer_signature(request, pk):
                     user=request.user,
                     pos_x_pct=pos_x,
                     pos_y_pct=pos_y,
+                    size_scale_pct=size_scale,
                 )
             except Exception as e:
                 HistoriqueSignature.objects.create(
@@ -460,7 +491,7 @@ def placer_signature(request, pk):
             approver=designated_signer,
             pos_x_pct=pos_x,
             pos_y_pct=pos_y,
-            size_scale_pct=100.0,
+            size_scale_pct=size_scale,
         )
 
         # Mettre à jour l'historique
@@ -496,16 +527,14 @@ def placer_signature(request, pk):
         return redirect("signatures:document_detail", pk=doc.pk)
 
     # GET : on affiche la page avec l'aperçu et le bloc draggable
-    return render(
-        request,
-        "signatures/placer_signature.html",
-        {
-            "doc": doc,
-            "is_designated_signer": is_designated_signer,
-            "signer_label": signer_label,
-            "admin_signers": admin_signers,
-        },
-    )
+    context = {
+        "doc": doc,
+        "is_designated_signer": is_designated_signer,
+        "signer_label": signer_label,
+        "admin_signers": admin_signers,
+    }
+    context.update(_signature_preview_context(doc))
+    return render(request, "signatures/placer_signature.html", context)
 
 
 @login_required
@@ -542,6 +571,7 @@ def signature_approval(request, token):
                     user=request.user,
                     pos_x_pct=demande.pos_x_pct,
                     pos_y_pct=demande.pos_y_pct,
+                    size_scale_pct=demande.size_scale_pct,
                 )
             except Exception as e:
                 demande.marquer_refusee(commentaire=f"Erreur technique : {e}")
@@ -579,9 +609,12 @@ def signature_approval(request, token):
     context = {
         "doc": doc,
         "demande": demande,
+        "signature_request_pos_x_css": f"{demande.pos_x_pct:.4f}",
+        "signature_request_pos_y_css": f"{demande.pos_y_pct:.4f}",
         "requester_name": demande.requested_by.get_full_name() or demande.requested_by.username,
         "formatted_date": demande.created_at.strftime("%d/%m/%Y à %H:%M"),
     }
+    context.update(_signature_preview_context(doc, demande.size_scale_pct))
     return render(request, "signatures/signature_approval.html", context)
 
 
