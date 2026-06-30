@@ -321,6 +321,42 @@ class HistoriqueRappelActivite(models.Model):
         return f"{self.activite_id} J-{self.jours_avant_echeance} {self.canal}"
 
 
+class RegleRappelActivite(models.Model):
+    TIMING_CHOICES = [
+        ("before", "Avant l’échéance"),
+        ("after", "Après l’échéance"),
+    ]
+
+    timing = models.CharField(max_length=10, choices=TIMING_CHOICES, default="before")
+    days = models.PositiveSmallIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "regle_rappel_activite"
+        ordering = ["timing", "days"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["timing", "days"],
+                name="uniq_regle_rappel_activite_timing_days",
+            )
+        ]
+
+    @property
+    def signed_days(self):
+        return self.days if self.timing == "before" else -self.days
+
+    @property
+    def label(self):
+        if self.days == 0:
+            return "Le jour même"
+        prefix = "J-" if self.timing == "before" else "J+"
+        return f"{prefix}{self.days}"
+
+    def __str__(self):
+        return self.label
+
+
 class NotificationInterne(models.Model):
     user = models.ForeignKey(
         Utilisateur,

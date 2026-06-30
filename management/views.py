@@ -31,6 +31,7 @@ from .models import (
     AdministrativeProject,
     CategorieDossierAdministratif,
     NotificationInterne,
+    RegleRappelActivite,
     TypeActivite,
     GmailConversation,
     GmailConversationEvent,
@@ -694,6 +695,10 @@ def _project_delete_blockers(project):
     return blockers
 
 
+def _active_activity_reminder_rules():
+    return list(RegleRappelActivite.objects.filter(is_active=True).order_by("timing", "days"))
+
+
 def _apply_calendar_filters(queryset, params):
     type_label = (params.get("type") or "").strip()
     dossier_ref = (params.get("dossier") or "").strip()
@@ -827,6 +832,7 @@ def administratif_view(request):
         .select_related("activite")
         .order_by("-created_at")[:8]
     )
+    reminder_rules = _active_activity_reminder_rules()
     last_journal_sync = (
         GmailConversation.objects.filter(owner=user, last_synced_at__isnull=False)
         .order_by("-last_synced_at")
@@ -849,8 +855,60 @@ def administratif_view(request):
             "users": users,
             "notifications": notifications,
             "notification_count": len(notifications),
+            "reminder_rules": reminder_rules,
+            "reminder_timing_choices": RegleRappelActivite.TIMING_CHOICES,
         },
     )
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def create_activity_reminder_rule_view(request):
+    timing = (request.POST.get("timing") or "").strip()
+    days_raw = (request.POST.get("days") or "").strip()
+
+    if timing not in dict(RegleRappelActivite.TIMING_CHOICES):
+        messages.error(request, "Sens du rappel invalide.")
+        return redirect("admin_view")
+
+    try:
+        days = int(days_raw)
+    except ValueError:
+        messages.error(request, "Le nombre de jours doit être un entier.")
+        return redirect("admin_view")
+
+    if days < 0 or days > 365:
+        messages.error(request, "Le nombre de jours doit être compris entre 0 et 365.")
+        return redirect("admin_view")
+    if days == 0:
+        timing = "before"
+
+    rule, created = RegleRappelActivite.objects.get_or_create(
+        timing=timing,
+        days=days,
+        defaults={"is_active": True},
+    )
+    if not created and not rule.is_active:
+        rule.is_active = True
+        rule.save(update_fields=["is_active"])
+        messages.success(request, f"Règle {rule.label} réactivée.")
+    elif created:
+        messages.success(request, f"Règle {rule.label} ajoutée.")
+    else:
+        messages.info(request, f"La règle {rule.label} existe déjà.")
+    return redirect("admin_view")
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def delete_activity_reminder_rule_view(request, rule_id):
+    rule = get_object_or_404(RegleRappelActivite, pk=rule_id)
+    label = rule.label
+    rule.delete()
+    messages.success(request, f"Règle {label} supprimée.")
+    return redirect("admin_view")
 
 
 @require_http_methods(["POST"])

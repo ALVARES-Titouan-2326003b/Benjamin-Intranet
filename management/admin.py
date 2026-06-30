@@ -7,6 +7,7 @@ from .models import (
     CategorieDossierAdministratif,
     HistoriqueRappelActivite,
     NotificationInterne,
+    RegleRappelActivite,
     GmailConversation,
     GmailConversationEvent,
 )
@@ -38,6 +39,12 @@ class HistoriqueRappelActiviteAdmin(admin.ModelAdmin):
     list_display = ("activite", "canal", "destinataire", "jours_avant_echeance", "statut", "created_at")
     list_filter = ("canal", "statut", "jours_avant_echeance")
     search_fields = ("activite__titre", "destinataire", "erreur")
+
+
+@admin.register(RegleRappelActivite)
+class RegleRappelActiviteAdmin(admin.ModelAdmin):
+    list_display = ("label", "timing", "days", "is_active", "created_at")
+    list_filter = ("timing", "is_active")
 
 
 @admin.register(NotificationInterne)

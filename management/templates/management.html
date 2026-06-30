@@ -4,7 +4,7 @@
 {% block title %}Tableau de bord - Benjamin Immobilier{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static '/css/management.css' %}?v=5" />
+<link rel="stylesheet" href="{% static '/css/management.css' %}?v=10" />
 <link rel="stylesheet"
    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
 {% endblock %}
@@ -46,6 +46,41 @@
    </div>
 </div>
 {% endif %}
+
+<div class="card" style="margin-bottom: 1.5rem;">
+   <div class="card-title">
+      <span><i class="bi bi-alarm"></i> Rappels d’activités</span>
+   </div>
+
+   <div class="activity-reminder-settings">
+      <div class="activity-reminder-rules">
+         {% for rule in reminder_rules %}
+         <form method="post" action="{% url 'activity_reminder_rule_delete' rule.pk %}" class="activity-reminder-chip">
+            {% csrf_token %}
+            <span>{{ rule.label }}</span>
+            <button type="submit" title="Supprimer la règle">
+               <i class="bi bi-x-lg"></i>
+            </button>
+         </form>
+         {% empty %}
+         <span class="activity-reminder-empty">Aucune règle active.</span>
+         {% endfor %}
+      </div>
+
+      <form method="post" action="{% url 'activity_reminder_rule_create' %}" class="activity-reminder-form">
+         {% csrf_token %}
+         <select name="timing" class="form-control" aria-label="Sens du rappel">
+            {% for value, label in reminder_timing_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+         </select>
+         <input type="number" name="days" min="0" max="365" value="1" class="form-control" aria-label="Nombre de jours">
+         <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Ajouter
+         </button>
+      </form>
+   </div>
+</div>
 
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
 
