@@ -51,7 +51,8 @@
         filtresPriorites: {},
         filtresResponsables: {},
         filtreClient: '',
-        filtreContact: ''
+        filtreContact: '',
+        filtersCollapsed: true
     };
 
     // Éléments DOM
@@ -301,7 +302,7 @@
         topbar.addEventListener('click', (e) => {
             // Ne pas fermer si on clique sur un bouton action
             if (e.target.closest('.filter-action-btn')) return;
-            card.classList.toggle('collapsed');
+            state.filtersCollapsed = card.classList.toggle('collapsed');
         });
     }
 
@@ -312,8 +313,6 @@
             console.warn('Conteneur .calendar-filters non trouve');
             return;
         }
-
-        const wasCollapsed = filtersContainer.querySelector('.calendar-filters-card.collapsed') !== null;
 
         const summaryText = buildFilterSummary();
         const totalTypes  = Object.keys(state.filtresTypes).length;
@@ -378,7 +377,7 @@
         const responsablesSize = Math.min(Math.max(responsables.length, 2), 5);
 
         const html = `
-            <div class="calendar-filters-card${wasCollapsed ? ' collapsed' : ''}">
+            <div class="calendar-filters-card${state.filtersCollapsed ? ' collapsed' : ''}">
                 <div class="calendar-filters-topbar">
                     <div class="calendar-filters-title">
                         <i class="bi bi-funnel"></i>

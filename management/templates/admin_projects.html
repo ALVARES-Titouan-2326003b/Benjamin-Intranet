@@ -20,14 +20,8 @@
 
    <div class="project-file-actions">
       <div class="project-export-actions">
-         <a class="btn btn-secondary" href="{% url 'admin_dossiers_export' %}?format=xlsx{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">
+         <a class="btn btn-secondary" href="{% url 'admin_dossiers_export' %}{% if search_query %}?q={{ search_query|urlencode }}{% endif %}">
             <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel séparé
-         </a>
-         <a class="btn btn-secondary" href="{% url 'admin_dossiers_export' %}?format=csv&group=promotion{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">
-            <i class="bi bi-filetype-csv"></i> CSV promotion
-         </a>
-         <a class="btn btn-secondary" href="{% url 'admin_dossiers_export' %}?format=csv&group=other{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">
-            <i class="bi bi-filetype-csv"></i> CSV autres
          </a>
       </div>
       <form method="post" action="{% url 'admin_dossiers_import' %}" enctype="multipart/form-data" class="project-import-actions">

@@ -275,14 +275,6 @@ def _admin_project_queryset_from_request(request):
     return queryset
 
 
-def _admin_project_group_queryset(queryset, group):
-    if group == "promotion":
-        return queryset.filter(activite_metier="promotion_immobiliere")
-    if group == "other":
-        return queryset.exclude(activite_metier="promotion_immobiliere")
-    return queryset
-
-
 def _admin_project_export_row(project):
     serialized = _serialize_project(project)
     return [serialized.get(field, "") for _, field in ADMIN_PROJECT_EXPORT_COLUMNS]
@@ -953,19 +945,6 @@ def admin_dossiers_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def admin_dossiers_export_view(request):
     queryset = _admin_project_queryset_from_request(request)
-    export_format = (request.GET.get("format") or "xlsx").lower()
-    group = (request.GET.get("group") or "").lower()
-
-    if export_format == "csv":
-        queryset = _admin_project_group_queryset(queryset, group)
-        suffix = "_promotion_immobiliere" if group == "promotion" else "_autres" if group == "other" else ""
-        response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
-        response["Content-Disposition"] = f'attachment; filename="dossiers_administratifs{suffix}.csv"'
-        writer = csv.writer(response, delimiter=";")
-        writer.writerow([label for label, _ in ADMIN_PROJECT_EXPORT_COLUMNS])
-        for project in queryset:
-            writer.writerow(_admin_project_export_row(project))
-        return response
 
     workbook = Workbook()
     _append_admin_project_sheet(

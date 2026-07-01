@@ -335,7 +335,7 @@ def test_admin_dossiers_export_xlsx(client, admin_user, dossier):
         categorie=dossier.categorie,
     )
 
-    response = client.get("/administratif/dossiers/export/?format=xlsx")
+    response = client.get("/administratif/dossiers/export/")
 
     assert response.status_code == 200
     assert response["Content-Disposition"] == 'attachment; filename="dossiers_administratifs.xlsx"'
