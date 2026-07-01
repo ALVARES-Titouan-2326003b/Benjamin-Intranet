@@ -20,7 +20,18 @@ urlpatterns = [
     path("email/<int:pk>/assign/",views.mail_assign_project,      name="mail_assign_project"),
     path("email/<int:pk>/classify/",     views.email_ai_classify,        name="email_classify"),
 
-    # Vue financière
+    # Dossiers techniques
+    path("dossiers/",                                         views.financial_overview,                  name="dossiers_list"),
+    path("dossiers/bulk-delete/",                             views.bulk_delete_projects,                name="dossiers_bulk_delete"),
+    path("dossiers/<int:pk>/",                                views.financial_project_detail,            name="dossier_detail"),
+    path("dossiers/<int:pk>/pdf/",                            views.financial_project_pdf,               name="dossier_budget_pdf"),
+    path("dossiers/<int:pk>/csv/",                            views.financial_project_csv,               name="dossier_budget_csv"),
+    path("dossiers/<int:pk>/excel/",                          views.financial_project_excel,             name="dossier_budget_excel"),
+    path("dossiers/<int:pk>/expenses/create/",                views.project_expense_create,              name="dossier_expense_create"),
+    path("dossiers/expenses/<int:expense_pk>/update/",        views.project_expense_update,              name="dossier_expense_update"),
+    path("dossiers/expenses/<int:expense_pk>/delete/",        views.project_expense_delete,              name="dossier_expense_delete"),
+
+    # Vue financière : anciennes URLs conservées pour compatibilité
     path("vue-financiere/",                                    views.financial_overview,                  name="technique_financial_overview"),
     path("vue-financiere/bulk-delete/",                        views.bulk_delete_projects,                name="bulk_delete_projects"),
     path("vue-financiere/<int:pk>/",                           views.financial_project_detail,            name="technique_financial_project_detail"),

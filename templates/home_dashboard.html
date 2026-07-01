@@ -48,13 +48,13 @@
 
         {% if access_technique %}
         <!-- PÔLE TECHNIQUE -->
-        <a href="{% url 'technique_financial_overview' %}" class="pole-card">
+        <a href="{% url 'technique:dossiers_list' %}" class="pole-card">
             <div class="pole-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
                 <i class="bi bi-tools"></i>
             </div>
             <h2 class="pole-title">Technique</h2>
             <p class="pole-desc">
-                Suivi financier des dossiers, gestion des documents techniques.
+                Suivi des dossiers, documents et données financières techniques.
             </p>
         </a>
         {% endif %}

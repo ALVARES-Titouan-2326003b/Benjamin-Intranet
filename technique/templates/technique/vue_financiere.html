@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load static l10n %}
-{% block title %}Vue financière – {{ project.reference }}{% endblock %}
+{% block title %}Dossier – {{ project.reference }}{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'technique/css/style.css' %}">
@@ -8,16 +8,18 @@
 
 <div class="fin-header">
   <div>
-    <h2 class="fin-header__title">Vue financière — {{ project.name }}</h2>
+    <h2 class="fin-header__title">Dossier — {{ project.name }}</h2>
     <div class="fin-header__meta">
       <span class="badge">{{ project.reference }}</span>
+      <span class="badge" style="background:#ecfdf5;color:#047857;">{{ project.get_status_display }}</span>
+      <span class="badge" style="background:#f3f4f6;color:#374151;">{{ project.get_type_display }}</span>
       <span class="badge" style="
         {% if budget_status == 'ok' %}background:#dcfce7;color:#166534;
         {% elif budget_status == 'warning' %}background:#fef3c7;color:#92400e;
         {% else %}background:#fee2e2;color:#991b1b;{% endif %}">
         {{ budget_label }} — {{ budget_ratio }}%
       </span>
-      <span class="fin-header__sub">Synthèse des montants engagés, payés et restants.</span>
+      <span class="fin-header__sub">Fiche dossier avec données financières et documents liés.</span>
     </div>
     <div class="fin-header__stat">
       <div class="fin-header__stat-label">Reste à engager</div>
@@ -25,16 +27,16 @@
     </div>
   </div>
   <div class="fin-header__actions">
-    <a href="{% url 'technique:technique_financial_overview' %}" class="btn btn-ghost">
+    <a href="{% url 'technique:dossiers_list' %}" class="btn btn-ghost">
       <i class="bi bi-arrow-left"></i> Retour
     </a>
-    <a href="{% url 'technique:technique_financial_project_pdf' project.pk %}" class="btn btn-secondary">
+    <a href="{% url 'technique:dossier_budget_pdf' project.pk %}" class="btn btn-secondary">
       <i class="bi bi-file-pdf"></i> PDF
     </a>
-    <a href="{% url 'technique:technique_financial_project_csv' project.pk %}" class="btn btn-secondary">
+    <a href="{% url 'technique:dossier_budget_csv' project.pk %}" class="btn btn-secondary">
       <i class="bi bi-filetype-csv"></i> CSV
     </a>
-    <a href="{% url 'technique:technique_financial_project_excel' project.pk %}" class="btn btn-secondary">
+    <a href="{% url 'technique:dossier_budget_excel' project.pk %}" class="btn btn-secondary">
       <i class="bi bi-file-earmark-excel"></i> Excel
     </a>
   </div>
@@ -43,6 +45,37 @@
 <div class="fin-grid">
 
   <div class="fin-left">
+
+    <section class="card">
+      <div class="card-title">Informations du dossier</div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <span class="kpi__label">Référence</span>
+          <span class="kpi__value" style="color:var(--gray-800)">{{ project.reference }}</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Statut</span>
+          <span class="kpi__value" style="color:var(--green)">{{ project.get_status_display }}</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Type</span>
+          <span class="kpi__value" style="color:var(--blue)">{{ project.get_type_display }}</span>
+        </div>
+      </div>
+      <form method="post" style="border-top:1px solid var(--gray-200); margin-top:1.25rem; padding-top:1rem;">
+        {% csrf_token %}
+        <input type="hidden" name="update_project_status" value="1">
+        <div class="field-group">
+          <label for="{{ status_form.status.id_for_label }}">Statut du dossier</label>
+          {{ status_form.status }}
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
+          <button type="submit" class="btn btn-secondary">
+            <i class="bi bi-check-lg"></i> Mettre à jour le statut
+          </button>
+        </div>
+      </form>
+    </section>
 
     <section class="card">
       <div class="card-title">Données financières</div>
@@ -82,13 +115,16 @@
     <!-- Ajouter une dépense -->
     <section class="card">
       <div class="card-title">Ajouter une dépense</div>
-      <form method="post" action="{% url 'technique:technique_project_expense_create' project.pk %}">
+      <form method="post" action="{% url 'technique:dossier_expense_create' project.pk %}">
         {% csrf_token %}
         <div class="expense-form-grid">
 
           <div class="field-group">
             <label for="id_facture">Facture associée</label>
             {{ expense_form.facture }}
+            <small style="display:block; color:var(--text-secondary); margin-top:.35rem;">
+              Optionnelle : une dépense peut exister sans facture.
+            </small>
           </div>
 
           <div class="field-group">
@@ -153,7 +189,7 @@
         </div>
         <div class="filter-actions">
           <button type="submit" class="btn btn-secondary">Filtrer</button>
-          <a href="{% url 'technique:technique_financial_project_detail' project.pk %}" class="btn btn-ghost">
+          <a href="{% url 'technique:dossier_detail' project.pk %}" class="btn btn-ghost">
             Réinitialiser
           </a>
         </div>
@@ -199,7 +235,7 @@
                   <summary>
                     <span class="action-btn"><i class="bi bi-pencil"></i> Modifier</span>
                   </summary>
-                  <form method="post" action="{% url 'technique:technique_project_expense_update' expense.pk %}">
+                  <form method="post" action="{% url 'technique:dossier_expense_update' expense.pk %}">
                     {% csrf_token %}
                     <div class="inline-edit-grid">
                       <div class="field-group">
@@ -244,7 +280,7 @@
                     </div>
                   </form>
                   <div class="inline-edit-actions" style="padding-top:0;">
-                    <form method="post" action="{% url 'technique:technique_project_expense_delete' expense.pk %}"
+                    <form method="post" action="{% url 'technique:dossier_expense_delete' expense.pk %}"
                           onsubmit="return confirm('Supprimer cette dépense ?');">
                       {% csrf_token %}
                       <button type="submit" class="btn btn-danger btn-sm">
@@ -267,6 +303,46 @@
   </div>
 
   <div class="fin-right">
+
+    <section class="card">
+      <div class="section-header">
+        <span class="section-header__title">Documents du dossier</span>
+        <span class="badge">
+          {{ project_documents|length }} document{% if project_documents|length > 1 %}s{% endif %}
+        </span>
+      </div>
+      {% if project_documents %}
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Titre</th>
+              <th>Créé le</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for document in project_documents %}
+            <tr>
+              <td>
+                <a href="{% url 'technique:documents_detail' document.pk %}" style="font-weight:600;">
+                  {{ document.titre }}
+                </a>
+              </td>
+              <td>{{ document.created_at|date:"d/m/Y" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">Aucun document rattaché à ce dossier pour le moment.</div>
+      {% endif %}
+      <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
+        <a href="{% url 'technique:documents_upload' %}" class="btn btn-secondary">
+          <i class="bi bi-plus-lg"></i> Ajouter un document
+        </a>
+      </div>
+    </section>
 
     <section class="card">
       <div class="card-title">Visualisation graphique</div>
@@ -325,7 +401,7 @@
       </div>
       <div class="filter-actions">
         <button type="submit" class="btn btn-secondary">Filtrer</button>
-        <a href="{% url 'technique:technique_financial_project_detail' project.pk %}?expense_q={{ expense_q }}&expense_status={{ expense_status }}" class="btn btn-ghost">
+        <a href="{% url 'technique:dossier_detail' project.pk %}?expense_q={{ expense_q }}&expense_status={{ expense_status }}" class="btn btn-ghost">
           Réinitialiser
         </a>
       </div>
@@ -375,7 +451,7 @@
 
   <section class="card">
     <div class="section-header">
-      <span class="section-header__title">Historique financier</span>
+      <span class="section-header__title">Historique du dossier</span>
       <span class="badge">
         {{ history_entries|length }} entrée{% if history_entries|length > 1 %}s{% endif %}
       </span>
@@ -405,7 +481,7 @@
       </table>
     </div>
     {% else %}
-    <div class="empty-state">Aucune modification financière enregistrée pour ce dossier.</div>
+    <div class="empty-state">Aucune modification enregistrée pour ce dossier.</div>
     {% endif %}
   </section>
 </div>

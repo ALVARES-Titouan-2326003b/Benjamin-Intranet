@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectAllProjects = document.getElementById('selectAllProjects');
     const deleteProjectsBtn = document.getElementById('deleteProjectsBtn');
     const selectedProjectsCount = document.getElementById('selectedProjectsCount');
+    const confirmRelatedWrapper = document.getElementById('confirmRelatedWrapper');
 
     if (selectAllProjects) {
         selectAllProjects.addEventListener('change', function() {
@@ -17,8 +18,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateProjectsButton() {
         const count = document.querySelectorAll('.project-checkbox:checked').length;
+        if (!deleteProjectsBtn || !selectedProjectsCount) return;
         deleteProjectsBtn.style.display = count > 0 ? 'inline-block' : 'none';
         selectedProjectsCount.textContent = count;
+        if (confirmRelatedWrapper) {
+            confirmRelatedWrapper.style.display = count > 0 ? 'flex' : 'none';
+        }
         if (selectAllProjects) {
             const total = document.querySelectorAll('.project-checkbox').length;
             selectAllProjects.checked = total > 0 && count === total;

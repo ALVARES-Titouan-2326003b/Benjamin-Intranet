@@ -67,6 +67,7 @@ class TechnicalProject(models.Model):
         reference (str): Reference du dossier
         name (str): Nom du dossier
         type (str): Type de dossier
+        status (str): Statut d'avancement du dossier
         engaged_amount (Decimal): Frais engagés
         paid_amount (Decimal): Frais payés
         total_estimated (Decimal): Total estimé du dossier
@@ -76,10 +77,16 @@ class TechnicalProject(models.Model):
         ("promotion", "Promotion"),
         ("patrimoine", "Patrimoine")
     ]
+    STATUS_CHOICES = [
+        ("etude", "Étude"),
+        ("promesse_signee", "Promesse signée"),
+        ("acquis", "Acquis"),
+    ]
 
     reference = models.CharField("Référence dossier", max_length=50, unique=True, db_column="reference")
     name = models.CharField("Nom du dossier", max_length=255, db_column="nom")
-    type = models.TextField(choices=DOSSIER_TYPES, default="marchands_de_bien")
+    type = models.TextField("Type", choices=DOSSIER_TYPES, default="marchands_de_bien")
+    status = models.CharField("Statut", max_length=30, choices=STATUS_CHOICES, default="etude", db_column="statut")
     engaged_amount = models.DecimalField("Frais engagés", max_digits=12, decimal_places=2, default=0, db_column="frais_eng")
     paid_amount = models.DecimalField("Frais déjà payés", max_digits=12, decimal_places=2, default=0, db_column="frais_payes")
     total_estimated = models.DecimalField("Total estimé du dossier", max_digits=12, decimal_places=2, default=0, db_column="total_estim")
@@ -160,6 +167,7 @@ class TechnicalProjectHistory(models.Model):
         ("expense_created", "Dépense créée"),
         ("expense_updated", "Dépense modifiée"),
         ("expense_deleted", "Dépense supprimée"),
+        ("status_updated", "Statut modifié"),
         ("project_deleted", "Dossier supprimé"),
     ]
 

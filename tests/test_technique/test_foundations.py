@@ -99,10 +99,32 @@ def test_project_accepts_new_activity_types(activity_type, label):
 def test_project_defaults_to_marchands_de_bien_and_rejects_old_type():
     project = TechnicalProject(reference="TYPE-DEFAULT", name="Projet par défaut")
     assert project.type == "marchands_de_bien"
+    assert project.status == "etude"
 
     project.type = "client"
     with pytest.raises(ValidationError):
         project.full_clean()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("status", "label"),
+    [
+        ("etude", "Étude"),
+        ("promesse_signee", "Promesse signée"),
+        ("acquis", "Acquis"),
+    ],
+)
+def test_project_accepts_technical_statuses(status, label):
+    project = TechnicalProject(
+        reference=f"STATUS-{status}",
+        name="Dossier statué",
+        status=status,
+    )
+
+    project.full_clean()
+
+    assert project.get_status_display() == label
 
 
 @pytest.mark.django_db
@@ -197,7 +219,7 @@ def test_financial_history_is_created_for_project_budget_and_expense_changes(
     actors,
 ):
     client.force_login(technique_user)
-    overview_url = reverse("technique:technique_financial_overview")
+    overview_url = reverse("technique:dossiers_list")
 
     response = client.post(
         overview_url,
@@ -205,25 +227,33 @@ def test_financial_history_is_created_for_project_budget_and_expense_changes(
             "name": "Nouveau Projet",
             "reference": "TECH-NEW",
             "type": "promotion",
+            "status": "promesse_signee",
             "total_estimated": "500.00",
         },
     )
     assert response.status_code == 302
     new_project = TechnicalProject.objects.get(reference="TECH-NEW")
     assert new_project.type == "promotion"
+    assert new_project.status == "promesse_signee"
     assert TechnicalProjectHistory.objects.filter(
         project=new_project,
         action="project_created",
         user=technique_user,
     ).exists()
 
-    detail_url = reverse("technique:technique_financial_project_detail", args=[project.pk])
+    detail_url = reverse("technique:dossier_detail", args=[project.pk])
     response = client.post(detail_url, {"total_estimated": "1500.00"})
     assert response.status_code == 302
     assert TechnicalProjectHistory.objects.filter(project=project, action="budget_updated").exists()
 
+    response = client.post(detail_url, {"update_project_status": "1", "status": "acquis"})
+    assert response.status_code == 302
+    project.refresh_from_db()
+    assert project.status == "acquis"
+    assert TechnicalProjectHistory.objects.filter(project=project, action="status_updated").exists()
+
     invoice = create_invoice(project, actors, "FAC-HIST")
-    create_url = reverse("technique:technique_project_expense_create", args=[project.pk])
+    create_url = reverse("technique:dossier_expense_create", args=[project.pk])
     response = client.post(
         create_url,
         {
@@ -239,7 +269,7 @@ def test_financial_history_is_created_for_project_budget_and_expense_changes(
     expense = ProjectExpense.objects.get(label="Honoraires")
     assert TechnicalProjectHistory.objects.filter(project=project, action="expense_created").exists()
 
-    update_url = reverse("technique:technique_project_expense_update", args=[expense.pk])
+    update_url = reverse("technique:dossier_expense_update", args=[expense.pk])
     response = client.post(
         update_url,
         {
@@ -252,19 +282,48 @@ def test_financial_history_is_created_for_project_budget_and_expense_changes(
     assert response.status_code == 302
     assert TechnicalProjectHistory.objects.filter(project=project, action="expense_updated").exists()
 
-    delete_url = reverse("technique:technique_project_expense_delete", args=[expense.pk])
+    delete_url = reverse("technique:dossier_expense_delete", args=[expense.pk])
     response = client.post(delete_url)
     assert response.status_code == 302
     assert TechnicalProjectHistory.objects.filter(project=project, action="expense_deleted").exists()
 
 
 @pytest.mark.django_db
-def test_project_deletion_history_keeps_snapshot_after_project_is_deleted(client, technique_user):
+def test_project_expense_can_be_created_without_invoice(client, technique_user, project):
+    client.force_login(technique_user)
+    response = client.post(
+        reverse("technique:dossier_expense_create", args=[project.pk]),
+        {
+            "facture": "",
+            "label": "Dépense prévisionnelle",
+            "amount": "180.00",
+            "due_date": "2026-05-20",
+        },
+    )
+
+    assert response.status_code == 302
+    expense = ProjectExpense.objects.get(label="Dépense prévisionnelle")
+    assert expense.facture is None
+    assert expense.project == project
+
+
+@pytest.mark.django_db
+def test_project_deletion_requires_superadmin_validation(client, technique_user, admin_user):
     project = TechnicalProject.objects.create(reference="DEL-001", name="Projet à supprimer")
 
     client.force_login(technique_user)
     response = client.post(
-        reverse("technique:bulk_delete_projects"),
+        reverse("technique:dossiers_bulk_delete"),
+        {"project_ids": [project.pk]},
+    )
+
+    assert response.status_code == 302
+    assert TechnicalProject.objects.filter(pk=project.pk).exists()
+    assert not TechnicalProjectHistory.objects.filter(action="project_deleted", project_reference="DEL-001").exists()
+
+    client.force_login(admin_user)
+    response = client.post(
+        reverse("technique:dossiers_bulk_delete"),
         {"project_ids": [project.pk]},
     )
 
@@ -272,6 +331,34 @@ def test_project_deletion_history_keeps_snapshot_after_project_is_deleted(client
     history = TechnicalProjectHistory.objects.get(action="project_deleted", project_reference="DEL-001")
     assert history.project is None
     assert history.project_name == "Projet à supprimer"
+
+
+@pytest.mark.django_db
+def test_project_deletion_with_related_data_requires_explicit_confirmation(client, admin_user):
+    project = TechnicalProject.objects.create(reference="DEL-LINK", name="Dossier avec liens")
+    ProjectExpense.objects.create(
+        project=project,
+        label="Dépense existante",
+        amount=Decimal("120.00"),
+    )
+
+    client.force_login(admin_user)
+    response = client.post(
+        reverse("technique:dossiers_bulk_delete"),
+        {"project_ids": [project.pk]},
+    )
+
+    assert response.status_code == 302
+    assert TechnicalProject.objects.filter(pk=project.pk).exists()
+
+    response = client.post(
+        reverse("technique:dossiers_bulk_delete"),
+        {"project_ids": [project.pk], "confirm_related": "1"},
+    )
+
+    assert response.status_code == 302
+    assert not TechnicalProject.objects.filter(pk=project.pk).exists()
+    assert TechnicalProjectHistory.objects.filter(action="project_deleted", project_reference="DEL-LINK").exists()
 
 
 @pytest.mark.django_db
@@ -303,7 +390,7 @@ def test_invoice_filters_on_financial_project_detail(client, technique_user, pro
 
     client.force_login(technique_user)
     response = client.get(
-        reverse("technique:technique_financial_project_detail", args=[project.pk]),
+        reverse("technique:dossier_detail", args=[project.pk]),
         {
             "invoice_supplier": "Beta",
             "invoice_status": "ongoing",
@@ -344,9 +431,9 @@ def test_financial_calculations_and_exports_still_work(client, technique_user, p
 
     client.force_login(technique_user)
     for url_name in (
-        "technique_financial_project_pdf",
-        "technique_financial_project_csv",
-        "technique_financial_project_excel",
+        "dossier_budget_pdf",
+        "dossier_budget_csv",
+        "dossier_budget_excel",
     ):
         response = client.get(reverse(f"technique:{url_name}", args=[project.pk]))
         assert response.status_code == 200

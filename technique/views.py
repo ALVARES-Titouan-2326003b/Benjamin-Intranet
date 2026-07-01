@@ -27,6 +27,7 @@ from .forms import (
     DocumentTechniqueUploadForm,
     TechnicalProjectCreateForm,
     TechnicalProjectFinanceForm,
+    TechnicalProjectStatusForm,
     DocumentTechniqueUpdateForm,
     ProjectExpenseForm,
 )
@@ -62,6 +63,7 @@ def _snapshot_project(project):
         "reference": project.reference,
         "name": project.name,
         "type": project.type,
+        "status": project.status,
         "engaged_amount": _history_value(project.engaged_amount),
         "paid_amount": _history_value(project.paid_amount),
         "total_estimated": _history_value(project.total_estimated),
@@ -92,6 +94,27 @@ def _log_project_history(project, user, action, target_type, target_label="", be
         before=before or {},
         after=after or {},
     )
+
+
+def _user_can_delete_technical_projects(user):
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return user.is_superuser or user.groups.filter(name="CEO").exists()
+
+
+def _project_related_counts(project):
+    project_labels = [project.reference, project.name]
+    return {
+        "documents": DocumentTechnique.objects.filter(projet__in=project_labels).count(),
+        "factures": Facture.objects.filter(dossier=project).count(),
+        "depenses": project.expenses.count(),
+        "emails": project.emails.count(),
+        "historique": project.history.count(),
+    }
+
+
+def _project_has_related_data(project):
+    return any(_project_related_counts(project).values())
 
 
 @login_required
@@ -392,6 +415,7 @@ def financial_overview(request):
     q = (request.GET.get("q") or "").strip()
     reference = (request.GET.get("reference") or "").strip()
     project_type = (request.GET.get("type") or "").strip()
+    project_status = (request.GET.get("status") or "").strip()
     sort = (request.GET.get("sort") or "").strip()
 
     if q:
@@ -404,6 +428,9 @@ def financial_overview(request):
 
     if project_type:
         projects = projects.filter(type=project_type)
+
+    if project_status:
+        projects = projects.filter(status=project_status)
 
     if sort == "name_desc":
         projects = projects.order_by("-name")
@@ -432,7 +459,7 @@ def financial_overview(request):
                 after=_snapshot_project(project),
             )
             messages.success(request, "Dossier créé avec succès.")
-            return redirect("technique:technique_financial_overview")
+            return redirect("technique:dossier_detail", pk=project.pk)
     else:
         form = TechnicalProjectCreateForm()
 
@@ -446,8 +473,11 @@ def financial_overview(request):
             "q": q,
             "reference": reference,
             "selected_type": project_type,
+            "selected_status": project_status,
             "sort": sort,
             "type_choices": TechnicalProject.DOSSIER_TYPES,
+            "status_choices": TechnicalProject.STATUS_CHOICES,
+            "can_delete_projects": _user_can_delete_technical_projects(request.user),
         },
     )
 
@@ -463,8 +493,30 @@ def financial_project_detail(request, pk):
     """
     project = get_object_or_404(TechnicalProject, pk=pk)
     project.refresh_amounts_from_expenses()
+    project_documents = DocumentTechnique.objects.filter(
+        Q(projet=project.reference) | Q(projet=project.name)
+    ).order_by("-created_at")[:10]
 
-    if request.method == "POST" and "total_estimated" in request.POST:
+    if request.method == "POST" and "update_project_status" in request.POST:
+        before_project = _snapshot_project(project)
+        status_form = TechnicalProjectStatusForm(request.POST, instance=project)
+        if status_form.is_valid():
+            project = status_form.save()
+            after_project = _snapshot_project(project)
+            if before_project.get("status") != after_project.get("status"):
+                _log_project_history(
+                    project=project,
+                    user=request.user,
+                    action="status_updated",
+                    target_type="project",
+                    target_label=project.reference,
+                    before={"status": before_project.get("status")},
+                    after={"status": after_project.get("status")},
+                )
+            messages.success(request, "Statut du dossier mis à jour.")
+            return redirect("technique:dossier_detail", pk=project.pk)
+        form = TechnicalProjectFinanceForm(instance=project)
+    elif request.method == "POST" and "total_estimated" in request.POST:
         before_project = _snapshot_project(project)
         form = TechnicalProjectFinanceForm(request.POST, instance=project)
         if form.is_valid():
@@ -481,9 +533,13 @@ def financial_project_detail(request, pk):
                     after={"total_estimated": after_project.get("total_estimated")},
                 )
             messages.success(request, "Budget prévisionnel mis à jour.")
-            return redirect("technique:technique_financial_project_detail", pk=project.pk)
+            return redirect("technique:dossier_detail", pk=project.pk)
     else:
         form = TechnicalProjectFinanceForm(instance=project)
+        status_form = TechnicalProjectStatusForm(instance=project)
+
+    if "status_form" not in locals():
+        status_form = TechnicalProjectStatusForm(instance=project)
 
     expense_q = (request.GET.get("expense_q") or "").strip()
     expense_status = (request.GET.get("expense_status") or "").strip()
@@ -559,10 +615,12 @@ def financial_project_detail(request, pk):
         {
             "project": project,
             "form": form,
+            "status_form": status_form,
             "expense_form": expense_form,
             "expenses": expenses,
             "project_invoices": invoices,
             "history_entries": history_entries,
+            "project_documents": project_documents,
             "expense_q": expense_q,
             "expense_status": expense_status,
             "invoice_supplier": invoice_supplier,
@@ -605,7 +663,7 @@ def project_expense_create(request, pk):
             messages.success(request, "Dépense ajoutée avec succès.")
         else:
             messages.error(request, "Impossible d'ajouter la dépense.")
-    return redirect("technique:technique_financial_project_detail", pk=project.pk)
+    return redirect("technique:dossier_detail", pk=project.pk)
 
 
 
@@ -635,7 +693,7 @@ def project_expense_update(request, expense_pk):
             messages.success(request, "Dépense modifiée avec succès.")
         else:
             messages.error(request, "Impossible de modifier la dépense.")
-    return redirect("technique:technique_financial_project_detail", pk=project.pk)
+    return redirect("technique:dossier_detail", pk=project.pk)
 
 
 @login_required
@@ -657,7 +715,7 @@ def project_expense_delete(request, expense_pk):
         )
         messages.success(request, "Dépense supprimée avec succès.")
 
-    return redirect("technique:technique_financial_project_detail", pk=project.pk)
+    return redirect("technique:dossier_detail", pk=project.pk)
 
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
@@ -1140,14 +1198,29 @@ def bulk_delete_projects(request):
     Vue pour supprimer plusieurs dossiers techniques en une seule action
     """
     if request.method != "POST":
-        return redirect("technique:technique_financial_overview")
+        return redirect("technique:dossiers_list")
+
+    if not _user_can_delete_technical_projects(request.user):
+        messages.error(request, "Suppression refusée : validation CEO / superadmin obligatoire.")
+        return redirect("technique:dossiers_list")
 
     ids = request.POST.getlist("project_ids")
     if not ids:
         messages.warning(request, "Aucun dossier sélectionné.")
-        return redirect("technique:technique_financial_overview")
+        return redirect("technique:dossiers_list")
 
     projects_to_delete = list(TechnicalProject.objects.filter(id__in=ids))
+    projects_with_related_data = [
+        project for project in projects_to_delete if _project_has_related_data(project)
+    ]
+    if projects_with_related_data and request.POST.get("confirm_related") != "1":
+        messages.error(
+            request,
+            "Suppression interrompue : au moins un dossier contient des éléments liés. "
+            "Confirmation explicite CEO / superadmin requise.",
+        )
+        return redirect("technique:dossiers_list")
+
     for project in projects_to_delete:
         _log_project_history(
             project=project,
@@ -1161,7 +1234,7 @@ def bulk_delete_projects(request):
     TechnicalProject.objects.filter(id__in=[p.id for p in projects_to_delete]).delete()
     deleted_count = len(projects_to_delete)
     messages.success(request, f"{deleted_count} dossier(s) supprimé(s) avec succès.")
-    return redirect("technique:technique_financial_overview")
+    return redirect("technique:dossiers_list")
 
 
 @login_required

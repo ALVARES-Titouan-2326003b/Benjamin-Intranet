@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Vue financière – Pôle technique{% endblock %}
+{% block title %}Dossiers – Pôle technique{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'technique/css/style.css' %}">
 <div class="d-flex justify-between align-center mb-4"
     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
     <div>
-        <h2>Vue financière – Pôle technique</h2>
+        <h2>Dossiers – Pôle technique</h2>
         <p style="color: var(--text-secondary); margin-top: 0.5rem;">
-            Suivi des budgets, frais engagés et paiements dossier par dossier.
+            Point d'entrée central pour les dossiers, documents et données financières.
         </p>
     </div>
     <button class="btn btn-primary" id="showCreateFormBtn">
@@ -37,7 +37,7 @@
     <div class="card-title">Filtres</div>
 
     <form method="get"
-          style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr; gap: 1rem; align-items: end;">
+          style="display: grid; grid-template-columns: 2fr 1.1fr 1.1fr 1.1fr 1.1fr; gap: 1rem; align-items: end;">
         <div>
             <label style="display:block; margin-bottom: .4rem; font-weight:500;">Recherche</label>
             <input type="text" name="q" class="form-control" placeholder="Nom ou référence du dossier..." value="{{ q }}">
@@ -59,6 +59,16 @@
         </div>
 
         <div>
+            <label style="display:block; margin-bottom: .4rem; font-weight:500;">Statut</label>
+            <select name="status" class="form-control">
+                <option value="">Tous</option>
+                {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
             <label style="display:block; margin-bottom: .4rem; font-weight:500;">Tri</label>
             <select name="sort" class="form-control">
                 <option value="" {% if not sort %}selected{% endif %}>Nom A → Z</option>
@@ -72,7 +82,7 @@
             <button type="submit" class="btn btn-primary">
                 <i class="bi bi-search"></i> Filtrer
             </button>
-            <a href="{% url 'technique:technique_financial_overview' %}" class="btn btn-secondary">
+            <a href="{% url 'technique:dossiers_list' %}" class="btn btn-secondary">
                 Réinitialiser
             </a>
         </div>
@@ -88,23 +98,36 @@
     </div>
 
     {% if projects %}
-    <form method="post" action="{% url 'technique:bulk_delete_projects' %}" id="bulkDeleteProjectsForm">
+    <form method="post" action="{% url 'technique:dossiers_bulk_delete' %}" id="bulkDeleteProjectsForm">
         {% csrf_token %}
 
+        {% if can_delete_projects %}
         <div style="margin-bottom: 1rem;">
+            <label id="confirmRelatedWrapper" style="display:none; align-items:center; gap:.5rem; margin-bottom:.75rem; color:var(--text-secondary);">
+                <input type="checkbox" name="confirm_related" value="1">
+                Je confirme la suppression définitive, y compris si des éléments sont liés aux dossiers sélectionnés.
+            </label>
             <button type="submit" class="btn btn-danger" id="deleteProjectsBtn" style="display: none;"
                     onclick="return confirm('Êtes-vous sûr de vouloir supprimer les dossiers sélectionnés ? Cette action est irréversible.');">
                 <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedProjectsCount">0</span>)
             </button>
         </div>
+        {% else %}
+        <div style="margin-bottom: 1rem; color: var(--text-secondary);">
+            La suppression définitive des dossiers est réservée au CEO / superadmin.
+        </div>
+        {% endif %}
 
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
                     <tr>
+                        {% if can_delete_projects %}
                         <th style="width: 40px;"><input type="checkbox" id="selectAllProjects" title="Tout sélectionner"></th>
+                        {% endif %}
                         <th>Référence</th>
                         <th>Nom</th>
+                        <th>Statut</th>
                         <th>Type</th>
                         <th>Total estimé</th>
                         <th class="text-right">Actions</th>
@@ -113,9 +136,16 @@
                 <tbody>
                     {% for p in projects %}
                     <tr>
+                        {% if can_delete_projects %}
                         <td><input type="checkbox" class="project-checkbox" name="project_ids" value="{{ p.id }}"></td>
+                        {% endif %}
                         <td><span style="font-weight: 600; color: var(--text-main);">{{ p.reference }}</span></td>
                         <td>{{ p.name }}</td>
+                        <td>
+                            <span class="badge" style="background:#ecfdf5; color:#047857;">
+                                {{ p.get_status_display }}
+                            </span>
+                        </td>
                         <td>
                             <span class="badge" style="background:#f3f4f6; color:#374151;">
                                 {{ p.get_type_display }}
@@ -125,8 +155,8 @@
                             <span class="badge" style="background:#e0f2fe; color:#0284c7;">{{ p.total_estimated }} €</span>
                         </td>
                         <td class="text-right">
-                            <a href="{% url 'technique:technique_financial_project_detail' p.pk %}" class="btn btn-sm btn-ghost">
-                                Voir / éditer
+                            <a href="{% url 'technique:dossier_detail' p.pk %}" class="btn btn-sm btn-ghost">
+                                Ouvrir
                             </a>
                         </td>
                     </tr>
@@ -146,11 +176,11 @@
 {% if page_obj.paginator.num_pages > 1 %}
     <div style="display:flex; justify-content:center; align-items:center; gap:.5rem; margin-top:1.5rem; flex-wrap:wrap;">
         {% if page_obj.has_previous %}
-            <a href="?page=1{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page=1{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 « Première
             </a>
-            <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 Précédente
             </a>
@@ -161,11 +191,11 @@
         </span>
 
         {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 Suivante
             </a>
-            <a href="?page={{ page_obj.paginator.num_pages }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 Dernière »
             </a>

@@ -75,9 +75,9 @@
       {% if '/pole-technique/' in p or '/chatbot/' in p or '/signatures/' in p %}
       {% if user.is_superuser or user.is_staff or "POLE_TECHNIQUE" in u_groups_str %}
       <div class="nav-section-label">TECHNIQUE</div>
-      <a href="{% url 'technique_financial_overview' %}"
-        class="nav-item {% if '/vue-financiere/' in request.path %}active{% endif %}">
-        <i class="bi bi-graph-up"></i> Vue Financière
+      <a href="{% url 'technique:dossiers_list' %}"
+        class="nav-item {% if '/dossiers/' in request.path or '/vue-financiere/' in request.path %}active{% endif %}">
+        <i class="bi bi-folder2-open"></i> Dossiers
       </a>
 
       <a href="{% url 'technique:documents_list' %}"
