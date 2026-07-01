@@ -1,10 +1,10 @@
-import csv
 import io
 import json
 import traceback
 import unicodedata
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from xml.sax.saxutils import escape
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
@@ -14,6 +14,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from openpyxl import Workbook, load_workbook
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import cm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from user_access.user_test_functions import has_administratif_access
 
@@ -296,6 +301,66 @@ def _append_admin_project_sheet(workbook, title, queryset, use_active=False):
     return sheet
 
 
+def _admin_project_pdf_paragraph(value, style):
+    text = escape(str(value or "")).replace("\n", "<br/>")
+    return Paragraph(text, style)
+
+
+def _build_admin_project_pdf(queryset):
+    output = io.BytesIO()
+    document = SimpleDocTemplate(
+        output,
+        pagesize=A4,
+        rightMargin=1.2 * cm,
+        leftMargin=1.2 * cm,
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm,
+        title="Dossiers administratifs",
+    )
+    styles = getSampleStyleSheet()
+    title_style = styles["Title"]
+    heading_style = styles["Heading2"]
+    cell_style = styles["BodyText"]
+    cell_style.fontSize = 8
+    cell_style.leading = 10
+
+    story = [Paragraph("Dossiers administratifs", title_style), Spacer(1, 0.4 * cm)]
+    projects = list(queryset)
+    if not projects:
+        story.append(Paragraph("Aucun dossier à exporter.", styles["BodyText"]))
+    for project in projects:
+        serialized = _serialize_project(project)
+        title = f"{serialized.get('reference', '')} - {serialized.get('affaire', '')}".strip(" -")
+        story.append(Paragraph(escape(title), heading_style))
+        rows = []
+        for label, field in ADMIN_PROJECT_EXPORT_COLUMNS:
+            rows.append(
+                [
+                    Paragraph(f"<b>{escape(label)}</b>", cell_style),
+                    _admin_project_pdf_paragraph(serialized.get(field, ""), cell_style),
+                ]
+            )
+        table = Table(rows, colWidths=[5 * cm, 12.5 * cm], hAlign="LEFT")
+        table.setStyle(
+            TableStyle(
+                [
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
+                    ("BACKGROUND", (0, 0), (0, -1), colors.whitesmoke),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        story.extend([table, Spacer(1, 0.45 * cm)])
+
+    document.build(story)
+    output.seek(0)
+    return output
+
+
 def _unique_import_reference(row_number):
     candidate = f"ADM-IMP-{int(row_number):04d}"
     if not AdministrativeProject.objects.filter(reference=candidate).exists():
@@ -376,25 +441,14 @@ def _admin_project_payload_from_import(row, row_number, default_activite_metier=
 
 def _iter_admin_project_import_rows(uploaded_file):
     filename = (uploaded_file.name or "").lower()
-    if filename.endswith(".csv"):
-        text_file = io.TextIOWrapper(uploaded_file.file, encoding="utf-8-sig")
-        sample = text_file.read(2048)
-        text_file.seek(0)
-        try:
-            dialect = csv.Sniffer().sniff(sample, delimiters=";,") if sample else csv.excel
-            reader = csv.reader(text_file, dialect)
-        except csv.Error:
-            reader = csv.reader(text_file, delimiter=";")
-        rows = list(reader)
-        sheets = [("CSV", rows)]
-    elif filename.endswith(".xlsx"):
+    if filename.endswith(".xlsx"):
         workbook = load_workbook(uploaded_file, data_only=True)
         sheets = [
             (sheet.title, [list(row) for row in sheet.iter_rows(values_only=True)])
             for sheet in workbook.worksheets
         ]
     else:
-        raise ValueError("Format non supporté. Merci d’importer un fichier .xlsx ou .csv.")
+        raise ValueError("Format non supporté. Merci d’importer un fichier .xlsx.")
 
     parsed_rows = []
     for sheet_title, rows in sheets:
@@ -970,13 +1024,23 @@ def admin_dossiers_export_view(request):
     return response
 
 
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def admin_dossiers_export_pdf_view(request):
+    queryset = _admin_project_queryset_from_request(request)
+    output = _build_admin_project_pdf(queryset)
+    response = HttpResponse(output.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="dossiers_administratifs.pdf"'
+    return response
+
+
 @require_http_methods(["POST"])
 @login_required
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def admin_dossiers_import_view(request):
     uploaded_file = request.FILES.get("file")
     if not uploaded_file:
-        messages.error(request, "Merci de sélectionner un fichier .xlsx ou .csv à importer.")
+        messages.error(request, "Merci de sélectionner un fichier .xlsx à importer.")
         return redirect("admin_dossiers")
 
     try:

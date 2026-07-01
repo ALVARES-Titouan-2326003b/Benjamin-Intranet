@@ -23,10 +23,13 @@
          <a class="btn btn-secondary" href="{% url 'admin_dossiers_export' %}{% if search_query %}?q={{ search_query|urlencode }}{% endif %}">
             <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel séparé
          </a>
+         <a class="btn btn-secondary" href="{% url 'admin_dossiers_export_pdf' %}{% if search_query %}?q={{ search_query|urlencode }}{% endif %}">
+            <i class="bi bi-file-earmark-pdf"></i> Export PDF
+         </a>
       </div>
       <form method="post" action="{% url 'admin_dossiers_import' %}" enctype="multipart/form-data" class="project-import-actions">
          {% csrf_token %}
-         <input type="file" name="file" class="form-control" accept=".xlsx,.csv" required>
+         <input type="file" name="file" class="form-control" accept=".xlsx" required>
          <button type="submit" class="btn btn-primary">
             <i class="bi bi-upload"></i> Importer
          </button>

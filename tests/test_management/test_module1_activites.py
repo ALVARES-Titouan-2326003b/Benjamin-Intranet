@@ -352,6 +352,18 @@ def test_admin_dossiers_export_xlsx(client, admin_user, dossier):
 
 
 @pytest.mark.django_db
+def test_admin_dossiers_export_pdf(client, admin_user, dossier):
+    client.force_login(admin_user)
+
+    response = client.get("/administratif/dossiers/export/pdf/")
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "application/pdf"
+    assert response["Content-Disposition"] == 'attachment; filename="dossiers_administratifs.pdf"'
+    assert response.content.startswith(b"%PDF")
+
+
+@pytest.mark.django_db
 def test_admin_dossiers_import_xlsx_create_and_update(client, admin_user, categorie):
     client.force_login(admin_user)
     uploaded = _xlsx_upload(
@@ -418,6 +430,21 @@ def test_admin_dossiers_import_xlsx_uses_sheet_to_separate_activity(client, admi
     assert response.status_code == 302
     assert AdministrativeProject.objects.get(reference="ADM-PROMO-SHEET").activite_metier == "promotion_immobiliere"
     assert AdministrativeProject.objects.get(reference="ADM-OTHER-SHEET").activite_metier == "marchand_biens"
+
+
+@pytest.mark.django_db
+def test_admin_dossiers_import_rejects_csv(client, admin_user):
+    client.force_login(admin_user)
+    uploaded = SimpleUploadedFile(
+        "dossiers.csv",
+        b"Reference,Affaire\nADM-CSV,Dossier CSV\n",
+        content_type="text/csv",
+    )
+
+    response = client.post("/administratif/dossiers/import/", {"file": uploaded})
+
+    assert response.status_code == 302
+    assert not AdministrativeProject.objects.filter(reference="ADM-CSV").exists()
 
 
 @pytest.mark.django_db

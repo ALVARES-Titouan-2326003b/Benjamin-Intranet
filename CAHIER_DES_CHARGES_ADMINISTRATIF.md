@@ -37,6 +37,8 @@ Le terme **Projet** doit être remplacé par le terme **Dossier** dans l’inter
 
 État actuel : la structure des dossiers administratifs est considérée comme implémentée dans le code. Les évolutions restantes concernent principalement les exports, imports, rappels et validations métier.
 
+Mise à jour de cadrage : les filtres cachés par défaut et le retrait de l’export CSV sont considérés comme faits. Les nouveaux besoins à intégrer concernent notamment l’historique des relances, les rappels individuels, les champs personnalisables, l’export PDF, la gestion avancée des tampons et signatures, ainsi que l’import/export de calendrier. Google Agenda / Gmail est une solution temporaire ; l’objectif final est Outlook.
+
 ### 3.2 Types de dossiers
 
 Chaque dossier doit pouvoir être classé selon son type :
@@ -108,7 +110,23 @@ Champs attendus :
 Les champs de date doivent être enregistrés sous forme de dates et non sous forme de texte.  
 Les champs financiers doivent être enregistrés sous forme de montants afin de permettre des tris, calculs et exports fiables.
 
-### 3.6 Fiche détail d’un dossier
+### 3.6 Champs personnalisables
+
+Le module doit permettre la création de champs personnalisables sur les dossiers administratifs.
+
+Fonctionnalités attendues :
+
+- créer un champ personnalisé depuis l’interface ;
+- choisir son libellé ;
+- choisir son type de saisie, par exemple texte, date, montant, nombre, case à cocher ou liste de choix ;
+- décider si le champ est affiché dans la fiche dossier ;
+- décider si le champ est affiché dans le tableau de suivi ;
+- permettre la modification ou la désactivation d’un champ personnalisé ;
+- conserver les valeurs déjà saisies lorsqu’un champ est désactivé.
+
+Ce mécanisme doit permettre au pôle administratif d’ajouter des informations métier sans intervention technique à chaque nouvelle évolution du tableau de suivi.
+
+### 3.7 Fiche détail d’un dossier
 
 Chaque dossier doit disposer d’une page détail permettant de consulter :
 
@@ -145,7 +163,12 @@ La page de suivi des dossiers doit permettre :
 - de filtrer par état ;
 - de filtrer par collaborateur interne ;
 - d’accéder rapidement à la fiche détail d’un dossier ;
-- d’exporter les données au format Excel ou CSV.
+- d’exporter les données au format Excel ;
+- d’exporter les données au format PDF.
+
+Les filtres avancés doivent être cachés par défaut afin de garder une interface lisible. L’utilisateur doit pouvoir les afficher uniquement lorsqu’il en a besoin.
+
+L’export CSV est retiré du périmètre et ne doit plus être proposé dans l’interface.
 
 ### 4.3 Colonnes prioritaires du tableau
 
@@ -270,14 +293,17 @@ La vue calendrier doit permettre :
 
 - une vue mensuelle ;
 - une vue hebdomadaire ;
+- l’affichage du calendrier de Rudy / CEO en priorité ;
 - une distinction visuelle par type de dossier ou par état ;
 - un accès rapide à la fiche dossier depuis un événement ;
 - l’affichage des échéances en retard ;
 - le filtrage par collaborateur ;
 - le filtrage par activité métier ;
-- le filtrage par catégorie de dossier.
+- le filtrage par catégorie de dossier ;
+- l’import d’événements calendrier ;
+- l’export d’événements calendrier.
 
-Une synchronisation avec Outlook ou Google Calendar pourra être envisagée dans un second temps.
+Le besoin retenu est un import/export de calendrier, et non une synchronisation complète dans cette version. Google Agenda / Gmail est une solution temporaire pour faciliter les premiers échanges. L’objectif final est de permettre l’import/export avec Outlook.
 
 ## 7. Module 5 : Rappels et notifications
 
@@ -290,7 +316,8 @@ Réduire les oublis liés aux dates importantes des dossiers administratifs.
 Le système doit pouvoir envoyer des rappels :
 
 - lorsqu’une activité arrive à échéance ;
-- lorsqu’une activité est en retard.
+- lorsqu’une activité est en retard ;
+- à un collaborateur précis, sous forme de rappel individuel.
 
 Les rappels portent d’abord sur les activités créées dans le calendrier. Si une date de promesse, une date DG, une date CS prêt, une date de réitération ou une date de signature doit faire l’objet d’un rappel, elle peut être saisie manuellement comme activité.
 
@@ -308,9 +335,11 @@ Exemples :
 
 Le paramétrage doit permettre de choisir si le rappel est envoyé avant ou après l’échéance, ainsi que le nombre de jours concerné.
 
+Le rappel doit également permettre de renseigner une heure ou un créneau horaire. Les créneaux doivent pouvoir être saisis sous forme de durée standard, par exemple 30 minutes, 1 heure ou une durée équivalente à confirmer.
+
 Dans la première version, un e-mail suffit. Il doit être envoyé à la personne associée à l’activité.
 
-Une intégration Outlook, Google Calendar ou autre outil interne pourra être ajoutée plus tard.
+L’import/export de calendrier doit être pris en compte dans le cadrage du calendrier et des rappels. Google Agenda / Gmail sert de solution temporaire ; Outlook reste la cible finale.
 
 ## 8. Module 6 : Signature administrative
 
@@ -341,7 +370,12 @@ Le module doit permettre :
 - de permettre à Rudy de consulter l’ensemble des demandes et documents à signer ;
 - de suivre l’état de la signature ;
 - d’archiver le document signé ;
-- de conserver l’historique de validation.
+- de conserver l’historique de validation ;
+- de choisir entre une signature seule, un tampon seul, ou un bloc tampon + signature ;
+- de sélectionner le tampon à utiliser avant génération du PDF signé ;
+- de créer ou modifier un tampon depuis l’interface ;
+- de prévoir jusqu’à 46 tampons disponibles ;
+- d’étudier l’aide OCR / IA pour détecter les zones de signature ou de tampon sur les documents.
 
 ### 8.3 Statuts de signature
 
@@ -356,6 +390,8 @@ Statuts proposés :
 L’intégration d’une solution de signature électronique certifiée pourra être étudiée ultérieurement si l’entreprise souhaite un processus juridiquement renforcé.
 
 L’idée retenue est que la signature soit accessible à l’administratif assigné et à Rudy, avec Rudy systématiquement informé pour conserver une trace écrite et une vue globale.
+
+Le besoin prioritaire porte sur la signature interne avec génération de PDF signé, choix du tampon et possibilité d’apposer le tampon avec ou sans signature.
 
 ## 9. Module 7 : Relances externes
 
@@ -385,6 +421,9 @@ Le module de relance pourrait permettre :
 - d’envoyer une relance manuellement ;
 - d’automatiser certaines relances après un délai paramétrable ;
 - d’historiser les relances envoyées ;
+- de consulter l’historique complet des relances depuis la fiche dossier ;
+- de distinguer les relances automatiques des relances manuelles ;
+- de tracer la date, l’émetteur, le destinataire, le contenu ou le modèle utilisé et le statut de chaque relance ;
 - de suivre le statut de la relance.
 
 ### 9.3 Statuts de relance
@@ -469,7 +508,8 @@ Permettre la reprise des données déjà présentes dans les fichiers de suivi e
 
 Il faudra prévoir :
 
-- une fonction d’export des dossiers administratifs au format Excel ou CSV ;
+- une fonction d’export des dossiers administratifs au format Excel ;
+- une fonction d’export des dossiers administratifs au format PDF ;
 - une analyse du fichier Excel actuel ;
 - une correspondance entre les colonnes Excel et les champs de l’intranet ;
 - un nettoyage des dates ;
@@ -478,7 +518,9 @@ Il faudra prévoir :
 - un import initial en base de données ;
 - un contrôle par le pôle administratif après import.
 
-L’export et l’import des dossiers administratifs sont retenus comme fonctions à ajouter.
+L’export Excel, l’export PDF et l’import des dossiers administratifs sont retenus comme fonctions à ajouter.
+
+L’export CSV est retiré du périmètre.
 
 ### 12.3 Correspondance indicative
 
@@ -554,7 +596,8 @@ Dans le cadre de l’intranet existant, les technologies à privilégier sont :
 - templates Django ou frontend dédié selon l’architecture existante ;
 - Celery ou tâche planifiée pour les rappels ;
 - SMTP ou service mail existant pour l’envoi des notifications ;
-- export Excel ou CSV pour les données administratives.
+- export Excel et PDF pour les données administratives ;
+- import/export calendrier, avec Google Agenda / Gmail en solution temporaire et Outlook comme cible finale.
 
 ## 15. Sécurité, traçabilité et RGPD
 
@@ -601,20 +644,25 @@ Le module administratif devra respecter les exigences suivantes :
 À maintenir ou ajouter :
 
 - conserver la vue tableau ;
-- conserver les filtres ;
+- conserver les filtres, cachés par défaut ;
 - conserver la recherche ;
 - conserver le tri ;
-- ajouter l’export Excel ou CSV si absent.
+- ajouter l’export Excel si absent ;
+- ajouter l’export PDF.
 
 ### Priorité 4 : Calendrier et rappels
 
 À réaliser ensuite :
 
 - créer la vue calendrier ;
+- afficher principalement le calendrier de Rudy / CEO ;
 - permettre la saisie manuelle des dates importantes sous forme d’activités ;
 - identifier les échéances en retard ;
 - paramétrer les rappels avant ou après échéance ;
-- envoyer les rappels par e-mail à la personne associée à l’activité.
+- ajouter une heure ou un créneau de rappel, par exemple 30 minutes ou 1 heure ;
+- envoyer les rappels par e-mail à la personne associée à l’activité ;
+- gérer les rappels individuels ;
+- prévoir l’import/export calendrier, avec Google Agenda / Gmail en solution temporaire et Outlook comme cible finale.
 
 ### Priorité 5 : Signature
 
@@ -627,17 +675,40 @@ Le module administratif devra respecter les exigences suivantes :
 - permettre la signature par le membre administratif assigné ou par Rudy ;
 - donner à Rudy une vue globale sur toutes les demandes ;
 - suivre les statuts de signature ;
-- archiver les documents signés.
+- archiver les documents signés ;
+- permettre le choix signature seule, tampon seul ou tampon + signature ;
+- prévoir 46 tampons sélectionnables ;
+- permettre la création ou modification de tampon ;
+- étudier l’OCR / IA pour aider au placement de la signature ou du tampon.
 
 ### Priorité 6 : Import / export des dossiers
 
 À réaliser :
 
-- exporter les dossiers administratifs au format Excel ou CSV ;
+- exporter les dossiers administratifs au format Excel ;
+- exporter les dossiers administratifs au format PDF ;
 - importer les anciens fichiers Excel après validation du mapping ;
 - contrôler les données importées avec le pôle administratif.
 
-### Priorité 7 : Nettoyage de l’existant
+### Priorité 7 : Champs personnalisables
+
+À réaliser :
+
+- créer une interface de création de champ personnalisé ;
+- gérer les types de champs autorisés ;
+- permettre l’affichage des champs personnalisés dans la fiche dossier et, si besoin, dans le tableau ;
+- conserver l’historique ou les valeurs en cas de désactivation du champ.
+
+### Priorité 8 : Relances externes
+
+À réaliser :
+
+- conserver un historique des relances ;
+- afficher l’historique depuis la fiche dossier ;
+- tracer les relances manuelles et automatiques ;
+- confirmer le niveau d’automatisation attendu.
+
+### Priorité 9 : Nettoyage de l’existant
 
 À réaliser en parallèle ou en fin de sprint :
 
@@ -654,14 +725,20 @@ Avant développement complet, les points suivants doivent être validés :
 - liste définitive des états de dossier ;
 - validation du fait que les statuts d’activité actuels suffisent ;
 - confirmation qu’une seule date suffit dans le formulaire d’activité ;
+- format attendu des créneaux de rappel : heure simple, durée de 30 minutes, durée de 1 heure ou autre durée ;
 - confirmation que le champ Société correspond bien à la société liée à l’affaire ;
 - confirmation que les dates dossier doivent être ajoutées manuellement au calendrier ;
 - règles de paramétrage des rappels : avant ou après échéance, nombre de jours, répétition éventuelle ;
 - confirmation que l’e-mail de rappel doit uniquement viser la personne associée à l’activité ;
+- périmètre exact du calendrier CEO et règles d’import/export calendrier, d’abord Google Agenda / Gmail puis Outlook ;
 - règles de signature : émetteur intranet, membre administratif assigné, notification e-mail à l’assigné et à Rudy, signature possible par les deux ;
+- liste et format des 46 tampons à prévoir ;
+- règles de création, modification et sélection des tampons ;
+- utilité réelle de l’OCR / IA pour détecter ou proposer la zone de signature ;
 - périmètre réel des relances externes ;
 - format d’import souhaité pour les anciens fichiers Excel ;
 - format d’export souhaité pour les dossiers administratifs ;
+- structure attendue des champs personnalisables ;
 - niveau d’automatisation attendu pour les relances ;
 - besoin ou non d’une signature électronique externe certifiée.
 
@@ -675,8 +752,10 @@ Le travail restant consiste principalement à :
 
 - confirmer les arbitrages métier avec le pôle administratif ;
 - finaliser le module d’activité avec une date unique et les statuts actuels ;
-- ajouter le paramétrage des rappels par e-mail ;
-- ajouter l’export et l’import des dossiers administratifs ;
-- gérer le circuit de signature ouvert aux membres de l’intranet, assigné à un membre administratif, avec notification et visibilité CEO ;
-- clarifier le périmètre des relances externes ;
+- ajouter le paramétrage des rappels par e-mail, avec rappels individuels et créneaux horaires ;
+- ajouter l’export Excel, l’export PDF et l’import des dossiers administratifs ;
+- gérer le circuit de signature ouvert aux membres de l’intranet, assigné à un membre administratif, avec notification et visibilité CEO, choix du tampon et gestion du bloc tampon + signature ;
+- clarifier le périmètre des relances externes et conserver leur historique ;
+- ajouter les champs personnalisables ;
+- prévoir l’import/export calendrier, principalement autour du calendrier CEO, avec Google Agenda / Gmail en solution temporaire puis Outlook comme cible finale ;
 - retirer le système candidature.

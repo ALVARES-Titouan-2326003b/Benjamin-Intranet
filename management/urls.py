@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     admin_dossier_detail_view,
+    admin_dossiers_export_pdf_view,
     admin_dossiers_export_view,
     admin_dossiers_import_view,
     admin_dossiers_view,
@@ -29,6 +30,7 @@ urlpatterns = [
     path('administratif/', administratif_view, name='admin'),
     path('administratif/dossiers/', admin_dossiers_view, name='admin_dossiers'),
     path('administratif/dossiers/export/', admin_dossiers_export_view, name='admin_dossiers_export'),
+    path('administratif/dossiers/export/pdf/', admin_dossiers_export_pdf_view, name='admin_dossiers_export_pdf'),
     path('administratif/dossiers/import/', admin_dossiers_import_view, name='admin_dossiers_import'),
     path('administratif/dossiers/<int:dossier_id>/', admin_dossier_detail_view, name='admin_dossier_detail'),
     path('administratif/projets/', admin_projects_view, name='admin_projects'),
