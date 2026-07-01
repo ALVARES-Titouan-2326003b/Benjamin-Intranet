@@ -75,6 +75,7 @@
                <th>Titre</th>
                <th>Type</th>
                <th>Date</th>
+               <th>Créneau</th>
                <th>Statut</th>
                <th>Priorité</th>
                <th>Responsable</th>
@@ -86,13 +87,14 @@
                <td>{{ activite.titre|default:"-" }}</td>
                <td>{{ activite.type }}</td>
                <td>{{ activite.date|date:"d/m/Y H:i"|default:"-" }}</td>
+               <td>{{ activite.get_duree_minutes_display }}</td>
                <td>{{ activite.get_statut_display }}</td>
                <td>{{ activite.get_priorite_display }}</td>
                <td>{{ activite.responsable.get_full_name|default:activite.responsable.username|default:"-" }}</td>
             </tr>
             {% empty %}
             <tr>
-               <td colspan="6" style="text-align:center;color:var(--text-secondary);padding:1rem;">
+               <td colspan="7" style="text-align:center;color:var(--text-secondary);padding:1rem;">
                   Aucune activité liée à ce dossier.
                </td>
             </tr>

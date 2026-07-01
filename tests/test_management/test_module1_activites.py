@@ -9,6 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
+from management.email_manager import _activity_event_payload
 from management.models import (
     Activite,
     AdministrativeProject,
@@ -114,6 +115,7 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
         "responsable": str(responsable.pk),
         "statut": "todo",
         "priorite": "high",
+        "duree_minutes": 30,
         "client": "Client Test",
         "contact_externe": "notaire@example.com",
         "commentaire": "Vérifier les pièces manquantes.",
@@ -130,6 +132,9 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
     assert activity.titre == "Relance notaire"
     assert activity.responsable == responsable
     assert activity.priorite == "high"
+    assert activity.duree_minutes == 30
+    assert data["activity"]["duree_minutes"] == 30
+    assert data["activity"]["duree_label"] == "30 min"
     assert activity.outlook_event_id == "evt-1"
 
     update_payload = {
@@ -137,6 +142,7 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
         "titre": "Relance compromis",
         "statut": "in_progress",
         "priorite": "urgent",
+        "duree_minutes": 90,
         "client": "Client Test Modifié",
         "sync_outlook": True,
     }
@@ -148,6 +154,7 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
     assert activity.titre == "Relance compromis"
     assert activity.statut == "in_progress"
     assert activity.priorite == "urgent"
+    assert activity.duree_minutes == 90
 
     with patch("management.views.delete_outlook_event", return_value={"success": True}):
         response = _post_json(client, "/api/delete-activity/", {"activity_id": activity.pk})
@@ -155,6 +162,49 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
     assert response.status_code == 200
     assert response.json()["deleted_count"] == 1
     assert not Activite.objects.filter(pk=activity.pk).exists()
+
+
+@pytest.mark.django_db
+def test_activity_rejects_invalid_duration(client, admin_user, dossier, type_activite):
+    client.force_login(admin_user)
+    date_value = (timezone.now() + timedelta(days=3)).replace(second=0, microsecond=0)
+
+    response = _post_json(
+        client,
+        "/api/create-activity/",
+        {
+            "titre": "Créneau invalide",
+            "dossier": dossier.reference,
+            "type": type_activite.type,
+            "date": date_value.isoformat(),
+            "duree_minutes": 45,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Durée de créneau invalide" in response.json()["message"]
+
+
+@pytest.mark.django_db
+def test_activity_outlook_payload_uses_duration(dossier, type_activite):
+    start = timezone.make_aware(timezone.datetime(2026, 7, 1, 9, 30))
+    activity = Activite.objects.create(
+        id="duration-outlook",
+        titre="Rendez-vous notaire",
+        dossier=dossier,
+        type=type_activite,
+        date=start,
+        duree_minutes=90,
+        date_type="date",
+        statut="todo",
+        priorite="normal",
+    )
+
+    payload = _activity_event_payload(activity)
+
+    assert payload["start"]["dateTime"] == "2026-07-01T09:30:00"
+    assert payload["end"]["dateTime"] == "2026-07-01T11:00:00"
+    assert "Durée : 1 h 30" in payload["body"]["content"]
 
 
 @pytest.mark.django_db

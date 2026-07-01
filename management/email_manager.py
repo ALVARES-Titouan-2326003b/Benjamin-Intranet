@@ -243,7 +243,7 @@ def _activity_event_payload(activite):
     if timezone.is_naive(start):
         start = timezone.make_aware(start, timezone.get_current_timezone())
 
-    end = start + timedelta(hours=1)
+    end = start + timedelta(minutes=activite.duree_minutes or 60)
     subject = activite.titre or f"{activite.type} - {activite.dossier}"
 
     details = [
@@ -251,6 +251,7 @@ def _activity_event_payload(activite):
         f"Type : {activite.type}",
         f"Statut : {activite.get_statut_display()}",
         f"Priorité : {activite.get_priorite_display()}",
+        f"Durée : {activite.get_duree_minutes_display()}",
     ]
     if activite.commentaire:
         details.append("")

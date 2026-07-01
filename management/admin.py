@@ -29,7 +29,7 @@ class AdministrativeProjectAdmin(admin.ModelAdmin):
 
 @admin.register(Activite)
 class ActiviteAdmin(admin.ModelAdmin):
-    list_display = ("titre", "dossier", "type", "date", "statut", "priorite", "responsable")
+    list_display = ("titre", "dossier", "type", "date", "duree_minutes", "statut", "priorite", "responsable")
     list_filter = ("statut", "priorite", "type")
     search_fields = ("titre", "dossier__reference")
 

@@ -106,6 +106,10 @@
             html += `    <span class="activity-tooltip-type-label">${escapeHtml(titre)}</span>`;
             html += `  </div>`;
             html += `  <div class="activity-tooltip-dossier">📁 ${escapeHtml(nomDossier)}</div>`;
+            if (act.time || act.duree_label) {
+                const creneau = `${act.time || ''}${act.end_time ? `-${act.end_time}` : ''}${act.duree_label ? ` · ${act.duree_label}` : ''}`;
+                html += `  <div class="activity-tooltip-dossier-nom">${escapeHtml(creneau)}</div>`;
+            }
             html += `  <div class="activity-tooltip-dossier-nom">${escapeHtml(act.statut_label || '')} · ${escapeHtml(act.priorite_label || '')}</div>`;
             if (act.is_overdue) {
                 html += `  <div class="activity-tooltip-description" style="color:#dc2626;font-weight:700;">En retard</div>`;
@@ -702,6 +706,7 @@
         const titleInput       = document.getElementById('activity-title');
         const typeSelect       = document.getElementById('activity-type');
         const dateInput        = document.getElementById('activity-date');
+        const dureeSelect      = document.getElementById('activity-duree-minutes');
         const responsableSelect = document.getElementById('activity-responsable');
         const statutSelect     = document.getElementById('activity-statut');
         const prioriteSelect   = document.getElementById('activity-priorite');
@@ -726,6 +731,7 @@
         if (titleInput) titleInput.value = act.titre || '';
         if (typeSelect)    typeSelect.value    = act.type       || '';
         if (dateInput)     dateInput.value     = fullDateStr;
+        if (dureeSelect)   dureeSelect.value   = String(act.duree_minutes || 60);
         if (responsableSelect) responsableSelect.value = act.responsable_id || '';
         if (statutSelect) statutSelect.value = act.statut || 'todo';
         if (prioriteSelect) prioriteSelect.value = act.priorite || 'normal';
@@ -883,6 +889,7 @@
         deleteBtn.style.display = 'none';
         document.getElementById('activity-statut').value = 'todo';
         document.getElementById('activity-priorite').value = 'normal';
+        document.getElementById('activity-duree-minutes').value = '60';
         modal.style.display = 'flex';
         const now = new Date();
         document.getElementById('activity-date').value = now.toISOString().slice(0, 16);
@@ -962,6 +969,7 @@
             dossier:     document.getElementById('activity-dossier').value.trim(),
             type:        document.getElementById('activity-type').value,
             date:        document.getElementById('activity-date').value,
+            duree_minutes: document.getElementById('activity-duree-minutes').value,
             responsable: document.getElementById('activity-responsable').value,
             statut:      document.getElementById('activity-statut').value,
             priorite:    document.getElementById('activity-priorite').value,
@@ -1201,7 +1209,8 @@
         const m   = dt.getMinutes();
 
         const topPx    = ((h - DAY_START) * 60 + m) / 60 * HOUR_PX;
-        const heightPx = Math.max(22, (45 / 60) * HOUR_PX);
+        const durationMinutes = Number(act.duree_minutes || 60);
+        const heightPx = Math.max(22, (durationMinutes / 60) * HOUR_PX);
 
         const typeKey    = (act.type || 'autre').toLowerCase();
         const color      = act.is_overdue ? '#dc2626' : (act.priority_color || COLORS[typeKey] || COLORS['autre']);
@@ -1213,7 +1222,7 @@
         el.className   = 'agenda-event';
         el.style.cssText = `top:${topPx}px;height:${heightPx}px;background:${color};`;
         el.innerHTML = `
-            <span class="ev-time">${timeStr}</span>
+            <span class="ev-time">${timeStr}${act.end_time ? `-${escapeHtml(act.end_time)}` : ''}</span>
             <span class="ev-title">${escapeHtml(label)} — ${escapeHtml(nomDossier)}</span>`;
 
         el.addEventListener('click', () => {

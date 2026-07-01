@@ -239,12 +239,19 @@ class Activite(models.Model):
         ("high", "Haute"),
         ("urgent", "Urgente"),
     ]
+    DUREES_CRENEAU = [
+        (30, "30 min"),
+        (60, "1 h"),
+        (90, "1 h 30"),
+        (120, "2 h"),
+    ]
 
     id = models.TextField(primary_key=True)
     titre = models.CharField(max_length=255, blank=True)
     dossier = models.ForeignKey(AdministrativeProject, on_delete=models.CASCADE, db_column='dossier')
     type = models.ForeignKey(TypeActivite, on_delete=models.CASCADE, db_column='type')
     date = models.DateTimeField(blank=True, null=True)
+    duree_minutes = models.PositiveSmallIntegerField("Durée du créneau", choices=DUREES_CRENEAU, default=60)
     date_type = models.TextField(choices=TYPES, default="echeance")
     commentaire = models.TextField(blank=True, null=True)
     statut = models.CharField(max_length=20, choices=STATUTS, default="todo")

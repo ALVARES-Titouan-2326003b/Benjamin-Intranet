@@ -286,6 +286,16 @@
             <input type="datetime-local" id="activity-date" name="date" class="form-control" required>
          </div>
 
+         <div class="form-group">
+            <label class="form-label">Créneau *</label>
+            <select id="activity-duree-minutes" name="duree_minutes" class="form-control" required>
+               <option value="30">30 min</option>
+               <option value="60" selected>1 h</option>
+               <option value="90">1 h 30</option>
+               <option value="120">2 h</option>
+            </select>
+         </div>
+
          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
             <div class="form-group">
                <label class="form-label">Responsable</label>
@@ -392,7 +402,9 @@ async function loadUpcomingActivities() {
          const color   = COLORS[(act.type || 'autre').toLowerCase()] || COLORS['autre'];
          const typeStr = act.type ? (act.type.charAt(0).toUpperCase() + act.type.slice(1)) : 'Activité';
          const [y, m, d] = act.date.split('-');
-         const dateStr  = `${d}/${m}/${y}`;
+         const timeStr  = act.time ? ` ${act.time}` : '';
+         const dureeStr = act.duree_label ? ` · ${act.duree_label}` : '';
+         const dateStr  = `${d}/${m}/${y}${timeStr}`;
          const nomStr   = act.dossier_nom || act.dossier;
 
          const msDay    = 86400000;
@@ -414,7 +426,7 @@ async function loadUpcomingActivities() {
                      : ''}
                </div>
                <div class="upcoming-right">
-                  <span class="upcoming-date">${dateStr}</span>
+                  <span class="upcoming-date">${dateStr}${dureeStr}</span>
                   <span class="upcoming-badge" style="background:${badgeColor};">${badge}</span>
                </div>
             </div>`;

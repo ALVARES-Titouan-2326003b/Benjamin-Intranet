@@ -313,7 +313,8 @@ Ceci est un rappel automatique concernant l'activité suivante :
 - Type : {activite.type}
 - Statut : {activite.get_statut_display()}
 - Priorité : {activite.get_priorite_display()}
-- Date prévue : {date_activite.strftime('%d/%m/%Y')}
+- Date prévue : {date_activite.strftime('%d/%m/%Y')} à {timezone.localtime(activite.date).strftime('%H:%M')}
+- Créneau : {activite.get_duree_minutes_display()}
 - Échéance : {echeance_label}
 
 """

@@ -531,6 +531,7 @@ def _user_label(user):
 
 def _serialize_activity(activity, include_datetime=False):
     date_value = activity.date
+    duree_minutes = activity.duree_minutes or 60
     is_overdue = bool(
         date_value
         and date_value < timezone.now()
@@ -554,6 +555,8 @@ def _serialize_activity(activity, include_datetime=False):
         "statut_label": activity.get_statut_display(),
         "priorite": activity.priorite,
         "priorite_label": activity.get_priorite_display(),
+        "duree_minutes": duree_minutes,
+        "duree_label": activity.get_duree_minutes_display(),
         "responsable_id": activity.responsable_id or "",
         "responsable_label": _user_label(activity.responsable),
         "is_overdue": is_overdue,
@@ -566,6 +569,8 @@ def _serialize_activity(activity, include_datetime=False):
             {
                 "time": date_value.strftime("%H:%M") if date_value else "09:00",
                 "datetime": date_value.isoformat() if date_value else None,
+                "end_time": (date_value + timedelta(minutes=duree_minutes)).strftime("%H:%M") if date_value else "",
+                "end_datetime": (date_value + timedelta(minutes=duree_minutes)).isoformat() if date_value else None,
             }
         )
     return payload
@@ -801,16 +806,24 @@ def _activity_form_data(data):
 
     statut = (data.get("statut") or "todo").strip()
     priorite = (data.get("priorite") or "normal").strip()
+    duree_raw = str(data.get("duree_minutes") or "60").strip()
     if statut not in dict(Activite.STATUTS):
         raise ValueError("Statut invalide")
     if priorite not in dict(Activite.PRIORITES):
         raise ValueError("Priorité invalide")
+    try:
+        duree_minutes = int(duree_raw)
+    except ValueError:
+        raise ValueError("Durée de créneau invalide.")
+    if duree_minutes not in dict(Activite.DUREES_CRENEAU):
+        raise ValueError("Durée de créneau invalide.")
 
     return {
         "titre": (data.get("titre") or "").strip(),
         "dossier": dossier_obj,
         "type": type_obj,
         "date": _parse_iso_datetime(date_str),
+        "duree_minutes": duree_minutes,
         "date_type": "date",
         "commentaire": (data.get("commentaire") or "").strip() or None,
         "statut": statut,
