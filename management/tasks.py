@@ -17,7 +17,7 @@ from .models import (
     EmailClient,
     Activite,
     HistoriqueRappelActivite,
-    NotificationInterne,
+    RegleRappelActivite,
     OAuthToken,
     GmailConversation,
     GmailConversationEvent,
@@ -27,8 +27,6 @@ from .gmail_service import send_conversation_reminder, sync_conversation_journal
 Utilisateur = get_user_model()
 
 logger = logging.getLogger(__name__)
-
-ACTIVITY_REMINDER_DAYS = [10, 7, 4, 1]
 
 
 @shared_task
@@ -205,8 +203,8 @@ def check_and_send_auto_relances():
 @shared_task
 def check_and_send_activite_reminders():
     """
-    Tâche périodique qui vérifie les activités à venir et envoie les rappels
-    J-10, J-7, J-4 et J-1 sans doublon.
+    Tâche périodique qui vérifie les activités et envoie les rappels configurés
+    sans doublon.
     """
     logger.info("\n" + "=" * 60)
     logger.info("DÉBUT - Vérification des rappels d'activités")
@@ -216,12 +214,26 @@ def check_and_send_activite_reminders():
     today = now.date()
     logger.info(f"Date actuelle : {today}")
 
-    date_limite = today + timedelta(days=10)
-    logger.info(f"Date limite : {date_limite} (dans 10 jours)")
+    rules = list(RegleRappelActivite.objects.filter(is_active=True).order_by("timing", "days"))
+    if not rules:
+        logger.info("Aucune règle de rappel active.")
+        return {
+            'success': True,
+            'activites_traitees': 0,
+            'rappels_envoyes': 0,
+            'doublons_ignores': 0,
+            'erreurs': 0,
+        }
+
+    max_before = max((rule.days for rule in rules if rule.timing == "before"), default=0)
+    max_after = max((rule.days for rule in rules if rule.timing == "after"), default=0)
+    date_debut = today - timedelta(days=max_after)
+    date_limite = today + timedelta(days=max_before)
+    logger.info(f"Période vérifiée : {date_debut} -> {date_limite}")
 
     activites = (
         Activite.objects.filter(
-            date__date__gt=today,
+            date__date__gte=date_debut,
             date__date__lte=date_limite,
         )
         .exclude(statut__in=["done", "cancelled"])
@@ -229,11 +241,10 @@ def check_and_send_activite_reminders():
         .order_by("date")
     )
 
-    logger.info(f"Activités trouvées dans les 10 prochains jours : {activites.count()}")
+    logger.info(f"Activités trouvées dans la période : {activites.count()}")
 
     activites_traitees = 0
     rappels_envoyes = 0
-    notifications_creees = 0
     doublons_ignores = 0
     erreurs = 0
 
@@ -250,15 +261,16 @@ def check_and_send_activite_reminders():
             logger.info(f"   Date: {date_activite}")
             logger.info(f"   Jours restants: {jours_restants}")
 
-            should_send = False
+            matching_rules = [
+                rule for rule in rules
+                if (rule.timing == "before" and jours_restants == rule.days)
+                or (rule.timing == "after" and jours_restants == -rule.days)
+            ]
+            if not matching_rules:
+                logger.info("   Pas de rappel configuré pour cette échéance")
+                continue
 
-            if jours_restants in ACTIVITY_REMINDER_DAYS:
-                should_send = True
-                logger.info(f"   Rappel nécessaire (J-{jours_restants})")
-            else:
-                logger.info(f"   Pas de rappel pour J-{jours_restants}")
-
-            if should_send:
+            for rule in matching_rules:
                 recipient_user = activite.responsable or activite.created_by
                 recipient_email = ""
                 if activite.responsable and activite.responsable.email:
@@ -276,7 +288,7 @@ def check_and_send_activite_reminders():
                     activite=activite,
                     canal="email",
                     destinataire=recipient_email,
-                    jours_avant_echeance=jours_restants,
+                    jours_avant_echeance=rule.signed_days,
                     statut="sent",
                 ).exists()
                 if email_already_sent:
@@ -284,7 +296,13 @@ def check_and_send_activite_reminders():
                     logger.info("   Rappel déjà envoyé, doublon ignoré")
                     continue
 
-                objet = f"Rappel d'activité - J-{jours_restants}"
+                objet = f"Rappel d'activité - {rule.label}"
+                if rule.days == 0:
+                    echeance_label = "aujourd'hui"
+                elif rule.timing == "before":
+                    echeance_label = f"dans {rule.days} jour(s)"
+                else:
+                    echeance_label = f"échue depuis {rule.days} jour(s)"
 
                 message = f"""Bonjour,
 
@@ -296,7 +314,7 @@ Ceci est un rappel automatique concernant l'activité suivante :
 - Statut : {activite.get_statut_display()}
 - Priorité : {activite.get_priorite_display()}
 - Date prévue : {date_activite.strftime('%d/%m/%Y')}
-- Échéance : dans {jours_restants} jour(s)
+- Échéance : {echeance_label}
 
 """
 
@@ -321,7 +339,7 @@ Système de rappel Benjamin Immobilier"""
                         activite=activite,
                         canal="email",
                         destinataire=recipient_email,
-                        jours_avant_echeance=jours_restants,
+                        jours_avant_echeance=rule.signed_days,
                         defaults={"statut": "sent", "erreur": ""},
                     )
                     rappels_envoyes += 1
@@ -333,37 +351,9 @@ Système de rappel Benjamin Immobilier"""
                         activite=activite,
                         canal="email",
                         destinataire=recipient_email,
-                        jours_avant_echeance=jours_restants,
+                        jours_avant_echeance=rule.signed_days,
                         defaults={"statut": "failed", "erreur": str(e)},
                     )
-
-                if recipient_user:
-                    internal_dest = str(recipient_user.pk)
-                    internal_already_sent = HistoriqueRappelActivite.objects.filter(
-                        activite=activite,
-                        canal="interne",
-                        destinataire=internal_dest,
-                        jours_avant_echeance=jours_restants,
-                        statut="sent",
-                    ).exists()
-                    if not internal_already_sent:
-                        NotificationInterne.objects.create(
-                            user=recipient_user,
-                            activite=activite,
-                            titre=objet,
-                            message=(
-                                f"{activite.titre or activite.type} arrive à échéance "
-                                f"dans {jours_restants} jour(s)."
-                            ),
-                        )
-                        HistoriqueRappelActivite.objects.create(
-                            activite=activite,
-                            canal="interne",
-                            destinataire=internal_dest,
-                            jours_avant_echeance=jours_restants,
-                            statut="sent",
-                        )
-                        notifications_creees += 1
 
         except Exception as e:
             erreurs += 1
@@ -376,7 +366,6 @@ Système de rappel Benjamin Immobilier"""
     logger.info("Résumé :")
     logger.info(f"   - Activités traitées : {activites_traitees}")
     logger.info(f"   - Rappels envoyés : {rappels_envoyes}")
-    logger.info(f"   - Notifications créées : {notifications_creees}")
     logger.info(f"   - Doublons ignorés : {doublons_ignores}")
     logger.info("=" * 60 + "\n")
 
@@ -384,7 +373,6 @@ Système de rappel Benjamin Immobilier"""
         'success': True,
         'activites_traitees': activites_traitees,
         'rappels_envoyes': rappels_envoyes,
-        'notifications_creees': notifications_creees,
         'doublons_ignores': doublons_ignores,
         'erreurs': erreurs,
     }

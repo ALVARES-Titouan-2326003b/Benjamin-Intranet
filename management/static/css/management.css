@@ -328,6 +328,60 @@
     color: #721c24;
 }
 
+.activity-reminder-settings {
+    align-items: center;
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.activity-reminder-rules {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.activity-reminder-chip {
+    align-items: center;
+    background: #eef6ff;
+    border: 1px solid #cfe4ff;
+    border-radius: 999px;
+    color: #1d4f91;
+    display: inline-flex;
+    font-size: 0.86rem;
+    font-weight: 700;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0.4rem 0.45rem 0.4rem 0.75rem;
+}
+
+.activity-reminder-chip button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    height: 24px;
+    justify-content: center;
+    padding: 0;
+    width: 24px;
+}
+
+.activity-reminder-empty {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.activity-reminder-form {
+    align-items: center;
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: minmax(150px, 1fr) 90px auto;
+}
+
 .project-modal-content {
     max-width: 920px;
 }
@@ -368,6 +422,11 @@
 
     .project-file-actions .btn {
         justify-content: center;
+    }
+
+    .activity-reminder-settings,
+    .activity-reminder-form {
+        grid-template-columns: 1fr;
     }
 }
 

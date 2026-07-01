@@ -14,7 +14,7 @@ from management.models import (
     AdministrativeProject,
     CategorieDossierAdministratif,
     HistoriqueRappelActivite,
-    NotificationInterne,
+    RegleRappelActivite,
     TypeActivite,
 )
 from management.tasks import check_and_send_activite_reminders
@@ -466,13 +466,14 @@ def test_gmail_journal_sync_endpoint_runs_on_demand(client, admin_user):
 
 
 @pytest.mark.django_db
-def test_activity_reminder_is_sent_once_and_creates_internal_notification(
+def test_activity_reminder_is_sent_once(
     settings,
     responsable,
     dossier,
     type_activite,
 ):
     settings.EMAIL_HOST_USER = "fallback@example.com"
+    RegleRappelActivite.objects.get_or_create(timing="before", days=7, defaults={"is_active": True})
     activity = Activite.objects.create(
         id="1001",
         titre="Échéance J-7",
@@ -500,11 +501,6 @@ def test_activity_reminder_is_sent_once_and_creates_internal_notification(
         jours_avant_echeance=7,
         statut="sent",
     ).count() == 1
-    assert NotificationInterne.objects.filter(
-        activite=activity,
-        user=responsable,
-        is_read=False,
-    ).count() == 1
 
 
 @pytest.mark.django_db
@@ -530,3 +526,49 @@ def test_finished_activity_does_not_generate_reminder(settings, responsable, dos
     assert result["rappels_envoyes"] == 0
     assert send_mock.call_count == 0
     assert HistoriqueRappelActivite.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_activity_reminder_after_due_date_uses_configured_rule(settings, responsable, dossier, type_activite):
+    settings.EMAIL_HOST_USER = "fallback@example.com"
+    RegleRappelActivite.objects.create(timing="after", days=1, is_active=True)
+    activity = Activite.objects.create(
+        id="1003",
+        titre="Échéance dépassée",
+        dossier=dossier,
+        type=type_activite,
+        date=timezone.now() - timedelta(days=1),
+        date_type="date",
+        statut="todo",
+        priorite="high",
+        responsable=responsable,
+        created_by=responsable,
+    )
+
+    with patch("management.tasks.EmailMessage.send", return_value=1) as send_mock:
+        result = check_and_send_activite_reminders()
+
+    assert result["rappels_envoyes"] == 1
+    assert send_mock.call_count == 1
+    assert HistoriqueRappelActivite.objects.filter(
+        activite=activity,
+        canal="email",
+        jours_avant_echeance=-1,
+        statut="sent",
+    ).count() == 1
+
+
+@pytest.mark.django_db
+def test_activity_reminder_rule_create_and_delete(client, admin_user):
+    client.force_login(admin_user)
+
+    response = client.post("/api/activity-reminder-rules/create/", {"timing": "after", "days": "3"})
+
+    assert response.status_code == 302
+    rule = RegleRappelActivite.objects.get(timing="after", days=3)
+    assert rule.is_active is True
+
+    response = client.post(f"/api/activity-reminder-rules/{rule.pk}/delete/")
+
+    assert response.status_code == 302
+    assert not RegleRappelActivite.objects.filter(pk=rule.pk).exists()

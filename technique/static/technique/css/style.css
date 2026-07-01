@@ -51,12 +51,28 @@
 /* ── Two-column layout ── */
 .fin-grid {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
   gap: 1.5rem;
   align-items: start;
 }
+.fin-left,
+.fin-right,
+.fin-full {
+  min-width: 0;
+}
 .fin-left  { display: flex; flex-direction: column; gap: 1.5rem; }
 .fin-right { display: flex; flex-direction: column; gap: 1.5rem; }
+.fin-full {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+.fin-grid .card,
+.fin-full .card {
+  margin-bottom: 0;
+  border-radius: 8px;
+}
 
 /* ── Synthèse KPI grid ── */
 .kpi-grid {
@@ -126,7 +142,7 @@
 /* ── Expense form layout ── */
 .expense-form-grid {
   display: grid;
-  grid-template-columns: 2fr 1.2fr 1fr 1.3fr 1.3fr;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
   gap: 1rem;
   align-items: end;
 }
@@ -161,12 +177,20 @@
   align-items: end;
   margin-bottom: 1.25rem;
 }
+.invoice-filter-grid {
+  grid-template-columns: minmax(220px, 1.3fr) repeat(4, minmax(150px, 1fr)) auto;
+}
 .filter-actions { display: flex; gap: .5rem; align-items: flex-end; }
+.filter-actions .btn {
+  margin-top: 0;
+  white-space: nowrap;
+}
 
 /* ── Section header ── */
 .section-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: .75rem;
   margin-bottom: 1.25rem;
 }
@@ -236,6 +260,40 @@ details summary::-webkit-details-marker { display: none; }
   text-align: center;
   color: var(--gray-400);
   font-size: .9rem;
+}
+
+.fin-grid table,
+.fin-full table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88rem;
+}
+.fin-grid th,
+.fin-grid td,
+.fin-full th,
+.fin-full td {
+  padding: .65rem .55rem;
+  border-bottom: 1px solid var(--gray-200);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.fin-grid th,
+.fin-full th {
+  color: var(--gray-800);
+  font-weight: 700;
+}
+.fin-grid tbody tr:hover,
+.fin-full tbody tr:hover {
+  background: var(--gray-50);
+}
+.fin-grid tbody tr:last-child td,
+.fin-full tbody tr:last-child td {
+  border-bottom: 0;
+}
+.fin-grid .table-responsive,
+.fin-full .table-responsive {
+  max-width: 100%;
 }
 
 
@@ -314,6 +372,8 @@ form p input[type="file"] {
   .fin-right             { flex-direction: row; flex-wrap: wrap; }
   .fin-right > *         { flex: 1 1 280px; }
   .expense-form-grid     { grid-template-columns: 1fr 1fr; }
+  .invoice-filter-grid   { grid-template-columns: 1fr 1fr; }
+  .invoice-filter-grid .filter-actions { grid-column: 1 / -1; }
   .kpi-grid              { grid-template-columns: 1fr 1fr; }
   .inline-edit-grid      { grid-template-columns: 1fr 1fr; }
 }
@@ -321,6 +381,8 @@ form p input[type="file"] {
 @media (max-width: 640px) {
   .expense-form-grid { grid-template-columns: 1fr; }
   .filter-grid       { grid-template-columns: 1fr; }
+  .invoice-filter-grid .filter-actions { grid-column: auto; }
+  .filter-actions    { flex-wrap: wrap; }
   .fin-header        { flex-direction: column; }
   .kpi-grid          { grid-template-columns: 1fr 1fr; }
 }
