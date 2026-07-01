@@ -2,7 +2,7 @@ import io
 import json
 import traceback
 import unicodedata
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
 from xml.sax.saxutils import escape
 from django.contrib import messages
@@ -778,6 +778,113 @@ def _apply_calendar_filters(queryset, params):
     return queryset
 
 
+def _ics_escape(value):
+    return (
+        str(value or "")
+        .replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .replace("\n", "\\n")
+    )
+
+
+def _ics_datetime(value):
+    if timezone.is_naive(value):
+        value = timezone.make_aware(value, timezone.get_current_timezone())
+    return value.astimezone(dt_timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _fold_ics_line(line):
+    if len(line) <= 75:
+        return [line]
+    parts = [line[:75]]
+    rest = line[75:]
+    while rest:
+        parts.append(" " + rest[:74])
+        rest = rest[74:]
+    return parts
+
+
+def _ics_line(name, value):
+    return _fold_ics_line(f"{name}:{value}")
+
+
+def _calendar_export_queryset_from_request(request):
+    queryset = (
+        Activite.objects.filter(date__isnull=False)
+        .select_related("dossier", "type", "responsable")
+        .order_by("date", "id")
+    )
+
+    month_raw = (request.GET.get("month") or "").strip()
+    year_raw = (request.GET.get("year") or "").strip()
+    if month_raw or year_raw:
+        try:
+            month = int(month_raw)
+            year = int(year_raw)
+            if month < 1 or month > 12:
+                raise ValueError
+        except ValueError:
+            raise ValueError("Mois ou année invalide.")
+
+        start_date = timezone.make_aware(datetime(year, month, 1))
+        end_date = (
+            timezone.make_aware(datetime(year + 1, 1, 1))
+            if month == 12
+            else timezone.make_aware(datetime(year, month + 1, 1))
+        )
+        queryset = queryset.filter(date__gte=start_date, date__lt=end_date)
+
+    return _apply_calendar_filters(queryset, request.GET)
+
+
+def _build_calendar_ics(activities):
+    now_stamp = _ics_datetime(timezone.now())
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Benjamin Immobilier//Intranet Administratif//FR",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "X-WR-CALNAME:Calendrier administratif",
+    ]
+
+    for activity in activities:
+        start = activity.date
+        duration = activity.duree_minutes or 60
+        end = start + timedelta(minutes=duration)
+        dossier_label = getattr(activity.dossier, "affaire", "") or getattr(activity.dossier, "name", "") or ""
+        summary = activity.titre or f"{activity.type} - {activity.dossier.reference}"
+        description_parts = [
+            f"Dossier : {activity.dossier.reference} {dossier_label}".strip(),
+            f"Type : {activity.type}",
+            f"Statut : {activity.get_statut_display()}",
+            f"Priorité : {activity.get_priorite_display()}",
+            f"Créneau : {activity.get_duree_minutes_display()}",
+        ]
+        if activity.responsable:
+            description_parts.append(f"Responsable : {_user_label(activity.responsable)}")
+        if activity.commentaire:
+            description_parts.extend(["", activity.commentaire])
+
+        lines.append("BEGIN:VEVENT")
+        for folded in _ics_line("UID", _ics_escape(f"activite-{activity.pk}@benjamin-intranet")):
+            lines.append(folded)
+        lines.append(f"DTSTAMP:{now_stamp}")
+        lines.append(f"DTSTART:{_ics_datetime(start)}")
+        lines.append(f"DTEND:{_ics_datetime(end)}")
+        for folded in _ics_line("SUMMARY", _ics_escape(summary)):
+            lines.append(folded)
+        for folded in _ics_line("DESCRIPTION", _ics_escape("\n".join(description_parts))):
+            lines.append(folded)
+        lines.append("END:VEVENT")
+
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(lines) + "\r\n"
+
+
 def _activity_form_data(data):
     dossier_ref = (data.get("dossier") or "").strip()
     type_label = (data.get("type") or "").strip()
@@ -1351,6 +1458,21 @@ def get_calendar_activities_week(request):
     except Exception as e:
         traceback.print_exc()
         return _json_error(str(e), status=500)
+
+
+@require_http_methods(["GET"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def export_calendar_ics_view(request):
+    try:
+        activities = list(_calendar_export_queryset_from_request(request))
+    except ValueError as e:
+        return _json_error(str(e))
+
+    content = _build_calendar_ics(activities)
+    response = HttpResponse(content, content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="calendrier_administratif.ics"'
+    return response
 
 
 @require_http_methods(["POST"])

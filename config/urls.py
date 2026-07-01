@@ -7,7 +7,7 @@ from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
 from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities, \
     create_activity_reminder_rule_view, create_activity_view, delete_activity_reminder_rule_view, \
-    delete_activity_view, get_calendar_activities_week, update_activity_view, \
+    delete_activity_view, export_calendar_ics_view, get_calendar_activities_week, update_activity_view, \
     mark_notification_read_view, admin_projects_view, admin_dossiers_view, admin_dossier_detail_view, \
     create_project_view, update_project_view, delete_project_view, admin_dossiers_export_view, \
     admin_dossiers_export_pdf_view, admin_dossiers_import_view
@@ -40,6 +40,7 @@ urlpatterns = [
     path('api/gmail-journal/<int:conversation_id>/notes/', add_gmail_conversation_note, name='gmail_journal_note'),
     # API pour le calendrier
     path('api/calendar-activities/', get_calendar_activities, name='calendar_activities'),
+    path('administratif/calendrier/export.ics', export_calendar_ics_view, name='calendar_export_ics'),
     path('api/activity-reminder-rules/create/', create_activity_reminder_rule_view, name='activity_reminder_rule_create'),
     path('api/activity-reminder-rules/<int:rule_id>/delete/', delete_activity_reminder_rule_view, name='activity_reminder_rule_delete'),
     #API pour l'ajout d'activité

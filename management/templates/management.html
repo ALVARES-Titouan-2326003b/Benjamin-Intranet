@@ -93,8 +93,11 @@
          <!-- Les filtres seront générés dynamiquement par JavaScript -->
       </div>
 
-      <!-- Bouton ajouter -->
-      <div style="display: flex; justify-content: flex-end; margin: 0.75rem 0;">
+      <!-- Actions calendrier -->
+      <div style="display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; margin: 0.75rem 0;">
+         <a id="calendar-export-ics" class="btn btn-secondary" href="{% url 'calendar_export_ics' %}">
+            <i class="bi bi-calendar-arrow-down"></i> Exporter .ics
+         </a>
          <button id="add-activity-btn" class="btn btn-primary" style="display:flex;align-items:center;gap:.5rem;">
             <i class="bi bi-plus-circle"></i> Ajouter une activité
          </button>

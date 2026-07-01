@@ -297,6 +297,18 @@
         }
     }
 
+    function updateCalendarExportLink() {
+        const link = document.getElementById('calendar-export-ics');
+        if (!link) return;
+
+        const params = new URLSearchParams({
+            month: String(state.currMonth + 1),
+            year: String(state.currYear)
+        });
+        link.href = `/administratif/calendrier/export.ics?${params.toString()}`;
+        link.setAttribute('download', `calendrier_administratif_${state.currYear}_${String(state.currMonth + 1).padStart(2, '0')}.ics`);
+    }
+
     /* ── Initialise le comportement collapse ── */
     function initFilterCollapse() {
         const topbar = document.querySelector('.calendar-filters-topbar');
@@ -641,6 +653,7 @@
         }
 
         currentDate.innerText = `${MOIS[state.currMonth]} ${state.currYear}`;
+        updateCalendarExportLink();
     }
 
     function createDayElement(day, isInactive, monthOffset) {

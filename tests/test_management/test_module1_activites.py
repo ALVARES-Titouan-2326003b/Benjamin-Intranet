@@ -1,6 +1,6 @@
 import io
 import json
-from datetime import timedelta
+from datetime import timedelta, timezone as dt_timezone
 from unittest.mock import patch
 
 import pytest
@@ -205,6 +205,54 @@ def test_activity_outlook_payload_uses_duration(dossier, type_activite):
     assert payload["start"]["dateTime"] == "2026-07-01T09:30:00"
     assert payload["end"]["dateTime"] == "2026-07-01T11:00:00"
     assert "Durée : 1 h 30" in payload["body"]["content"]
+
+
+@pytest.mark.django_db
+def test_calendar_export_ics_uses_activity_duration(client, admin_user, dossier, type_activite, responsable):
+    client.force_login(admin_user)
+    Activite.objects.create(
+        id="ics-export",
+        titre="Signature promesse",
+        dossier=dossier,
+        type=type_activite,
+        date=timezone.datetime(2026, 7, 1, 9, 30, tzinfo=dt_timezone.utc),
+        duree_minutes=90,
+        date_type="date",
+        statut="todo",
+        priorite="high",
+        responsable=responsable,
+        commentaire="Prévoir les pièces annexes.",
+        created_by=admin_user,
+    )
+    Activite.objects.create(
+        id="ics-other-month",
+        titre="Hors mois",
+        dossier=dossier,
+        type=type_activite,
+        date=timezone.datetime(2026, 8, 1, 9, 30, tzinfo=dt_timezone.utc),
+        duree_minutes=60,
+        date_type="date",
+        statut="todo",
+        priorite="normal",
+        created_by=admin_user,
+    )
+
+    response = client.get("/administratif/calendrier/export.ics?month=7&year=2026")
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "text/calendar; charset=utf-8"
+    assert response["Content-Disposition"] == 'attachment; filename="calendrier_administratif.ics"'
+    content = response.content.decode("utf-8")
+    unfolded_content = content.replace("\r\n ", "")
+    assert "BEGIN:VCALENDAR" in content
+    assert "BEGIN:VEVENT" in content
+    assert "SUMMARY:Signature promesse" in unfolded_content
+    assert "DTSTART:20260701T093000Z" in unfolded_content
+    assert "DTEND:20260701T110000Z" in unfolded_content
+    assert "Créneau : 1 h 30" in unfolded_content
+    assert "Responsable : responsable_module1" in unfolded_content
+    assert "Prévoir les pièces annexes." in unfolded_content
+    assert "Hors mois" not in content
 
 
 @pytest.mark.django_db
