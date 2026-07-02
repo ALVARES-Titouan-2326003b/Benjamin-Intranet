@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
@@ -579,7 +580,8 @@ def financial_project_detail(request, pk):
     action_priority = (request.GET.get("action_priority") or "").strip()
 
     expenses = project.expenses.select_related("facture").all().order_by("-due_date", "-id")
-    actions = project.actions.select_related("assigned_to").all().order_by("due_date", "-priority", "id")
+    all_actions = project.actions.select_related("assigned_to").all().order_by("due_date", "-priority", "id")
+    actions = all_actions
     invoices = (
         Facture.objects.filter(dossier=project)
         .select_related("fournisseur", "client", "collaborateur")
@@ -609,6 +611,8 @@ def financial_project_detail(request, pk):
         actions = actions.filter(priority=action_priority)
 
     action_options = project.actions.order_by("due_date", "id")
+    open_actions = all_actions.exclude(status__in=["done", "cancelled"])
+    today = timezone.localdate()
 
     invoice_supplier = (request.GET.get("invoice_supplier") or "").strip()
     invoice_status = (request.GET.get("invoice_status") or "").strip()
@@ -675,6 +679,10 @@ def financial_project_detail(request, pk):
             "actions": actions,
             "action_options": action_options,
             "key_dates": key_dates,
+            "open_actions_count": open_actions.count(),
+            "overdue_actions_count": open_actions.filter(due_date__lt=today).count(),
+            "priority_actions": open_actions.filter(priority__in=["urgent", "high"])[:5],
+            "upcoming_key_dates": key_dates.filter(date__gte=today)[:5],
             "project_invoices": invoices,
             "history_entries": history_entries,
             "project_documents": project_documents,

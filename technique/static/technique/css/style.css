@@ -28,6 +28,360 @@
 
 
 /* =============================================================
+   DOSSIER TECHNIQUE — fiche dossier
+   ============================================================= */
+
+.dossier-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dossier-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.dossier-hero__main,
+.dossier-hero__actions {
+  min-width: 0;
+}
+
+.dossier-hero__actions {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.dossier-back {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  margin-bottom: .65rem;
+  color: var(--gray-600);
+  font-size: .88rem;
+  text-decoration: none;
+}
+
+.dossier-title-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.dossier-title-row h1 {
+  margin: 0;
+  color: var(--gray-800);
+  font-size: 1.55rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.dossier-badges {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-top: .75rem;
+}
+
+.status-soft,
+.success-soft { background: #dcfce7; color: #166534; }
+.warning-soft { background: #fef3c7; color: #92400e; }
+.danger-soft  { background: #fee2e2; color: #991b1b; }
+.neutral-soft { background: #f3f4f6; color: #374151; }
+
+.dossier-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: .35rem;
+  overflow-x: auto;
+  padding: .45rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: rgba(255,255,255,.96);
+  box-shadow: var(--shadow-sm);
+}
+
+.dossier-nav a {
+  flex: 0 0 auto;
+  padding: .48rem .75rem;
+  border-radius: 6px;
+  color: var(--gray-600);
+  font-size: .86rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dossier-nav a:hover {
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+
+.dossier-section {
+  scroll-margin-top: 72px;
+  padding: 1.25rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.dossier-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.summary-tile {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--gray-50);
+}
+
+.summary-tile__label {
+  color: var(--gray-400);
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.summary-tile strong {
+  color: var(--gray-800);
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.summary-tile span:last-child {
+  color: var(--gray-600);
+  font-size: .85rem;
+}
+
+.dossier-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, .9fr) repeat(2, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.panel,
+.creation-panel,
+.finance-panel {
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--gray-50);
+  padding: 1rem;
+}
+
+.panel__title {
+  margin-bottom: .75rem;
+  color: var(--gray-800);
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.compact-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: .75rem;
+  align-items: end;
+}
+
+.signal-list {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signal-list li {
+  display: flex;
+  flex-direction: column;
+  gap: .12rem;
+  padding-bottom: .65rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.signal-list li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.signal-list span {
+  color: var(--gray-800);
+  font-weight: 600;
+}
+
+.signal-list small,
+.muted-cell,
+.timeline-body p,
+.timeline-links {
+  color: var(--gray-600);
+}
+
+.compact {
+  padding: .75rem;
+  text-align: left;
+}
+
+.form-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.dossier-table {
+  margin-top: 1rem;
+}
+
+.dossier-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88rem;
+}
+
+.dossier-table th,
+.dossier-table td {
+  padding: .7rem .6rem;
+  border-bottom: 1px solid var(--gray-200);
+  text-align: left;
+  vertical-align: top;
+}
+
+.dossier-table th {
+  color: var(--gray-800);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.muted-cell {
+  max-width: 320px;
+  margin-top: .2rem;
+  white-space: normal;
+  font-size: .82rem;
+}
+
+.row-editor {
+  min-width: 120px;
+}
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  margin-top: 1rem;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--gray-50);
+}
+
+.timeline-date {
+  color: var(--blue);
+  font-weight: 800;
+}
+
+.timeline-title {
+  color: var(--gray-800);
+  font-weight: 700;
+}
+
+.timeline-body p {
+  margin: .25rem 0 .4rem;
+}
+
+.timeline-links {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-bottom: .5rem;
+  font-size: .84rem;
+}
+
+.document-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: .75rem;
+}
+
+.document-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .15rem .65rem;
+  padding: .85rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  color: var(--gray-800);
+  text-decoration: none;
+  background: var(--gray-50);
+}
+
+.document-item i {
+  grid-row: span 2;
+  color: var(--blue);
+  font-size: 1.1rem;
+}
+
+.document-item span {
+  font-weight: 700;
+}
+
+.document-item small {
+  color: var(--gray-600);
+}
+
+.finance-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 1rem;
+}
+
+.finance-layout > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.finance-panel {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.chart-box {
+  min-height: 240px;
+  padding: .75rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: #fff;
+}
+
+
+/* =============================================================
    VUE FINANCIÈRE — vue_financiere.html
    ============================================================= */
 
@@ -401,6 +755,11 @@ form p input[type="file"] {
    ============================================================= */
 
 @media (max-width: 1100px) {
+  .dossier-hero          { flex-direction: column; }
+  .dossier-hero__actions { justify-content: flex-start; }
+  .dossier-summary-grid  { grid-template-columns: 1fr 1fr; }
+  .dossier-overview-grid,
+  .finance-layout        { grid-template-columns: 1fr; }
   .fin-grid              { grid-template-columns: 1fr; }
   .fin-right             { flex-direction: row; flex-wrap: wrap; }
   .fin-right > *         { flex: 1 1 280px; }
@@ -417,6 +776,11 @@ form p input[type="file"] {
 }
 
 @media (max-width: 640px) {
+  .dossier-section       { padding: 1rem; }
+  .dossier-summary-grid  { grid-template-columns: 1fr; }
+  .timeline-item         { grid-template-columns: 1fr; }
+  .compact-form          { grid-template-columns: 1fr; }
+  .dossier-title-row h1  { font-size: 1.25rem; }
   .expense-form-grid { grid-template-columns: 1fr; }
   .project-task-form-grid,
   .project-key-date-form-grid,
