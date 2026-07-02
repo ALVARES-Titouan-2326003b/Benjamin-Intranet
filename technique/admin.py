@@ -4,8 +4,10 @@ from .models import (
     TechnicalEmail,
     TechnicalEmailAttachment,
     TechnicalProject,
+    TechnicalProjectAction,
     ProjectExpense,
     TechnicalProjectHistory,
+    TechnicalProjectKeyDate,
 )
 
 
@@ -21,12 +23,22 @@ class ProjectExpenseInline(admin.TabularInline):
     extra = 0
 
 
+class TechnicalProjectActionInline(admin.TabularInline):
+    model = TechnicalProjectAction
+    extra = 0
+
+
+class TechnicalProjectKeyDateInline(admin.TabularInline):
+    model = TechnicalProjectKeyDate
+    extra = 0
+
+
 @admin.register(TechnicalProject)
 class TechnicalProjectAdmin(admin.ModelAdmin):
     list_display = ("id", "reference", "name", "type", "engaged_amount", "paid_amount", "total_estimated")
     list_filter = ("type",)
     search_fields = ("reference", "name")
-    inlines = [ProjectExpenseInline]
+    inlines = [ProjectExpenseInline, TechnicalProjectActionInline, TechnicalProjectKeyDateInline]
 
 
 @admin.register(ProjectExpense)
@@ -34,6 +46,20 @@ class ProjectExpenseAdmin(admin.ModelAdmin):
     list_display = ("id", "project", "facture", "label", "amount", "is_paid", "due_date", "payment_date")
     list_filter = ("is_paid", "due_date", "payment_date")
     search_fields = ("label", "project__reference", "project__name", "facture__id")
+
+
+@admin.register(TechnicalProjectAction)
+class TechnicalProjectActionAdmin(admin.ModelAdmin):
+    list_display = ("id", "project", "title", "assigned_to", "status", "priority", "due_date")
+    list_filter = ("status", "priority", "due_date")
+    search_fields = ("title", "description", "project__reference", "project__name", "assigned_to__username")
+
+
+@admin.register(TechnicalProjectKeyDate)
+class TechnicalProjectKeyDateAdmin(admin.ModelAdmin):
+    list_display = ("id", "project", "label", "date", "status", "document", "action")
+    list_filter = ("status", "date")
+    search_fields = ("label", "comment", "project__reference", "project__name")
 
 
 @admin.register(TechnicalProjectHistory)

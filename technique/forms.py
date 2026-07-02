@@ -1,5 +1,14 @@
 from django import forms
-from .models import DocumentTechnique, TechnicalProject, ProjectExpense
+from django.contrib.auth import get_user_model
+from .models import (
+    DocumentTechnique,
+    ProjectExpense,
+    TechnicalProject,
+    TechnicalProjectAction,
+    TechnicalProjectKeyDate,
+)
+
+User = get_user_model()
 
 
 class DocumentTechniqueUploadForm(forms.ModelForm):
@@ -76,4 +85,50 @@ class ProjectExpenseForm(forms.ModelForm):
         widgets = {
             "due_date": forms.DateInput(attrs={"type": "date"}),
             "payment_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+
+class TechnicalProjectActionForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["assigned_to"].required = False
+        self.fields["assigned_to"].empty_label = "-- Non assignée --"
+        self.fields["assigned_to"].queryset = User.objects.filter(is_active=True).order_by("username")
+
+    class Meta:
+        model = TechnicalProjectAction
+        fields = ["title", "assigned_to", "status", "priority", "description", "due_date"]
+        widgets = {
+            "title": forms.TextInput(attrs={"class": "form-control", "placeholder": "Action à réaliser"}),
+            "assigned_to": forms.Select(attrs={"class": "form-control"}),
+            "status": forms.Select(attrs={"class": "form-control"}),
+            "priority": forms.Select(attrs={"class": "form-control"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "due_date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        }
+
+
+class TechnicalProjectKeyDateForm(forms.ModelForm):
+    def __init__(self, *args, project=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["status"].required = False
+        self.fields["document"].required = False
+        self.fields["document"].empty_label = "-- Aucun document --"
+        self.fields["action"].required = False
+        self.fields["action"].empty_label = "-- Aucune action --"
+
+        if project is not None:
+            self.fields["document"].queryset = project.documents.order_by("-created_at")
+            self.fields["action"].queryset = project.actions.order_by("due_date", "id")
+
+    class Meta:
+        model = TechnicalProjectKeyDate
+        fields = ["label", "date", "status", "comment", "document", "action"]
+        widgets = {
+            "label": forms.TextInput(attrs={"class": "form-control", "placeholder": "Libellé de la date clé"}),
+            "date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "status": forms.Select(attrs={"class": "form-control"}),
+            "comment": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "document": forms.Select(attrs={"class": "form-control"}),
+            "action": forms.Select(attrs={"class": "form-control"}),
         }

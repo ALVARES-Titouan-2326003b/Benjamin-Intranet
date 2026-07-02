@@ -78,6 +78,331 @@
     </section>
 
     <section class="card">
+      <div class="section-header">
+        <span class="section-header__title">Actions à réaliser</span>
+        <span class="badge">
+          {{ actions|length }} action{% if actions|length > 1 %}s{% endif %}
+        </span>
+      </div>
+
+      <form method="post" action="{% url 'technique:dossier_action_create' project.pk %}">
+        {% csrf_token %}
+        <div class="project-task-form-grid">
+          <div class="field-group">
+            <label for="{{ action_form.title.id_for_label }}">Action</label>
+            {{ action_form.title }}
+          </div>
+          <div class="field-group">
+            <label for="{{ action_form.assigned_to.id_for_label }}">Assigné à</label>
+            {{ action_form.assigned_to }}
+          </div>
+          <div class="field-group">
+            <label for="{{ action_form.status.id_for_label }}">Statut</label>
+            {{ action_form.status }}
+          </div>
+          <div class="field-group">
+            <label for="{{ action_form.priority.id_for_label }}">Priorité</label>
+            {{ action_form.priority }}
+          </div>
+          <div class="field-group">
+            <label for="{{ action_form.due_date.id_for_label }}">Échéance</label>
+            {{ action_form.due_date }}
+          </div>
+          <div class="field-group project-task-form-grid__wide">
+            <label for="{{ action_form.description.id_for_label }}">Description</label>
+            {{ action_form.description }}
+          </div>
+        </div>
+        <div class="expense-form-footer">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Ajouter l'action
+          </button>
+        </div>
+      </form>
+
+      <form method="get" class="filter-grid project-task-filter-grid">
+        <input type="hidden" name="expense_q" value="{{ expense_q }}">
+        <input type="hidden" name="expense_status" value="{{ expense_status }}">
+        <div class="field-group">
+          <label>Recherche</label>
+          <input type="text" name="action_q" class="form-control" placeholder="Action, description, assigné..." value="{{ action_q }}">
+        </div>
+        <div class="field-group">
+          <label>Statut</label>
+          <select name="action_status" class="form-control">
+            <option value="">Tous</option>
+            {% for value, label in action_status_choices %}
+            <option value="{{ value }}" {% if action_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Priorité</label>
+          <select name="action_priority" class="form-control">
+            <option value="">Toutes</option>
+            {% for value, label in action_priority_choices %}
+            <option value="{{ value }}" {% if action_priority == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-actions">
+          <button type="submit" class="btn btn-secondary">Filtrer</button>
+          <a href="{% url 'technique:dossier_detail' project.pk %}" class="btn btn-ghost">
+            Réinitialiser
+          </a>
+        </div>
+      </form>
+
+      {% if actions %}
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Assigné à</th>
+              <th>Statut</th>
+              <th>Priorité</th>
+              <th>Échéance</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for action in actions %}
+            <tr>
+              <td>
+                <div style="font-weight:600;">{{ action.title }}</div>
+                {% if action.description %}
+                <div class="text-muted" style="white-space:normal; max-width:280px;">{{ action.description }}</div>
+                {% endif %}
+              </td>
+              <td>{{ action.assigned_to.username|default:"—" }}</td>
+              <td><span class="badge">{{ action.get_status_display }}</span></td>
+              <td><span class="badge">{{ action.get_priority_display }}</span></td>
+              <td>{{ action.due_date|date:"d/m/Y"|default:"—" }}</td>
+              <td>
+                <details>
+                  <summary>
+                    <span class="action-btn"><i class="bi bi-pencil"></i> Modifier</span>
+                  </summary>
+                  <form method="post" action="{% url 'technique:dossier_action_update' action.pk %}">
+                    {% csrf_token %}
+                    <div class="inline-edit-grid project-action-edit-grid">
+                      <div class="field-group">
+                        <label>Action</label>
+                        <input type="text" name="title" value="{{ action.title }}" class="form-control">
+                      </div>
+                      <div class="field-group">
+                        <label>Assigné à</label>
+                        <select name="assigned_to" class="form-control">
+                          <option value="">-- Non assignée --</option>
+                          {% for user in assignable_users %}
+                          <option value="{{ user.pk }}" {% if action.assigned_to_id == user.pk %}selected{% endif %}>{{ user.username }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="field-group">
+                        <label>Statut</label>
+                        <select name="status" class="form-control">
+                          {% for value, label in action_status_choices %}
+                          <option value="{{ value }}" {% if action.status == value %}selected{% endif %}>{{ label }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="field-group">
+                        <label>Priorité</label>
+                        <select name="priority" class="form-control">
+                          {% for value, label in action_priority_choices %}
+                          <option value="{{ value }}" {% if action.priority == value %}selected{% endif %}>{{ label }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="field-group">
+                        <label>Échéance</label>
+                        <input type="date" name="due_date" value="{{ action.due_date|date:'Y-m-d' }}" class="form-control">
+                      </div>
+                      <div class="field-group project-action-edit-grid__wide">
+                        <label>Description</label>
+                        <textarea name="description" class="form-control" rows="2">{{ action.description }}</textarea>
+                      </div>
+                    </div>
+                    <div class="inline-edit-actions">
+                      <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg"></i> Enregistrer
+                      </button>
+                    </div>
+                  </form>
+                  <div class="inline-edit-actions" style="padding-top:0;">
+                    <form method="post" action="{% url 'technique:dossier_action_delete' action.pk %}"
+                          onsubmit="return confirm('Supprimer cette action ?');">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-trash"></i> Supprimer
+                      </button>
+                    </form>
+                  </div>
+                </details>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">Aucune action enregistrée pour ce dossier.</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <span class="section-header__title">Dates clés</span>
+        <span class="badge">
+          {{ key_dates|length }} date{% if key_dates|length > 1 %}s{% endif %}
+        </span>
+      </div>
+
+      <form method="post" action="{% url 'technique:dossier_key_date_create' project.pk %}">
+        {% csrf_token %}
+        <div class="project-key-date-form-grid">
+          <div class="field-group">
+            <label for="{{ key_date_form.label.id_for_label }}">Libellé</label>
+            {{ key_date_form.label }}
+          </div>
+          <div class="field-group">
+            <label for="{{ key_date_form.date.id_for_label }}">Date</label>
+            {{ key_date_form.date }}
+          </div>
+          <div class="field-group">
+            <label for="{{ key_date_form.status.id_for_label }}">Statut</label>
+            {{ key_date_form.status }}
+          </div>
+          <div class="field-group">
+            <label for="{{ key_date_form.document.id_for_label }}">Document lié</label>
+            {{ key_date_form.document }}
+          </div>
+          <div class="field-group">
+            <label for="{{ key_date_form.action.id_for_label }}">Action liée</label>
+            {{ key_date_form.action }}
+          </div>
+          <div class="field-group project-key-date-form-grid__wide">
+            <label for="{{ key_date_form.comment.id_for_label }}">Commentaire</label>
+            {{ key_date_form.comment }}
+          </div>
+        </div>
+        <div class="expense-form-footer">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Ajouter la date clé
+          </button>
+        </div>
+      </form>
+
+      {% if key_dates %}
+      <div class="table-responsive" style="margin-top:1.25rem;">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Libellé</th>
+              <th>Statut</th>
+              <th>Document</th>
+              <th>Action liée</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for key_date in key_dates %}
+            <tr>
+              <td style="font-weight:600;">{{ key_date.date|date:"d/m/Y" }}</td>
+              <td>
+                <div style="font-weight:600;">{{ key_date.label }}</div>
+                {% if key_date.comment %}
+                <div class="text-muted" style="white-space:normal; max-width:280px;">{{ key_date.comment }}</div>
+                {% endif %}
+              </td>
+              <td>{{ key_date.get_status_display|default:"—" }}</td>
+              <td>
+                {% if key_date.document %}
+                <a href="{% url 'technique:documents_detail' key_date.document.pk %}">{{ key_date.document.titre }}</a>
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>{{ key_date.action.title|default:"—" }}</td>
+              <td>
+                <details>
+                  <summary>
+                    <span class="action-btn"><i class="bi bi-pencil"></i> Modifier</span>
+                  </summary>
+                  <form method="post" action="{% url 'technique:dossier_key_date_update' key_date.pk %}">
+                    {% csrf_token %}
+                    <div class="inline-edit-grid project-key-date-edit-grid">
+                      <div class="field-group">
+                        <label>Libellé</label>
+                        <input type="text" name="label" value="{{ key_date.label }}" class="form-control">
+                      </div>
+                      <div class="field-group">
+                        <label>Date</label>
+                        <input type="date" name="date" value="{{ key_date.date|date:'Y-m-d' }}" class="form-control">
+                      </div>
+                      <div class="field-group">
+                        <label>Statut</label>
+                        <select name="status" class="form-control">
+                          <option value="">-- Aucun statut --</option>
+                          {% for value, label in key_date_status_choices %}
+                          <option value="{{ value }}" {% if key_date.status == value %}selected{% endif %}>{{ label }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="field-group">
+                        <label>Document lié</label>
+                        <select name="document" class="form-control">
+                          <option value="">-- Aucun document --</option>
+                          {% for document in project_document_options %}
+                          <option value="{{ document.pk }}" {% if key_date.document_id == document.pk %}selected{% endif %}>{{ document.titre }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="field-group">
+                        <label>Action liée</label>
+                        <select name="action" class="form-control">
+                          <option value="">-- Aucune action --</option>
+                          {% for action in action_options %}
+                          <option value="{{ action.pk }}" {% if key_date.action_id == action.pk %}selected{% endif %}>{{ action.title }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="field-group project-key-date-edit-grid__wide">
+                        <label>Commentaire</label>
+                        <textarea name="comment" class="form-control" rows="2">{{ key_date.comment }}</textarea>
+                      </div>
+                    </div>
+                    <div class="inline-edit-actions">
+                      <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg"></i> Enregistrer
+                      </button>
+                    </div>
+                  </form>
+                  <div class="inline-edit-actions" style="padding-top:0;">
+                    <form method="post" action="{% url 'technique:dossier_key_date_delete' key_date.pk %}"
+                          onsubmit="return confirm('Supprimer cette date clé ?');">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-trash"></i> Supprimer
+                      </button>
+                    </form>
+                  </div>
+                </details>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">Aucune date clé enregistrée pour ce dossier.</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
       <div class="card-title">Données financières</div>
       <form method="post">
         {% csrf_token %}

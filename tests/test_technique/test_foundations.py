@@ -4,16 +4,20 @@ from unittest.mock import patch
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth.models import Group
 from django.urls import reverse
 from django.utils import timezone
 
 from invoices.models import ActeurExterne, Client, Facture, Fournisseur
 from technique.models import (
+    DocumentTechnique,
     ProjectExpense,
     TechnicalEmail,
     TechnicalProject,
+    TechnicalProjectAction,
     TechnicalProjectHistory,
+    TechnicalProjectKeyDate,
 )
 
 
@@ -305,6 +309,138 @@ def test_project_expense_can_be_created_without_invoice(client, technique_user, 
     expense = ProjectExpense.objects.get(label="Dépense prévisionnelle")
     assert expense.facture is None
     assert expense.project == project
+
+
+@pytest.mark.django_db
+def test_project_actions_can_be_managed_from_project_detail(client, technique_user, project):
+    client.force_login(technique_user)
+    create_url = reverse("technique:dossier_action_create", args=[project.pk])
+
+    response = client.post(
+        create_url,
+        {
+            "title": "Relancer le géomètre",
+            "assigned_to": technique_user.pk,
+            "status": "in_progress",
+            "priority": "urgent",
+            "description": "Demander le retour du plan bornage.",
+            "due_date": "2026-06-15",
+        },
+    )
+
+    assert response.status_code == 302
+    action = TechnicalProjectAction.objects.get(title="Relancer le géomètre")
+    assert action.project == project
+    assert action.assigned_to == technique_user
+    assert action.created_by == technique_user
+    assert TechnicalProjectHistory.objects.filter(project=project, action="action_created").exists()
+
+    response = client.get(
+        reverse("technique:dossier_detail", args=[project.pk]),
+        {
+            "action_q": "géomètre",
+            "action_status": "in_progress",
+            "action_priority": "urgent",
+        },
+    )
+
+    assert response.status_code == 200
+    assert list(response.context["actions"]) == [action]
+
+    response = client.post(
+        reverse("technique:dossier_action_update", args=[action.pk]),
+        {
+            "title": "Relancer le géomètre actualisé",
+            "assigned_to": "",
+            "status": "done",
+            "priority": "high",
+            "description": "Retour reçu.",
+            "due_date": "",
+        },
+    )
+
+    assert response.status_code == 302
+    action.refresh_from_db()
+    assert action.title == "Relancer le géomètre actualisé"
+    assert action.assigned_to is None
+    assert action.status == "done"
+    assert action.updated_by == technique_user
+    assert TechnicalProjectHistory.objects.filter(project=project, action="action_updated").exists()
+
+    response = client.post(reverse("technique:dossier_action_delete", args=[action.pk]))
+
+    assert response.status_code == 302
+    assert not TechnicalProjectAction.objects.filter(pk=action.pk).exists()
+    assert TechnicalProjectHistory.objects.filter(project=project, action="action_deleted").exists()
+
+
+@pytest.mark.django_db
+def test_project_key_dates_can_link_documents_and_actions(client, technique_user, project, settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    client.force_login(technique_user)
+    document = DocumentTechnique.objects.create(
+        project=project,
+        titre="Permis de construire",
+        fichier=SimpleUploadedFile("permis.txt", b"permis"),
+        created_by=technique_user,
+    )
+    action = TechnicalProjectAction.objects.create(
+        project=project,
+        title="Vérifier le permis",
+        assigned_to=technique_user,
+    )
+
+    response = client.post(
+        reverse("technique:dossier_key_date_create", args=[project.pk]),
+        {
+            "label": "Dépôt du permis",
+            "date": "2026-06-20",
+            "status": "planned",
+            "comment": "Dossier à déposer en mairie.",
+            "document": document.pk,
+            "action": action.pk,
+        },
+    )
+
+    assert response.status_code == 302
+    key_date = TechnicalProjectKeyDate.objects.get(label="Dépôt du permis")
+    assert key_date.project == project
+    assert key_date.document == document
+    assert key_date.action == action
+    assert key_date.created_by == technique_user
+    assert TechnicalProjectHistory.objects.filter(project=project, action="key_date_created").exists()
+
+    response = client.get(reverse("technique:dossier_detail", args=[project.pk]))
+
+    assert response.status_code == 200
+    assert list(response.context["key_dates"]) == [key_date]
+
+    response = client.post(
+        reverse("technique:dossier_key_date_update", args=[key_date.pk]),
+        {
+            "label": "Dépôt du permis actualisé",
+            "date": "2026-06-25",
+            "status": "done",
+            "comment": "Dépôt réalisé.",
+            "document": "",
+            "action": "",
+        },
+    )
+
+    assert response.status_code == 302
+    key_date.refresh_from_db()
+    assert key_date.label == "Dépôt du permis actualisé"
+    assert key_date.document is None
+    assert key_date.action is None
+    assert key_date.status == "done"
+    assert key_date.updated_by == technique_user
+    assert TechnicalProjectHistory.objects.filter(project=project, action="key_date_updated").exists()
+
+    response = client.post(reverse("technique:dossier_key_date_delete", args=[key_date.pk]))
+
+    assert response.status_code == 302
+    assert not TechnicalProjectKeyDate.objects.filter(pk=key_date.pk).exists()
+    assert TechnicalProjectHistory.objects.filter(project=project, action="key_date_deleted").exists()
 
 
 @pytest.mark.django_db

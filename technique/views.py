@@ -5,6 +5,7 @@ from django.views.decorators.http import require_http_methods
 from reportlab.lib import colors
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.http import HttpResponse, JsonResponse
@@ -20,8 +21,10 @@ from .models import (
     DocumentTechnique,
     TechnicalProject,
     ProjectExpense,
+    TechnicalProjectAction,
     TechnicalEmail,
     TechnicalProjectHistory,
+    TechnicalProjectKeyDate,
 )
 from .forms import (
     DocumentTechniqueUploadForm,
@@ -30,9 +33,13 @@ from .forms import (
     TechnicalProjectStatusForm,
     DocumentTechniqueUpdateForm,
     ProjectExpenseForm,
+    TechnicalProjectActionForm,
+    TechnicalProjectKeyDateForm,
 )
 from user_access.user_test_functions import has_technique_access
 from django.db.models import Q
+
+User = get_user_model()
 
 
 def _get_available_project_invoices(project, current_expense=None):
@@ -82,6 +89,30 @@ def _snapshot_expense(expense):
     }
 
 
+def _snapshot_action(action):
+    return {
+        "id": action.pk,
+        "title": action.title,
+        "assigned_to": action.assigned_to_id or "",
+        "status": action.status,
+        "priority": action.priority,
+        "description": action.description,
+        "due_date": _history_value(action.due_date),
+    }
+
+
+def _snapshot_key_date(key_date):
+    return {
+        "id": key_date.pk,
+        "label": key_date.label,
+        "date": _history_value(key_date.date),
+        "status": key_date.status,
+        "comment": key_date.comment,
+        "document": key_date.document_id or "",
+        "action": key_date.action_id or "",
+    }
+
+
 def _log_project_history(project, user, action, target_type, target_label="", before=None, after=None):
     TechnicalProjectHistory.objects.create(
         project=project if project and project.pk else None,
@@ -105,6 +136,8 @@ def _user_can_delete_technical_projects(user):
 def _project_related_counts(project):
     return {
         "documents": project.documents.count(),
+        "dates_cles": project.key_dates.count(),
+        "actions": project.actions.count(),
         "factures": Facture.objects.filter(dossier=project).count(),
         "depenses": project.expenses.count(),
         "emails": project.emails.count(),
@@ -488,6 +521,12 @@ def financial_project_detail(request, pk):
     project = get_object_or_404(TechnicalProject, pk=pk)
     project.refresh_amounts_from_expenses()
     project_documents = project.documents.order_by("-created_at")[:10]
+    project_document_options = project.documents.order_by("-created_at")
+    key_dates = (
+        project.key_dates.select_related("document", "action")
+        .all()
+        .order_by("date", "id")
+    )
 
     if request.method == "POST" and "update_project_status" in request.POST:
         before_project = _snapshot_project(project)
@@ -535,8 +574,12 @@ def financial_project_detail(request, pk):
 
     expense_q = (request.GET.get("expense_q") or "").strip()
     expense_status = (request.GET.get("expense_status") or "").strip()
+    action_q = (request.GET.get("action_q") or "").strip()
+    action_status = (request.GET.get("action_status") or "").strip()
+    action_priority = (request.GET.get("action_priority") or "").strip()
 
     expenses = project.expenses.select_related("facture").all().order_by("-due_date", "-id")
+    actions = project.actions.select_related("assigned_to").all().order_by("due_date", "-priority", "id")
     invoices = (
         Facture.objects.filter(dossier=project)
         .select_related("fournisseur", "client", "collaborateur")
@@ -551,6 +594,21 @@ def financial_project_detail(request, pk):
         expenses = expenses.filter(is_paid=True)
     elif expense_status == "unpaid":
         expenses = expenses.filter(is_paid=False)
+
+    if action_q:
+        actions = actions.filter(
+            Q(title__icontains=action_q)
+            | Q(description__icontains=action_q)
+            | Q(assigned_to__username__icontains=action_q)
+        )
+
+    if action_status:
+        actions = actions.filter(status=action_status)
+
+    if action_priority:
+        actions = actions.filter(priority=action_priority)
+
+    action_options = project.actions.order_by("due_date", "id")
 
     invoice_supplier = (request.GET.get("invoice_supplier") or "").strip()
     invoice_status = (request.GET.get("invoice_status") or "").strip()
@@ -577,6 +635,8 @@ def financial_project_detail(request, pk):
 
     expense_form = ProjectExpenseForm()
     expense_form.fields["facture"].queryset = _get_available_project_invoices(project)
+    action_form = TechnicalProjectActionForm()
+    key_date_form = TechnicalProjectKeyDateForm(project=project)
 
     for expense in expenses:
         expense.selectable_invoices = _get_available_project_invoices(project, current_expense=expense)
@@ -609,12 +669,25 @@ def financial_project_detail(request, pk):
             "form": form,
             "status_form": status_form,
             "expense_form": expense_form,
+            "action_form": action_form,
+            "key_date_form": key_date_form,
             "expenses": expenses,
+            "actions": actions,
+            "action_options": action_options,
+            "key_dates": key_dates,
             "project_invoices": invoices,
             "history_entries": history_entries,
             "project_documents": project_documents,
+            "project_document_options": project_document_options,
+            "assignable_users": User.objects.filter(is_active=True).order_by("username"),
             "expense_q": expense_q,
             "expense_status": expense_status,
+            "action_q": action_q,
+            "action_status": action_status,
+            "action_priority": action_priority,
+            "action_status_choices": TechnicalProjectAction.STATUS_CHOICES,
+            "action_priority_choices": TechnicalProjectAction.PRIORITY_CHOICES,
+            "key_date_status_choices": TechnicalProjectKeyDate.STATUS_CHOICES,
             "invoice_supplier": invoice_supplier,
             "invoice_status": invoice_status,
             "invoice_due_from": invoice_due_from,
@@ -708,6 +781,173 @@ def project_expense_delete(request, expense_pk):
         messages.success(request, "Dépense supprimée avec succès.")
 
     return redirect("technique:dossier_detail", pk=project.pk)
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def project_action_create(request, pk):
+    project = get_object_or_404(TechnicalProject, pk=pk)
+
+    if request.method == "POST":
+        form = TechnicalProjectActionForm(request.POST)
+        if form.is_valid():
+            action = form.save(commit=False)
+            action.project = project
+            if request.user.is_authenticated:
+                action.created_by = request.user
+                action.updated_by = request.user
+            action.save()
+            _log_project_history(
+                project=project,
+                user=request.user,
+                action="action_created",
+                target_type="action",
+                target_label=action.title,
+                after=_snapshot_action(action),
+            )
+            messages.success(request, "Action ajoutée avec succès.")
+        else:
+            messages.error(request, "Impossible d'ajouter l'action.")
+
+    return redirect("technique:dossier_detail", pk=project.pk)
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def project_action_update(request, action_pk):
+    action_item = get_object_or_404(TechnicalProjectAction, pk=action_pk)
+    project = action_item.project
+
+    if request.method == "POST":
+        before_action = _snapshot_action(action_item)
+        form = TechnicalProjectActionForm(request.POST, instance=action_item)
+        if form.is_valid():
+            action_item = form.save(commit=False)
+            if request.user.is_authenticated:
+                action_item.updated_by = request.user
+            action_item.save()
+            after_action = _snapshot_action(action_item)
+            if before_action != after_action:
+                _log_project_history(
+                    project=project,
+                    user=request.user,
+                    action="action_updated",
+                    target_type="action",
+                    target_label=action_item.title,
+                    before=before_action,
+                    after=after_action,
+                )
+            messages.success(request, "Action modifiée avec succès.")
+        else:
+            messages.error(request, "Impossible de modifier l'action.")
+
+    return redirect("technique:dossier_detail", pk=project.pk)
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def project_action_delete(request, action_pk):
+    action_item = get_object_or_404(TechnicalProjectAction, pk=action_pk)
+    project = action_item.project
+
+    if request.method == "POST":
+        before_action = _snapshot_action(action_item)
+        action_item.delete()
+        _log_project_history(
+            project=project,
+            user=request.user,
+            action="action_deleted",
+            target_type="action",
+            target_label=before_action.get("title", ""),
+            before=before_action,
+        )
+        messages.success(request, "Action supprimée avec succès.")
+
+    return redirect("technique:dossier_detail", pk=project.pk)
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def project_key_date_create(request, pk):
+    project = get_object_or_404(TechnicalProject, pk=pk)
+
+    if request.method == "POST":
+        form = TechnicalProjectKeyDateForm(request.POST, project=project)
+        if form.is_valid():
+            key_date = form.save(commit=False)
+            key_date.project = project
+            if request.user.is_authenticated:
+                key_date.created_by = request.user
+                key_date.updated_by = request.user
+            key_date.save()
+            _log_project_history(
+                project=project,
+                user=request.user,
+                action="key_date_created",
+                target_type="key_date",
+                target_label=key_date.label,
+                after=_snapshot_key_date(key_date),
+            )
+            messages.success(request, "Date clé ajoutée avec succès.")
+        else:
+            messages.error(request, "Impossible d'ajouter la date clé.")
+
+    return redirect("technique:dossier_detail", pk=project.pk)
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def project_key_date_update(request, key_date_pk):
+    key_date = get_object_or_404(TechnicalProjectKeyDate, pk=key_date_pk)
+    project = key_date.project
+
+    if request.method == "POST":
+        before_key_date = _snapshot_key_date(key_date)
+        form = TechnicalProjectKeyDateForm(request.POST, instance=key_date, project=project)
+        if form.is_valid():
+            key_date = form.save(commit=False)
+            if request.user.is_authenticated:
+                key_date.updated_by = request.user
+            key_date.save()
+            after_key_date = _snapshot_key_date(key_date)
+            if before_key_date != after_key_date:
+                _log_project_history(
+                    project=project,
+                    user=request.user,
+                    action="key_date_updated",
+                    target_type="key_date",
+                    target_label=key_date.label,
+                    before=before_key_date,
+                    after=after_key_date,
+                )
+            messages.success(request, "Date clé modifiée avec succès.")
+        else:
+            messages.error(request, "Impossible de modifier la date clé.")
+
+    return redirect("technique:dossier_detail", pk=project.pk)
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def project_key_date_delete(request, key_date_pk):
+    key_date = get_object_or_404(TechnicalProjectKeyDate, pk=key_date_pk)
+    project = key_date.project
+
+    if request.method == "POST":
+        before_key_date = _snapshot_key_date(key_date)
+        key_date.delete()
+        _log_project_history(
+            project=project,
+            user=request.user,
+            action="key_date_deleted",
+            target_type="key_date",
+            target_label=before_key_date.get("label", ""),
+            before=before_key_date,
+        )
+        messages.success(request, "Date clé supprimée avec succès.")
+
+    return redirect("technique:dossier_detail", pk=project.pk)
+
 
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)

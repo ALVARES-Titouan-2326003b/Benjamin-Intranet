@@ -169,6 +169,39 @@
   width: 18px; height: 18px; accent-color: var(--blue); cursor: pointer;
 }
 
+/* ── Actions et dates clés ── */
+.project-task-form-grid,
+.project-key-date-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+.project-task-form-grid__wide,
+.project-key-date-form-grid__wide {
+  grid-column: 1 / -1;
+}
+.project-task-form-grid textarea,
+.project-key-date-form-grid textarea,
+.project-action-edit-grid textarea,
+.project-key-date-edit-grid textarea {
+  min-height: 72px;
+  padding-top: .55rem;
+  resize: vertical;
+}
+.project-task-filter-grid {
+  grid-template-columns: minmax(220px, 1fr) 170px 170px auto;
+  margin-top: 1.25rem;
+}
+.project-action-edit-grid,
+.project-key-date-edit-grid {
+  grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr;
+}
+.project-action-edit-grid__wide,
+.project-key-date-edit-grid__wide {
+  grid-column: 1 / -1;
+}
+
 /* ── Filter bar ── */
 .filter-grid {
   display: grid;
@@ -372,14 +405,22 @@ form p input[type="file"] {
   .fin-right             { flex-direction: row; flex-wrap: wrap; }
   .fin-right > *         { flex: 1 1 280px; }
   .expense-form-grid     { grid-template-columns: 1fr 1fr; }
+  .project-task-form-grid,
+  .project-key-date-form-grid { grid-template-columns: 1fr 1fr; }
+  .project-task-filter-grid   { grid-template-columns: 1fr 1fr; }
   .invoice-filter-grid   { grid-template-columns: 1fr 1fr; }
   .invoice-filter-grid .filter-actions { grid-column: 1 / -1; }
   .kpi-grid              { grid-template-columns: 1fr 1fr; }
-  .inline-edit-grid      { grid-template-columns: 1fr 1fr; }
+  .inline-edit-grid,
+  .project-action-edit-grid,
+  .project-key-date-edit-grid { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 640px) {
   .expense-form-grid { grid-template-columns: 1fr; }
+  .project-task-form-grid,
+  .project-key-date-form-grid,
+  .project-task-filter-grid { grid-template-columns: 1fr; }
   .filter-grid       { grid-template-columns: 1fr; }
   .invoice-filter-grid .filter-actions { grid-column: auto; }
   .filter-actions    { flex-wrap: wrap; }

@@ -156,6 +156,131 @@ class ProjectExpense(models.Model):
         project.refresh_amounts_from_expenses()
 
 
+class TechnicalProjectAction(models.Model):
+    STATUS_CHOICES = [
+        ("todo", "À faire"),
+        ("in_progress", "En cours"),
+        ("done", "Terminé"),
+        ("cancelled", "Annulé"),
+    ]
+    PRIORITY_CHOICES = [
+        ("low", "Basse"),
+        ("normal", "Normale"),
+        ("high", "Haute"),
+        ("urgent", "Urgente"),
+    ]
+
+    project = models.ForeignKey(
+        TechnicalProject,
+        related_name="actions",
+        on_delete=models.CASCADE,
+        verbose_name="Dossier",
+    )
+    title = models.CharField("Action", max_length=255)
+    assigned_to = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="technical_actions_assigned",
+        verbose_name="Assigné à",
+    )
+    status = models.CharField("Statut", max_length=20, choices=STATUS_CHOICES, default="todo")
+    priority = models.CharField("Priorité", max_length=20, choices=PRIORITY_CHOICES, default="normal")
+    description = models.TextField("Description", blank=True)
+    due_date = models.DateField("Échéance", null=True, blank=True)
+    created_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="technical_actions_created",
+        verbose_name="Créé par",
+    )
+    updated_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="technical_actions_updated",
+        verbose_name="Modifié par",
+    )
+    created_at = models.DateTimeField("Créé le", auto_now_add=True)
+    updated_at = models.DateTimeField("Modifié le", auto_now=True)
+
+    class Meta:
+        db_table = "technical_project_action"
+        ordering = ["due_date", "priority", "id"]
+        verbose_name = "Action dossier technique"
+        verbose_name_plural = "Actions dossiers techniques"
+
+    def __str__(self):
+        return f"{self.project.reference} - {self.title}"
+
+
+class TechnicalProjectKeyDate(models.Model):
+    STATUS_CHOICES = [
+        ("planned", "Prévue"),
+        ("done", "Réalisée"),
+        ("postponed", "Reportée"),
+        ("cancelled", "Annulée"),
+    ]
+
+    project = models.ForeignKey(
+        TechnicalProject,
+        related_name="key_dates",
+        on_delete=models.CASCADE,
+        verbose_name="Dossier",
+    )
+    label = models.CharField("Libellé", max_length=255)
+    date = models.DateField("Date")
+    comment = models.TextField("Commentaire", blank=True)
+    status = models.CharField("Statut", max_length=20, choices=STATUS_CHOICES, blank=True)
+    document = models.ForeignKey(
+        DocumentTechnique,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="key_dates",
+        verbose_name="Document lié",
+    )
+    action = models.ForeignKey(
+        TechnicalProjectAction,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="key_dates",
+        verbose_name="Action liée",
+    )
+    created_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="technical_key_dates_created",
+        verbose_name="Créé par",
+    )
+    updated_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="technical_key_dates_updated",
+        verbose_name="Modifié par",
+    )
+    created_at = models.DateTimeField("Créé le", auto_now_add=True)
+    updated_at = models.DateTimeField("Modifié le", auto_now=True)
+
+    class Meta:
+        db_table = "technical_project_key_date"
+        ordering = ["date", "id"]
+        verbose_name = "Date clé dossier technique"
+        verbose_name_plural = "Dates clés dossiers techniques"
+
+    def __str__(self):
+        return f"{self.project.reference} - {self.label}"
+
+
 class TechnicalProjectHistory(models.Model):
     ACTION_CHOICES = [
         ("project_created", "Dossier créé"),
@@ -163,6 +288,12 @@ class TechnicalProjectHistory(models.Model):
         ("expense_created", "Dépense créée"),
         ("expense_updated", "Dépense modifiée"),
         ("expense_deleted", "Dépense supprimée"),
+        ("key_date_created", "Date clé créée"),
+        ("key_date_updated", "Date clé modifiée"),
+        ("key_date_deleted", "Date clé supprimée"),
+        ("action_created", "Action créée"),
+        ("action_updated", "Action modifiée"),
+        ("action_deleted", "Action supprimée"),
         ("status_updated", "Statut modifié"),
         ("project_deleted", "Dossier supprimé"),
     ]

@@ -30,6 +30,12 @@ urlpatterns = [
     path("dossiers/<int:pk>/expenses/create/",                views.project_expense_create,              name="dossier_expense_create"),
     path("dossiers/expenses/<int:expense_pk>/update/",        views.project_expense_update,              name="dossier_expense_update"),
     path("dossiers/expenses/<int:expense_pk>/delete/",        views.project_expense_delete,              name="dossier_expense_delete"),
+    path("dossiers/<int:pk>/actions/create/",                 views.project_action_create,               name="dossier_action_create"),
+    path("dossiers/actions/<int:action_pk>/update/",          views.project_action_update,               name="dossier_action_update"),
+    path("dossiers/actions/<int:action_pk>/delete/",          views.project_action_delete,               name="dossier_action_delete"),
+    path("dossiers/<int:pk>/dates-cles/create/",              views.project_key_date_create,             name="dossier_key_date_create"),
+    path("dossiers/dates-cles/<int:key_date_pk>/update/",     views.project_key_date_update,             name="dossier_key_date_update"),
+    path("dossiers/dates-cles/<int:key_date_pk>/delete/",     views.project_key_date_delete,             name="dossier_key_date_delete"),
 
     # Vue financière : anciennes URLs conservées pour compatibilité
     path("vue-financiere/",                                    views.financial_overview,                  name="technique_financial_overview"),
