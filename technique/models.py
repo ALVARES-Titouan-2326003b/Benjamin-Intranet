@@ -10,9 +10,8 @@ class DocumentTechnique(models.Model):
     Modèle représentant un document du pôle technique
 
     Attributes:
-        projet (str): Dossier de l'entreprise
+        project (ForeignKey): Dossier technique associé
         titre (str): Titre du document
-        type_document (str): Type de document
         fichier (FieldFile): Document PDF
         texte_brut (str): Texte du document
         resume (str): Resumé global
@@ -25,18 +24,15 @@ class DocumentTechnique(models.Model):
         created_by (ForeignKey): Utilisateur qui a créé le document
         created_at (datetime): Date de création du document
     """
-    TYPE_CHOICES = [
-        ("contrat_reservation", "Contrat de réservation"),
-        ("permis_construire", "Permis de construire"),
-        ("pv", "Procès-verbal"),
-        ("autre", "Autre"),
-    ]
-
-    projet = models.CharField("Dossier", max_length=255, blank=True)
-    titre = models.CharField("Titre du document", max_length=255)
-    type_document = models.CharField(
-        "Type de document", max_length=50, choices=TYPE_CHOICES, default="autre",
+    project = models.ForeignKey(
+        "TechnicalProject",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="documents",
+        verbose_name="Dossier associé",
     )
+    titre = models.CharField("Titre du document", max_length=255)
     fichier = models.FileField("Fichier", upload_to="documents_tech/")
     texte_brut = models.TextField("Texte extrait", blank=True)
     resume = models.TextField("Résumé global", blank=True)
@@ -56,7 +52,7 @@ class DocumentTechnique(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.titre} ({self.projet or 'Sans dossier'})"
+        return f"{self.titre} ({self.project or 'Sans dossier'})"
 
 
 class TechnicalProject(models.Model):

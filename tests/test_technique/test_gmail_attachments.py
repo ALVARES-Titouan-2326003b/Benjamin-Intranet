@@ -82,6 +82,7 @@ def test_supported_attachment_creates_document_once(attachment_setup):
     assert second["status"] == "linked"
     assert attachment.processing_status == "linked"
     assert attachment.linked_document.texte_brut == "Texte extrait"
+    assert attachment.linked_document.project == attachment_setup["project"]
     assert attachment.linked_document.created_by == attachment_setup["user"]
     assert attachment.linked_document.source_attachments.count() == 1
 
@@ -142,4 +143,4 @@ def test_project_change_updates_linked_document_without_recreating(attachment_se
     attachment.refresh_from_db()
     assert result["updated"] is True
     assert attachment.linked_document_id == document_id
-    assert attachment.linked_document.projet == "TECH-NEW - Nouveau projet"
+    assert attachment.linked_document.project == new_project

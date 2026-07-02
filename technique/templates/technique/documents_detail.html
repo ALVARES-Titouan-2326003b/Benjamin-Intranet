@@ -26,13 +26,7 @@
     <div>
       <div style="margin-bottom: 1rem;">
         <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Dossier associé</label>
-        <div style="font-weight: 500; font-size: 1.1rem;">{{ document.projet|default:"—" }}</div>
-      </div>
-
-      <div style="margin-bottom: 1rem;">
-        <label style="color: var(--text-secondary); font-size: 0.85rem; display: block;">Type</label>
-        <span class="badge" style="background: #e0f2fe; color: #0284c7; font-size: 0.9rem;"
-        >{{ document.get_type_document_display }}</span>
+        <div style="font-weight: 500; font-size: 1.1rem;">{{ document.project|default:"—" }}</div>
       </div>
     </div>
 

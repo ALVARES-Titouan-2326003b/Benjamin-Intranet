@@ -21,7 +21,7 @@
   </div>
 
   <form method="get"
-        style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr; gap: 1rem; margin-bottom: 1.5rem; align-items: end; background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr; gap: 1rem; margin-bottom: 1.5rem; align-items: end; background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
     <div>
       <label style="display:block; margin-bottom:.4rem; font-weight:500;">Recherche</label>
       <input type="text" name="q" class="form-control" placeholder="Titre, dossier, résumé, clause..." value="{{ q }}">
@@ -29,15 +29,12 @@
 
     <div>
       <label style="display:block; margin-bottom:.4rem; font-weight:500;">Dossier</label>
-      <input type="text" name="projet" class="form-control" placeholder="Nom du dossier..." value="{{ projet }}">
-    </div>
-
-    <div>
-      <label style="display:block; margin-bottom:.4rem; font-weight:500;">Type</label>
-      <select name="type_document" class="form-control">
+      <select name="project" class="form-control">
         <option value="">Tous</option>
-        {% for value, label in type_choices %}
-          <option value="{{ value }}" {% if type_document == value %}selected{% endif %}>{{ label }}</option>
+        {% for project in projects %}
+          <option value="{{ project.pk }}" {% if project_id == project.pk|stringformat:"s" %}selected{% endif %}>
+            {{ project.reference }} - {{ project.name }}
+          </option>
         {% endfor %}
       </select>
     </div>
@@ -77,7 +74,6 @@
             <th style="width: 40px;"><input type="checkbox" id="selectAllDocs" title="Tout sélectionner"></th>
             <th>Dossier</th>
             <th>Titre</th>
-            <th>Type</th>
             <th>Créé le</th>
             <th class="text-right">Actions</th>
           </tr>
@@ -86,14 +82,11 @@
           {% for doc in documents %}
           <tr>
             <td><input type="checkbox" class="doc-checkbox" name="document_ids" value="{{ doc.id }}"></td>
-            <td><span style="font-weight:500; color: var(--text-main);">{{ doc.projet|default:"—" }}</span></td>
+            <td><span style="font-weight:500; color: var(--text-main);">{{ doc.project|default:"—" }}</span></td>
             <td>
               <a href="{% url 'technique:documents_detail' doc.pk %}" style="color: var(--accent); text-decoration:none; font-weight:500;">
                 {{ doc.titre }}
               </a>
-            </td>
-            <td>
-              <span class="badge" style="background:#e0f2fe; color:#0284c7;">{{ doc.get_type_document_display }}</span>
             </td>
             <td style="color: var(--text-secondary);">{{ doc.created_at|date:"d/m/Y H:i" }}</td>
             <td class="text-right">
@@ -112,7 +105,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="6" class="text-center text-muted" style="padding: 2rem;">Aucun document trouvé.</td>
+            <td colspan="5" class="text-center text-muted" style="padding: 2rem;">Aucun document trouvé.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -125,11 +118,11 @@
 
     {% if page_obj.has_previous %}
         <a class="btn btn-secondary"
-           href="?page=1&q={{ q }}&projet={{ projet }}&type_document={{ type_document }}&sort={{ sort }}">
+           href="?page=1&q={{ q }}&project={{ project_id }}&sort={{ sort }}">
             « Première
         </a>
         <a class="btn btn-secondary"
-           href="?page={{ page_obj.previous_page_number }}&q={{ q }}&projet={{ projet }}&type_document={{ type_document }}&sort={{ sort }}">
+           href="?page={{ page_obj.previous_page_number }}&q={{ q }}&project={{ project_id }}&sort={{ sort }}">
             ‹ Précédente
         </a>
     {% endif %}
@@ -140,11 +133,11 @@
 
     {% if page_obj.has_next %}
         <a class="btn btn-secondary"
-           href="?page={{ page_obj.next_page_number }}&q={{ q }}&projet={{ projet }}&type_document={{ type_document }}&sort={{ sort }}">
+           href="?page={{ page_obj.next_page_number }}&q={{ q }}&project={{ project_id }}&sort={{ sort }}">
             Suivante ›
         </a>
         <a class="btn btn-secondary"
-           href="?page={{ page_obj.paginator.num_pages }}&q={{ q }}&projet={{ projet }}&type_document={{ type_document }}&sort={{ sort }}">
+           href="?page={{ page_obj.paginator.num_pages }}&q={{ q }}&project={{ project_id }}&sort={{ sort }}">
             Dernière »
         </a>
     {% endif %}

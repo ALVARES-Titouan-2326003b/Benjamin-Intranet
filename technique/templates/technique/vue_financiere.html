@@ -338,7 +338,7 @@
       <div class="empty-state">Aucun document rattaché à ce dossier pour le moment.</div>
       {% endif %}
       <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
-        <a href="{% url 'technique:documents_upload' %}" class="btn btn-secondary">
+        <a href="{% url 'technique:documents_upload' %}?project={{ project.pk }}" class="btn btn-secondary">
           <i class="bi bi-plus-lg"></i> Ajouter un document
         </a>
       </div>

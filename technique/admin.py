@@ -11,9 +11,9 @@ from .models import (
 
 @admin.register(DocumentTechnique)
 class DocumentTechniqueAdmin(admin.ModelAdmin):
-    list_display = ("id", "titre", "projet", "type_document", "created_by", "created_at")
-    list_filter = ("type_document", "created_at")
-    search_fields = ("titre", "projet", "texte_brut", "resume")
+    list_display = ("id", "titre", "project", "created_by", "created_at")
+    list_filter = ("project", "created_at")
+    search_fields = ("titre", "project__reference", "project__name", "texte_brut", "resume")
 
 
 class ProjectExpenseInline(admin.TabularInline):

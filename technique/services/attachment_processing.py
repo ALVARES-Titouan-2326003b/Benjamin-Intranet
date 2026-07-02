@@ -13,10 +13,6 @@ from technique.services.documents import extract_text_from_file
 SUPPORTED_SUFFIXES = {".pdf", ".doc", ".docx", ".txt"}
 
 
-def _project_label(project):
-    return f"{project.reference} - {project.name}"
-
-
 def _mark(attachment, status, error=""):
     attachment.processing_status = status
     attachment.processing_error = error
@@ -47,10 +43,9 @@ def process_attachment(attachment_id):
 
     if attachment.linked_document_id:
         document = attachment.linked_document
-        project_label = _project_label(project)
-        if document.projet != project_label:
-            document.projet = project_label
-            document.save(update_fields=["projet"])
+        if document.project_id != project.pk:
+            document.project = project
+            document.save(update_fields=["project"])
         _mark(attachment, "linked", "")
         return {
             "status": "linked",
@@ -116,9 +111,8 @@ def process_attachment(attachment_id):
                 return {"status": "pending", "attachment_id": locked.pk}
 
             document = DocumentTechnique(
-                projet=_project_label(locked.email.project),
+                project=locked.email.project,
                 titre=Path(locked.original_name).stem[:255] or "Document Gmail",
-                type_document="autre",
                 texte_brut=extracted_text[:500000],
                 resume=(summary.get("resume") or "")[:50000],
                 prix=(summary.get("prix") or "")[:20000],

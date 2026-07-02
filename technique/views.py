@@ -103,9 +103,8 @@ def _user_can_delete_technical_projects(user):
 
 
 def _project_related_counts(project):
-    project_labels = [project.reference, project.name]
     return {
-        "documents": DocumentTechnique.objects.filter(projet__in=project_labels).count(),
+        "documents": project.documents.count(),
         "factures": Facture.objects.filter(dossier=project).count(),
         "depenses": project.expenses.count(),
         "emails": project.emails.count(),
@@ -124,17 +123,17 @@ def documents_list(request):
     Affiche la liste des documents techniques
     avec recherche et filtres.
     """
-    qs = DocumentTechnique.objects.all()
+    qs = DocumentTechnique.objects.select_related("project")
 
     q = (request.GET.get("q") or "").strip()
-    projet = (request.GET.get("projet") or "").strip()
-    type_document = (request.GET.get("type_document") or "").strip()
+    project_id = (request.GET.get("project") or "").strip()
     sort = (request.GET.get("sort") or "").strip()
 
     if q:
         qs = qs.filter(
             Q(titre__icontains=q)
-            | Q(projet__icontains=q)
+            | Q(project__reference__icontains=q)
+            | Q(project__name__icontains=q)
             | Q(resume__icontains=q)
             | Q(prix__icontains=q)
             | Q(dates__icontains=q)
@@ -144,11 +143,8 @@ def documents_list(request):
             | Q(clauses_importantes__icontains=q)
         )
 
-    if projet:
-        qs = qs.filter(projet__icontains=projet)
-
-    if type_document:
-        qs = qs.filter(type_document=type_document)
+    if project_id:
+        qs = qs.filter(project_id=project_id)
 
     if sort == "oldest":
         qs = qs.order_by("created_at")
@@ -166,10 +162,9 @@ def documents_list(request):
             "documents": page_obj,
             "page_obj": page_obj,
             "q": q,
-            "projet": projet,
-            "type_document": type_document,
+            "project_id": project_id,
+            "projects": TechnicalProject.objects.order_by("reference"),
             "sort": sort,
-            "type_choices": DocumentTechnique.TYPE_CHOICES,
         },
     )
 
@@ -207,7 +202,7 @@ def documents_upload(request):
             messages.success(request, "Document importé et résumé avec succès.")
             return redirect("technique:documents_detail", pk=obj.pk)
     else:
-        form = DocumentTechniqueUploadForm()
+        form = DocumentTechniqueUploadForm(initial={"project": request.GET.get("project")})
 
     return render(request, "technique/documents_upload.html", {"form": form})
 
@@ -340,8 +335,7 @@ def document_resume_pdf(request, pk):
     y -= 20
 
     write_line(f"Titre : {doc.titre}", size=11)
-    write_line(f"Dossier : {doc.projet or '—'}", size=11)
-    write_line(f"Type : {doc.get_type_document_display()}", size=11)
+    write_line(f"Dossier : {doc.project or '—'}", size=11)
     y -= 10 
 
     # Sections – si aucune donnée : "—"
@@ -493,9 +487,7 @@ def financial_project_detail(request, pk):
     """
     project = get_object_or_404(TechnicalProject, pk=pk)
     project.refresh_amounts_from_expenses()
-    project_documents = DocumentTechnique.objects.filter(
-        Q(projet=project.reference) | Q(projet=project.name)
-    ).order_by("-created_at")[:10]
+    project_documents = project.documents.order_by("-created_at")[:10]
 
     if request.method == "POST" and "update_project_status" in request.POST:
         before_project = _snapshot_project(project)

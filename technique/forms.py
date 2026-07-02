@@ -5,10 +5,12 @@ from .models import DocumentTechnique, TechnicalProject, ProjectExpense
 class DocumentTechniqueUploadForm(forms.ModelForm):
     class Meta:
         model = DocumentTechnique
-        fields = ["projet", "titre", "type_document", "fichier"]
+        fields = ["project", "titre", "fichier"]
         widgets = {
+            "project": forms.Select(attrs={"class": "form-control"}),
+            "titre": forms.TextInput(attrs={"class": "form-control"}),
             "fichier": forms.ClearableFileInput(
-                attrs={"accept": ".pdf,.doc,.docx,.txt"}
+                attrs={"accept": ".pdf,.doc,.docx,.txt", "class": "form-control"}
             )
         }
 
@@ -52,7 +54,11 @@ class TechnicalProjectStatusForm(forms.ModelForm):
 class DocumentTechniqueUpdateForm(forms.ModelForm):
     class Meta:
         model = DocumentTechnique
-        fields = ["projet", "titre", "type_document"]
+        fields = ["project", "titre"]
+        widgets = {
+            "project": forms.Select(attrs={"class": "form-control"}),
+            "titre": forms.TextInput(attrs={"class": "form-control"}),
+        }
 
 
 class ProjectExpenseForm(forms.ModelForm):

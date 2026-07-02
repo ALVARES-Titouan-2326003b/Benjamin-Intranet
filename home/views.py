@@ -85,7 +85,8 @@ def global_search(request):
             # 5. Documents Techniques (Titre, Projet)
             docs_tech = DocumentTechnique.objects.filter(
                  Q(titre__icontains=query) |
-                 Q(projet__icontains=query)
+                 Q(project__reference__icontains=query) |
+                 Q(project__name__icontains=query)
             )[:10]
         else :
             projets = []
