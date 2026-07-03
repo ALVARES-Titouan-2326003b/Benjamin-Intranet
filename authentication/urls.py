@@ -9,7 +9,7 @@ urlpatterns = [
     path('gestion-comptes/', views.user_management_view, name='user_management'),
     path('gestion-comptes/inviter/', views.invite_user_view, name='invite_user'),
     path('activate/<str:uidb64>/<str:token>/', views.activate_account_view, name='activate'),
-    path('user/<int:user_id>/toggle-status/', views.toggle_user_active_status_view, name='toggle_user_status'),
+    path('user/<int:user_id>/delete/', views.delete_user_view, name='delete_user'),
 
     # --- MOT DE PASSE OUBLIÉ ---
     path('password-reset/', 

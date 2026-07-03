@@ -10,8 +10,27 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.urls import reverse
 from django.conf import settings
+from django.db import IntegrityError, connection, transaction
+from django.db.models.deletion import ProtectedError
 from .forms import UserInvitationForm, AccountActivationForm
 from django_otp.plugins.otp_email.models import EmailDevice
+
+
+LEGACY_USER_OWNED_TABLES = {
+    "relance_followup": "user_id",
+}
+
+
+def delete_legacy_user_owned_rows(user_id):
+    """Supprime les lignes de tables legacy rattachées au compte utilisateur."""
+    existing_tables = set(connection.introspection.table_names())
+    with connection.cursor() as cursor:
+        for table_name, user_column in LEGACY_USER_OWNED_TABLES.items():
+            if table_name in existing_tables:
+                cursor.execute(
+                    f'DELETE FROM "{table_name}" WHERE "{user_column}" = %s',
+                    [user_id],
+                )
 
 
 class CustomLoginView(LoginView):
@@ -65,10 +84,8 @@ def user_management_view(request):
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def toggle_user_active_status_view(request, user_id):
-    """Active ou désactive un utilisateur avec gestion hiérarchique des droits."""
+def delete_user_view(request, user_id):
+    """Supprime un utilisateur avec gestion hiérarchique des droits."""
     if request.method == 'POST':
         try:
             target_user = User.objects.get(pk=user_id)
@@ -79,30 +96,35 @@ def toggle_user_active_status_view(request, user_id):
             is_target_ceo = target_user.groups.filter(name="CEO").exists()
             is_target_superuser = target_user.is_superuser
 
-            # Sécurité de base : ne pas se désactiver soi-même
+            # Sécurité de base : ne pas se supprimer soi-même
             if target_user == actor:
-                messages.error(request, "Vous ne pouvez pas révoquer votre propre accès.")
+                messages.error(request, "Vous ne pouvez pas supprimer votre propre compte.")
                 return redirect('authentication:user_management')
 
             # Logique hiérarchique
-            # 1. Le CEO peut tout faire (sauf se révoquer lui-même, géré au-dessus)
+            # 1. Le CEO peut tout faire (sauf se supprimer lui-même, géré au-dessus)
             if is_actor_ceo:
-                can_revoke = True
+                can_delete = True
             
             # 2. Un Superuser (non CEO) ne peut PAS toucher au CEO ni aux autres Superusers
             else:
                 if is_target_ceo or is_target_superuser:
-                    can_revoke = False
+                    can_delete = False
                 else:
-                    can_revoke = True
+                    can_delete = True
 
-            if can_revoke:
-                target_user.is_active = not target_user.is_active
-                target_user.save()
-                status = "réactivé" if target_user.is_active else "révoqué"
-                messages.success(request, f"L'accès de {target_user.email} a été {status}.")
+            if can_delete:
+                user_label = target_user.email or target_user.username
+                try:
+                    with transaction.atomic():
+                        delete_legacy_user_owned_rows(target_user.pk)
+                        target_user.delete()
+                except (IntegrityError, ProtectedError):
+                    messages.error(request, "Cet utilisateur ne peut pas être supprimé car il est encore lié à des données existantes.")
+                else:
+                    messages.success(request, f"L'utilisateur {user_label} a été supprimé.")
             else:
-                messages.error(request, "Vous n'avez pas les droits suffisants pour modifier cet utilisateur (Hiérarchie supérieure ou égale).")
+                messages.error(request, "Vous n'avez pas les droits suffisants pour supprimer cet utilisateur (Hiérarchie supérieure ou égale).")
 
         except User.DoesNotExist:
             messages.error(request, "Utilisateur introuvable.")
