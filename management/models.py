@@ -248,7 +248,7 @@ class Activite(models.Model):
 
     id = models.TextField(primary_key=True)
     titre = models.CharField(max_length=255, blank=True)
-    dossier = models.ForeignKey(AdministrativeProject, on_delete=models.CASCADE, db_column='dossier')
+    dossier = models.ForeignKey("technique.TechnicalProject", on_delete=models.CASCADE, db_column='dossier')
     type = models.ForeignKey(TypeActivite, on_delete=models.CASCADE, db_column='type')
     date = models.DateTimeField(blank=True, null=True)
     duree_minutes = models.PositiveSmallIntegerField("Durée du créneau", choices=DUREES_CRENEAU, default=60)

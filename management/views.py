@@ -20,6 +20,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from invoices.models import Facture
+from technique.models import TechnicalProject
 from user_access.user_test_functions import has_administratif_access
 
 from .email_manager import (
@@ -33,7 +35,6 @@ from .email_manager import (
 )
 from .models import (
     Activite,
-    AdministrativeProject,
     CategorieDossierAdministratif,
     NotificationInterne,
     RegleRappelActivite,
@@ -265,7 +266,7 @@ def _import_amount_value(value):
 
 
 def _admin_project_queryset_from_request(request):
-    queryset = AdministrativeProject.objects.select_related("categorie").order_by("reference")
+    queryset = TechnicalProject.objects.select_related("categorie").order_by("reference")
     q = (request.GET.get("q") or "").strip()
     if q:
         queryset = queryset.filter(
@@ -363,13 +364,13 @@ def _build_admin_project_pdf(queryset):
 
 def _unique_import_reference(row_number):
     candidate = f"ADM-IMP-{int(row_number):04d}"
-    if not AdministrativeProject.objects.filter(reference=candidate).exists():
+    if not TechnicalProject.objects.filter(reference=candidate).exists():
         return candidate
 
     suffix = 1
     while True:
         candidate = f"ADM-IMP-{int(row_number):04d}-{suffix}"
-        if not AdministrativeProject.objects.filter(reference=candidate).exists():
+        if not TechnicalProject.objects.filter(reference=candidate).exists():
             return candidate
         suffix += 1
 
@@ -413,11 +414,11 @@ def _admin_project_payload_from_import(row, row_number, default_activite_metier=
         elif field in amount_fields:
             payload[field] = _import_amount_value(value)
         elif field == "type_dossier":
-            payload[field] = _choice_value(value, AdministrativeProject.DOSSIER_TYPES, "Type de dossier")
+            payload[field] = _choice_value(value, TechnicalProject.ADMIN_DOSSIER_TYPES, "Type de dossier")
         elif field == "activite_metier":
-            payload[field] = _choice_value(value, AdministrativeProject.ACTIVITES_METIER, "Activité métier")
+            payload[field] = _choice_value(value, TechnicalProject.ACTIVITES_METIER, "Activité métier")
         elif field == "etat":
-            payload[field] = _choice_value(value, AdministrativeProject.ETATS, "État")
+            payload[field] = _choice_value(value, TechnicalProject.ETATS, "État")
         elif field == "categorie":
             payload["categorie_id"] = _import_category_id(value)
         else:
@@ -492,7 +493,7 @@ def _import_admin_projects(uploaded_file, user):
         try:
             payload = _admin_project_payload_from_import(row_data, sequence, default_activite_metier)
             reference = payload["reference"].strip().upper()
-            existing = AdministrativeProject.objects.filter(reference=reference).first()
+            existing = TechnicalProject.objects.filter(reference=reference).first()
             project_data = _project_form_data(payload, existing_project=existing)
 
             if existing:
@@ -502,7 +503,7 @@ def _import_admin_projects(uploaded_file, user):
                 existing.save()
                 updated += 1
             else:
-                AdministrativeProject.objects.create(
+                TechnicalProject.objects.create(
                     created_by=user,
                     updated_by=user,
                     **project_data,
@@ -667,11 +668,11 @@ def _project_form_data(data, existing_project=None):
 
     if not reference or not affaire:
         raise ValueError("La référence et l'affaire du dossier sont obligatoires.")
-    if type_dossier not in dict(AdministrativeProject.DOSSIER_TYPES):
+    if type_dossier not in dict(TechnicalProject.ADMIN_DOSSIER_TYPES):
         raise ValueError("Type de dossier invalide.")
-    if activite_metier not in dict(AdministrativeProject.ACTIVITES_METIER):
+    if activite_metier not in dict(TechnicalProject.ACTIVITES_METIER):
         raise ValueError("Activité métier invalide.")
-    if etat not in dict(AdministrativeProject.ETATS):
+    if etat not in dict(TechnicalProject.ETATS):
         raise ValueError("État de dossier invalide.")
 
     categorie = None
@@ -689,7 +690,7 @@ def _project_form_data(data, existing_project=None):
     prix = _parse_non_negative_decimal(data.get("prix") or data.get("total_estimated"), "Prix")
     dg = _parse_non_negative_decimal(data.get("dg"), "DG")
 
-    duplicate = AdministrativeProject.objects.filter(reference=reference)
+    duplicate = TechnicalProject.objects.filter(reference=reference)
     if existing_project:
         duplicate = duplicate.exclude(pk=existing_project.pk)
     if duplicate.exists():
@@ -740,9 +741,21 @@ def _project_form_data(data, existing_project=None):
 def _project_delete_blockers(project):
     blockers = []
     activities_count = Activite.objects.filter(dossier=project).count()
+    related_counts = {
+        "document(s)": project.documents.count(),
+        "date(s) clé(s)": project.key_dates.count(),
+        "action(s) technique(s)": project.actions.count(),
+        "facture(s)": Facture.objects.filter(dossier=project).count(),
+        "dépense(s)": project.expenses.count(),
+        "e-mail(s) technique(s)": project.emails.count(),
+        "entrée(s) d'historique": project.history.count(),
+    }
 
     if activities_count:
         blockers.append(f"{activities_count} activité(s)")
+    for label, count in related_counts.items():
+        if count:
+            blockers.append(f"{count} {label}")
     return blockers
 
 
@@ -893,7 +906,7 @@ def _activity_form_data(data):
     if not dossier_ref or not type_label or not date_str:
         raise ValueError("Champs obligatoires manquants")
 
-    dossier_obj = AdministrativeProject.objects.filter(reference=dossier_ref).first()
+    dossier_obj = TechnicalProject.objects.filter(reference=dossier_ref).first()
     if not dossier_obj:
         raise LookupError(f'Dossier introuvable : "{dossier_ref}"')
 
@@ -986,7 +999,7 @@ def administratif_view(request):
         )
     conversations = conversations[:100]
 
-    dossiers = AdministrativeProject.objects.all().order_by("reference")
+    dossiers = TechnicalProject.objects.all().order_by("reference")
     types = TypeActivite.objects.all().order_by("type")
     users = Utilisateur.objects.filter(is_active=True).order_by(
         "last_name",
@@ -1106,9 +1119,9 @@ def admin_dossiers_view(request):
         {
             "pole_name": "Administratif",
             "projets": [_serialize_project(dossier) for dossier in dossiers],
-            "dossier_type_choices": AdministrativeProject.DOSSIER_TYPES,
-            "activite_metier_choices": AdministrativeProject.ACTIVITES_METIER,
-            "etat_choices": AdministrativeProject.ETATS,
+            "dossier_type_choices": TechnicalProject.ADMIN_DOSSIER_TYPES,
+            "activite_metier_choices": TechnicalProject.ACTIVITES_METIER,
+            "etat_choices": TechnicalProject.ETATS,
             "categories": categories,
             "search_query": q,
         },
@@ -1196,7 +1209,7 @@ def admin_projects_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def admin_dossier_detail_view(request, dossier_id):
     dossier = get_object_or_404(
-        AdministrativeProject.objects.select_related("categorie"),
+        TechnicalProject.objects.select_related("categorie"),
         pk=dossier_id,
     )
     activites = (
@@ -1612,7 +1625,7 @@ def delete_activity_view(request):
         if not dossier_ref or not type_label or not date_str:
             return _json_error("Champs obligatoires manquants")
 
-        dossier_obj = AdministrativeProject.objects.filter(reference=dossier_ref).first()
+        dossier_obj = TechnicalProject.objects.filter(reference=dossier_ref).first()
         if not dossier_obj:
             return _json_error(f'Dossier introuvable : "{dossier_ref}"', status=404)
 
@@ -1683,7 +1696,7 @@ def create_project_view(request):
     try:
         data = _parse_request_json(request)
         project_data = _project_form_data(data)
-        project = AdministrativeProject.objects.create(
+        project = TechnicalProject.objects.create(
             created_by=request.user,
             updated_by=request.user,
             **project_data,
@@ -1708,7 +1721,7 @@ def create_project_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def update_project_view(request, project_id):
     try:
-        project = AdministrativeProject.objects.filter(pk=project_id).first()
+        project = TechnicalProject.objects.filter(pk=project_id).first()
         if not project:
             return _json_error("Dossier introuvable", status=404)
 
@@ -1737,7 +1750,7 @@ def update_project_view(request, project_id):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def delete_project_view(request, project_id):
     try:
-        project = AdministrativeProject.objects.filter(pk=project_id).first()
+        project = TechnicalProject.objects.filter(pk=project_id).first()
         if not project:
             return _json_error("Dossier introuvable", status=404)
 

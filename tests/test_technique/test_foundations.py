@@ -239,6 +239,11 @@ def test_financial_history_is_created_for_project_budget_and_expense_changes(
     new_project = TechnicalProject.objects.get(reference="TECH-NEW")
     assert new_project.type == "promotion"
     assert new_project.status == "promesse_signee"
+    assert new_project.affaire == "Nouveau Projet"
+    assert new_project.type_dossier == "vente"
+    assert new_project.activite_metier == "marchand_biens"
+    assert new_project.etat == "promesse"
+    assert new_project.categorie is not None
     assert TechnicalProjectHistory.objects.filter(
         project=new_project,
         action="project_created",

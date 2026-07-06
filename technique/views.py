@@ -43,6 +43,17 @@ from django.db.models import Q
 User = get_user_model()
 
 
+def _default_admin_category():
+    from management.models import CategorieDossierAdministratif
+
+    category, _ = CategorieDossierAdministratif.objects.get_or_create(
+        nom=CategorieDossierAdministratif.DEFAULT_NOM,
+        defaults={"is_default": True},
+    )
+    CategorieDossierAdministratif.objects.exclude(pk=category.pk).filter(is_default=True).update(is_default=False)
+    return category
+
+
 def _get_available_project_invoices(project, current_expense=None):
     invoices = Facture.objects.filter(dossier=project).select_related(
         "fournisseur",
@@ -477,7 +488,15 @@ def financial_overview(request):
     if request.method == "POST":
         form = TechnicalProjectCreateForm(request.POST)
         if form.is_valid():
-            project = form.save()
+            project = form.save(commit=False)
+            if not project.affaire:
+                project.affaire = project.name
+            if not project.categorie_id:
+                project.categorie = _default_admin_category()
+            if request.user.is_authenticated:
+                project.created_by = request.user
+                project.updated_by = request.user
+            project.save()
             _log_project_history(
                 project=project,
                 user=request.user,

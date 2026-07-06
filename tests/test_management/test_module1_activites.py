@@ -12,13 +12,13 @@ from openpyxl import Workbook, load_workbook
 from management.email_manager import _activity_event_payload
 from management.models import (
     Activite,
-    AdministrativeProject,
     CategorieDossierAdministratif,
     HistoriqueRappelActivite,
     RegleRappelActivite,
     TypeActivite,
 )
 from management.tasks import check_and_send_activite_reminders
+from technique.models import DocumentTechnique, TechnicalProject
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def categorie(db):
 
 @pytest.fixture
 def dossier(db, categorie):
-    return AdministrativeProject.objects.create(
+    return TechnicalProject.objects.create(
         reference="ADM-001",
         name="Dossier administratif",
         affaire="Dossier administratif",
@@ -290,7 +290,7 @@ def test_admin_dossier_create_update_delete_and_block_when_used(client, admin_us
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
-    project = AdministrativeProject.objects.get(pk=data["project"]["id"])
+    project = TechnicalProject.objects.get(pk=data["project"]["id"])
     assert project.reference == "ADM-NEW"
     assert project.affaire == "Dossier administratif"
     assert project.type_dossier == "vente"
@@ -338,13 +338,13 @@ def test_admin_dossier_create_update_delete_and_block_when_used(client, admin_us
     response = client.post(f"/api/admin-projects/{project.pk}/delete/")
     assert response.status_code == 409
     assert response.json()["success"] is False
-    assert AdministrativeProject.objects.filter(pk=project.pk).exists()
+    assert TechnicalProject.objects.filter(pk=project.pk).exists()
 
     Activite.objects.filter(dossier=project).delete()
     response = client.post(f"/api/admin-projects/{project.pk}/delete/")
     assert response.status_code == 200
     assert response.json()["success"] is True
-    assert not AdministrativeProject.objects.filter(pk=project.pk).exists()
+    assert not TechnicalProject.objects.filter(pk=project.pk).exists()
 
 
 @pytest.mark.django_db
@@ -381,7 +381,7 @@ def test_admin_dossier_accepts_promotion_immobiliere_fields(client, admin_user, 
     )
 
     assert response.status_code == 200
-    project = AdministrativeProject.objects.get(reference="ADM-PROMO")
+    project = TechnicalProject.objects.get(reference="ADM-PROMO")
     assert project.activite_metier == "promotion_immobiliere"
     assert project.get_activite_metier_display() == "Promotion immobilière"
     assert project.categorie == categorie
@@ -398,6 +398,30 @@ def test_admin_dossier_accepts_promotion_immobiliere_fields(client, admin_user, 
     assert project.etude_impact == "Étude à relire"
     assert project.prorogation == "Prorogation possible"
     assert project.releves_compte == "Relevés transmis"
+
+
+@pytest.mark.django_db
+def test_admin_dossier_delete_is_blocked_by_technical_links(client, admin_user, categorie):
+    client.force_login(admin_user)
+    project = TechnicalProject.objects.create(
+        reference="ADM-TECH-LINK",
+        name="Dossier avec document technique",
+        affaire="Dossier avec document technique",
+        categorie=categorie,
+    )
+    DocumentTechnique.objects.create(
+        project=project,
+        titre="Promesse",
+        fichier=SimpleUploadedFile("promesse.txt", b"contenu"),
+        created_by=admin_user,
+    )
+
+    response = client.post(f"/api/admin-projects/{project.pk}/delete/")
+
+    assert response.status_code == 409
+    assert response.json()["success"] is False
+    assert "document" in response.json()["message"]
+    assert TechnicalProject.objects.filter(pk=project.pk).exists()
 
 
 @pytest.mark.django_db
@@ -425,7 +449,7 @@ def test_admin_overview_dossiers_and_legacy_projects_redirect_are_split(client, 
 @pytest.mark.django_db
 def test_admin_dossiers_export_xlsx(client, admin_user, dossier):
     client.force_login(admin_user)
-    AdministrativeProject.objects.create(
+    TechnicalProject.objects.create(
         reference="ADM-PROMO-EXPORT",
         name="Dossier promotion",
         affaire="Dossier promotion",
@@ -474,7 +498,7 @@ def test_admin_dossiers_import_xlsx_create_and_update(client, admin_user, catego
     response = client.post("/administratif/dossiers/import/", {"file": uploaded})
 
     assert response.status_code == 302
-    project = AdministrativeProject.objects.get(reference="ADM-IMPORT")
+    project = TechnicalProject.objects.get(reference="ADM-IMPORT")
     assert project.affaire == "Dossier importé"
     assert project.type_dossier == "vente"
     assert project.activite_metier == "marchand_biens"
@@ -526,8 +550,8 @@ def test_admin_dossiers_import_xlsx_uses_sheet_to_separate_activity(client, admi
     response = client.post("/administratif/dossiers/import/", {"file": uploaded})
 
     assert response.status_code == 302
-    assert AdministrativeProject.objects.get(reference="ADM-PROMO-SHEET").activite_metier == "promotion_immobiliere"
-    assert AdministrativeProject.objects.get(reference="ADM-OTHER-SHEET").activite_metier == "marchand_biens"
+    assert TechnicalProject.objects.get(reference="ADM-PROMO-SHEET").activite_metier == "promotion_immobiliere"
+    assert TechnicalProject.objects.get(reference="ADM-OTHER-SHEET").activite_metier == "marchand_biens"
 
 
 @pytest.mark.django_db
@@ -542,7 +566,7 @@ def test_admin_dossiers_import_rejects_csv(client, admin_user):
     response = client.post("/administratif/dossiers/import/", {"file": uploaded})
 
     assert response.status_code == 302
-    assert not AdministrativeProject.objects.filter(reference="ADM-CSV").exists()
+    assert not TechnicalProject.objects.filter(reference="ADM-CSV").exists()
 
 
 @pytest.mark.django_db
