@@ -32,10 +32,12 @@ def build_cegid_line(facture):
     due_date = facture.echeance.strftime("%Y%m%d") if facture.echeance else ""
     fields = [
         ascii_clean(facture.id, 30),
+        ascii_clean(facture.numero_facture, 60),
+        ascii_clean(facture.societe, 120),
+        ascii_clean(facture.affaire, 120),
         ascii_clean(facture.service, 100),
         ascii_clean(facture.dossier, 120),
         ascii_clean(facture.fournisseur, 120),
-        ascii_clean(facture.client, 120),
         format_amount(facture.montant),
         ascii_clean(facture.statut, 30),
         due_date,
@@ -45,7 +47,7 @@ def build_cegid_line(facture):
 
 
 def get_export_queryset(period_start=None, period_end=None):
-    qs = Facture.objects.select_related("dossier", "fournisseur", "client").order_by("id")
+    qs = Facture.objects.select_related("dossier", "fournisseur").order_by("id")
     if period_start:
         qs = qs.filter(echeance__date__gte=period_start)
     if period_end:

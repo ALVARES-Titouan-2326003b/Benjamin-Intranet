@@ -3,8 +3,8 @@ from .models import ExportCegidRun, Facture, PieceJointe, Entreprise, InvoiceRem
 
 @admin.register(Facture)
 class FactureAdmin(admin.ModelAdmin):
-    list_display = ('id', 'fournisseur', 'client', 'montant', 'statut', 'service', 'echeance')
-    search_fields = ('id', 'fournisseur__nom', 'client__entreprise__nom', 'titre', 'service')
+    list_display = ('id', 'numero_facture', 'societe', 'affaire', 'fournisseur', 'montant', 'statut', 'service', 'echeance')
+    search_fields = ('id', 'numero_facture', 'societe', 'affaire', 'fournisseur__nom', 'titre', 'service')
     list_filter = ('statut', 'service')
 
 @admin.register(PieceJointe)

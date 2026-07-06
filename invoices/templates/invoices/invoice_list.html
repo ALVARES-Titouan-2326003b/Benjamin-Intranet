@@ -100,9 +100,21 @@
         </div>
 
         <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 0.8rem;">Client</label>
-            <input type="text" name="client" value="{{ request.GET.client }}" class="form-control"
-                placeholder="Rech...">
+            <label class="form-label" style="font-size: 0.8rem;">N° facture</label>
+            <input type="text" name="numero_facture" value="{{ request.GET.numero_facture }}" class="form-control"
+                placeholder="FA-2026...">
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Société</label>
+            <input type="text" name="societe" value="{{ request.GET.societe }}" class="form-control"
+                placeholder="Société...">
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Dossier / affaire</label>
+            <input type="text" name="affaire" value="{{ request.GET.affaire }}" class="form-control"
+                placeholder="Dossier ou affaire...">
         </div>
 
         <div class="form-group" style="margin: 0;">
@@ -137,8 +149,24 @@
 
         <div class="form-group" style="margin: 0;">
             <label class="form-label" style="font-size: 0.8rem;">Service</label>
-            <input type="text" name="service" value="{{ request.GET.service }}" class="form-control"
-                placeholder="Compta, syndic...">
+            <select name="service" class="form-control">
+                <option value="">Tous</option>
+                <option value="developpement" {% if request.GET.service == 'developpement' %}selected{% endif %}>Développement</option>
+                <option value="administratif" {% if request.GET.service == 'administratif' %}selected{% endif %}>Administratif</option>
+                <option value="technique" {% if request.GET.service == 'technique' %}selected{% endif %}>Technique</option>
+                <option value="fonciere" {% if request.GET.service == 'fonciere' %}selected{% endif %}>Foncière</option>
+                <option value="financier" {% if request.GET.service == 'financier' %}selected{% endif %}>Financier</option>
+            </select>
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem;">Priorité</label>
+            <select name="priorite" class="form-control">
+                <option value="">Toutes</option>
+                <option value="normal" {% if request.GET.priorite == 'normal' %}selected{% endif %}>Normal</option>
+                <option value="urgent" {% if request.GET.priorite == 'urgent' %}selected{% endif %}>Urgent</option>
+                <option value="critical" {% if request.GET.priorite == 'critical' %}selected{% endif %}>Critique</option>
+            </select>
         </div>
 
         <div class="form-group" style="margin: 0; grid-column: span 2;">
@@ -176,10 +204,12 @@
                     <th style="padding-left: 1.5rem; width: 40px;"><input type="checkbox" id="selectAll" title="Tout selectionner"></th>
                     {% endif %}
                     <th>ID</th>
+                    <th>N° facture</th>
+                    <th>Société</th>
+                    <th>Dossier / affaire</th>
                     <th>Dossier</th>
                     <th>Service</th>
                     <th>Fournisseur</th>
-                    <th>Client</th>
                     <th>Montant</th>
                     <th>Statut</th>
                     <th>Echeance</th>
@@ -197,14 +227,12 @@
                             #{{ invoice.id }}
                         </a>
                     </td>
+                    <td>{{ invoice.numero_facture|default:"-" }}</td>
+                    <td>{{ invoice.societe|default:"-" }}</td>
+                    <td>{{ invoice.affaire|default:"-" }}</td>
                     <td>{{ invoice.dossier|default:"-" }}</td>
-                    <td>{{ invoice.service|default:"-" }}</td>
+                    <td>{% if invoice.service %}{{ invoice.get_service_display }}{% else %}-{% endif %}</td>
                     <td>{{ invoice.fournisseur|default:"-" }}</td>
-                    <td>
-                        <div style="display: flex; flex-direction: column;">
-                            <span style="font-weight: 500;">{{ invoice.client|default:"-" }}</span>
-                        </div>
-                    </td>
                     <td style="font-family: monospace; font-size: 0.95rem;">
                         {% if invoice.montant %}
                         {{ invoice.montant }} EUR
@@ -239,7 +267,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="{% if can_manage_bulk_delete %}10{% else %}9{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucune facture trouvee.</td>
+                    <td colspan="{% if can_manage_bulk_delete %}12{% else %}11{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucune facture trouvee.</td>
                 </tr>
                 {% endfor %}
             </tbody>

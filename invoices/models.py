@@ -125,16 +125,37 @@ class Facture(models.Model):
         ("paid", "Payée"),
         ("archived", "Archivée"),
     ]
+    SERVICE_CHOICES = [
+        ("developpement", "Développement"),
+        ("administratif", "Administratif"),
+        ("technique", "Technique"),
+        ("fonciere", "Foncière"),
+        ("financier", "Financier"),
+    ]
+    PRIORITY_CHOICES = [
+        ("normal", "Normal"),
+        ("urgent", "Urgent"),
+        ("critical", "Critique"),
+    ]
 
     id = models.CharField(primary_key=True, max_length=255)
+    numero_facture = models.CharField("N° de facture", max_length=100, blank=True, default="")
+    societe = models.CharField("Société concernée", max_length=255, blank=True, default="")
+    affaire = models.CharField("Affaire concernée", max_length=255, blank=True, default="")
     dossier = models.ForeignKey(TechnicalProject, on_delete=models.CASCADE, db_column='dossier')
     fournisseur = models.ForeignKey(Fournisseur, on_delete=models.DO_NOTHING, db_column='fournisseur')
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING, db_column='client')
-    montant = models.FloatField(null=True)
+    montant = models.FloatField("Montant TTC (€)", null=True)
     statut = models.TextField(choices=STATUS, default="ongoing")
-    service = models.CharField(max_length=100, blank=True, default="")
-    echeance = models.DateTimeField(null=True, blank=True)
+    service = models.CharField(max_length=100, choices=SERVICE_CHOICES, blank=True, default="")
+    date_facture = models.DateField("Date de facture", null=True, blank=True)
+    date_soumission = models.DateTimeField("Date de soumission", default=timezone.now)
+    echeance = models.DateTimeField("Échéance de paiement", null=True, blank=True)
+    priorite = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default="normal")
+    commentaire_compta = models.TextField("Commentaire pour la compta", blank=True, default="")
     titre = models.CharField(max_length=255, null=True, blank=True)
+    demandeur = models.ForeignKey(Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
+                                  db_column='demandeur_id', related_name='factures_demandees')
     collaborateur = models.ForeignKey(Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,
                                       db_column='collaborateur_id', related_name='factures')
     created_by = models.ForeignKey(Utilisateur, on_delete=models.SET_NULL, null=True, blank=True,

@@ -93,18 +93,16 @@ class FactureForm(forms.ModelForm):
 
     Attributes:
         fournisseur_input (str): Nom du fournisseur
-        client_input (str): Nom du client (entreprise)
         collaborateur (ModelChoiceField): Collaborateur assigné
         echeance (DateField): Date d'échéance
         statut (ChoiceField): Statut de la facture
     """
     fournisseur_input = forms.CharField(label="Fournisseur", required=True)
-    client_input = forms.CharField(label="Client (Entreprise)", required=False)
 
     dossier = forms.ModelChoiceField(
         queryset=TechnicalProject.objects.all(),
         required=True,
-        label="Dossier",
+        label="Dossier / affaire",
     )
 
     collaborateur = forms.ModelChoiceField(
@@ -117,20 +115,52 @@ class FactureForm(forms.ModelForm):
         required=False,
         widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
         input_formats=["%Y-%m-%d"],
-        label="Échéance",
+        label="Échéance de paiement",
+    )
+
+    date_facture = forms.DateField(
+        required=False,
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+        input_formats=["%Y-%m-%d"],
+        label="Date de facture",
     )
 
     statut = forms.ChoiceField(choices=Facture.STATUS, required=True)
 
     class Meta:
         model = Facture
-        fields = ["dossier", "montant", "statut", "service", "echeance", "titre", "collaborateur"]
+        fields = [
+            "numero_facture",
+            "societe",
+            "affaire",
+            "dossier",
+            "montant",
+            "statut",
+            "service",
+            "date_facture",
+            "echeance",
+            "priorite",
+            "commentaire_compta",
+            "titre",
+            "collaborateur",
+        ]
+        widgets = {
+            "commentaire_compta": forms.Textarea(attrs={"rows": 4}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Statut : utilise directement les choices du modèle
         self.fields["statut"].choices = Facture.STATUS
+        self.fields["service"].choices = [("", "-- Sélectionner un pôle --"), *Facture.SERVICE_CHOICES]
+        self.fields["service"].required = True
+        self.fields["service"].label = "Service / pôle"
+        self.fields["montant"].label = "Montant TTC (€)"
+        self.fields["affaire"].label = "Dossier / affaire concerné"
+        self.fields["numero_facture"].required = True
+        self.fields["societe"].required = True
+        self.fields["affaire"].required = True
 
         # Pré-remplir l'échéance avec la date existante (mode édition)
         if self.instance.echeance:
@@ -144,10 +174,11 @@ class FactureForm(forms.ModelForm):
         if self.instance.pk:
             if self.instance.fournisseur_id:
                 self.fields["fournisseur_input"].initial = self.instance.fournisseur_id
-            if self.instance.client_id:
-                self.fields["client_input"].initial = self.instance.client_id
             if self.instance.dossier_id:
                 self.fields["dossier"].initial = self.instance.dossier_id
+
+        if self.instance.date_facture:
+            self.fields["date_facture"].initial = self.instance.date_facture
 
         # Ajoute la classe CSS Bootstrap à tous les champs
         for field in self.fields.values():
@@ -168,7 +199,7 @@ class FactureForm(forms.ModelForm):
         """
         Enregistre la facture avec logique métier :
         - Création auto de l'ID "FAC-XXXXXXXX"
-        - Création/récupération du fournisseur et du client
+        - Création/récupération du fournisseur et du client technique par défaut
         - Gestion de l'échéance avec timezone
         """
         inst = super().save(commit=False)
@@ -182,13 +213,10 @@ class FactureForm(forms.ModelForm):
         )
         inst.fournisseur = fournisseur
 
-        # ----- Client -----
-        c_text = (self.cleaned_data.get("client_input") or "").strip() or "DIVERS"
-        c_nom = c_text if c_text != "DIVERS" else "Divers"
-
-        acteur_c, _ = ActeurExterne.objects.get_or_create(id=c_text)
+        # ----- Client technique par défaut -----
+        acteur_c, _ = ActeurExterne.objects.get_or_create(id="DIVERS")
         client, _ = Client.objects.get_or_create(id=acteur_c)
-        Entreprise.objects.get_or_create(id=client, defaults={"nom": c_nom})
+        Entreprise.objects.get_or_create(id=client, defaults={"nom": "Divers"})
         inst.client = client
 
         # ----- ID facture auto si nouvelle -----
@@ -208,17 +236,23 @@ class FactureFormCollaborateur(FactureForm):
     """
     
     class Meta(FactureForm.Meta):
-        fields = ["dossier", "montant", "service", "echeance", "titre", "collaborateur"]
+        fields = [
+            "numero_facture",
+            "societe",
+            "affaire",
+            "dossier",
+            "montant",
+            "service",
+            "date_facture",
+            "echeance",
+            "priorite",
+            "commentaire_compta",
+            "titre",
+        ]
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        # Le collaborateur ne peut pas modifier le champ collaborateur (c'est lui-même)
-        # On le rend readonly en utilisant un widget disabled
-        if 'collaborateur' in self.fields:
-            self.fields['collaborateur'].disabled = True
-            self.fields['collaborateur'].help_text = "Vous êtes automatiquement assigné à cette facture"
-        
+
         # Supprimer le champ statut pour les collaborateurs
         if 'statut' in self.fields:
             del self.fields['statut']
@@ -228,12 +262,12 @@ class FactureFormCollaborateur(FactureForm):
 
 class PieceJointeForm(forms.ModelForm):
     """
-    Formulaire de pièce jointe (PDF uniquement, 10 Mo max).
+    Formulaire de pièce jointe (PDF, image ou Excel, 10 Mo max).
     """
     fichier = forms.FileField(
-        label="Joindre la facture (PDF)",
+        label="Joindre la facture",
         required=False,
-        widget=forms.ClearableFileInput(attrs={"accept": "application/pdf"}),
+        widget=forms.ClearableFileInput(attrs={"accept": ".pdf,.jpg,.jpeg,.png,.xls,.xlsx"}),
     )
 
     class Meta:
@@ -249,9 +283,18 @@ class PieceJointeForm(forms.ModelForm):
         f = self.cleaned_data.get("fichier")
         if not f:
             return f
-        valid_types = {"application/pdf", "application/x-pdf", "application/octet-stream"}
-        if getattr(f, "content_type", "") not in valid_types and not (f.name or "").lower().endswith(".pdf"):
-            raise forms.ValidationError("Le fichier doit être un PDF.")
+        valid_types = {
+            "application/pdf",
+            "application/x-pdf",
+            "application/octet-stream",
+            "image/jpeg",
+            "image/png",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+        valid_extensions = (".pdf", ".jpg", ".jpeg", ".png", ".xls", ".xlsx")
+        if getattr(f, "content_type", "") not in valid_types and not (f.name or "").lower().endswith(valid_extensions):
+            raise forms.ValidationError("Le fichier doit être un PDF, JPG, PNG ou Excel.")
         if f.size > 10 * 1024 * 1024:
             raise forms.ValidationError("Le fichier dépasse 10 Mo.")
         return f

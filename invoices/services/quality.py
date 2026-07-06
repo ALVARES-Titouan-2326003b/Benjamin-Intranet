@@ -11,7 +11,7 @@ OPEN_STATUSES = ["received", "ongoing"]
 
 def get_invoice_anomalies(queryset=None):
     qs = queryset or Facture.objects.all()
-    qs = qs.select_related("dossier", "fournisseur", "client")
+    qs = qs.select_related("dossier", "fournisseur")
     now = timezone.now()
     anomalies = []
 
@@ -26,14 +26,16 @@ def get_invoice_anomalies(queryset=None):
         )
 
     duplicate_keys = (
-        qs.values("fournisseur_id", "client_id", "montant", "echeance")
+        qs.values("societe", "affaire", "montant", "numero_facture")
+        .exclude(societe="")
+        .exclude(affaire="")
+        .exclude(numero_facture="")
         .exclude(montant__isnull=True)
-        .exclude(echeance__isnull=True)
         .annotate(count=Count("id"))
         .filter(count__gt=1)
     )
     duplicate_lookup = {
-        (row["fournisseur_id"], row["client_id"], row["montant"], row["echeance"])
+        (row["societe"], row["affaire"], row["montant"], row["numero_facture"])
         for row in duplicate_keys
     }
 
@@ -44,16 +46,14 @@ def get_invoice_anomalies(queryset=None):
             add(facture, "missing_due_date", "warning", "Date d'échéance absente")
         if not facture.fournisseur_id:
             add(facture, "missing_supplier", "error", "Fournisseur absent")
-        if not facture.client_id:
-            add(facture, "missing_client", "error", "Client absent")
         if facture.statut in OPEN_STATUSES and facture.echeance and facture.echeance < now:
             add(facture, "overdue_open", "warning", "Facture échue non payée")
 
         duplicate_key = (
-            facture.fournisseur_id,
-            facture.client_id,
+            facture.societe,
+            facture.affaire,
             facture.montant,
-            facture.echeance,
+            facture.numero_facture,
         )
         if duplicate_key in duplicate_lookup:
             add(facture, "possible_duplicate", "warning", "Doublon potentiel")

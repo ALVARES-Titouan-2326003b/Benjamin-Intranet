@@ -3,6 +3,7 @@ from datetime import datetime
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -47,7 +48,7 @@ class FactureListView(FilterView):
     template_name = 'invoices/invoice_list.html'
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related('client', 'collaborateur', 'dossier')
+        qs = super().get_queryset().select_related('collaborateur', 'demandeur', 'dossier')
         user = self.request.user
         
         # Si Finance ou CEO -> Tout voir
@@ -55,7 +56,7 @@ class FactureListView(FilterView):
             return qs
             
         # Sinon -> Voir seulement ses factures
-        return qs.filter(collaborateur=user)
+        return qs.filter(Q(collaborateur=user) | Q(created_by=user) | Q(demandeur=user))
 
     def get(self, request, *args, **kwargs):
         # Vérifier si c'est une demande d'export
@@ -80,20 +81,38 @@ class FactureListView(FilterView):
         ws = wb.active
         ws.title = 'Factures'
 
-        headers = ['ID', 'Dossier', 'Service', 'Fournisseur', 'Client', 'Montant', 'Statut', 'Échéance', 'Collaborateur']
+        headers = [
+            'ID',
+            'N° facture',
+            'Société',
+            'Affaire',
+            'Dossier',
+            'Service',
+            'Fournisseur',
+            'Montant TTC',
+            'Statut',
+            'Date facture',
+            'Échéance',
+            'Priorité',
+            'Demandeur',
+        ]
         ws.append(headers)
 
         for invoice in queryset:
             ws.append([
                 invoice.id,
+                invoice.numero_facture or '',
+                invoice.societe or '',
+                invoice.affaire or '',
                 str(invoice.dossier) if invoice.dossier else '',
-                invoice.service or '',
+                invoice.get_service_display() if invoice.service else '',
                 str(invoice.fournisseur) if invoice.fournisseur else '',
-                str(invoice.client) if invoice.client else '',
                 invoice.montant or '',
                 invoice.get_statut_display(),
+                invoice.date_facture.strftime('%Y-%m-%d') if invoice.date_facture else '',
                 invoice.echeance.strftime('%Y-%m-%d') if invoice.echeance else '',
-                invoice.collaborateur.username if invoice.collaborateur else '',
+                invoice.get_priorite_display() if invoice.priorite else '',
+                invoice.demandeur.username if invoice.demandeur else '',
             ])
 
         output = io.BytesIO()
@@ -111,19 +130,29 @@ class FactureListView(FilterView):
         output = io.BytesIO()
         doc = SimpleDocTemplate(output, pagesize=letter)
 
-        data = [['ID', 'Dossier', 'Service', 'Fournisseur', 'Client', 'Montant', 'Statut', 'Échéance', 'Collaborateur']]
+        data = [[
+            'ID',
+            'N° facture',
+            'Société',
+            'Affaire',
+            'Dossier',
+            'Service',
+            'Montant',
+            'Statut',
+            'Échéance',
+        ]]
 
         for invoice in queryset:
             data.append([
                 invoice.id,
+                invoice.numero_facture or '',
+                invoice.societe or '',
+                invoice.affaire or '',
                 str(invoice.dossier) if invoice.dossier else '',
-                invoice.service or '',
-                str(invoice.fournisseur) if invoice.fournisseur else '',
-                str(invoice.client) if invoice.client else '',
+                invoice.get_service_display() if invoice.service else '',
                 f"{invoice.montant:.2f}" if invoice.montant is not None else '',
                 invoice.get_statut_display(),
                 invoice.echeance.strftime('%Y-%m-%d') if invoice.echeance else '',
-                invoice.collaborateur.username if invoice.collaborateur else '',
             ])
 
         table = Table(data, repeatRows=1, hAlign='LEFT')
@@ -185,7 +214,7 @@ class FactureDetailView(DetailView):
     template_name = 'invoices/invoice_detail.html'
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related('client', 'collaborateur')
+        qs = super().get_queryset().select_related('collaborateur', 'demandeur', 'dossier')
         user = self.request.user
         
         # Si Finance ou CEO -> Tout voir
@@ -193,7 +222,7 @@ class FactureDetailView(DetailView):
             return qs
             
         # Sinon -> Voir seulement ses factures
-        return qs.filter(collaborateur=user)
+        return qs.filter(Q(collaborateur=user) | Q(created_by=user) | Q(demandeur=user))
 
     def get_context_data(self, *, object_list=..., **kwargs):
         context = super().get_context_data(**kwargs)
@@ -255,16 +284,18 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
     template_name = 'invoices/invoice_form.html'
 
     def get_form_class(self):
-        # Les collaborateurs ont une forme sans le champ statut
-        if has_collaborateur_access(self.request.user):
+        # Seul le pôle finance garde le champ statut à la création.
+        if not (has_finance_access(self.request.user) or has_ceo_access(self.request.user)):
             from .forms import FactureFormCollaborateur
             return FactureFormCollaborateur
         return FactureForm
 
     def form_valid(self, form):
-        # Auto-set created_by et collaborateur pour les collaborateurs
+        form.instance.created_by = self.request.user
+        form.instance.demandeur = self.request.user
+
+        # Auto-set collaborateur pour les collaborateurs historiques.
         if has_collaborateur_access(self.request.user):
-            form.instance.created_by = self.request.user
             form.instance.collaborateur = self.request.user
         
         response = super().form_valid(form)
@@ -297,15 +328,19 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
     template_name = 'invoices/invoice_form.html'
 
     def get_queryset(self):
-        # Les collaborateurs ne peuvent voir/éditer que leurs propres factures
+        # Hors finance/CEO, les utilisateurs ne peuvent éditer que leurs propres factures.
         queryset = super().get_queryset()
-        if has_collaborateur_access(self.request.user):
-            return queryset.filter(collaborateur=self.request.user)
+        if not (has_finance_access(self.request.user) or has_ceo_access(self.request.user)):
+            return queryset.filter(
+                Q(collaborateur=self.request.user)
+                | Q(created_by=self.request.user)
+                | Q(demandeur=self.request.user)
+            )
         return queryset
 
     def get_form_class(self):
-        # Les collaborateurs ont une forme sans le champ statut
-        if has_collaborateur_access(self.request.user):
+        # Seul le pôle finance garde le champ statut en édition.
+        if not (has_finance_access(self.request.user) or has_ceo_access(self.request.user)):
             from .forms import FactureFormCollaborateur
             return FactureFormCollaborateur
         return FactureForm

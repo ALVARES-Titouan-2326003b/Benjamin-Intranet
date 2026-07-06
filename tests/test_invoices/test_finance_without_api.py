@@ -56,12 +56,15 @@ def client_entity(db):
 def invoice(db, project, supplier, client_entity):
     return Facture.objects.create(
         id="FAC-001",
+        numero_facture="FA-2026-001",
+        societe="Benjamin Immobilier",
+        affaire="Affaire Démo",
         dossier=project,
         fournisseur=supplier,
         client=client_entity,
         montant=1234.5,
         statut="ongoing",
-        service="Comptabilité",
+        service="financier",
         echeance=timezone.now() + timedelta(days=3),
         titre="Facture énergie",
     )
@@ -84,7 +87,7 @@ def test_cegid_line_is_ascii_and_deterministic(invoice):
     line = build_cegid_line(invoice)
 
     line.encode("ascii")
-    assert line == "FAC-001;Comptabilite;TECH-001 - Projet Test;Fournisseur Energie;Client Demo;1234.50;ongoing;" + invoice.echeance.strftime("%Y%m%d") + ";Facture energie"
+    assert line == "FAC-001;FA-2026-001;Benjamin Immobilier;Affaire Demo;financier;TECH-001 - Projet Test;Fournisseur Energie;1234.50;ongoing;" + invoice.echeance.strftime("%Y%m%d") + ";Facture energie"
 
 
 @pytest.mark.django_db
@@ -95,7 +98,7 @@ def test_generate_cegid_export_creates_successful_run(finance_user, invoice):
     assert run.line_count == 1
     assert run.total_amount == 1234.5
     assert run.file.name.endswith(".txt")
-    assert run.file.read().decode("ascii").startswith("FAC-001;Comptabilite;")
+    assert run.file.read().decode("ascii").startswith("FAC-001;FA-2026-001;Benjamin Immobilier;Affaire Demo;financier;")
 
 
 @pytest.mark.django_db

@@ -79,23 +79,18 @@ def can_read_facture(user):
     Args:
         user (User):  L'utilisateur
     """
-    user = User.objects.get(username=user.username)
-    if has_finance_access(user) or has_ceo_access(user) or has_collaborateur_access(user):
-        return True
-    else:
-        return False
+    return getattr(user, "is_authenticated", False)
 
 
 def can_create_facture(user):
     """
     Renvoie vrai si un utilisateur peut créer des factures
-    Les collaborateurs et le finance peuvent créer des factures
+    Tout utilisateur connecté peut transmettre une facture.
 
     Args:
         user (User):  L'utilisateur
     """
-    user = User.objects.get(username=user.username)
-    return has_finance_access(user) or has_collaborateur_access(user)
+    return getattr(user, "is_authenticated", False)
 
 
 def is_facture_creator(user, facture):
@@ -122,8 +117,12 @@ def can_edit_facture(user, facture):
     user = User.objects.get(username=user.username)
     if has_finance_access(user):
         return True
-    if has_collaborateur_access(user):
-        return facture.collaborateur_id == user.id
+    if getattr(user, "is_authenticated", False):
+        return (
+            facture.collaborateur_id == user.id
+            or facture.created_by_id == user.id
+            or facture.demandeur_id == user.id
+        )
     return False
 
 
@@ -144,9 +143,13 @@ def can_edit_facture_field(user, facture, field):
     if has_finance_access(user):
         return True
     
-    # Collaborateurs ne peuvent éditer que s'ils sont les créateurs
-    # et seulement certains champs
-    if has_collaborateur_access(user) and facture.collaborateur_id == user.id:
+    # Les demandeurs ne peuvent éditer que leurs propres factures
+    # et seulement certains champs.
+    if getattr(user, "is_authenticated", False) and (
+        facture.collaborateur_id == user.id
+        or facture.created_by_id == user.id
+        or facture.demandeur_id == user.id
+    ):
         # Ces champs ne peuvent pas être édités par les collaborateurs
         forbidden_fields = ['statut', 'collaborateur']
         return field not in forbidden_fields

@@ -31,8 +31,18 @@
       </div>
 
       <div>
-        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Client</label>
-        <div style="font-weight: 500;">{{ object.client|default:"—" }}</div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">N° de facture</label>
+        <div style="font-weight: 500;">{{ object.numero_facture|default:"—" }}</div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Société concernée</label>
+        <div style="font-weight: 500;">{{ object.societe|default:"—" }}</div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Dossier / affaire concerné</label>
+        <div style="font-weight: 500;">{{ object.affaire|default:"—" }}</div>
       </div>
 
       <div>
@@ -59,7 +69,23 @@
 
       <div>
         <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Service</label>
-        <div>{{ object.service|default:"—" }}</div>
+        <div>{% if object.service %}{{ object.get_service_display }}{% else %}—{% endif %}</div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Priorité</label>
+        <div>{{ object.get_priorite_display|default:"—" }}</div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Date de facture</label>
+        <div>
+          {% if object.date_facture %}
+          {{ object.date_facture|date:"d F Y" }}
+          {% else %}
+          —
+          {% endif %}
+        </div>
       </div>
 
       <div>
@@ -73,9 +99,24 @@
         </div>
       </div>
 
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Date de soumission</label>
+        <div>{{ object.date_soumission|date:"d F Y H:i" }}</div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Demandeur</label>
+        <div>{{ object.demandeur.get_full_name|default:object.demandeur.username|default:"—" }}</div>
+      </div>
+
       <div style="grid-column: span 2;">
         <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Titre / Objet</label>
         <div>{{ object.titre|default:"—" }}</div>
+      </div>
+
+      <div style="grid-column: span 2;">
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Commentaire compta</label>
+        <div>{{ object.commentaire_compta|linebreaksbr|default:"—" }}</div>
       </div>
     </div>
   </div>

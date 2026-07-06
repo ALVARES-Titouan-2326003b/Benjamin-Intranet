@@ -1,7 +1,8 @@
 import pytest
 
-from invoices.forms import best_match, build_choices, normalize_label
-from invoices.models import InvoiceReminderSettings
+from invoices.forms import FactureForm, best_match, build_choices, normalize_label
+from invoices.models import Client, InvoiceReminderSettings
+from technique.models import TechnicalProject
 
 
 @pytest.mark.parametrize(
@@ -21,6 +22,45 @@ def test_choice_helpers():
     labels = ["Technique", "Comptabilité et Finance"]
     assert best_match("comptabilite_et finance", labels) == "Comptabilité et Finance"
     assert build_choices(labels) == [(label, label) for label in labels]
+
+
+def test_facture_form_service_uses_pole_choices():
+    form = FactureForm()
+
+    assert "client_input" not in form.fields
+    assert form.fields["service"].choices == [
+        ("", "-- Sélectionner un pôle --"),
+        ("developpement", "Développement"),
+        ("administratif", "Administratif"),
+        ("technique", "Technique"),
+        ("fonciere", "Foncière"),
+        ("financier", "Financier"),
+    ]
+
+
+@pytest.mark.django_db
+def test_facture_form_assigns_default_internal_client():
+    project = TechnicalProject.objects.create(reference="DOS-001", name="Dossier Test")
+    form = FactureForm(
+        data={
+            "fournisseur_input": "Fournisseur Test",
+            "numero_facture": "FA-001",
+            "societe": "Benjamin Immobilier",
+            "affaire": "Dossier Test",
+            "dossier": project.pk,
+            "montant": "120.50",
+            "statut": "ongoing",
+            "service": "financier",
+            "priorite": "normal",
+            "titre": "Facture test",
+        }
+    )
+
+    assert form.is_valid(), form.errors
+    facture = form.save()
+
+    assert facture.client_id == "DIVERS"
+    assert Client.objects.filter(pk="DIVERS").exists()
 
 
 @pytest.mark.django_db
