@@ -59,6 +59,9 @@ def has_all_poles_access(user):
         or user.groups.filter(name="POLE_FINANCIER").exists()
         or user.groups.filter(name="POLE_ADMINISTRATIF").exists()
         or user.groups.filter(name="POLE_TECHNIQUE").exists()
+        or user.groups.filter(name="POLE_PROMOTION").exists()
+        or user.groups.filter(name="POLE_DEVELOPPEMENT").exists()
+        or user.groups.filter(name="POLE_INVESTISSEMENT").exists()
     )
 
 
@@ -91,6 +94,17 @@ def can_create_facture(user):
         user (User):  L'utilisateur
     """
     return getattr(user, "is_authenticated", False)
+
+
+def can_change_facture_status(user):
+    """
+    Renvoie vrai si un utilisateur peut modifier le statut d'une facture.
+    Le statut est réservé au pôle financier, indépendamment du rôle collaborateur.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return False
+    user = User.objects.get(username=user.username)
+    return user.groups.filter(name="POLE_FINANCIER").exists()
 
 
 def is_facture_creator(user, facture):
@@ -141,6 +155,8 @@ def can_edit_facture_field(user, facture, field):
     
     # Finance peut éditer tous les champs
     if has_finance_access(user):
+        if field == 'statut':
+            return can_change_facture_status(user)
         return True
     
     # Les demandeurs ne peuvent éditer que leurs propres factures
@@ -151,7 +167,9 @@ def can_edit_facture_field(user, facture, field):
         or facture.demandeur_id == user.id
     ):
         # Ces champs ne peuvent pas être édités par les collaborateurs
-        forbidden_fields = ['statut', 'collaborateur']
+        forbidden_fields = ['collaborateur']
+        if not can_change_facture_status(user):
+            forbidden_fields.append('statut')
         return field not in forbidden_fields
     
     return False

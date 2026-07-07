@@ -4,13 +4,22 @@ from django.contrib.auth.models import Group, User
 from .models import Facture, FactureHistorique
 from .services.email import send_invoice_status_email
 
-# Garantit l'existence du groupe "POLE_FINANCIER" au démarrage
+# Garantit l'existence des groupes de pôles au fil de l'utilisation.
 @receiver(post_save, sender=User)
 def ensure_groups(sender, instance, created, **kwargs):
     """
     Crée les groupes associés aux pôles au démarrage s'ils n'existent pas.
     """
-    for name in ['POLE_FINANCIER', 'POLE_TECHNIQUE', 'POLE_ADMINISTRATIF', 'CEO', 'COLLABORATEUR']:
+    for name in [
+        'POLE_FINANCIER',
+        'POLE_TECHNIQUE',
+        'POLE_ADMINISTRATIF',
+        'POLE_PROMOTION',
+        'POLE_DEVELOPPEMENT',
+        'POLE_INVESTISSEMENT',
+        'CEO',
+        'COLLABORATEUR',
+    ]:
         Group.objects.get_or_create(name=name)
 
 @receiver(pre_save, sender=Facture)

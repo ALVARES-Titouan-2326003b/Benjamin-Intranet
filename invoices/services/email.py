@@ -9,6 +9,9 @@ def get_internal_recipients(pole_name=None):
     Mapping:
     - Technique -> POLE_TECHNIQUE
     - Administratif -> POLE_ADMINISTRATIF
+    - Promotion -> POLE_PROMOTION
+    - Développement -> POLE_DEVELOPPEMENT
+    - Investissement -> POLE_INVESTISSEMENT
     - Comptabilite et Finance -> POLE_FINANCIER
     - (Defaut) -> POLE_FINANCIER
     """
@@ -19,6 +22,10 @@ def get_internal_recipients(pole_name=None):
     mapping = {
         "Technique": "POLE_TECHNIQUE",
         "Administratif": "POLE_ADMINISTRATIF",
+        "Promotion": "POLE_PROMOTION",
+        "Développement": "POLE_DEVELOPPEMENT",
+        "Developpement": "POLE_DEVELOPPEMENT",
+        "Investissement": "POLE_INVESTISSEMENT",
         "Comptabilite et Finance": "POLE_FINANCIER"
     }
     

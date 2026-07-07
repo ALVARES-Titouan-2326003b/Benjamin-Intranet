@@ -33,9 +33,22 @@ def test_facture_form_service_uses_pole_choices():
         ("developpement", "Développement"),
         ("administratif", "Administratif"),
         ("technique", "Technique"),
+        ("promotion", "Promotion"),
+        ("investissement", "Investissement"),
         ("fonciere", "Foncière"),
         ("financier", "Financier"),
     ]
+
+
+@pytest.mark.django_db
+def test_facture_form_collaborateur_uses_active_users(user_factory):
+    active = user_factory(username="active-user")
+    inactive = user_factory(username="inactive-user", is_active=False)
+
+    form = FactureForm()
+
+    assert active in form.fields["collaborateur"].queryset
+    assert inactive not in form.fields["collaborateur"].queryset
 
 
 @pytest.mark.django_db

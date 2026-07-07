@@ -17,7 +17,15 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
-from user_access.user_test_functions import has_finance_access, has_ceo_access, can_read_facture, can_create_facture, can_edit_facture, has_collaborateur_access
+from user_access.user_test_functions import (
+    has_finance_access,
+    has_ceo_access,
+    can_read_facture,
+    can_create_facture,
+    can_edit_facture,
+    can_change_facture_status,
+    has_collaborateur_access,
+)
 from .filters import FactureFilter
 from .forms import FactureForm, PieceJointeForm
 from .models import (
@@ -285,7 +293,7 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
 
     def get_form_class(self):
         # Seul le pôle finance garde le champ statut à la création.
-        if not (has_finance_access(self.request.user) or has_ceo_access(self.request.user)):
+        if not can_change_facture_status(self.request.user):
             from .forms import FactureFormCollaborateur
             return FactureFormCollaborateur
         return FactureForm
@@ -294,8 +302,8 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
         form.instance.created_by = self.request.user
         form.instance.demandeur = self.request.user
 
-        # Auto-set collaborateur pour les collaborateurs historiques.
-        if has_collaborateur_access(self.request.user):
+        # Pour les déposants non financiers, le référent interne est le demandeur.
+        if not can_change_facture_status(self.request.user):
             form.instance.collaborateur = self.request.user
         
         response = super().form_valid(form)
@@ -316,6 +324,7 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context["user_ceo"] = has_ceo_access(self.request.user)
         context["is_collaborateur"] = has_collaborateur_access(self.request.user)
+        context["can_change_invoice_status"] = can_change_facture_status(self.request.user)
         return context
 
 
@@ -340,7 +349,7 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
 
     def get_form_class(self):
         # Seul le pôle finance garde le champ statut en édition.
-        if not (has_finance_access(self.request.user) or has_ceo_access(self.request.user)):
+        if not can_change_facture_status(self.request.user):
             from .forms import FactureFormCollaborateur
             return FactureFormCollaborateur
         return FactureForm
@@ -369,6 +378,7 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["user_ceo"] = has_ceo_access(self.request.user)
         context["is_collaborateur"] = has_collaborateur_access(self.request.user)
+        context["can_change_invoice_status"] = can_change_facture_status(self.request.user)
         return context
 
 # ================== Relance Manuelle ==================

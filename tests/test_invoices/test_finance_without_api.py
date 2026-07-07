@@ -82,6 +82,22 @@ def configure_gmail_sender(user):
     InvoiceReminderSettings.objects.create(sender=user)
 
 
+def invoice_payload(project, **overrides):
+    payload = {
+        "fournisseur_input": "Fournisseur formulaire",
+        "numero_facture": "FA-FORM-001",
+        "societe": "Benjamin Immobilier",
+        "affaire": "Affaire formulaire",
+        "dossier": project.pk,
+        "montant": "450.00",
+        "service": "promotion",
+        "priorite": "normal",
+        "titre": "Facture formulaire",
+    }
+    payload.update(overrides)
+    return payload
+
+
 @pytest.mark.django_db
 def test_cegid_line_is_ascii_and_deterministic(invoice):
     line = build_cegid_line(invoice)
@@ -168,3 +184,74 @@ def test_average_processing_days_uses_history(invoice):
     average = DashboardView()._average_processing_days(Facture.objects.all())
 
     assert round(average) == 4
+
+
+@pytest.mark.django_db
+def test_promotion_user_can_create_invoice_without_collaborateur_role(client, project):
+    group, _ = Group.objects.get_or_create(name="POLE_PROMOTION")
+    user = User.objects.create_user(username="promotion", email="promotion@example.com")
+    user.groups.add(group)
+    client.force_login(user)
+
+    response = client.post(
+        "/finance/facture/new/",
+        invoice_payload(project, statut="paid"),
+    )
+
+    assert response.status_code == 302
+    facture = Facture.objects.get(numero_facture="FA-FORM-001")
+    assert facture.created_by == user
+    assert facture.demandeur == user
+    assert facture.collaborateur == user
+    assert facture.statut == "ongoing"
+    assert facture.service == "promotion"
+
+
+@pytest.mark.django_db
+def test_non_finance_user_cannot_forge_invoice_status_update(client, invoice):
+    group, _ = Group.objects.get_or_create(name="POLE_DEVELOPPEMENT")
+    user = User.objects.create_user(username="developpement", email="developpement@example.com")
+    user.groups.add(group)
+    invoice.created_by = user
+    invoice.demandeur = user
+    invoice.collaborateur = user
+    invoice.save(update_fields=["created_by", "demandeur", "collaborateur"])
+    client.force_login(user)
+
+    response = client.post(
+        f"/finance/facture/{invoice.pk}/edit/",
+        invoice_payload(
+            invoice.dossier,
+            fournisseur_input=invoice.fournisseur_id,
+            numero_facture=invoice.numero_facture,
+            statut="paid",
+            service="developpement",
+        ),
+    )
+
+    assert response.status_code == 302
+    invoice.refresh_from_db()
+    assert invoice.statut == "ongoing"
+    assert invoice.service == "developpement"
+
+
+@pytest.mark.django_db
+def test_finance_user_can_change_invoice_status(client, finance_user, invoice):
+    client.force_login(finance_user)
+
+    response = client.post(
+        f"/finance/facture/{invoice.pk}/edit/",
+        {
+            **invoice_payload(
+                invoice.dossier,
+                fournisseur_input=invoice.fournisseur_id,
+                numero_facture=invoice.numero_facture,
+                service="financier",
+            ),
+            "statut": "paid",
+        },
+    )
+
+    assert response.status_code == 302
+    invoice.refresh_from_db()
+    assert invoice.statut == "paid"

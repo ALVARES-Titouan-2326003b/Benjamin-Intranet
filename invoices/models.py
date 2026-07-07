@@ -129,6 +129,8 @@ class Facture(models.Model):
         ("developpement", "Développement"),
         ("administratif", "Administratif"),
         ("technique", "Technique"),
+        ("promotion", "Promotion"),
+        ("investissement", "Investissement"),
         ("fonciere", "Foncière"),
         ("financier", "Financier"),
     ]

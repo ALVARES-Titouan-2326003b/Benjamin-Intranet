@@ -55,7 +55,7 @@
       <div class="nav-section-label">FINANCE</div>
 
       {# --- CORRECTION : Condition séparée pour éviter les erreurs de syntaxe sur les lignes longues --- #}
-      {% if user.is_superuser or user.is_staff or "COLLABORATEUR" in u_groups_str or "POLE_FINANCIER" in u_groups_str %}
+      {% if user.is_authenticated %}
       <a href="{% url 'invoices:list' %}" class="nav-item {% if '/finance/' in p %}active{% endif %}">
         <i class="bi bi-receipt"></i> Factures
       </a>

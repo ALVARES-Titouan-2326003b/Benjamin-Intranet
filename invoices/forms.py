@@ -106,9 +106,9 @@ class FactureForm(forms.ModelForm):
     )
 
     collaborateur = forms.ModelChoiceField(
-        queryset=User.objects.filter(is_active=True, groups__name="COLLABORATEUR").order_by('last_name', 'first_name'),
+        queryset=User.objects.filter(is_active=True).order_by('last_name', 'first_name', 'username'),
         required=False,
-        label="Collaborateur (Assigner)"
+        label="Collaborateur / référent interne"
     )
 
     echeance = forms.DateField(
@@ -231,8 +231,8 @@ class FactureForm(forms.ModelForm):
 
 class FactureFormCollaborateur(FactureForm):
     """
-    Formulaire pour les collaborateurs - sans le champ statut et collaborateur verrouillé.
-    Les collaborateurs peuvent créer/modifier leurs propres factures mais pas le statut.
+    Formulaire pour les utilisateurs non financiers.
+    Ils peuvent créer/modifier leurs propres factures, sans modifier le statut ni le référent.
     """
     
     class Meta(FactureForm.Meta):
