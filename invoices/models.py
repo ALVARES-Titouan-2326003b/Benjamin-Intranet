@@ -144,7 +144,13 @@ class Facture(models.Model):
     numero_facture = models.CharField("N° de facture", max_length=100, blank=True, default="")
     societe = models.CharField("Société concernée", max_length=255, blank=True, default="")
     affaire = models.CharField("Affaire concernée", max_length=255, blank=True, default="")
-    dossier = models.ForeignKey(TechnicalProject, on_delete=models.CASCADE, db_column='dossier')
+    dossier = models.ForeignKey(
+        TechnicalProject,
+        on_delete=models.SET_NULL,
+        db_column='dossier',
+        null=True,
+        blank=True,
+    )
     fournisseur = models.ForeignKey(Fournisseur, on_delete=models.DO_NOTHING, db_column='fournisseur')
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING, db_column='client')
     montant = models.FloatField("Montant TTC (€)", null=True)

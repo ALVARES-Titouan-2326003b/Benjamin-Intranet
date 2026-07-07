@@ -46,6 +46,20 @@
         </a>
         {% endif %}
 
+        {% if can_create_invoice and not access_finance and not access_collaborator %}
+        <!-- TRANSMISSION DE FACTURE -->
+        <a href="{% url 'invoices:list' %}" class="pole-card">
+            <div class="pole-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <h2 class="pole-title">Factures</h2>
+            <p class="pole-desc">
+                Consulter les factures et transmettre une nouvelle demande au pôle financier.
+            </p>
+            <span class="pole-link">Voir les factures <i class="bi bi-arrow-right"></i></span>
+        </a>
+        {% endif %}
+
         {% if access_technique %}
         <!-- PÔLE TECHNIQUE -->
         <a href="{% url 'technique:dossiers_list' %}" class="pole-card">

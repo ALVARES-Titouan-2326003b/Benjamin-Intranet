@@ -3,7 +3,6 @@ from uuid import uuid4
 from datetime import datetime, time
 from django.utils import timezone
 from django.db import connection
-from django.contrib.auth.models import User
 
 from technique.models import TechnicalProject
 from .models import Facture, Entreprise, Fournisseur, Client, PieceJointe, ActeurExterne
@@ -93,22 +92,15 @@ class FactureForm(forms.ModelForm):
 
     Attributes:
         fournisseur_input (str): Nom du fournisseur
-        collaborateur (ModelChoiceField): Collaborateur assigné
         echeance (DateField): Date d'échéance
         statut (ChoiceField): Statut de la facture
     """
     fournisseur_input = forms.CharField(label="Fournisseur", required=True)
 
     dossier = forms.ModelChoiceField(
-        queryset=TechnicalProject.objects.all(),
+        queryset=TechnicalProject.objects.all().order_by("reference", "name"),
         required=True,
-        label="Dossier / affaire",
-    )
-
-    collaborateur = forms.ModelChoiceField(
-        queryset=User.objects.filter(is_active=True).order_by('last_name', 'first_name', 'username'),
-        required=False,
-        label="Collaborateur / référent interne"
+        label="Dossier / affaire concerné",
     )
 
     echeance = forms.DateField(
@@ -132,17 +124,14 @@ class FactureForm(forms.ModelForm):
         fields = [
             "numero_facture",
             "societe",
-            "affaire",
             "dossier",
             "montant",
             "statut",
-            "service",
             "date_facture",
             "echeance",
             "priorite",
             "commentaire_compta",
             "titre",
-            "collaborateur",
         ]
         widgets = {
             "commentaire_compta": forms.Textarea(attrs={"rows": 4}),
@@ -153,14 +142,9 @@ class FactureForm(forms.ModelForm):
 
         # Statut : utilise directement les choices du modèle
         self.fields["statut"].choices = Facture.STATUS
-        self.fields["service"].choices = [("", "-- Sélectionner un pôle --"), *Facture.SERVICE_CHOICES]
-        self.fields["service"].required = True
-        self.fields["service"].label = "Service / pôle"
         self.fields["montant"].label = "Montant TTC (€)"
-        self.fields["affaire"].label = "Dossier / affaire concerné"
         self.fields["numero_facture"].required = True
         self.fields["societe"].required = True
-        self.fields["affaire"].required = True
 
         # Pré-remplir l'échéance avec la date existante (mode édition)
         if self.instance.echeance:
@@ -218,6 +202,8 @@ class FactureForm(forms.ModelForm):
         client, _ = Client.objects.get_or_create(id=acteur_c)
         Entreprise.objects.get_or_create(id=client, defaults={"nom": "Divers"})
         inst.client = client
+        if inst.dossier_id:
+            inst.affaire = str(inst.dossier)
 
         # ----- ID facture auto si nouvelle -----
         if not inst.pk:
@@ -239,10 +225,8 @@ class FactureFormCollaborateur(FactureForm):
         fields = [
             "numero_facture",
             "societe",
-            "affaire",
             "dossier",
             "montant",
-            "service",
             "date_facture",
             "echeance",
             "priorite",

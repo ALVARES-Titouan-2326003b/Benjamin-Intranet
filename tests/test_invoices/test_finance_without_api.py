@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth.models import Group, User
+from django.core import mail
 from django.utils import timezone
 from unittest.mock import patch
 
@@ -205,6 +206,75 @@ def test_promotion_user_can_create_invoice_without_collaborateur_role(client, pr
     assert facture.collaborateur == user
     assert facture.statut == "ongoing"
     assert facture.service == "promotion"
+    assert facture.dossier == project
+    assert facture.affaire == "TECH-001 - Projet Test"
+
+
+@pytest.mark.django_db
+def test_invoice_creation_notifies_finance_and_ceo(client, project, settings):
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    settings.DEFAULT_FROM_EMAIL = "intranet@example.com"
+    settings.SITE_URL = "https://intranet.example.test"
+    mail.outbox = []
+
+    finance_group, _ = Group.objects.get_or_create(name="POLE_FINANCIER")
+    ceo_group, _ = Group.objects.get_or_create(name="CEO")
+    promotion_group, _ = Group.objects.get_or_create(name="POLE_PROMOTION")
+
+    finance = User.objects.create_user(username="finance-notif", email="finance-notif@example.com")
+    ceo = User.objects.create_user(username="ceo-notif", email="ceo-notif@example.com")
+    requester = User.objects.create_user(username="promotion-notif", email="promotion-notif@example.com")
+    finance.groups.add(finance_group)
+    ceo.groups.add(ceo_group)
+    requester.groups.add(promotion_group)
+    client.force_login(requester)
+
+    response = client.post(
+        "/finance/facture/new/",
+        invoice_payload(project, numero_facture="FA-NOTIF-001"),
+    )
+
+    assert response.status_code == 302
+    assert len(mail.outbox) == 1
+    email = mail.outbox[0]
+    assert set(email.to) == {"finance-notif@example.com", "ceo-notif@example.com"}
+    assert "Nouvelle facture transmise : FA-NOTIF-001" == email.subject
+    assert "Fournisseur : Fournisseur formulaire" in email.body
+    assert "Numéro de facture : FA-NOTIF-001" in email.body
+    assert "Société : Benjamin Immobilier" in email.body
+    assert "Dossier / affaire : TECH-001 - Projet Test" in email.body
+    assert "Montant TTC : 450.0 €" in email.body
+    assert "Demandeur : promotion-notif" in email.body
+    assert "Service / pôle : Promotion" in email.body
+    assert "Lien intranet : https://intranet.example.test/finance/facture/" in email.body
+
+
+@pytest.mark.django_db
+def test_administratif_user_can_view_invoice_overview(client, invoice):
+    group, _ = Group.objects.get_or_create(name="POLE_ADMINISTRATIF")
+    user = User.objects.create_user(username="admin-invoices", email="admin-invoices@example.com")
+    user.groups.add(group)
+    client.force_login(user)
+
+    response = client.get("/finance/")
+
+    assert response.status_code == 200
+    assert b"FA-2026-001" in response.content
+    assert b"Nouvelle facture" in response.content
+
+
+@pytest.mark.django_db
+def test_technique_user_can_view_invoice_overview(client, invoice):
+    group, _ = Group.objects.get_or_create(name="POLE_TECHNIQUE")
+    user = User.objects.create_user(username="technique-invoices", email="technique-invoices@example.com")
+    user.groups.add(group)
+    client.force_login(user)
+
+    response = client.get("/finance/")
+
+    assert response.status_code == 200
+    assert b"FA-2026-001" in response.content
+    assert b"Nouvelle facture" in response.content
 
 
 @pytest.mark.django_db
@@ -232,7 +302,7 @@ def test_non_finance_user_cannot_forge_invoice_status_update(client, invoice):
     assert response.status_code == 302
     invoice.refresh_from_db()
     assert invoice.statut == "ongoing"
-    assert invoice.service == "developpement"
+    assert invoice.service == "financier"
 
 
 @pytest.mark.django_db

@@ -9,7 +9,8 @@ from technique.models import TechnicalProject, DocumentTechnique
 from user_access.user_test_functions import (has_administratif_access,
                                              has_finance_access,
                                              has_technique_access,
-                                             has_collaborateur_access)
+                                             has_collaborateur_access,
+                                             can_create_facture)
 
 def is_only_collaborator(user):
     """
@@ -38,6 +39,7 @@ def dashboard_view(request):
         'access_technique': has_technique_access(request.user),
         'access_administratif': has_administratif_access(request.user),
         'access_collaborator': has_collaborateur_access(request.user),
+        'can_create_invoice': can_create_facture(request.user),
         'is_only_collaborator': is_only_collaborator(request.user)
     })
 

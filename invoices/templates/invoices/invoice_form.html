@@ -96,33 +96,13 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">{{ form.affaire.label }}</label>
-        {{ form.affaire }}
-      </div>
-
-      <div class="form-group">
         <label class="form-label">{{ form.dossier.label }}</label>
         {{ form.dossier }}
       </div>
 
-      {% if form.collaborateur %}
-      <div class="form-group">
-        <label class="form-label">{{ form.collaborateur.label }}</label>
-        {{ form.collaborateur }}
-        {% if form.collaborateur.help_text %}
-        <small style="display: block; color: var(--text-secondary); margin-top: 0.25rem;">{{ form.collaborateur.help_text }}</small>
-        {% endif %}
-      </div>
-      {% endif %}
-
       <div class="form-group">
         <label class="form-label">{{ form.montant.label }}</label>
         {{ form.montant }}
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">{{ form.service.label }}</label>
-        {{ form.service }}
       </div>
 
       <div class="form-group">

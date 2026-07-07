@@ -20,6 +20,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from user_access.user_test_functions import (
     has_finance_access,
     has_ceo_access,
+    has_all_poles_access,
     can_read_facture,
     can_create_facture,
     can_edit_facture,
@@ -36,7 +37,26 @@ from .models import (
     InvoiceReminderSettings,
 )
 from .services.cegid import generate_cegid_export
+from .services.email import send_invoice_submission_email
 from .services.quality import get_invoice_anomalies
+
+
+USER_GROUP_TO_INVOICE_SERVICE = {
+    "POLE_DEVELOPPEMENT": "developpement",
+    "POLE_ADMINISTRATIF": "administratif",
+    "POLE_TECHNIQUE": "technique",
+    "POLE_PROMOTION": "promotion",
+    "POLE_INVESTISSEMENT": "investissement",
+    "POLE_FINANCIER": "financier",
+}
+
+
+def get_invoice_service_for_user(user):
+    group_names = set(user.groups.values_list("name", flat=True))
+    for group_name, service in USER_GROUP_TO_INVOICE_SERVICE.items():
+        if group_name in group_names:
+            return service
+    return ""
 
 
 # ================== Liste / Détail ==================
@@ -56,11 +76,16 @@ class FactureListView(FilterView):
     template_name = 'invoices/invoice_list.html'
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related('collaborateur', 'demandeur', 'dossier')
+        qs = (
+            super()
+            .get_queryset()
+            .select_related('collaborateur', 'demandeur', 'dossier')
+            .order_by('-date_soumission', '-id')
+        )
         user = self.request.user
         
-        # Si Finance ou CEO -> Tout voir
-        if has_finance_access(user) or has_ceo_access(user):
+        # Tous les pôles ont une vue d'ensemble des factures.
+        if has_all_poles_access(user):
             return qs
             
         # Sinon -> Voir seulement ses factures
@@ -225,8 +250,8 @@ class FactureDetailView(DetailView):
         qs = super().get_queryset().select_related('collaborateur', 'demandeur', 'dossier')
         user = self.request.user
         
-        # Si Finance ou CEO -> Tout voir
-        if has_finance_access(user) or has_ceo_access(user):
+        # Tous les pôles ont une vue d'ensemble des factures.
+        if has_all_poles_access(user):
             return qs
             
         # Sinon -> Voir seulement ses factures
@@ -301,10 +326,8 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         form.instance.demandeur = self.request.user
-
-        # Pour les déposants non financiers, le référent interne est le demandeur.
-        if not can_change_facture_status(self.request.user):
-            form.instance.collaborateur = self.request.user
+        form.instance.collaborateur = self.request.user
+        form.instance.service = get_invoice_service_for_user(self.request.user)
         
         response = super().form_valid(form)
         FactureHistorique.objects.create(
@@ -314,6 +337,7 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
             user=self.request.user,
             details=f"Facture créée par {self.request.user.username}"
         )
+        send_invoice_submission_email(self.object)
         return response
 
     def get_success_url(self):
