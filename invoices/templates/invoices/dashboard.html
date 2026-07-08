@@ -2,129 +2,277 @@
 {% load static %}
 
 {% block content %}
-<div style="margin-bottom: 2rem;">
-    <h2>Tableau de Bord Financier</h2>
-    <p style="color: var(--text-secondary);">Vue d'ensemble de la santé financière et des retards.</p>
-</div>
-
-<div
-    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-    <div class="card" style="border-left: 4px solid var(--primary);">
-        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Total Facturé</div>
-        <div style="font-size: 1.5rem; font-weight: 700;">{{ kpi.total_amount|floatformat:2 }} €</div>
-        <div style="font-size: 0.8rem;">{{ kpi.total_count }} factures</div>
-    </div>
-
-    <div class="card" style="border-left: 4px solid var(--success);">
-        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Payé</div>
-        <div style="font-size: 1.5rem; font-weight: 700;">{{ kpi.paid_amount|floatformat:2 }} €</div>
-        <div style="font-size: 0.8rem;">{{ kpi.paid_percent|floatformat:0 }}% du total</div>
-    </div>
-
-    <div class="card" style="border-left: 4px solid var(--warning);">
-        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">En attente</div>
-        <div style="font-size: 1.5rem; font-weight: 700;">{{ kpi.pending_amount|floatformat:2 }} €</div>
-    </div>
-
-    <div class="card" style="border-left: 4px solid var(--danger);">
-        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Retard Critique</div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: var(--danger);">{{ kpi.overdue_amount|floatformat:2 }} €
+<div class="finance-dashboard">
+    <div class="dashboard-header">
+        <div>
+            <h2>Tableau de bord financier</h2>
+            <p>Suivi des factures par échéance, société et dossier.</p>
         </div>
-        <div style="font-size: 0.8rem; color: var(--danger);">{{ kpi.overdue_count }} factures échues</div>
-    </div>
-
-    <div class="card" style="border-left: 4px solid var(--accent);">
-        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Traitement moyen</div>
-        <div style="font-size: 1.5rem; font-weight: 700;">
-            {% if kpi.avg_processing_days is not None %}
-            {{ kpi.avg_processing_days|floatformat:1 }} jours
-            {% else %}
-            —
-            {% endif %}
+        <div class="dashboard-actions">
+            <a class="btn btn-secondary" href="{% url 'invoices:list' %}">
+                <i class="bi bi-receipt"></i> Factures
+            </a>
+            <a class="btn btn-secondary" href="{% url 'invoices:anomalies' %}">
+                <i class="bi bi-exclamation-triangle"></i> Anomalies
+            </a>
         </div>
-        <div style="font-size: 0.8rem;">{{ kpi.pending_percent|floatformat:0 }}% en attente</div>
     </div>
 
-    <div class="card" style="border-left: 4px solid #64748b;">
-        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Anomalies</div>
-        <div style="font-size: 1.5rem; font-weight: 700;">{{ anomaly_count }}</div>
-        <div style="font-size: 0.8rem;"><a href="{% url 'invoices:anomalies' %}">Voir les contrôles</a></div>
+    <div class="card dashboard-filters">
+        <form method="get" class="filter-grid">
+            <div class="form-group">
+                <label class="form-label">Échéance après le</label>
+                <input type="date" name="echeance_min" value="{{ active_filters.echeance_min }}" class="form-control">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Échéance avant le</label>
+                <input type="date" name="echeance_max" value="{{ active_filters.echeance_max }}" class="form-control">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Société</label>
+                <input type="text" name="societe" value="{{ active_filters.societe }}" class="form-control" placeholder="Société">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Dossier / affaire</label>
+                <input type="text" name="dossier" value="{{ active_filters.dossier }}" class="form-control" placeholder="Référence ou libellé">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Statut</label>
+                <select name="statut" class="form-control">
+                    <option value="">Tous</option>
+                    {% for value,label in status_choices %}
+                    <option value="{{ value }}" {% if active_filters.statut == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Priorité</label>
+                <select name="priorite" class="form-control">
+                    <option value="">Toutes</option>
+                    {% for value,label in priority_choices %}
+                    <option value="{{ value }}" {% if active_filters.priorite == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> Filtrer
+                </button>
+                <a href="{{ reset_dashboard_url }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
+                </a>
+            </div>
+        </form>
     </div>
-</div>
 
-<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; margin-bottom: 2rem;">
+    <div class="kpi-grid">
+        <div class="card kpi-card kpi-primary">
+            <span>Total facturé</span>
+            <strong>{{ kpi.total_amount|floatformat:2 }} €</strong>
+            <small>{{ kpi.total_count }} factures</small>
+        </div>
+        <div class="card kpi-card kpi-success">
+            <span>Payé</span>
+            <strong>{{ kpi.paid_amount|floatformat:2 }} €</strong>
+            <small>{{ kpi.paid_percent|floatformat:0 }}% du total</small>
+        </div>
+        <div class="card kpi-card kpi-warning">
+            <span>En attente</span>
+            <strong>{{ kpi.pending_amount|floatformat:2 }} €</strong>
+            <small>{{ kpi.pending_percent|floatformat:0 }}% du total</small>
+        </div>
+        <div class="card kpi-card kpi-danger">
+            <span>Retard critique</span>
+            <strong>{{ kpi.overdue_amount|floatformat:2 }} €</strong>
+            <small>{{ kpi.overdue_count }} factures échues</small>
+        </div>
+        <div class="card kpi-card kpi-accent">
+            <span>Traitement moyen</span>
+            <strong>
+                {% if kpi.avg_processing_days is not None %}
+                {{ kpi.avg_processing_days|floatformat:1 }} jours
+                {% else %}
+                -
+                {% endif %}
+            </strong>
+            <small>Factures payées</small>
+        </div>
+        <div class="card kpi-card kpi-muted">
+            <span>Anomalies</span>
+            <strong>{{ anomaly_count }}</strong>
+            <small><a href="{% url 'invoices:anomalies' %}">Voir les contrôles</a></small>
+        </div>
+    </div>
+
+    <div class="dashboard-grid dashboard-grid-wide">
+        <div class="card">
+            <h3>Statuts des factures</h3>
+            <div class="chart-box chart-box-centered">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Évolution mensuelle des échéances</h3>
+            <div class="chart-box">
+                <canvas id="monthlyChart"></canvas>
+            </div>
+        </div>
+    </div>
+
     <div class="card">
-        <h3>Statuts des Factures</h3>
-        <div style="height: 300px; display: flex; justify-content: center;">
-            <canvas id="statusChart"></canvas>
+        <div class="section-title">
+            <h3>Sociétés</h3>
+            <span>Top 10 par montant total</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Société</th>
+                        <th>Total</th>
+                        <th>En attente</th>
+                        <th>En retard</th>
+                        <th>Factures</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for company in company_rows %}
+                    <tr>
+                        <td class="strong-cell">{{ company.societe }}</td>
+                        <td>{{ company.total|floatformat:2 }} €</td>
+                        <td>{{ company.pending_total|floatformat:2 }} €</td>
+                        <td class="{% if company.overdue_total %}danger-cell{% endif %}">
+                            {{ company.overdue_total|floatformat:2 }} €
+                        </td>
+                        <td>{{ company.count }}</td>
+                        <td>
+                            <a href="{{ company.invoice_url }}" class="btn btn-sm btn-secondary">Voir</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="empty-cell">Aucune société à afficher.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 
     <div class="card">
-        <h3>Évolution Mensuelle (Échéances)</h3>
-        <div style="height: 300px;">
-            <canvas id="monthlyChart"></canvas>
+        <div class="section-title">
+            <h3>Dossiers / affaires</h3>
+            <span>Dossiers avec factures ouvertes, urgentes ou en retard</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Dossier</th>
+                        <th>Total</th>
+                        <th>Ouvertes</th>
+                        <th>En retard</th>
+                        <th>Urgentes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for project in project_rows %}
+                    <tr>
+                        <td class="strong-cell">{{ project.label }}</td>
+                        <td>{{ project.total|floatformat:2 }} €</td>
+                        <td>{{ project.open_count }}</td>
+                        <td class="{% if project.overdue_count %}danger-cell{% endif %}">
+                            {{ project.overdue_total|floatformat:2 }} €
+                            <span class="subtle-count">({{ project.overdue_count }})</span>
+                        </td>
+                        <td>{{ project.urgent_count }}</td>
+                        <td class="row-actions">
+                            <a href="{{ project.invoice_url }}" class="btn btn-sm btn-secondary">Factures</a>
+                            <a href="{{ project.project_url }}" class="btn btn-sm btn-secondary">Dossier</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="empty-cell">Aucun dossier à afficher.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-</div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-<div class="card">
-    <h3>Fournisseurs à Risque</h3>
-    <div class="table-responsive">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Fournisseur</th>
-                    <th>Montant en Retard</th>
-                    <th>Nombre de Factures</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for supplier in risky_suppliers %}
-                <tr>
-                    <td style="font-weight: 600;">{{ supplier.fournisseur }}</td>
-                    <td style="color: var(--danger);">{{ supplier.total_retard|floatformat:2 }} €</td>
-                    <td>{{ supplier.count_retard }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="3" style="text-align: center; color: var(--text-secondary);">Aucun fournisseur à risque
-                        détecté.</td>
-                </tr>
+    <div class="dashboard-grid">
+        <div class="card">
+            <h3>Alertes métier</h3>
+            <div class="alert-list">
+                {% for alert in business_alerts %}
+                <a href="{{ alert.url }}" class="business-alert business-alert-{{ alert.severity }}">
+                    <span>{{ alert.label }}</span>
+                    <strong>{{ alert.count }}</strong>
+                </a>
                 {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+            </div>
+        </div>
 
-<div class="card">
-    <h3>Top 10 Fournisseurs</h3>
-    <div class="table-responsive">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Fournisseur</th>
-                    <th>Montant total</th>
-                    <th>Factures</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for supplier in top_suppliers %}
-                <tr>
-                    <td style="font-weight: 600;">{{ supplier.fournisseur }}</td>
-                    <td>{{ supplier.total|floatformat:2 }} €</td>
-                    <td>{{ supplier.count }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="3" style="text-align: center; color: var(--text-secondary);">Aucune donnée fournisseur.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="card">
+            <h3>Fournisseurs à risque</h3>
+            <div class="table-responsive">
+                <table class="table dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Fournisseur</th>
+                            <th>Retard</th>
+                            <th>Factures</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for supplier in risky_suppliers %}
+                        <tr>
+                            <td class="strong-cell">{{ supplier.fournisseur__nom|default:supplier.fournisseur }}</td>
+                            <td class="danger-cell">{{ supplier.total_retard|floatformat:2 }} €</td>
+                            <td>{{ supplier.count_retard }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="empty-cell">Aucun fournisseur à risque détecté.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-</div>
+
+    <div class="card">
+        <h3>Top 10 fournisseurs</h3>
+        <div class="table-responsive">
+            <table class="table dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Fournisseur</th>
+                        <th>Montant total</th>
+                        <th>Factures</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for supplier in top_suppliers %}
+                    <tr>
+                        <td class="strong-cell">{{ supplier.fournisseur__nom|default:supplier.fournisseur }}</td>
+                        <td>{{ supplier.total|floatformat:2 }} €</td>
+                        <td>{{ supplier.count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="empty-cell">Aucune donnée fournisseur.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 {{ chart_status.labels|json_script:"status-labels-data" }}
@@ -132,24 +280,192 @@
 {{ chart_monthly.labels|json_script:"monthly-labels-data" }}
 {{ chart_monthly.data|json_script:"monthly-values-data" }}
 
+<style>
+    .finance-dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .dashboard-header,
+    .section-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .dashboard-header h2,
+    .section-title h3,
+    .finance-dashboard h3 {
+        margin: 0;
+    }
+
+    .dashboard-header p,
+    .section-title span {
+        color: var(--text-secondary);
+        margin: 0.35rem 0 0;
+    }
+
+    .dashboard-actions,
+    .row-actions,
+    .filter-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .dashboard-filters {
+        padding: 1rem;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .filter-grid .form-group {
+        margin: 0;
+    }
+
+    .filter-grid .form-label {
+        font-size: 0.8rem;
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+
+    .kpi-card {
+        border-left: 4px solid var(--border-light);
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        min-height: 112px;
+    }
+
+    .kpi-card span,
+    .kpi-card small {
+        color: var(--text-secondary);
+    }
+
+    .kpi-card strong {
+        font-size: 1.35rem;
+        line-height: 1.25;
+    }
+
+    .kpi-primary { border-left-color: var(--primary); }
+    .kpi-success { border-left-color: var(--success); }
+    .kpi-warning { border-left-color: var(--warning); }
+    .kpi-danger { border-left-color: var(--danger); }
+    .kpi-danger strong { color: var(--danger); }
+    .kpi-accent { border-left-color: var(--accent); }
+    .kpi-muted { border-left-color: #64748b; }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .dashboard-grid-wide {
+        grid-template-columns: minmax(280px, 1fr) minmax(360px, 2fr);
+    }
+
+    .chart-box {
+        height: 300px;
+    }
+
+    .chart-box-centered {
+        display: flex;
+        justify-content: center;
+    }
+
+    .dashboard-table th,
+    .dashboard-table td {
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .strong-cell {
+        font-weight: 600;
+    }
+
+    .danger-cell {
+        color: var(--danger);
+        font-weight: 600;
+    }
+
+    .subtle-count {
+        color: var(--text-secondary);
+        font-weight: 400;
+    }
+
+    .empty-cell {
+        text-align: center;
+        color: var(--text-secondary);
+        padding: 1.5rem;
+    }
+
+    .alert-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .business-alert {
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        color: var(--text-main);
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.85rem 1rem;
+        text-decoration: none;
+    }
+
+    .business-alert strong {
+        font-size: 1.1rem;
+    }
+
+    .business-alert-warning {
+        border-left: 4px solid var(--warning);
+    }
+
+    .business-alert-danger {
+        border-left: 4px solid var(--danger);
+    }
+
+    @media (max-width: 860px) {
+        .dashboard-header,
+        .section-title {
+            flex-direction: column;
+        }
+
+        .dashboard-grid-wide {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-
-        // Fonction pour récupérer les données JSON proprement
         function getDjangoData(id) {
             const element = document.getElementById(id);
             if (!element) return [];
             return JSON.parse(element.textContent);
         }
 
-        // Récupération des données
         const statusLabels = getDjangoData('status-labels-data');
         const statusData = getDjangoData('status-values-data');
         const monthLabels = getDjangoData('monthly-labels-data');
         const monthData = getDjangoData('monthly-values-data');
 
-        // --- Statut facture ---
         const ctxStatusElement = document.getElementById('statusChart');
         if (ctxStatusElement) {
             new Chart(ctxStatusElement.getContext('2d'), {
@@ -158,13 +474,7 @@
                     labels: statusLabels,
                     datasets: [{
                         data: statusData,
-                        backgroundColor: [
-                            '#10b981', // Payée
-                            '#3b82f6', // En cours
-                            '#ef4444', // Retard
-                            '#f59e0b', // Autre
-                            '#64748b'  // Gris
-                        ],
+                        backgroundColor: ['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#64748b'],
                         borderWidth: 1
                     }]
                 },
@@ -178,7 +488,6 @@
             });
         }
 
-        // --- Barre mensuelle ---
         const ctxMonthElement = document.getElementById('monthlyChart');
         if (ctxMonthElement) {
             new Chart(ctxMonthElement.getContext('2d'), {
@@ -186,7 +495,7 @@
                 data: {
                     labels: monthLabels,
                     datasets: [{
-                        label: 'Montant à Payer (€)',
+                        label: 'Montant à payer (€)',
                         data: monthData,
                         backgroundColor: '#3b82f6',
                         borderRadius: 4

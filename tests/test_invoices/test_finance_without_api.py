@@ -188,6 +188,120 @@ def test_average_processing_days_uses_history(invoice):
 
 
 @pytest.mark.django_db
+def test_finance_dashboard_groups_invoices_by_company_and_project(client, finance_user, invoice, supplier, client_entity):
+    project_2 = TechnicalProject.objects.create(reference="TECH-002", name="Projet Second")
+    Facture.objects.create(
+        id="FAC-002",
+        numero_facture="FA-2026-002",
+        societe="Benjamin Immobilier",
+        affaire="Ancien libellé",
+        dossier=invoice.dossier,
+        fournisseur=supplier,
+        client=client_entity,
+        montant=1000,
+        statut="received",
+        service="technique",
+        echeance=timezone.now() - timedelta(days=2),
+        priorite="urgent",
+        titre="Facture en retard",
+    )
+    Facture.objects.create(
+        id="FAC-003",
+        numero_facture="FA-2026-003",
+        societe="Autre Société",
+        affaire=str(project_2),
+        dossier=project_2,
+        fournisseur=supplier,
+        client=client_entity,
+        montant=300,
+        statut="paid",
+        service="promotion",
+        echeance=timezone.now() + timedelta(days=10),
+        priorite="normal",
+        titre="Facture payée",
+    )
+    Facture.objects.create(
+        id="FAC-004",
+        numero_facture="FA-2026-004",
+        societe="",
+        affaire="Sans dossier",
+        dossier=None,
+        fournisseur=supplier,
+        client=client_entity,
+        montant=50,
+        statut="ongoing",
+        service="administratif",
+        echeance=timezone.now() + timedelta(days=5),
+        priorite="normal",
+        titre="Facture incomplète",
+    )
+    client.force_login(finance_user)
+
+    response = client.get("/finance/dashboard/")
+
+    assert response.status_code == 200
+    company_rows = {row["societe"]: row for row in response.context["company_rows"]}
+    assert company_rows["Benjamin Immobilier"]["count"] == 2
+    assert company_rows["Benjamin Immobilier"]["total"] == 2234.5
+    assert company_rows["Benjamin Immobilier"]["overdue_total"] == 1000
+
+    project_rows = {row["dossier__reference"]: row for row in response.context["project_rows"]}
+    assert project_rows["TECH-001"]["open_count"] == 2
+    assert project_rows["TECH-001"]["urgent_count"] == 1
+    assert project_rows["TECH-001"]["overdue_count"] == 1
+
+    alert_counts = {alert["label"]: alert["count"] for alert in response.context["business_alerts"]}
+    assert alert_counts["Factures sans société"] == 1
+    assert alert_counts["Factures sans dossier"] == 1
+    assert alert_counts["Affaire différente du dossier lié"] == 2
+    assert alert_counts["Dossiers avec factures en retard"] == 1
+    assert b"/finance/?societe=Benjamin+Immobilier" in response.content
+    assert b"/finance/?dossier=TECH-001" in response.content
+    assert f"/pole-technique/dossiers/{invoice.dossier.pk}/".encode() in response.content
+
+
+@pytest.mark.django_db
+def test_finance_dashboard_filters_company_and_project(client, finance_user, invoice, supplier, client_entity):
+    project_2 = TechnicalProject.objects.create(reference="TECH-002", name="Projet Second")
+    Facture.objects.create(
+        id="FAC-002",
+        numero_facture="FA-2026-002",
+        societe="Autre Société",
+        affaire=str(project_2),
+        dossier=project_2,
+        fournisseur=supplier,
+        client=client_entity,
+        montant=300,
+        statut="paid",
+        service="promotion",
+        echeance=timezone.now() + timedelta(days=10),
+        priorite="normal",
+        titre="Facture payée",
+    )
+    client.force_login(finance_user)
+
+    response = client.get("/finance/dashboard/", {"societe": "Benjamin", "dossier": "TECH-001"})
+
+    assert response.status_code == 200
+    assert response.context["kpi"]["total_count"] == 1
+    assert response.context["company_rows"][0]["societe"] == "Benjamin Immobilier"
+    assert response.context["project_rows"][0]["dossier__reference"] == "TECH-001"
+    assert b"Autre Soci" not in response.content
+
+
+@pytest.mark.django_db
+def test_finance_dashboard_stays_finance_only(client):
+    group, _ = Group.objects.get_or_create(name="POLE_TECHNIQUE")
+    user = User.objects.create_user(username="technique-dashboard", email="technique-dashboard@example.com")
+    user.groups.add(group)
+    client.force_login(user)
+
+    response = client.get("/finance/dashboard/")
+
+    assert response.status_code == 302
+
+
+@pytest.mark.django_db
 def test_promotion_user_can_create_invoice_without_collaborateur_role(client, project):
     group, _ = Group.objects.get_or_create(name="POLE_PROMOTION")
     user = User.objects.create_user(username="promotion", email="promotion@example.com")
