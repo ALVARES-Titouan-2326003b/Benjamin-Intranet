@@ -9,6 +9,32 @@
 
 {% block content %}
 {{ projets|json_script:"admin-projects-data" }}
+{{ custom_fields|json_script:"admin-custom-fields-data" }}
+
+<div class="card admin-projects-card">
+   <div class="card-title">
+      <span><i class="bi bi-ui-checks-grid"></i> Champs personnalisés</span>
+      <button id="add-custom-field-btn" class="btn btn-secondary" type="button">
+         <i class="bi bi-plus-circle"></i> Nouveau champ
+      </button>
+   </div>
+
+   <div class="table-responsive project-table-wrap">
+      <table class="table project-table">
+         <thead>
+            <tr>
+               <th>Libellé</th>
+               <th>Activité</th>
+               <th>Type</th>
+               <th>Affichage</th>
+               <th>Statut</th>
+               <th>Actions</th>
+            </tr>
+         </thead>
+         <tbody id="custom-fields-table-body"></tbody>
+      </table>
+   </div>
+</div>
 
 <div class="card admin-projects-card">
    <div class="card-title">
@@ -120,7 +146,7 @@
    <div class="table-responsive project-table-wrap">
       <table class="table project-table">
          <thead>
-            <tr>
+            <tr id="projects-table-head">
                <th>Référence</th>
                <th>Affaire</th>
                <th>Type</th>
@@ -341,6 +367,11 @@
             <textarea id="project-releves-compte" class="form-control" rows="2"></textarea>
          </div>
 
+         <div id="project-custom-fields-section" style="display:none;border-top:1px solid #e5e7eb;margin-top:1rem;padding-top:1rem;">
+            <h4 style="font-size:1rem;color:#1e3c72;margin-bottom:.75rem;">Champs personnalisés</h4>
+            <div id="project-custom-fields-container" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;"></div>
+         </div>
+
          <div id="project-form-status" style="display:none;"></div>
 
          <div style="display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap;">
@@ -357,8 +388,75 @@
       </form>
    </div>
 </div>
+
+<div id="custom-field-modal" class="activity-modal" style="display:none;">
+   <div class="activity-modal-content project-modal-content">
+      <div class="activity-modal-header">
+         <h3 id="custom-field-modal-title"><i class="bi bi-ui-checks-grid"></i> Nouveau champ personnalisé</h3>
+         <button id="close-custom-field-modal-btn" class="activity-modal-close" type="button">&times;</button>
+      </div>
+
+      <form id="custom-field-form" class="activity-form">
+         {% csrf_token %}
+         <input type="hidden" id="custom-field-id">
+
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
+            <div class="form-group">
+               <label class="form-label">Libellé *</label>
+               <input type="text" id="custom-field-label" class="form-control" required placeholder="Ex. Notaire référent">
+            </div>
+            <div class="form-group">
+               <label class="form-label">Type *</label>
+               <select id="custom-field-type" class="form-control" required>
+                  <option value="text">Texte</option>
+                  <option value="date">Date</option>
+                  <option value="amount">Montant</option>
+                  <option value="number">Nombre</option>
+                  <option value="checkbox">Case à cocher</option>
+                  <option value="choice">Liste de choix</option>
+               </select>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Activité métier</label>
+               <select id="custom-field-activite-metier" class="form-control">
+                  <option value="">Toutes les activités</option>
+                  {% for value, label in activite_metier_choices %}
+                  <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+               </select>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Ordre</label>
+               <input type="number" id="custom-field-sort-order" class="form-control" min="0" step="1" value="0">
+            </div>
+         </div>
+
+         <div class="form-group" id="custom-field-choices-group" style="display:none;">
+            <label class="form-label">Choix possibles</label>
+            <textarea id="custom-field-choices" class="form-control" rows="4" placeholder="Un choix par ligne"></textarea>
+         </div>
+
+         <div style="display:flex;gap:1rem;flex-wrap:wrap;margin:.5rem 0 1rem;">
+            <label><input type="checkbox" id="custom-field-show-detail" checked> Fiche dossier</label>
+            <label><input type="checkbox" id="custom-field-show-table"> Tableau</label>
+            <label><input type="checkbox" id="custom-field-active" checked> Actif</label>
+         </div>
+
+         <div id="custom-field-form-status" style="display:none;"></div>
+
+         <div style="display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap;">
+            <button type="submit" class="btn btn-primary" style="flex:1;">
+               <i class="bi bi-check-lg"></i> Enregistrer
+            </button>
+            <button type="button" id="cancel-custom-field-btn" class="btn btn-secondary" style="flex:0 0 auto;">
+               Annuler
+            </button>
+         </div>
+      </form>
+   </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static '/js/admin_projects.js' %}?v=5"></script>
+<script src="{% static '/js/admin_projects.js' %}?v=6"></script>
 {% endblock %}

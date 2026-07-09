@@ -1,8 +1,11 @@
 (function() {
     const dataNode = document.getElementById('admin-projects-data');
+    const customFieldsNode = document.getElementById('admin-custom-fields-data');
     let projects = dataNode ? JSON.parse(dataNode.textContent) : [];
+    let customFields = customFieldsNode ? JSON.parse(customFieldsNode.textContent) : [];
 
     const tbody = document.getElementById('projects-table-body');
+    const tableHead = document.getElementById('projects-table-head');
     const emptyState = document.getElementById('projects-empty-state');
     const searchInput = document.getElementById('project-search');
     const typeFilter = document.getElementById('project-type-filter');
@@ -23,6 +26,15 @@
     const cancelBtn = document.getElementById('cancel-project-btn');
     const deleteBtn = document.getElementById('delete-project-btn');
     const activityScopeElements = document.querySelectorAll('[data-activity-scope]');
+    const projectCustomFieldsSection = document.getElementById('project-custom-fields-section');
+    const projectCustomFieldsContainer = document.getElementById('project-custom-fields-container');
+    const customFieldsTbody = document.getElementById('custom-fields-table-body');
+    const customFieldModal = document.getElementById('custom-field-modal');
+    const customFieldForm = document.getElementById('custom-field-form');
+    const customFieldStatus = document.getElementById('custom-field-form-status');
+    const addCustomFieldBtn = document.getElementById('add-custom-field-btn');
+    const closeCustomFieldBtn = document.getElementById('close-custom-field-modal-btn');
+    const cancelCustomFieldBtn = document.getElementById('cancel-custom-field-btn');
 
     const fields = {
         id: document.getElementById('project-id'),
@@ -65,6 +77,20 @@
         title: document.getElementById('project-modal-title'),
     };
 
+    const customFieldInputs = {
+        id: document.getElementById('custom-field-id'),
+        title: document.getElementById('custom-field-modal-title'),
+        label: document.getElementById('custom-field-label'),
+        type: document.getElementById('custom-field-type'),
+        activiteMetier: document.getElementById('custom-field-activite-metier'),
+        sortOrder: document.getElementById('custom-field-sort-order'),
+        choices: document.getElementById('custom-field-choices'),
+        choicesGroup: document.getElementById('custom-field-choices-group'),
+        showDetail: document.getElementById('custom-field-show-detail'),
+        showTable: document.getElementById('custom-field-show-table'),
+        active: document.getElementById('custom-field-active'),
+    };
+
     function csrftoken() {
         const row = document.cookie.split('; ').find(item => item.startsWith('csrftoken='));
         return row ? decodeURIComponent(row.split('=')[1]) : '';
@@ -97,8 +123,147 @@
         status.style.display = 'none';
     }
 
+    function showCustomFieldStatus(message, isError) {
+        customFieldStatus.textContent = message;
+        customFieldStatus.className = isError ? 'project-status error' : 'project-status success';
+        customFieldStatus.style.display = 'block';
+    }
+
+    function clearCustomFieldStatus() {
+        customFieldStatus.textContent = '';
+        customFieldStatus.className = '';
+        customFieldStatus.style.display = 'none';
+    }
+
+    function fieldMatchesActivity(field, activiteMetier) {
+        return !field.activite_metier || field.activite_metier === activiteMetier;
+    }
+
+    function activeCustomFields(activiteMetier) {
+        return customFields
+            .filter(field => field.is_active && (activiteMetier === undefined || fieldMatchesActivity(field, activiteMetier)))
+            .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || a.label.localeCompare(b.label));
+    }
+
+    function tableCustomFields() {
+        return activeCustomFields().filter(field => field.show_in_table);
+    }
+
+    function customDisplayValue(field, value) {
+        if (value === undefined || value === null || value === '') return '';
+        if (field.field_type === 'checkbox') return ['true', '1', 'on', 'yes', 'oui'].includes(String(value).toLowerCase()) ? 'Oui' : 'Non';
+        if (field.field_type === 'amount') return money(value);
+        return String(value);
+    }
+
+    function renderProjectsHeader() {
+        if (!tableHead) return;
+        const customHeaders = tableCustomFields()
+            .map(field => `<th>${escapeHtml(field.label)}</th>`)
+            .join('');
+        tableHead.innerHTML = `
+            <th>Référence</th>
+            <th>Affaire</th>
+            <th>Type</th>
+            <th>Activité</th>
+            <th>État</th>
+            <th>Catégorie</th>
+            <th>Prix</th>
+            ${customHeaders}
+            <th>Activités</th>
+            <th>Actions</th>
+        `;
+    }
+
+    function renderCustomFieldsManager() {
+        if (!customFieldsTbody) return;
+        const sortedFields = [...customFields].sort(
+            (a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || a.label.localeCompare(b.label)
+        );
+        customFieldsTbody.innerHTML = sortedFields.map(field => {
+            const displays = [
+                field.show_in_detail ? 'Fiche' : '',
+                field.show_in_table ? 'Tableau' : '',
+            ].filter(Boolean).join(' + ') || '-';
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(field.label)}</strong></td>
+                    <td>${escapeHtml(field.activite_metier_label || 'Toutes les activités')}</td>
+                    <td>${escapeHtml(field.field_type_label || field.field_type)}</td>
+                    <td>${escapeHtml(displays)}</td>
+                    <td>${field.is_active ? '<span class="status-badge">Actif</span>' : '<span class="status-badge" style="background:#fee2e2;color:#991b1b;">Désactivé</span>'}</td>
+                    <td style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                        <button type="button" class="btn btn-secondary custom-field-edit-btn" data-field-id="${field.id}">
+                            <i class="bi bi-pencil-square"></i> Modifier
+                        </button>
+                        <button type="button" class="btn btn-secondary custom-field-toggle-btn" data-field-id="${field.id}">
+                            <i class="bi ${field.is_active ? 'bi-eye-slash' : 'bi-eye'}"></i> ${field.is_active ? 'Désactiver' : 'Réactiver'}
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('') || `
+            <tr>
+                <td colspan="6" style="text-align:center;color:var(--text-secondary);padding:1rem;">
+                    Aucun champ personnalisé.
+                </td>
+            </tr>
+        `;
+    }
+
+    function inputTypeForField(field) {
+        if (field.field_type === 'date') return 'date';
+        if (field.field_type === 'amount' || field.field_type === 'number') return 'number';
+        return 'text';
+    }
+
+    function renderProjectCustomFields(project) {
+        if (!projectCustomFieldsContainer || !projectCustomFieldsSection) return;
+        const selectedActivity = fields.activiteMetier?.value || project?.activite_metier || '';
+        const fieldsToRender = activeCustomFields(selectedActivity);
+        projectCustomFieldsSection.style.display = fieldsToRender.length ? 'block' : 'none';
+        projectCustomFieldsContainer.innerHTML = fieldsToRender.map(field => {
+            const value = project?.custom_fields?.[String(field.id)] || '';
+            if (field.field_type === 'checkbox') {
+                const checked = ['true', '1', 'on', 'yes', 'oui'].includes(String(value).toLowerCase()) ? 'checked' : '';
+                return `
+                    <div class="form-group">
+                        <label class="form-label">${escapeHtml(field.label)}</label>
+                        <label style="display:flex;align-items:center;gap:.5rem;margin-top:.65rem;">
+                            <input type="checkbox" class="project-custom-field" data-field-id="${field.id}" ${checked}>
+                            Oui
+                        </label>
+                    </div>
+                `;
+            }
+            if (field.field_type === 'choice') {
+                const options = (field.choices || []).map(choice => `
+                    <option value="${escapeHtml(choice)}" ${choice === value ? 'selected' : ''}>${escapeHtml(choice)}</option>
+                `).join('');
+                return `
+                    <div class="form-group">
+                        <label class="form-label">${escapeHtml(field.label)}</label>
+                        <select class="form-control project-custom-field" data-field-id="${field.id}">
+                            <option value="">-- Aucun --</option>
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            }
+            const step = field.field_type === 'amount' ? '0.01' : (field.field_type === 'number' ? 'any' : '');
+            return `
+                <div class="form-group">
+                    <label class="form-label">${escapeHtml(field.label)}</label>
+                    <input type="${inputTypeForField(field)}" class="form-control project-custom-field"
+                           data-field-id="${field.id}" value="${escapeHtml(value)}" ${step ? `step="${step}"` : ''}>
+                </div>
+            `;
+        }).join('');
+    }
+
     function renderProjects() {
         if (!tbody) return;
+        renderProjectsHeader();
         const q = (searchInput?.value || '').trim().toLowerCase();
         const selectedType = typeFilter?.value || '';
         const selectedActivite = activiteFilter?.value || '';
@@ -148,7 +313,11 @@
                 && matchesActivities;
         });
 
-        tbody.innerHTML = filtered.map(project => `
+        tbody.innerHTML = filtered.map(project => {
+            const customCells = tableCustomFields().map(field => `
+                <td>${fieldMatchesActivity(field, project.activite_metier) ? escapeHtml(customDisplayValue(field, project.custom_fields?.[String(field.id)])) : ''}</td>
+            `).join('');
+            return `
             <tr>
                 <td><strong>${escapeHtml(project.reference)}</strong></td>
                 <td>${escapeHtml(project.affaire || project.name)}</td>
@@ -157,6 +326,7 @@
                 <td>${escapeHtml(project.etat_label)}</td>
                 <td>${escapeHtml(project.categorie_label || 'Non classé')}</td>
                 <td>${money(project.prix)}</td>
+                ${customCells}
                 <td>${project.activities_count || 0}</td>
                 <td style="display:flex;gap:.5rem;flex-wrap:wrap;">
                     <a class="btn btn-secondary" href="/administratif/dossiers/${project.id}/">
@@ -167,7 +337,8 @@
                     </button>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
 
         if (emptyState) {
             emptyState.style.display = filtered.length ? 'none' : 'block';
@@ -244,6 +415,7 @@
         setValue(fields.dateReiteration, project?.date_reiteration);
         setValue(fields.acte, project?.acte);
         setValue(fields.relevesCompte, project?.releves_compte);
+        renderProjectCustomFields(project);
         syncActivityFields();
         fields.title.innerHTML = project
             ? '<i class="bi bi-pencil-square"></i> Modifier le dossier'
@@ -260,6 +432,10 @@
     }
 
     function buildPayload() {
+        const customFieldValues = {};
+        document.querySelectorAll('.project-custom-field').forEach(input => {
+            customFieldValues[input.dataset.fieldId] = input.type === 'checkbox' ? input.checked : input.value;
+        });
         return {
             reference: fields.reference.value,
             affaire: fields.affaire.value,
@@ -297,6 +473,7 @@
             date_reiteration: fields.dateReiteration.value,
             acte: fields.acte.value,
             releves_compte: fields.relevesCompte.value,
+            custom_fields: customFieldValues,
         };
     }
 
@@ -356,14 +533,127 @@
         }
     }
 
+    function syncCustomFieldType() {
+        const isChoice = customFieldInputs.type?.value === 'choice';
+        if (customFieldInputs.choicesGroup) {
+            customFieldInputs.choicesGroup.style.display = isChoice ? 'block' : 'none';
+        }
+    }
+
+    function openCustomFieldModal(field) {
+        clearCustomFieldStatus();
+        setValue(customFieldInputs.id, field?.id);
+        setValue(customFieldInputs.label, field?.label);
+        setValue(customFieldInputs.type, field?.field_type || 'text');
+        setValue(customFieldInputs.activiteMetier, field?.activite_metier || '');
+        setValue(customFieldInputs.sortOrder, field?.sort_order || '0');
+        setValue(customFieldInputs.choices, field?.choices_text || (field?.choices || []).join('\n'));
+        customFieldInputs.showDetail.checked = field ? Boolean(field.show_in_detail) : true;
+        customFieldInputs.showTable.checked = field ? Boolean(field.show_in_table) : false;
+        customFieldInputs.active.checked = field ? Boolean(field.is_active) : true;
+        customFieldInputs.title.innerHTML = field
+            ? '<i class="bi bi-pencil-square"></i> Modifier le champ personnalisé'
+            : '<i class="bi bi-ui-checks-grid"></i> Nouveau champ personnalisé';
+        syncCustomFieldType();
+        customFieldModal.style.display = 'flex';
+        customFieldInputs.label.focus();
+    }
+
+    function closeCustomFieldModal() {
+        customFieldModal.style.display = 'none';
+        customFieldForm.reset();
+        clearCustomFieldStatus();
+        syncCustomFieldType();
+    }
+
+    function buildCustomFieldPayload(override) {
+        return {
+            label: customFieldInputs.label.value,
+            field_type: customFieldInputs.type.value,
+            activite_metier: customFieldInputs.activiteMetier.value,
+            sort_order: customFieldInputs.sortOrder.value || '0',
+            choices: customFieldInputs.choices.value,
+            show_in_detail: customFieldInputs.showDetail.checked,
+            show_in_table: customFieldInputs.showTable.checked,
+            is_active: customFieldInputs.active.checked,
+            ...(override || {}),
+        };
+    }
+
+    async function saveCustomField(payload, id) {
+        const url = id ? `/api/admin-custom-fields/${id}/update/` : '/api/admin-custom-fields/create/';
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken(),
+            },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message || 'Enregistrement impossible');
+        const field = data.field;
+        const existingIndex = customFields.findIndex(item => String(item.id) === String(field.id));
+        if (existingIndex >= 0) {
+            customFields[existingIndex] = field;
+        } else {
+            customFields.push(field);
+        }
+        renderCustomFieldsManager();
+        renderProjects();
+    }
+
+    async function submitCustomField(event) {
+        event.preventDefault();
+        clearCustomFieldStatus();
+        const id = customFieldInputs.id.value;
+        try {
+            await saveCustomField(buildCustomFieldPayload(), id);
+            closeCustomFieldModal();
+        } catch (error) {
+            showCustomFieldStatus(error.message, true);
+        }
+    }
+
+    async function toggleCustomField(field) {
+        try {
+            await saveCustomField(
+                {
+                    label: field.label,
+                    field_type: field.field_type,
+                    activite_metier: field.activite_metier || '',
+                    choices: field.choices_text || (field.choices || []).join('\n'),
+                    show_in_detail: field.show_in_detail,
+                    show_in_table: field.show_in_table,
+                    is_active: !field.is_active,
+                    sort_order: field.sort_order || 0,
+                },
+                field.id
+            );
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
     addBtn?.addEventListener('click', () => openProjectModal(null));
     closeBtn?.addEventListener('click', closeProjectModal);
     cancelBtn?.addEventListener('click', closeProjectModal);
     form?.addEventListener('submit', submitProject);
     deleteBtn?.addEventListener('click', deleteProject);
+    addCustomFieldBtn?.addEventListener('click', () => openCustomFieldModal(null));
+    closeCustomFieldBtn?.addEventListener('click', closeCustomFieldModal);
+    cancelCustomFieldBtn?.addEventListener('click', closeCustomFieldModal);
+    customFieldForm?.addEventListener('submit', submitCustomField);
+    customFieldInputs.type?.addEventListener('change', syncCustomFieldType);
     searchInput?.addEventListener('input', renderProjects);
-    fields.activiteMetier?.addEventListener('input', syncActivityFields);
-    fields.activiteMetier?.addEventListener('change', syncActivityFields);
+    fields.activiteMetier?.addEventListener('input', () => {
+        syncActivityFields();
+        renderProjectCustomFields(null);
+    });
+    fields.activiteMetier?.addEventListener('change', () => {
+        syncActivityFields();
+        renderProjectCustomFields(null);
+    });
     activiteFilter?.addEventListener('input', () => {
         renderProjects();
     });
@@ -385,6 +675,20 @@
     });
     resetFiltersBtn?.addEventListener('click', resetFilters);
 
+    customFieldsTbody?.addEventListener('click', event => {
+        const editBtn = event.target.closest('.custom-field-edit-btn');
+        const toggleBtn = event.target.closest('.custom-field-toggle-btn');
+        const button = editBtn || toggleBtn;
+        if (!button) return;
+        const field = customFields.find(item => String(item.id) === String(button.dataset.fieldId));
+        if (!field) return;
+        if (editBtn) {
+            openCustomFieldModal(field);
+        } else {
+            toggleCustomField(field);
+        }
+    });
+
     tbody?.addEventListener('click', event => {
         const btn = event.target.closest('.project-edit-btn');
         if (!btn) return;
@@ -396,6 +700,12 @@
         if (event.target === modal) closeProjectModal();
     });
 
+    customFieldModal?.addEventListener('click', event => {
+        if (event.target === customFieldModal) closeCustomFieldModal();
+    });
+
     syncActivityFields();
+    syncCustomFieldType();
+    renderCustomFieldsManager();
     renderProjects();
 })();

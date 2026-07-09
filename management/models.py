@@ -120,6 +120,78 @@ class CategorieDossierAdministratif(models.Model):
         return self.nom
 
 
+class ChampPersonnaliseDossier(models.Model):
+    FIELD_TYPES = [
+        ("text", "Texte"),
+        ("date", "Date"),
+        ("amount", "Montant"),
+        ("number", "Nombre"),
+        ("checkbox", "Case à cocher"),
+        ("choice", "Liste de choix"),
+    ]
+    ACTIVITES_METIER = [
+        ("", "Toutes les activités"),
+        ("marchand_biens", "Marchands de bien"),
+        ("promotion_immobiliere", "Promotion immobilière"),
+        ("patrimoine", "Patrimoine"),
+    ]
+
+    label = models.CharField("Libellé", max_length=120, unique=True)
+    activite_metier = models.CharField(
+        "Activité métier",
+        max_length=40,
+        choices=ACTIVITES_METIER,
+        blank=True,
+        default="",
+    )
+    field_type = models.CharField("Type de saisie", max_length=20, choices=FIELD_TYPES, default="text")
+    choices = models.TextField("Choix possibles", blank=True)
+    show_in_detail = models.BooleanField("Afficher dans la fiche dossier", default=True)
+    show_in_table = models.BooleanField("Afficher dans le tableau", default=False)
+    is_active = models.BooleanField("Actif", default=True)
+    sort_order = models.PositiveSmallIntegerField("Ordre", default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "champ_personnalise_dossier"
+        ordering = ["sort_order", "label"]
+
+    def __str__(self):
+        return self.label
+
+    @property
+    def choice_list(self):
+        return [choice.strip() for choice in self.choices.splitlines() if choice.strip()]
+
+
+class ValeurChampPersonnaliseDossier(models.Model):
+    dossier = models.ForeignKey(
+        "technique.TechnicalProject",
+        on_delete=models.CASCADE,
+        related_name="custom_field_values",
+    )
+    field = models.ForeignKey(
+        ChampPersonnaliseDossier,
+        on_delete=models.CASCADE,
+        related_name="values",
+    )
+    value = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "valeur_champ_personnalise_dossier"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["dossier", "field"],
+                name="uniq_valeur_champ_personnalise_dossier",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.dossier_id} - {self.field}"
+
+
 class AdministrativeProject(models.Model):
     PROJECT_TYPES = [
         ("client", "Client"),

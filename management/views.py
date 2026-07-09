@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import traceback
 import unicodedata
 from datetime import date, datetime, timedelta, timezone as dt_timezone
@@ -8,6 +9,7 @@ from xml.sax.saxutils import escape
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -36,11 +38,13 @@ from .email_manager import (
 from .models import (
     Activite,
     CategorieDossierAdministratif,
+    ChampPersonnaliseDossier,
     NotificationInterne,
     RegleRappelActivite,
     TypeActivite,
     GmailConversation,
     GmailConversationEvent,
+    ValeurChampPersonnaliseDossier,
 )
 from .gmail_service import (
     send_conversation_reminder,
@@ -281,9 +285,26 @@ def _admin_project_queryset_from_request(request):
     return queryset
 
 
-def _admin_project_export_row(project):
+def _admin_project_export_columns():
+    columns = list(ADMIN_PROJECT_EXPORT_COLUMNS)
+    for field in _custom_field_queryset(include_inactive=False).filter(show_in_table=True):
+        columns.append((field.label, f"custom:{field.pk}"))
+    return columns
+
+
+def _admin_project_export_row(project, columns):
     serialized = _serialize_project(project)
-    return [serialized.get(field, "") for _, field in ADMIN_PROJECT_EXPORT_COLUMNS]
+    row = []
+    custom_display = {
+        str(item["field_id"]): item["display_value"]
+        for item in serialized.get("custom_fields_display", [])
+    }
+    for _, field in columns:
+        if field.startswith("custom:"):
+            row.append(custom_display.get(field.split(":", 1)[1], ""))
+        else:
+            row.append(serialized.get(field, ""))
+    return row
 
 
 def _size_admin_project_sheet(sheet):
@@ -295,9 +316,10 @@ def _size_admin_project_sheet(sheet):
 def _append_admin_project_sheet(workbook, title, queryset, use_active=False):
     sheet = workbook.active if use_active else workbook.create_sheet(title=title)
     sheet.title = title
-    sheet.append([label for label, _ in ADMIN_PROJECT_EXPORT_COLUMNS])
+    columns = _admin_project_export_columns()
+    sheet.append([label for label, _ in columns])
     for project in queryset:
-        sheet.append(_admin_project_export_row(project))
+        sheet.append(_admin_project_export_row(project, columns))
     _size_admin_project_sheet(sheet)
     return sheet
 
@@ -329,16 +351,22 @@ def _build_admin_project_pdf(queryset):
     projects = list(queryset)
     if not projects:
         story.append(Paragraph("Aucun dossier à exporter.", styles["BodyText"]))
+    columns = _admin_project_export_columns()
     for project in projects:
         serialized = _serialize_project(project)
         title = f"{serialized.get('reference', '')} - {serialized.get('affaire', '')}".strip(" -")
         story.append(Paragraph(escape(title), heading_style))
         rows = []
-        for label, field in ADMIN_PROJECT_EXPORT_COLUMNS:
+        custom_display = {
+            str(item["field_id"]): item["display_value"]
+            for item in serialized.get("custom_fields_display", [])
+        }
+        for label, field in columns:
+            value = custom_display.get(field.split(":", 1)[1], "") if field.startswith("custom:") else serialized.get(field, "")
             rows.append(
                 [
                     Paragraph(f"<b>{escape(label)}</b>", cell_style),
-                    _admin_project_pdf_paragraph(serialized.get(field, ""), cell_style),
+                    _admin_project_pdf_paragraph(value, cell_style),
                 ]
             )
         table = Table(rows, colWidths=[5 * cm, 12.5 * cm], hAlign="LEFT")
@@ -398,6 +426,7 @@ def _default_activity_from_sheet(title):
 
 def _admin_project_payload_from_import(row, row_number, default_activite_metier="marchand_biens"):
     payload = {}
+    custom_fields = {}
     date_fields = {
         "date_promesse",
         "date_dg",
@@ -409,7 +438,9 @@ def _admin_project_payload_from_import(row, row_number, default_activite_metier=
     amount_fields = {"frais", "prix", "dg"}
 
     for field, value in row.items():
-        if field in date_fields:
+        if str(field).startswith("custom:"):
+            custom_fields[str(field).split(":", 1)[1]] = value
+        elif field in date_fields:
             payload[field] = _import_date_value(value, field)
         elif field in amount_fields:
             payload[field] = _import_amount_value(value)
@@ -423,6 +454,9 @@ def _admin_project_payload_from_import(row, row_number, default_activite_metier=
             payload["categorie_id"] = _import_category_id(value)
         else:
             payload[field] = str(value or "").strip()
+
+    if custom_fields:
+        payload["custom_fields"] = custom_fields
 
     if not payload.get("reference"):
         payload["reference"] = _unique_import_reference(row_number)
@@ -452,6 +486,10 @@ def _iter_admin_project_import_rows(uploaded_file):
         raise ValueError("Format non supporté. Merci d’importer un fichier .xlsx.")
 
     parsed_rows = []
+    custom_field_by_header = {
+        _normalize_header(field.label): f"custom:{field.pk}"
+        for field in _custom_field_queryset(include_inactive=False)
+    }
     for sheet_title, rows in sheets:
         if not rows:
             continue
@@ -461,6 +499,8 @@ def _iter_admin_project_import_rows(uploaded_file):
         for index, header in enumerate(headers):
             normalized = _normalize_header(header)
             field = ADMIN_PROJECT_IMPORT_ALIASES.get(normalized)
+            if not field:
+                field = custom_field_by_header.get(normalized)
             if field:
                 field_by_index[index] = field
 
@@ -496,19 +536,22 @@ def _import_admin_projects(uploaded_file, user):
             existing = TechnicalProject.objects.filter(reference=reference).first()
             project_data = _project_form_data(payload, existing_project=existing)
 
-            if existing:
-                for field, value in project_data.items():
-                    setattr(existing, field, value)
-                existing.updated_by = user
-                existing.save()
-                updated += 1
-            else:
-                TechnicalProject.objects.create(
-                    created_by=user,
-                    updated_by=user,
-                    **project_data,
-                )
-                created += 1
+            with transaction.atomic():
+                if existing:
+                    for field, value in project_data.items():
+                        setattr(existing, field, value)
+                    existing.updated_by = user
+                    existing.save()
+                    _save_custom_field_values(existing, payload.get("custom_fields") or {})
+                    updated += 1
+                else:
+                    project = TechnicalProject.objects.create(
+                        created_by=user,
+                        updated_by=user,
+                        **project_data,
+                    )
+                    _save_custom_field_values(project, payload.get("custom_fields") or {})
+                    created += 1
         except Exception as exc:
             errors.append(f"{row_label} : {exc}")
 
@@ -606,8 +649,172 @@ def _admin_project_categories():
     return [categories[nom] for nom in CategorieDossierAdministratif.CATEGORIES_OFFICIELLES]
 
 
+def _custom_field_queryset(include_inactive=False, activite_metier=None):
+    queryset = ChampPersonnaliseDossier.objects.all()
+    if not include_inactive:
+        queryset = queryset.filter(is_active=True)
+    if activite_metier is not None:
+        queryset = queryset.filter(Q(activite_metier="") | Q(activite_metier=activite_metier))
+    return queryset.order_by("sort_order", "label")
+
+
+def _custom_field_activity_label(field):
+    if not field.activite_metier:
+        return "Toutes les activités"
+    return dict(TechnicalProject.ACTIVITES_METIER).get(field.activite_metier, field.activite_metier)
+
+
+def _serialize_custom_field(field):
+    return {
+        "id": field.pk,
+        "label": field.label,
+        "activite_metier": field.activite_metier,
+        "activite_metier_label": _custom_field_activity_label(field),
+        "field_type": field.field_type,
+        "field_type_label": field.get_field_type_display(),
+        "choices": field.choice_list,
+        "choices_text": field.choices,
+        "show_in_detail": field.show_in_detail,
+        "show_in_table": field.show_in_table,
+        "is_active": field.is_active,
+        "sort_order": field.sort_order,
+    }
+
+
+def _custom_field_value_map(project):
+    return {
+        str(value.field_id): value.value
+        for value in project.custom_field_values.select_related("field").all()
+    }
+
+
+def _custom_field_display_value(field, raw_value):
+    if raw_value in (None, ""):
+        return ""
+    if field.field_type == "checkbox":
+        return "Oui" if _truthy(raw_value) else "Non"
+    if field.field_type == "amount":
+        amount = _parse_non_negative_decimal(raw_value, field.label)
+        return f"{amount} €"
+    return str(raw_value)
+
+
+def _custom_field_display_values(project, fields=None):
+    fields = fields if fields is not None else _custom_field_queryset(
+        include_inactive=True,
+        activite_metier=project.activite_metier,
+    )
+    values = _custom_field_value_map(project)
+    displayed = []
+    for field in fields:
+        raw_value = values.get(str(field.pk), "")
+        displayed.append(
+            {
+                "field_id": field.pk,
+                "label": field.label,
+                "value": raw_value,
+                "display_value": _custom_field_display_value(field, raw_value),
+                "show_in_detail": field.show_in_detail,
+                "show_in_table": field.show_in_table,
+                "is_active": field.is_active,
+            }
+        )
+    return displayed
+
+
+def _parse_custom_field_value(field, value):
+    if field.field_type == "checkbox":
+        return "true" if _truthy(value) else "false"
+
+    if field.field_type == "date":
+        if isinstance(value, datetime):
+            return value.date().isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if field.field_type == "date":
+        return _parse_iso_date(raw, field.label).isoformat()
+    if field.field_type == "amount":
+        return str(_parse_non_negative_decimal(raw, field.label))
+    if field.field_type == "number":
+        try:
+            return str(Decimal(raw.replace(",", ".")))
+        except (InvalidOperation, ValueError):
+            raise ValueError(f"{field.label} doit être un nombre valide.")
+    if field.field_type == "choice":
+        choices = field.choice_list
+        if raw not in choices:
+            raise ValueError(f"{field.label} doit correspondre à un choix autorisé.")
+    return raw
+
+
+def _save_custom_field_values(project, values):
+    if not isinstance(values, dict):
+        raise ValueError("Les champs personnalisés doivent être fournis sous forme d'objet.")
+
+    fields = {
+        str(field.pk): field
+        for field in _custom_field_queryset(include_inactive=False, activite_metier=project.activite_metier)
+    }
+    for field_id, raw_value in values.items():
+        field = fields.get(str(field_id))
+        if not field:
+            continue
+        value = _parse_custom_field_value(field, raw_value)
+        ValeurChampPersonnaliseDossier.objects.update_or_create(
+            dossier=project,
+            field=field,
+            defaults={"value": value},
+        )
+
+
+def _custom_field_form_data(data, existing_field=None):
+    label = (data.get("label") or "").strip()
+    activite_metier = (data.get("activite_metier") or "").strip()
+    field_type = (data.get("field_type") or "text").strip()
+    choices = (data.get("choices") or "").strip()
+
+    if not label:
+        raise ValueError("Le libellé du champ personnalisé est obligatoire.")
+    if activite_metier and activite_metier not in dict(TechnicalProject.ACTIVITES_METIER):
+        raise ValueError("Activité métier du champ personnalisé invalide.")
+    if field_type not in dict(ChampPersonnaliseDossier.FIELD_TYPES):
+        raise ValueError("Type de champ personnalisé invalide.")
+    if field_type == "choice" and not [item for item in choices.splitlines() if item.strip()]:
+        raise ValueError("Une liste de choix doit contenir au moins une option.")
+    if field_type != "choice":
+        choices = ""
+
+    duplicate = ChampPersonnaliseDossier.objects.filter(label__iexact=label)
+    if existing_field:
+        duplicate = duplicate.exclude(pk=existing_field.pk)
+    if duplicate.exists():
+        raise ValueError("Un champ personnalisé avec ce libellé existe déjà.")
+
+    try:
+        sort_order = int(data.get("sort_order") or 0)
+    except (TypeError, ValueError):
+        raise ValueError("L'ordre d'affichage doit être un entier.")
+
+    return {
+        "label": label,
+        "activite_metier": activite_metier,
+        "field_type": field_type,
+        "choices": choices,
+        "show_in_detail": _truthy(data.get("show_in_detail", True)),
+        "show_in_table": _truthy(data.get("show_in_table", False)),
+        "is_active": _truthy(data.get("is_active", True)),
+        "sort_order": max(sort_order, 0),
+    }
+
+
 def _serialize_project(project):
     categorie = project.categorie
+    custom_values = _custom_field_value_map(project)
+    active_custom_fields = list(_custom_field_queryset(include_inactive=False, activite_metier=project.activite_metier))
     return {
         "id": project.pk,
         "reference": project.reference,
@@ -655,6 +862,8 @@ def _serialize_project(project):
         "releves_compte": project.releves_compte,
         "total_estimated": str(project.total_estimated),
         "activities_count": Activite.objects.filter(dossier=project).count(),
+        "custom_fields": custom_values,
+        "custom_fields_display": _custom_field_display_values(project, active_custom_fields),
     }
 
 
@@ -822,6 +1031,190 @@ def _fold_ics_line(line):
 
 def _ics_line(name, value):
     return _fold_ics_line(f"{name}:{value}")
+
+
+def _unfold_ics_lines(content):
+    lines = content.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    unfolded = []
+    for line in lines:
+        if line.startswith((" ", "\t")) and unfolded:
+            unfolded[-1] += line[1:]
+        else:
+            unfolded.append(line)
+    return unfolded
+
+
+def _ics_unescape(value):
+    return (
+        str(value or "")
+        .replace("\\n", "\n")
+        .replace("\\N", "\n")
+        .replace("\\,", ",")
+        .replace("\\;", ";")
+        .replace("\\\\", "\\")
+    )
+
+
+def _parse_ics_property(line):
+    if ":" not in line:
+        return None, {}, ""
+    name_and_params, value = line.split(":", 1)
+    parts = name_and_params.split(";")
+    name = parts[0].upper()
+    params = {}
+    for part in parts[1:]:
+        if "=" in part:
+            key, param_value = part.split("=", 1)
+            params[key.upper()] = param_value.strip('"')
+    return name, params, value
+
+
+def _parse_ics_datetime(value, params):
+    raw = str(value or "").strip()
+    if not raw:
+        raise ValueError("Date d'événement manquante.")
+
+    if params.get("VALUE", "").upper() == "DATE" or re.fullmatch(r"\d{8}", raw):
+        parsed_date = datetime.strptime(raw[:8], "%Y%m%d").date()
+        return timezone.make_aware(datetime.combine(parsed_date, datetime.min.time()).replace(hour=9))
+
+    is_utc = raw.endswith("Z")
+    if is_utc:
+        raw = raw[:-1]
+
+    try:
+        parsed = datetime.strptime(raw, "%Y%m%dT%H%M%S")
+    except ValueError:
+        parsed = datetime.strptime(raw, "%Y%m%dT%H%M")
+
+    if is_utc:
+        return parsed.replace(tzinfo=dt_timezone.utc).astimezone(timezone.get_current_timezone())
+    return timezone.make_aware(parsed, timezone.get_current_timezone())
+
+
+def _parse_ics_duration_minutes(value):
+    raw = str(value or "").strip().upper()
+    if not raw:
+        return None
+    match = re.fullmatch(r"P(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?)?", raw)
+    if not match:
+        return None
+    days = int(match.group("days") or 0)
+    hours = int(match.group("hours") or 0)
+    minutes = int(match.group("minutes") or 0)
+    seconds = int(match.group("seconds") or 0)
+    total = days * 1440 + hours * 60 + minutes + (1 if seconds else 0)
+    return total or None
+
+
+def _normalize_import_duration(minutes):
+    allowed = [value for value, _ in Activite.DUREES_CRENEAU]
+    if not minutes:
+        return 60
+    return min(allowed, key=lambda value: abs(value - minutes))
+
+
+def _parse_calendar_ics_events(uploaded_file):
+    filename = (uploaded_file.name or "").lower()
+    if not filename.endswith(".ics"):
+        raise ValueError("Format non supporté. Merci d'importer un fichier .ics.")
+
+    raw = uploaded_file.read()
+    try:
+        content = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        content = raw.decode("latin-1")
+
+    events = []
+    current = None
+    for line in _unfold_ics_lines(content):
+        stripped = line.strip()
+        if stripped == "BEGIN:VEVENT":
+            current = {}
+            continue
+        if stripped == "END:VEVENT":
+            if current is not None:
+                events.append(current)
+            current = None
+            continue
+        if current is None:
+            continue
+
+        name, params, value = _parse_ics_property(line)
+        if not name:
+            continue
+        if name in {"SUMMARY", "DESCRIPTION", "UID"}:
+            current[name] = _ics_unescape(value).strip()
+        elif name in {"DTSTART", "DTEND"}:
+            current[name] = _parse_ics_datetime(value, params)
+        elif name == "DURATION":
+            current[name] = _parse_ics_duration_minutes(value)
+
+    parsed_events = []
+    for event in events:
+        start = event.get("DTSTART")
+        if not start:
+            continue
+        end = event.get("DTEND")
+        duration = event.get("DURATION")
+        if end:
+            duration = max(int((end - start).total_seconds() // 60), 1)
+        duration = _normalize_import_duration(duration)
+        parsed_events.append(
+            {
+                "uid": event.get("UID", ""),
+                "titre": event.get("SUMMARY") or "Événement importé",
+                "commentaire": event.get("DESCRIPTION", ""),
+                "date": start,
+                "duree_minutes": duration,
+            }
+        )
+
+    if not parsed_events:
+        raise ValueError("Aucun événement calendrier exploitable n'a été trouvé.")
+    return parsed_events
+
+
+def _import_calendar_ics(uploaded_file, dossier, type_activite, responsable, user):
+    events = _parse_calendar_ics_events(uploaded_file)
+    created = 0
+    skipped = 0
+
+    for event in events:
+        duplicate = Activite.objects.filter(
+            dossier=dossier,
+            type=type_activite,
+            titre=event["titre"],
+            date=event["date"],
+        ).exists()
+        if duplicate:
+            skipped += 1
+            continue
+
+        commentaire_parts = []
+        if event["commentaire"]:
+            commentaire_parts.append(event["commentaire"])
+        if event["uid"]:
+            commentaire_parts.append(f"UID calendrier : {event['uid']}")
+
+        Activite.objects.create(
+            id=_next_activity_id(),
+            titre=event["titre"],
+            dossier=dossier,
+            type=type_activite,
+            date=event["date"],
+            duree_minutes=event["duree_minutes"],
+            date_type="date",
+            commentaire="\n\n".join(commentaire_parts),
+            statut="todo",
+            priorite="normal",
+            responsable=responsable,
+            created_by=user,
+            updated_by=user,
+        )
+        created += 1
+
+    return {"created": created, "skipped": skipped, "total": len(events)}
 
 
 def _calendar_export_queryset_from_request(request):
@@ -1111,6 +1504,7 @@ def sync_gmail_journal_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def admin_dossiers_view(request):
     categories = _admin_project_categories()
+    custom_fields = list(_custom_field_queryset(include_inactive=True))
     q = (request.GET.get("q") or "").strip()
     dossiers = _admin_project_queryset_from_request(request)
     return render(
@@ -1123,6 +1517,7 @@ def admin_dossiers_view(request):
             "activite_metier_choices": TechnicalProject.ACTIVITES_METIER,
             "etat_choices": TechnicalProject.ETATS,
             "categories": categories,
+            "custom_fields": [_serialize_custom_field(field) for field in custom_fields],
             "search_query": q,
         },
     )
@@ -1209,7 +1604,7 @@ def admin_projects_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def admin_dossier_detail_view(request, dossier_id):
     dossier = get_object_or_404(
-        TechnicalProject.objects.select_related("categorie"),
+        TechnicalProject.objects.select_related("categorie").prefetch_related("custom_field_values__field"),
         pk=dossier_id,
     )
     activites = (
@@ -1224,6 +1619,14 @@ def admin_dossier_detail_view(request, dossier_id):
             "pole_name": "Administratif",
             "dossier": dossier,
             "activites": activites,
+            "custom_fields_display": [
+                item
+                for item in _custom_field_display_values(
+                    dossier,
+                    _custom_field_queryset(include_inactive=False, activite_metier=dossier.activite_metier),
+                )
+                if item["show_in_detail"]
+            ],
         },
     )
 
@@ -1491,6 +1894,56 @@ def export_calendar_ics_view(request):
 @require_http_methods(["POST"])
 @login_required
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def import_calendar_ics_view(request):
+    uploaded_file = request.FILES.get("file")
+    dossier_ref = (request.POST.get("dossier") or "").strip()
+    type_label = (request.POST.get("type") or "").strip()
+    responsable_id = (request.POST.get("responsable") or "").strip()
+
+    if not uploaded_file:
+        messages.error(request, "Merci de sélectionner un fichier .ics à importer.")
+        return redirect("admin_view")
+    if not dossier_ref or not type_label:
+        messages.error(request, "Le dossier et le type d'activité sont obligatoires pour l'import calendrier.")
+        return redirect("admin_view")
+
+    dossier = TechnicalProject.objects.filter(reference=dossier_ref).first()
+    if not dossier:
+        messages.error(request, "Dossier administratif introuvable pour l'import calendrier.")
+        return redirect("admin_view")
+
+    type_activite = TypeActivite.objects.filter(type__iexact=type_label).first()
+    if not type_activite:
+        messages.error(request, "Type d'activité introuvable pour l'import calendrier.")
+        return redirect("admin_view")
+
+    responsable = None
+    if responsable_id:
+        responsable = Utilisateur.objects.filter(pk=responsable_id, is_active=True).first()
+        if not responsable:
+            messages.error(request, "Responsable introuvable pour l'import calendrier.")
+            return redirect("admin_view")
+
+    try:
+        result = _import_calendar_ics(uploaded_file, dossier, type_activite, responsable, request.user)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("admin_view")
+
+    if result["created"]:
+        messages.success(
+            request,
+            f"Import calendrier terminé : {result['created']} activité(s) créée(s), "
+            f"{result['skipped']} doublon(s) ignoré(s).",
+        )
+    else:
+        messages.warning(request, f"Aucune activité créée : {result['skipped']} doublon(s) ignoré(s).")
+    return redirect("admin_view")
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def create_activity_view(request):
     """
     Crée une nouvelle activité dans le calendrier.
@@ -1696,11 +2149,13 @@ def create_project_view(request):
     try:
         data = _parse_request_json(request)
         project_data = _project_form_data(data)
-        project = TechnicalProject.objects.create(
-            created_by=request.user,
-            updated_by=request.user,
-            **project_data,
-        )
+        with transaction.atomic():
+            project = TechnicalProject.objects.create(
+                created_by=request.user,
+                updated_by=request.user,
+                **project_data,
+            )
+            _save_custom_field_values(project, data.get("custom_fields") or {})
         return JsonResponse(
             {
                 "success": True,
@@ -1721,15 +2176,18 @@ def create_project_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def update_project_view(request, project_id):
     try:
+        data = _parse_request_json(request)
         project = TechnicalProject.objects.filter(pk=project_id).first()
         if not project:
             return _json_error("Dossier introuvable", status=404)
 
-        project_data = _project_form_data(_parse_request_json(request), existing_project=project)
-        for field, value in project_data.items():
-            setattr(project, field, value)
-        project.updated_by = request.user
-        project.save()
+        project_data = _project_form_data(data, existing_project=project)
+        with transaction.atomic():
+            for field, value in project_data.items():
+                setattr(project, field, value)
+            project.updated_by = request.user
+            project.save()
+            _save_custom_field_values(project, data.get("custom_fields") or {})
         return JsonResponse(
             {
                 "success": True,
@@ -1738,6 +2196,40 @@ def update_project_view(request, project_id):
                 "dossier": _serialize_project(project),
             }
         )
+    except ValueError as e:
+        return _json_error(str(e))
+    except Exception as e:
+        traceback.print_exc()
+        return _json_error(f"Erreur : {str(e)}", status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def create_custom_field_view(request):
+    try:
+        field = ChampPersonnaliseDossier.objects.create(
+            **_custom_field_form_data(_parse_request_json(request))
+        )
+        return JsonResponse({"success": True, "field": _serialize_custom_field(field)})
+    except ValueError as e:
+        return _json_error(str(e))
+    except Exception as e:
+        traceback.print_exc()
+        return _json_error(f"Erreur : {str(e)}", status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+@user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
+def update_custom_field_view(request, field_id):
+    try:
+        field = get_object_or_404(ChampPersonnaliseDossier, pk=field_id)
+        field_data = _custom_field_form_data(_parse_request_json(request), existing_field=field)
+        for name, value in field_data.items():
+            setattr(field, name, value)
+        field.save()
+        return JsonResponse({"success": True, "field": _serialize_custom_field(field)})
     except ValueError as e:
         return _json_error(str(e))
     except Exception as e:

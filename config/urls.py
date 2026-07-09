@@ -7,10 +7,11 @@ from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
 from management.views import administratif_view, send_reply_view, generate_auto_message_view, get_calendar_activities, \
     create_activity_reminder_rule_view, create_activity_view, delete_activity_reminder_rule_view, \
-    delete_activity_view, export_calendar_ics_view, get_calendar_activities_week, update_activity_view, \
+    delete_activity_view, export_calendar_ics_view, get_calendar_activities_week, import_calendar_ics_view, update_activity_view, \
     mark_notification_read_view, admin_projects_view, admin_dossiers_view, admin_dossier_detail_view, \
     create_project_view, update_project_view, delete_project_view, admin_dossiers_export_view, \
-    admin_dossiers_export_pdf_view, admin_dossiers_import_view
+    admin_dossiers_export_pdf_view, admin_dossiers_import_view, create_custom_field_view, \
+    update_custom_field_view
 from management.views import sync_gmail_journal_view, update_gmail_conversation_status, add_gmail_conversation_note
 from technique import views as technique_views
 from home.views import dashboard_view, global_search
@@ -41,6 +42,7 @@ urlpatterns = [
     # API pour le calendrier
     path('api/calendar-activities/', get_calendar_activities, name='calendar_activities'),
     path('administratif/calendrier/export.ics', export_calendar_ics_view, name='calendar_export_ics'),
+    path('administratif/calendrier/import/', import_calendar_ics_view, name='calendar_import_ics'),
     path('api/activity-reminder-rules/create/', create_activity_reminder_rule_view, name='activity_reminder_rule_create'),
     path('api/activity-reminder-rules/<int:rule_id>/delete/', delete_activity_reminder_rule_view, name='activity_reminder_rule_delete'),
     #API pour l'ajout d'activité
@@ -55,6 +57,8 @@ urlpatterns = [
     path('api/admin-projects/create/', create_project_view, name='admin_project_create'),
     path('api/admin-projects/<int:project_id>/update/', update_project_view, name='admin_project_update'),
     path('api/admin-projects/<int:project_id>/delete/', delete_project_view, name='admin_project_delete'),
+    path('api/admin-custom-fields/create/', create_custom_field_view, name='admin_custom_field_create'),
+    path('api/admin-custom-fields/<int:field_id>/update/', update_custom_field_view, name='admin_custom_field_update'),
 
     # LIGNES RESTAURÉES POUR LOGOUT
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),

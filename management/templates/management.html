@@ -103,6 +103,45 @@
          </button>
       </div>
 
+      <form method="post" action="{% url 'calendar_import_ics' %}" enctype="multipart/form-data"
+            style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;align-items:end;margin:.75rem 0 1rem;">
+         {% csrf_token %}
+         <div>
+            <label class="form-label">Fichier .ics</label>
+            <input type="file" name="file" class="form-control" accept=".ics,text/calendar" required>
+         </div>
+         <div>
+            <label class="form-label">Dossier</label>
+            <select name="dossier" class="form-control" required>
+               <option value="">-- Dossier --</option>
+               {% for dossier in dossiers %}
+               <option value="{{ dossier.reference }}">{{ dossier.reference }} — {{ dossier.affaire|default:dossier.name }}</option>
+               {% endfor %}
+            </select>
+         </div>
+         <div>
+            <label class="form-label">Type</label>
+            <select name="type" class="form-control" required>
+               <option value="">-- Type --</option>
+               {% for type in types %}
+               <option value="{{ type.type }}">{{ type.type }}</option>
+               {% endfor %}
+            </select>
+         </div>
+         <div>
+            <label class="form-label">Responsable</label>
+            <select name="responsable" class="form-control">
+               <option value="">-- Aucun --</option>
+               {% for admin_user in users %}
+               <option value="{{ admin_user.pk }}">{{ admin_user.get_full_name|default:admin_user.username }}</option>
+               {% endfor %}
+            </select>
+         </div>
+         <button type="submit" class="btn btn-secondary">
+            <i class="bi bi-calendar-arrow-up"></i> Importer .ics
+         </button>
+      </form>
+
       <!-- Calendrier (vue mois + vue semaine) -->
       {% include 'calendar.html' %}
 

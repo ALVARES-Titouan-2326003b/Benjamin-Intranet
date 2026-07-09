@@ -13,9 +13,11 @@ from management.email_manager import _activity_event_payload
 from management.models import (
     Activite,
     CategorieDossierAdministratif,
+    ChampPersonnaliseDossier,
     HistoriqueRappelActivite,
     RegleRappelActivite,
     TypeActivite,
+    ValeurChampPersonnaliseDossier,
 )
 from management.tasks import check_and_send_activite_reminders
 from technique.models import DocumentTechnique, TechnicalProject
@@ -253,6 +255,55 @@ def test_calendar_export_ics_uses_activity_duration(client, admin_user, dossier,
     assert "Responsable : responsable_module1" in unfolded_content
     assert "Prévoir les pièces annexes." in unfolded_content
     assert "Hors mois" not in content
+
+
+@pytest.mark.django_db
+def test_calendar_import_ics_creates_activities_and_skips_duplicates(client, admin_user, dossier, type_activite, responsable):
+    client.force_login(admin_user)
+    content = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:notaire-1@example.com
+DTSTART:20260701T093000Z
+DTEND:20260701T110000Z
+SUMMARY:Signature promesse importée
+DESCRIPTION:Prévoir les annexes\\nAppeler le notaire
+END:VEVENT
+END:VCALENDAR
+"""
+    uploaded = SimpleUploadedFile("calendrier.ics", content.encode("utf-8"), content_type="text/calendar")
+
+    response = client.post(
+        "/administratif/calendrier/import/",
+        {
+            "file": uploaded,
+            "dossier": dossier.reference,
+            "type": type_activite.type,
+            "responsable": str(responsable.pk),
+        },
+    )
+
+    assert response.status_code == 302
+    activity = Activite.objects.get(titre="Signature promesse importée")
+    assert activity.dossier == dossier
+    assert activity.type == type_activite
+    assert activity.responsable == responsable
+    assert activity.duree_minutes == 90
+    assert "Prévoir les annexes" in activity.commentaire
+    assert "UID calendrier : notaire-1@example.com" in activity.commentaire
+
+    uploaded = SimpleUploadedFile("calendrier.ics", content.encode("utf-8"), content_type="text/calendar")
+    response = client.post(
+        "/administratif/calendrier/import/",
+        {
+            "file": uploaded,
+            "dossier": dossier.reference,
+            "type": type_activite.type,
+        },
+    )
+
+    assert response.status_code == 302
+    assert Activite.objects.filter(titre="Signature promesse importée").count() == 1
 
 
 @pytest.mark.django_db
@@ -597,6 +648,196 @@ def test_admin_dossier_rejects_invalid_choices_and_negative_amounts(client, admi
     )
     assert response.status_code == 400
     assert "Date de promesse doit être une date valide" in response.json()["message"]
+
+
+@pytest.mark.django_db
+def test_custom_admin_field_definition_and_project_values_are_preserved(client, admin_user, categorie):
+    client.force_login(admin_user)
+
+    response = _post_json(
+        client,
+        "/api/admin-custom-fields/create/",
+        {
+            "label": "Notaire référent",
+            "field_type": "text",
+            "show_in_detail": True,
+            "show_in_table": True,
+            "is_active": True,
+            "sort_order": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    field = ChampPersonnaliseDossier.objects.get(label="Notaire référent")
+
+    response = _post_json(
+        client,
+        "/api/admin-projects/create/",
+        {
+            "reference": "ADM-CUSTOM",
+            "affaire": "Dossier avec champ personnalisé",
+            "type_dossier": "vente",
+            "activite_metier": "marchand_biens",
+            "etat": "promesse",
+            "categorie_id": categorie.pk,
+            "prix": "100000",
+            "custom_fields": {str(field.pk): "Me Martin"},
+        },
+    )
+
+    assert response.status_code == 200
+    project = TechnicalProject.objects.get(reference="ADM-CUSTOM")
+    assert ValeurChampPersonnaliseDossier.objects.get(dossier=project, field=field).value == "Me Martin"
+    assert response.json()["dossier"]["custom_fields"][str(field.pk)] == "Me Martin"
+
+    response = _post_json(
+        client,
+        f"/api/admin-custom-fields/{field.pk}/update/",
+        {
+            "label": "Notaire référent",
+            "field_type": "text",
+            "show_in_detail": True,
+            "show_in_table": True,
+            "is_active": False,
+            "sort_order": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    field.refresh_from_db()
+    assert field.is_active is False
+    assert ValeurChampPersonnaliseDossier.objects.get(dossier=project, field=field).value == "Me Martin"
+
+
+@pytest.mark.django_db
+def test_custom_admin_field_validates_choice_values(client, admin_user, categorie):
+    client.force_login(admin_user)
+    field = ChampPersonnaliseDossier.objects.create(
+        label="Risque dossier",
+        field_type="choice",
+        choices="Faible\nMoyen\nFort",
+        show_in_detail=True,
+        show_in_table=True,
+    )
+
+    response = _post_json(
+        client,
+        "/api/admin-projects/create/",
+        {
+            "reference": "ADM-CUSTOM-CHOICE",
+            "affaire": "Dossier choix invalide",
+            "type_dossier": "vente",
+            "activite_metier": "marchand_biens",
+            "etat": "promesse",
+            "categorie_id": categorie.pk,
+            "prix": "100000",
+            "custom_fields": {str(field.pk): "Très fort"},
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Risque dossier doit correspondre à un choix autorisé" in response.json()["message"]
+
+
+@pytest.mark.django_db
+def test_custom_admin_field_is_scoped_by_activity(client, admin_user, categorie):
+    client.force_login(admin_user)
+
+    response = _post_json(
+        client,
+        "/api/admin-custom-fields/create/",
+        {
+            "label": "Dépôt permis personnalisé",
+            "activite_metier": "promotion_immobiliere",
+            "field_type": "date",
+            "show_in_detail": True,
+            "show_in_table": True,
+            "is_active": True,
+        },
+    )
+
+    assert response.status_code == 200
+    field = ChampPersonnaliseDossier.objects.get(label="Dépôt permis personnalisé")
+    assert field.activite_metier == "promotion_immobiliere"
+    assert response.json()["field"]["activite_metier_label"] == "Promotion immobilière"
+
+    marchand_response = _post_json(
+        client,
+        "/api/admin-projects/create/",
+        {
+            "reference": "ADM-CUSTOM-MARCHAND",
+            "affaire": "Dossier marchand",
+            "type_dossier": "vente",
+            "activite_metier": "marchand_biens",
+            "etat": "promesse",
+            "categorie_id": categorie.pk,
+            "prix": "100000",
+            "custom_fields": {str(field.pk): "2026-07-01"},
+        },
+    )
+    promotion_response = _post_json(
+        client,
+        "/api/admin-projects/create/",
+        {
+            "reference": "ADM-CUSTOM-PROMO",
+            "affaire": "Dossier promotion",
+            "type_dossier": "acquisition",
+            "activite_metier": "promotion_immobiliere",
+            "etat": "promesse",
+            "categorie_id": categorie.pk,
+            "prix": "200000",
+            "custom_fields": {str(field.pk): "2026-07-01"},
+        },
+    )
+
+    assert marchand_response.status_code == 200
+    assert promotion_response.status_code == 200
+    marchand_project = TechnicalProject.objects.get(reference="ADM-CUSTOM-MARCHAND")
+    promotion_project = TechnicalProject.objects.get(reference="ADM-CUSTOM-PROMO")
+    assert not ValeurChampPersonnaliseDossier.objects.filter(dossier=marchand_project, field=field).exists()
+    assert ValeurChampPersonnaliseDossier.objects.get(dossier=promotion_project, field=field).value == "2026-07-01"
+
+
+@pytest.mark.django_db
+def test_custom_admin_field_export_and_import_xlsx(client, admin_user, categorie):
+    client.force_login(admin_user)
+    field = ChampPersonnaliseDossier.objects.create(
+        label="Notaire référent",
+        field_type="text",
+        show_in_table=True,
+    )
+    project = TechnicalProject.objects.create(
+        reference="ADM-CUSTOM-EXPORT",
+        name="Dossier export personnalisé",
+        affaire="Dossier export personnalisé",
+        categorie=categorie,
+    )
+    ValeurChampPersonnaliseDossier.objects.create(
+        dossier=project,
+        field=field,
+        value="Me Durand",
+    )
+
+    response = client.get("/administratif/dossiers/export/")
+    workbook = load_workbook(io.BytesIO(response.content))
+    sheet = workbook["Autres dossiers"]
+
+    headers = [cell.value for cell in sheet[1]]
+    assert "Notaire référent" in headers
+    custom_column = headers.index("Notaire référent") + 1
+    assert sheet.cell(row=2, column=custom_column).value == "Me Durand"
+
+    uploaded = _xlsx_upload(
+        [
+            ["Référence", "Affaire", "Type de dossier", "État", "Catégorie", "Notaire référent"],
+            ["ADM-CUSTOM-IMPORT", "Dossier import personnalisé", "Vente", "En cours de promesse", categorie.nom, "Me Petit"],
+        ]
+    )
+    response = client.post("/administratif/dossiers/import/", {"file": uploaded})
+
+    assert response.status_code == 302
+    imported_project = TechnicalProject.objects.get(reference="ADM-CUSTOM-IMPORT")
+    assert ValeurChampPersonnaliseDossier.objects.get(dossier=imported_project, field=field).value == "Me Petit"
 
 
 @pytest.mark.django_db

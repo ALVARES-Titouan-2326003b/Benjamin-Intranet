@@ -5,11 +5,13 @@ from .models import (
     Activite,
     AdministrativeProject,
     CategorieDossierAdministratif,
+    ChampPersonnaliseDossier,
     HistoriqueRappelActivite,
     NotificationInterne,
     RegleRappelActivite,
     GmailConversation,
     GmailConversationEvent,
+    ValeurChampPersonnaliseDossier,
 )
 
 
@@ -18,6 +20,20 @@ class CategorieDossierAdministratifAdmin(admin.ModelAdmin):
     list_display = ("nom", "is_default", "created_at")
     list_filter = ("is_default",)
     search_fields = ("nom",)
+
+
+@admin.register(ChampPersonnaliseDossier)
+class ChampPersonnaliseDossierAdmin(admin.ModelAdmin):
+    list_display = ("label", "activite_metier", "field_type", "show_in_detail", "show_in_table", "is_active", "sort_order")
+    list_filter = ("activite_metier", "field_type", "show_in_detail", "show_in_table", "is_active")
+    search_fields = ("label", "choices")
+
+
+@admin.register(ValeurChampPersonnaliseDossier)
+class ValeurChampPersonnaliseDossierAdmin(admin.ModelAdmin):
+    list_display = ("dossier", "field", "value", "updated_at")
+    list_filter = ("field",)
+    search_fields = ("dossier__reference", "dossier__affaire", "field__label", "value")
 
 
 @admin.register(AdministrativeProject)

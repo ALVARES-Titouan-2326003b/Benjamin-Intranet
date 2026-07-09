@@ -44,6 +44,15 @@
       <div><strong>Acte</strong><br>{{ dossier.acte|linebreaksbr|default:"-" }}</div>
    </div>
 
+   {% if custom_fields_display %}
+   <h3 style="font-size:1rem;color:#1e3c72;margin-bottom:.75rem;">Champs personnalisés</h3>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">
+      {% for field in custom_fields_display %}
+      <div><strong>{{ field.label }}</strong><br>{{ field.display_value|default:"-" }}</div>
+      {% endfor %}
+   </div>
+   {% endif %}
+
    {% if dossier.activite_metier == "promotion_immobiliere" %}
    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">
       <div><strong>Parcelles</strong><br>{{ dossier.parcelles|linebreaksbr|default:"-" }}</div>
