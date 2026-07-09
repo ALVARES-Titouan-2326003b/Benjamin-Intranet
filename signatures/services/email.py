@@ -29,7 +29,7 @@ def envoyer_demande_signature(signataire_email, lien_approbation: str, document)
 
     titre_doc = document.titre or document.fichier.name
 
-    sujet = f"[Signature requise] Document #{document.pk} - {titre_doc}"
+    sujet = f"[Signature requise] {titre_doc}"
     corps = (
         f"Bonjour,\n\n"
         f"Un document est en attente d'approbation pour signature.\n\n"

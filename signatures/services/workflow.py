@@ -36,6 +36,8 @@ def signer_document_avec_position(
     pos_x_pct: float,
     pos_y_pct: float,
     size_scale_pct: float = 100.0,
+    signature_mode: str = "stamp_signature",
+    tampon=None,
 ):
     """
     Signature avec placement interactif
@@ -48,7 +50,15 @@ def signer_document_avec_position(
         size_scale_pct (float): Échelle du bloc tampon+signature
     """
     try:
-        signer_pdf_avec_images_position(document, user, pos_x_pct, pos_y_pct, size_scale_pct)
+        signer_pdf_avec_images_position(
+            document,
+            user,
+            pos_x_pct,
+            pos_y_pct,
+            size_scale_pct,
+            signature_mode=signature_mode,
+            tampon=tampon,
+        )
     except Exception as e:
         HistoriqueSignature.objects.create(
             document=document,
@@ -60,5 +70,5 @@ def signer_document_avec_position(
     HistoriqueSignature.objects.create(
         document=document,
         statut="signe",
-        commentaire="Document signé après placement manuel.",
+        commentaire=f"Document signé après placement manuel ({document.get_signature_mode_display()}).",
     )

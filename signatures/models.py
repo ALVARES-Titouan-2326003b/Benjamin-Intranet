@@ -39,14 +39,17 @@ class Tampon(models.Model):
         nom (str): Nom du tampon
         image (ImageFieldFile): Fichier image du tampon
     """
+    societe = models.CharField("Société", max_length=200, default="Benjamin Immobilier")
     nom = models.CharField(max_length=200, default="Tampon officiel")
     image = models.ImageField(upload_to="tampons/")
+    is_active = models.BooleanField("Actif", default=True)
 
     class Meta:
         db_table = 'tampon'
+        ordering = ["societe", "nom"]
 
     def __str__(self):
-        return self.nom
+        return f"{self.societe} - {self.nom}"
 
 
 class Document(models.Model):
@@ -63,6 +66,10 @@ class Document(models.Model):
         ("CEO", "CEO"),
         ("RH", "Pôle administratif"),
     ]
+    SIGNATURE_MODES = [
+        ("signature", "Signature seule"),
+        ("stamp_signature", "Tampon + signature"),
+    ]
 
     titre = models.CharField(max_length=255)
     fichier = models.FileField(upload_to="documents/originaux/")
@@ -73,6 +80,18 @@ class Document(models.Model):
     )
     fichier_signe = models.FileField(
         upload_to="documents/signes/", null=True, blank=True
+    )
+    signature_mode = models.CharField(
+        max_length=30,
+        choices=SIGNATURE_MODES,
+        default="stamp_signature",
+    )
+    tampon = models.ForeignKey(
+        Tampon,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents_signes",
     )
     date_upload = models.DateTimeField(auto_now_add=True)
 
@@ -146,6 +165,7 @@ class SignatureRequest(models.Model):
         ("refused", "Refusée"),
         ("expired", "Expirée"),
     ]
+    SIGNATURE_MODES = Document.SIGNATURE_MODES
 
     document = models.ForeignKey(
         Document,
@@ -167,6 +187,18 @@ class SignatureRequest(models.Model):
     pos_x_pct = models.FloatField()
     pos_y_pct = models.FloatField()
     size_scale_pct = models.FloatField(default=100.0)
+    signature_mode = models.CharField(
+        max_length=30,
+        choices=SIGNATURE_MODES,
+        default="stamp_signature",
+    )
+    tampon = models.ForeignKey(
+        Tampon,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="demandes_signature",
+    )
 
     statut = models.CharField(max_length=20, choices=STATUTS, default="pending")
 

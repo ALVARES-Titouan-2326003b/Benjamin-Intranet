@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Tampon numérique{% endblock %}
-{% block header_title %}Tampon numérique de l'entreprise{% endblock %}
+{% block title %}Tampons numériques{% endblock %}
+{% block header_title %}Tampons numériques{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
     <div>
-        <h2 style="margin: 0;">Configurer le tampon</h2>
+        <h2 style="margin: 0;">Gérer les tampons</h2>
         <div style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
-            Ce tampon sera utilisé lors de la signature des documents (base de l’emplacement “Tampon + Signature”).
+            Les tampons sont sélectionnables par société lors d'une signature avec tampon.
         </div>
     </div>
 
@@ -25,7 +25,7 @@
 <div style="display:grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem; align-items:start;">
     <!-- Colonne gauche : formulaire -->
     <div class="card">
-        <div class="card-title">Configuration</div>
+        <div class="card-title">{% if tampon %}Modifier le tampon{% else %}Nouveau tampon{% endif %}</div>
 
         <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
@@ -37,6 +37,18 @@
             {% endif %}
 
             <div style="display:grid; gap: 1rem;">
+                <input type="hidden" name="tampon_id" value="{{ tampon.pk|default:'' }}">
+
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">{{ form.societe.label }}</label>
+                    {{ form.societe }}
+                    {% if form.societe.errors %}
+                    <div class="alert alert-danger" style="margin-top: .5rem;">
+                        {{ form.societe.errors }}
+                    </div>
+                    {% endif %}
+                </div>
+
                 {# Nom #}
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label">{{ form.nom.label }}</label>
@@ -62,7 +74,16 @@
                     {% endif %}
                 </div>
 
+                <label style="display:flex; align-items:center; gap:.5rem;">
+                    {{ form.is_active }} Actif
+                </label>
+
                 <div style="display:flex; justify-content:flex-end; gap: .75rem; margin-top: .5rem;">
+                    {% if tampon %}
+                    <a href="{% url 'signatures:tampon_edit' %}" class="btn btn-ghost">
+                        Nouveau
+                    </a>
+                    {% endif %}
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-check-lg"></i> Enregistrer
                     </button>
@@ -73,24 +94,37 @@
 
     <!-- Colonne droite : aperçu -->
     <div class="card">
-        <div class="card-title">Aperçu</div>
+        <div class="card-title">Tampons configurés</div>
 
-        {% if tampon and tampon.image %}
-            <div style="border: 1px solid var(--border-light); background: var(--bg-card); border-radius: 8px; padding: 1rem;">
-                <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: .75rem;">
-                    Tampon actuel
+        {% if tampons %}
+            <div style="display:grid; gap:.75rem;">
+                {% for item in tampons %}
+                <div style="border:1px solid var(--border-light); border-radius:8px; padding:.75rem; display:grid; gap:.5rem;">
+                    <div style="display:flex; justify-content:space-between; gap:.75rem; align-items:flex-start;">
+                        <div>
+                            <strong>{{ item.societe }}</strong><br>
+                            <span style="color:var(--text-secondary);">{{ item.nom }}</span>
+                        </div>
+                        <span class="status-badge" {% if not item.is_active %}style="background:#fee2e2;color:#991b1b;"{% endif %}>
+                            {% if item.is_active %}Actif{% else %}Inactif{% endif %}
+                        </span>
+                    </div>
+                    {% if item.image %}
+                    <div style="display:flex; justify-content:center; align-items:center; min-height:90px; background:#f8fafc; border-radius:6px;">
+                        <img src="{{ item.image.url }}" alt="Tampon {{ item.nom }}" style="max-width:100%; max-height:120px;">
+                    </div>
+                    {% endif %}
+                    <div style="display:flex; justify-content:flex-end;">
+                        <a href="{% url 'signatures:tampon_edit' %}?tampon_id={{ item.pk }}" class="btn btn-secondary">
+                            <i class="bi bi-pencil-square"></i> Modifier
+                        </a>
+                    </div>
                 </div>
-                <div style="display:flex; justify-content:center; align-items:center; min-height: 160px;">
-                    <img src="{{ tampon.image.url }}" alt="Tampon" style="max-width: 100%; max-height: 220px;">
-                </div>
-            </div>
-
-            <div style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
-                Nom : <strong style="color: var(--text-main);">{{ tampon.nom }}</strong>
+                {% endfor %}
             </div>
         {% else %}
             <div class="alert alert-info" style="margin: 0;">
-                Aucun tampon n’est configuré pour le moment.
+                Aucun tampon n'est configuré pour le moment.
             </div>
         {% endif %}
     </div>

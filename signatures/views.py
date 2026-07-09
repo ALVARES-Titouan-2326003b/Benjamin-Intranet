@@ -36,6 +36,7 @@ from user_access.user_test_functions import (
 
 SIGNATURE_SIGNER_LABEL = "CEO ou pôle administratif"
 DEFAULT_SIGNATURE_SCALE = 100.0
+DEFAULT_SIGNATURE_MODE = "stamp_signature"
 
 
 def _has_group(user, group_name):
@@ -88,14 +89,38 @@ def _get_signature_email_recipients(designated_signer=None):
     return destinataires
 
 
-def _signature_preview_context(doc, size_scale_pct=DEFAULT_SIGNATURE_SCALE):
+def _active_tampons():
+    return Tampon.objects.filter(is_active=True).order_by("societe", "nom")
+
+
+def _get_selected_signature_options(data):
+    signature_mode = (data.get("signature_mode") or DEFAULT_SIGNATURE_MODE).strip()
+    if signature_mode not in dict(Document.SIGNATURE_MODES):
+        raise ValueError("Mode de signature invalide.")
+
+    tampon = None
+    if signature_mode == "stamp_signature":
+        tampon_id = (data.get("tampon_id") or "").strip()
+        tampon = _active_tampons().filter(pk=tampon_id).first()
+        if not tampon:
+            raise ValueError("Veuillez sélectionner un tampon actif.")
+    return signature_mode, tampon
+
+
+def _signature_preview_context(doc, size_scale_pct=DEFAULT_SIGNATURE_SCALE, signature_mode=DEFAULT_SIGNATURE_MODE):
     page_info = get_pdf_last_page_info(doc)
-    block_metrics = get_signature_block_metrics(size_scale_pct)
+    block_metrics = get_signature_block_metrics(size_scale_pct, signature_mode=signature_mode)
+    signature_only_metrics = get_signature_block_metrics(size_scale_pct, signature_mode="signature")
+    stamp_signature_metrics = get_signature_block_metrics(size_scale_pct, signature_mode="stamp_signature")
     page_width = page_info["page_width"] or 1
     page_height = page_info["page_height"] or 1
 
     block_width_pct = (block_metrics["block_width"] / page_width) * 100
     block_height_pct = (block_metrics["block_height"] / page_height) * 100
+    signature_only_width_pct = (signature_only_metrics["block_width"] / page_width) * 100
+    signature_only_height_pct = (signature_only_metrics["block_height"] / page_height) * 100
+    stamp_signature_width_pct = (stamp_signature_metrics["block_width"] / page_width) * 100
+    stamp_signature_height_pct = (stamp_signature_metrics["block_height"] / page_height) * 100
 
     return {
         "pdf_page_count": page_info["page_count"],
@@ -110,6 +135,12 @@ def _signature_preview_context(doc, size_scale_pct=DEFAULT_SIGNATURE_SCALE):
         "signature_block_height_pct": block_height_pct,
         "signature_block_width_pct_css": f"{block_width_pct:.4f}",
         "signature_block_height_pct_css": f"{block_height_pct:.4f}",
+        "signature_only_block_width_pct_css": f"{signature_only_width_pct:.4f}",
+        "signature_only_block_height_pct_css": f"{signature_only_height_pct:.4f}",
+        "stamp_signature_block_width_pct_css": f"{stamp_signature_width_pct:.4f}",
+        "stamp_signature_block_height_pct_css": f"{stamp_signature_height_pct:.4f}",
+        "signature_mode": signature_mode,
+        "signature_mode_label": dict(Document.SIGNATURE_MODES).get(signature_mode, signature_mode),
     }
 
 
@@ -339,21 +370,29 @@ def ma_signature(request):
 @user_passes_test(_can_manage_signature_assets, login_url="/signatures", redirect_field_name=None)
 def tampon_edit(request):
     """
-    Permet de créer/modifier le tampon numérique global.
-    On suppose qu'il n'y en a qu'un.
+    Permet de créer/modifier les tampons numériques par société.
     """
-    tampon, _ = Tampon.objects.get_or_create(pk=1)  # un seul tampon global
+    tampon_id = request.POST.get("tampon_id") or request.GET.get("tampon_id")
+    tampon = Tampon.objects.filter(pk=tampon_id).first() if tampon_id else None
 
     if request.method == "POST":
         form = TamponForm(request.POST, request.FILES, instance=tampon)
         if form.is_valid():
             form.save()
-            messages.success(request, "Tampon mis à jour.")
+            messages.success(request, "Tampon enregistré.")
             return redirect("signatures:tampon_edit")
     else:
         form = TamponForm(instance=tampon)
 
-    return render(request, "signatures/tampon_edit.html", {"form": form})
+    return render(
+        request,
+        "signatures/tampon_edit.html",
+        {
+            "form": form,
+            "tampon": tampon,
+            "tampons": Tampon.objects.all().order_by("societe", "nom"),
+        },
+    )
 
 
 @login_required
@@ -400,6 +439,7 @@ def placer_signature(request, pk):
     is_designated_signer = _can_user_sign_document(request.user, doc)
     signer_label = SIGNATURE_SIGNER_LABEL
     admin_signers = _get_admin_signature_users()
+    tampons = _active_tampons()
 
     # 1) Si déjà signé → on bloque tout
     if doc.fichier_signe:
@@ -425,6 +465,12 @@ def placer_signature(request, pk):
             messages.error(request, "Position invalide.")
             return redirect("signatures:placer_signature", pk=doc.pk)
 
+        try:
+            signature_mode, tampon = _get_selected_signature_options(request.POST)
+        except ValueError as e:
+            messages.error(request, str(e))
+            return redirect("signatures:placer_signature", pk=doc.pk)
+
         size_scale = min(max(size_scale, 50.0), 150.0)
 
         # BRANCHE SIGNATAIRE : il signe directement
@@ -436,6 +482,8 @@ def placer_signature(request, pk):
                     pos_x_pct=pos_x,
                     pos_y_pct=pos_y,
                     size_scale_pct=size_scale,
+                    signature_mode=signature_mode,
+                    tampon=tampon,
                 )
             except Exception as e:
                 HistoriqueSignature.objects.create(
@@ -452,7 +500,7 @@ def placer_signature(request, pk):
             HistoriqueSignature.objects.create(
                 document=doc,
                 statut="signe",
-                commentaire="Document signé directement par un signataire autorisé.",
+                commentaire=f"Document signé directement par un signataire autorisé ({doc.get_signature_mode_display()}).",
             )
 
             # On peut marquer d'éventuelles demandes en attente comme expirées
@@ -492,6 +540,8 @@ def placer_signature(request, pk):
             pos_x_pct=pos_x,
             pos_y_pct=pos_y,
             size_scale_pct=size_scale,
+            signature_mode=signature_mode,
+            tampon=tampon,
         )
 
         # Mettre à jour l'historique
@@ -500,7 +550,7 @@ def placer_signature(request, pk):
             statut="en_attente",
             commentaire=(
                 "Demande de signature envoyée au membre administratif choisi et aux CEO : "
-                f"{', '.join(email_recipients)}."
+                f"{', '.join(email_recipients)}. Mode : {demande.get_signature_mode_display()}."
             ),
         )
 
@@ -532,6 +582,9 @@ def placer_signature(request, pk):
         "is_designated_signer": is_designated_signer,
         "signer_label": signer_label,
         "admin_signers": admin_signers,
+        "tampons": tampons,
+        "signature_mode_choices": Document.SIGNATURE_MODES,
+        "default_signature_mode": DEFAULT_SIGNATURE_MODE,
     }
     context.update(_signature_preview_context(doc))
     return render(request, "signatures/placer_signature.html", context)
@@ -572,6 +625,8 @@ def signature_approval(request, token):
                     pos_x_pct=demande.pos_x_pct,
                     pos_y_pct=demande.pos_y_pct,
                     size_scale_pct=demande.size_scale_pct,
+                    signature_mode=demande.signature_mode,
+                    tampon=demande.tampon,
                 )
             except Exception as e:
                 demande.marquer_refusee(commentaire=f"Erreur technique : {e}")
@@ -590,7 +645,7 @@ def signature_approval(request, token):
             HistoriqueSignature.objects.create(
                 document=doc,
                 statut="signe",
-                commentaire="Document signé et approuvé par un signataire autorisé.",
+                commentaire=f"Document signé et approuvé par un signataire autorisé ({doc.get_signature_mode_display()}).",
             )
             messages.success(request, "Document signé et approuvé.")
             return redirect("signatures:document_detail", pk=doc.pk)
@@ -613,8 +668,10 @@ def signature_approval(request, token):
         "signature_request_pos_y_css": f"{demande.pos_y_pct:.4f}",
         "requester_name": demande.requested_by.get_full_name() or demande.requested_by.username,
         "formatted_date": demande.created_at.strftime("%d/%m/%Y à %H:%M"),
+        "signature_mode_label": demande.get_signature_mode_display(),
+        "selected_tampon": demande.tampon,
     }
-    context.update(_signature_preview_context(doc, demande.size_scale_pct))
+    context.update(_signature_preview_context(doc, demande.size_scale_pct, demande.signature_mode))
     return render(request, "signatures/signature_approval.html", context)
 
 

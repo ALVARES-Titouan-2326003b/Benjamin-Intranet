@@ -152,6 +152,67 @@ class TestSignerPdfAvecImagesPosition:
                 pos_y_pct=10.0
             )
 
+    def test_signature_seule_sans_tampon(
+        self,
+        document_pdf_simple,
+        signature_user_ceo
+    ):
+        """
+        Test: La signature seule ne nécessite pas de tampon configuré.
+        """
+        from signatures.models import Tampon
+        from signatures.services.pdf_signing import signer_pdf_avec_images_position
+
+        Tampon.objects.all().delete()
+
+        signer_pdf_avec_images_position(
+            document=document_pdf_simple,
+            user=signature_user_ceo.user,
+            pos_x_pct=50.0,
+            pos_y_pct=10.0,
+            signature_mode="signature",
+        )
+
+        document_pdf_simple.refresh_from_db()
+
+        assert document_pdf_simple.fichier_signe
+        assert document_pdf_simple.signature_mode == "signature"
+        assert document_pdf_simple.tampon is None
+
+    def test_image_signature_orientation_exif_corrigee(self, tmp_path):
+        """
+        Test: Une image tournée par métadonnée EXIF est normalisée avant insertion PDF.
+        """
+        from PIL import Image
+        from signatures.services.pdf_signing import _load_pdf_image
+
+        image_path = tmp_path / "signature_exif.jpg"
+        image = Image.new("RGB", (10, 20), "white")
+        exif = Image.Exif()
+        exif[274] = 6
+        image.save(image_path, format="JPEG", exif=exif)
+
+        image_reader = _load_pdf_image(image_path)
+
+        assert image_reader.getSize() == (20, 10)
+
+    def test_image_signature_rotation_pdf_corrigee(self, tmp_path):
+        """
+        Test: La rotation forcée de la signature est appliquée avant insertion PDF.
+        """
+        from PIL import Image
+        from signatures.services.pdf_signing import _normalize_pdf_image
+
+        image_path = tmp_path / "signature_retournee.png"
+        image = Image.new("RGB", (2, 1), "white")
+        image.putpixel((0, 0), (0, 0, 0))
+        image.save(image_path, format="PNG")
+
+        rotated = _normalize_pdf_image(image_path, rotate_degrees=180)
+
+        assert rotated.getpixel((0, 0)) == (255, 255, 255)
+        assert rotated.getpixel((1, 0)) == (0, 0, 0)
+
 
     def test_positions_limites(
         self,

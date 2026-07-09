@@ -38,6 +38,8 @@ def test_envoyer_demande_signature_accepte_plusieurs_destinataires(
     assert destinataires == ["admin@example.com", "ceo@example.com"]
     assert len(mail.outbox) == 1
     assert mail.outbox[0].to == ["admin@example.com", "ceo@example.com"]
+    assert mail.outbox[0].subject == "[Signature requise] Document Test Simple"
+    assert f"Document #{document_pdf_simple.pk}" not in mail.outbox[0].subject
     assert "attente d'approbation" in mail.outbox[0].body
 
 
@@ -75,6 +77,7 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
     client,
     user_factory,
     document_pdf_simple,
+    tampon_entreprise,
     pole_administratif_group,
     settings,
 ):
@@ -109,6 +112,8 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
             "pos_x_pct": "42",
             "pos_y_pct": "58",
             "admin_signer_id": str(autre_admin.pk),
+            "signature_mode": "stamp_signature",
+            "tampon_id": str(tampon_entreprise.pk),
         },
     )
 
@@ -116,6 +121,8 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
     demande = SignatureRequest.objects.get(document=document_pdf_simple)
     assert demande.approver == autre_admin
     assert demande.size_scale_pct == 100.0
+    assert demande.signature_mode == "stamp_signature"
+    assert demande.tampon == tampon_entreprise
     assert len(mail.outbox) == 1
     assert set(mail.outbox[0].to) == {
         "autre-admin@example.com",
