@@ -207,15 +207,16 @@ class FactureListView(FilterView):
 
     def get_context_data( self, *, object_list = ..., **kwargs):
         context = super().get_context_data(**kwargs)
-        context['access_finance'] = has_finance_access(self.request.user)
+        can_manage_finance = has_finance_access(self.request.user) or has_ceo_access(self.request.user)
+        context['access_finance'] = can_manage_finance
         context['can_create_invoice'] = can_create_facture(self.request.user)
-        context['can_export_invoices'] = has_finance_access(self.request.user)
-        context['can_manage_bulk_delete'] = has_finance_access(self.request.user)
-        context['can_manage_manual_reminders'] = has_finance_access(self.request.user)
-        context['can_view_dashboard'] = has_finance_access(self.request.user)
-        context['can_view_exports'] = has_finance_access(self.request.user)
-        context['can_view_anomalies'] = has_finance_access(self.request.user)
-        if has_finance_access(self.request.user):
+        context['can_export_invoices'] = can_manage_finance
+        context['can_manage_bulk_delete'] = can_manage_finance
+        context['can_manage_manual_reminders'] = can_manage_finance
+        context['can_view_dashboard'] = can_manage_finance
+        context['can_view_exports'] = can_manage_finance
+        context['can_view_anomalies'] = can_manage_finance
+        if can_manage_finance:
             from django.contrib.auth import get_user_model
 
             user_model = get_user_model()
@@ -259,7 +260,7 @@ class FactureDetailView(DetailView):
 
     def get_context_data(self, *, object_list=..., **kwargs):
         context = super().get_context_data(**kwargs)
-        context['access_finance'] = has_finance_access(self.request.user)
+        context['access_finance'] = has_finance_access(self.request.user) or has_ceo_access(self.request.user)
         context['can_edit_invoice'] = can_edit_facture(self.request.user, self.object)
         return context
 
@@ -363,7 +364,7 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
     def get_queryset(self):
         # Hors finance/CEO, les utilisateurs ne peuvent éditer que leurs propres factures.
         queryset = super().get_queryset()
-        if not (has_finance_access(self.request.user) or has_ceo_access(self.request.user)):
+        if not can_change_facture_status(self.request.user):
             return queryset.filter(
                 Q(collaborateur=self.request.user)
                 | Q(created_by=self.request.user)
@@ -407,7 +408,7 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
 
 # ================== Relance Manuelle ==================
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
 class ManualInvoiceRemindersView(View):
     """
     Vue pour déclencher manuellement les relances de factures.
@@ -459,7 +460,7 @@ class ManualInvoiceRemindersView(View):
 
 # ================== Suppression en masse ==================
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
 class BulkDeleteInvoicesView(View):
     """
     Vue pour supprimer plusieurs factures en une seule action
@@ -487,7 +488,7 @@ class BulkDeleteInvoicesView(View):
         return redirect('invoices:list')
 
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name="dispatch")
+@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name="dispatch")
 class InvoiceReminderSettingsView(View):
     def post(self, request, *args, **kwargs):
         sender_id = request.POST.get("sender_id")
@@ -509,7 +510,7 @@ class InvoiceReminderSettingsView(View):
         return redirect("invoices:list")
 
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
 class InvoiceAnomaliesView(TemplateView):
     template_name = 'invoices/anomalies.html'
 
@@ -519,7 +520,7 @@ class InvoiceAnomaliesView(TemplateView):
         return context
 
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
 class CegidExportListView(TemplateView):
     template_name = 'invoices/cegid_exports.html'
 
@@ -529,7 +530,7 @@ class CegidExportListView(TemplateView):
         return context
 
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
 class CegidExportCreateView(View):
     def post(self, request, *args, **kwargs):
         try:
@@ -558,7 +559,7 @@ class CegidExportCreateView(View):
         return redirect('invoices:cegid_exports')
 
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
 class CegidExportDownloadView(View):
     def get(self, request, pk, *args, **kwargs):
         run = ExportCegidRun.objects.filter(pk=pk, status="success").first()

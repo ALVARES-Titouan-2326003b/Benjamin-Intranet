@@ -24,6 +24,7 @@ from invoices.services.quality import get_invoice_anomalies
 from invoices.tasks import check_and_send_invoice_reminders
 from invoices.views_dashboard import DashboardView
 from technique.models import TechnicalProject
+from user_access.user_test_functions import can_change_facture_status
 
 
 @pytest.fixture
@@ -97,6 +98,26 @@ def invoice_payload(project, **overrides):
     }
     payload.update(overrides)
     return payload
+
+
+@pytest.mark.django_db
+def test_legacy_ceo_group_cannot_change_invoice_status_without_superadmin_rights():
+    ceo_group, _ = Group.objects.get_or_create(name="CEO")
+    ceo = User.objects.create_user(username="ceo", email="ceo@example.com")
+    ceo.groups.add(ceo_group)
+
+    assert can_change_facture_status(ceo) is False
+
+
+@pytest.mark.django_db
+def test_site_admin_can_change_invoice_status_without_ceo_group():
+    admin = User.objects.create_superuser(
+        username="administrateur",
+        email="admin@example.com",
+        password="adminpass",
+    )
+
+    assert can_change_facture_status(admin) is True
 
 
 @pytest.mark.django_db

@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
-from user_access.user_test_functions import has_finance_access
+from user_access.user_test_functions import can_change_facture_status
 from .models import Facture
 from django.db.models.functions import TruncMonth
 from .services.quality import get_invoice_anomalies
@@ -29,7 +29,7 @@ def _invoice_list_url(**params):
 def _total(value):
     return value or 0
 
-@method_decorator([login_required, user_passes_test(has_finance_access, login_url="/", redirect_field_name=None)], name='dispatch')
+@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
 class DashboardView(TemplateView):
     """
     Tableau de bord financier avec KPIs et graphiques.
@@ -47,7 +47,7 @@ class DashboardView(TemplateView):
         risky_suppliers: QuerySet  Top 5 fournisseurs en retard
 
     Permissions:
-        @user_passes_test(has_finance_access)
+        @user_passes_test(can_change_facture_status)
     """
     template_name = "invoices/dashboard.html"
 

@@ -33,13 +33,13 @@ def has_technique_access(user):
 
 def has_ceo_access(user):
     """
-    Renvoie vrai si un utilisateur a les accès du CEO
+    Renvoie vrai si un utilisateur a les accès du CEO / administrateur
 
     Args:
         user (User):  L'utilisateur
     """
     user = User.objects.get(username=user.username)
-    return user.groups.filter(name="CEO").exists()
+    return user.is_superuser
 
 
 def has_all_poles_access(user):
@@ -55,8 +55,7 @@ def has_all_poles_access(user):
         return True
 
     return (
-        user.groups.filter(name="CEO").exists()
-        or user.groups.filter(name="POLE_FINANCIER").exists()
+        user.groups.filter(name="POLE_FINANCIER").exists()
         or user.groups.filter(name="POLE_ADMINISTRATIF").exists()
         or user.groups.filter(name="POLE_TECHNIQUE").exists()
         or user.groups.filter(name="POLE_PROMOTION").exists()
@@ -99,12 +98,15 @@ def can_create_facture(user):
 def can_change_facture_status(user):
     """
     Renvoie vrai si un utilisateur peut modifier le statut d'une facture.
-    Le statut est réservé au pôle financier, indépendamment du rôle collaborateur.
+    Le statut est réservé au pôle financier et au CEO / administrateur superadmin.
     """
     if not getattr(user, "is_authenticated", False):
         return False
     user = User.objects.get(username=user.username)
-    return user.groups.filter(name="POLE_FINANCIER").exists()
+    return (
+        user.is_superuser
+        or user.groups.filter(name="POLE_FINANCIER").exists()
+    )
 
 
 def is_facture_creator(user, facture):
@@ -129,7 +131,7 @@ def can_edit_facture(user, facture):
         facture (Facture):  La facture
     """
     user = User.objects.get(username=user.username)
-    if has_finance_access(user):
+    if can_change_facture_status(user) or has_finance_access(user):
         return True
     if getattr(user, "is_authenticated", False):
         return (
