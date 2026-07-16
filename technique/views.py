@@ -1,5 +1,4 @@
 import json
-import csv
 from decimal import Decimal
 from django.views.decorators.http import require_http_methods
 from reportlab.lib import colors
@@ -8,7 +7,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.utils import timezone
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -37,7 +36,7 @@ from .forms import (
     TechnicalProjectActionForm,
     TechnicalProjectKeyDateForm,
 )
-from user_access.user_test_functions import has_technique_access
+from user_access.user_test_functions import can_view_technical_dossiers, has_technique_access
 from django.db.models import Q
 
 User = get_user_model()
@@ -443,7 +442,7 @@ def documents_update(request, pk):
 
 
 @login_required
-@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+@user_passes_test(can_view_technical_dossiers, login_url="/", redirect_field_name=None)
 def financial_overview(request):
     """
     Affiche la liste des dossiers techniques
@@ -485,6 +484,10 @@ def financial_overview(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
+    can_manage_projects = has_technique_access(request.user)
+    if request.method == "POST" and not can_manage_projects:
+        return HttpResponseForbidden("Accès en lecture seule aux dossiers techniques.")
+
     if request.method == "POST":
         form = TechnicalProjectCreateForm(request.POST)
         if form.is_valid():
@@ -525,11 +528,12 @@ def financial_overview(request):
             "type_choices": TechnicalProject.DOSSIER_TYPES,
             "status_choices": TechnicalProject.STATUS_CHOICES,
             "can_delete_projects": _user_can_delete_technical_projects(request.user),
+            "can_manage_projects": can_manage_projects,
         },
     )
 
 @login_required
-@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+@user_passes_test(can_view_technical_dossiers, login_url="/", redirect_field_name=None)
 def financial_project_detail(request, pk):
     """
     Saisie des données financières + graphiques
@@ -539,6 +543,9 @@ def financial_project_detail(request, pk):
         pk (str): Identifiant du dossier
     """
     project = get_object_or_404(TechnicalProject, pk=pk)
+    can_manage_project = has_technique_access(request.user)
+    if request.method == "POST" and not can_manage_project:
+        return HttpResponseForbidden("Accès en lecture seule aux dossiers techniques.")
     project.refresh_amounts_from_expenses()
     project_documents = project.documents.order_by("-created_at")[:10]
     project_document_options = project.documents.order_by("-created_at")
@@ -706,7 +713,11 @@ def financial_project_detail(request, pk):
             "history_entries": history_entries,
             "project_documents": project_documents,
             "project_document_options": project_document_options,
-            "assignable_users": User.objects.filter(is_active=True).order_by("username"),
+            "assignable_users": (
+                User.objects.filter(is_active=True, groups__name="POLE_TECHNIQUE")
+                .distinct()
+                .order_by("username")
+            ),
             "expense_q": expense_q,
             "expense_status": expense_status,
             "action_q": action_q,
@@ -729,6 +740,7 @@ def financial_project_detail(request, pk):
             "budget_status": budget_status,
             "budget_label": budget_label,
             "budget_ratio": round(budget_ratio, 2),
+            "can_manage_project": can_manage_project,
         },
     )
 
@@ -977,7 +989,7 @@ def project_key_date_delete(request, key_date_pk):
 
 
 @login_required
-@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+@user_passes_test(can_view_technical_dossiers, login_url="/", redirect_field_name=None)
 def financial_project_pdf(request, pk):
     """
     Permet de télécharger le PDF de la vue financière
@@ -1069,41 +1081,7 @@ def financial_project_pdf(request, pk):
     return response
 
 @login_required
-@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
-def financial_project_csv(request, pk):
-    project = get_object_or_404(TechnicalProject, pk=pk)
-    project.refresh_amounts_from_expenses()
-    expenses = project.expenses.all().order_by("due_date", "id")
-
-    response = HttpResponse(content_type="text/csv; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="budget_{project.reference}.csv"'
-
-    writer = csv.writer(response, delimiter=";")
-    writer.writerow(["Dossier", project.name])
-    writer.writerow(["Référence", project.reference])
-    writer.writerow(["Type", project.get_type_display()])
-    writer.writerow(["Budget estimé", project.total_estimated])
-    writer.writerow(["Frais engagés", project.frais_engages])
-    writer.writerow(["Frais payés", project.frais_payes])
-    writer.writerow(["Restant à régler", project.frais_restants])
-    writer.writerow(["Reste à engager", project.reste_a_engager])
-    writer.writerow([])
-
-    writer.writerow(["Libellé", "Montant", "Statut", "Échéance", "Date de paiement"])
-    for expense in expenses:
-        writer.writerow([
-            expense.label,
-            expense.amount,
-            "Payée" if expense.is_paid else "À payer",
-            expense.due_date.strftime("%d/%m/%Y") if expense.due_date else "",
-            expense.payment_date.strftime("%d/%m/%Y") if expense.payment_date else "",
-        ])
-
-    return response
-
-
-@login_required
-@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+@user_passes_test(can_view_technical_dossiers, login_url="/", redirect_field_name=None)
 def financial_project_excel(request, pk):
     project = get_object_or_404(TechnicalProject, pk=pk)
     project.refresh_amounts_from_expenses()

@@ -6,6 +6,9 @@
 <link rel="stylesheet" href="{% static 'technique/css/style.css' %}">
 
 <div class="dossier-page">
+  {% if not can_manage_project %}
+  <div class="alert alert-info">Consultation en lecture seule de ce dossier technique.</div>
+  {% endif %}
   <header class="dossier-hero">
     <div class="dossier-hero__main">
       <a href="{% url 'technique:dossiers_list' %}" class="dossier-back">
@@ -26,9 +29,6 @@
     <div class="dossier-hero__actions">
       <a href="{% url 'technique:dossier_budget_pdf' project.pk %}" class="btn btn-secondary">
         <i class="bi bi-file-pdf"></i> PDF
-      </a>
-      <a href="{% url 'technique:dossier_budget_csv' project.pk %}" class="btn btn-secondary">
-        <i class="bi bi-filetype-csv"></i> CSV
       </a>
       <a href="{% url 'technique:dossier_budget_excel' project.pk %}" class="btn btn-secondary">
         <i class="bi bi-file-earmark-excel"></i> Excel
@@ -76,6 +76,7 @@
     <div class="dossier-overview-grid">
       <section class="panel">
         <div class="panel__title">Statut du dossier</div>
+        {% if can_manage_project %}
         <form method="post" class="compact-form">
           {% csrf_token %}
           <input type="hidden" name="update_project_status" value="1">
@@ -87,6 +88,9 @@
             <i class="bi bi-check-lg"></i> Mettre à jour
           </button>
         </form>
+        {% else %}
+        <span class="badge status-soft">{{ project.get_status_display }}</span>
+        {% endif %}
       </section>
 
       <section class="panel">
@@ -129,6 +133,7 @@
       <span class="badge">{{ actions|length }} action{% if actions|length > 1 %}s{% endif %}</span>
     </div>
 
+    {% if can_manage_project %}
     <form method="post" action="{% url 'technique:dossier_action_create' project.pk %}" class="creation-panel">
       {% csrf_token %}
       <div class="project-task-form-grid">
@@ -163,6 +168,7 @@
         </button>
       </div>
     </form>
+    {% endif %}
 
     <form method="get" class="filter-grid project-task-filter-grid">
       <input type="hidden" name="expense_q" value="{{ expense_q }}">
@@ -222,6 +228,7 @@
             <td><span class="badge">{{ action.get_priority_display }}</span></td>
             <td>{{ action.due_date|date:"d/m/Y"|default:"—" }}</td>
             <td>
+              {% if can_manage_project %}
               <details class="row-editor">
                 <summary><span class="action-btn"><i class="bi bi-pencil"></i> Modifier</span></summary>
                 <form method="post" action="{% url 'technique:dossier_action_update' action.pk %}">
@@ -280,6 +287,7 @@
                   </form>
                 </div>
               </details>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -297,6 +305,7 @@
       <span class="badge">{{ key_dates|length }} date{% if key_dates|length > 1 %}s{% endif %}</span>
     </div>
 
+    {% if can_manage_project %}
     <form method="post" action="{% url 'technique:dossier_key_date_create' project.pk %}" class="creation-panel">
       {% csrf_token %}
       <div class="project-key-date-form-grid">
@@ -331,6 +340,7 @@
         </button>
       </div>
     </form>
+    {% endif %}
 
     {% if key_dates %}
     <div class="timeline-list">
@@ -347,6 +357,7 @@
             {% endif %}
             {% if key_date.action %}<span>{{ key_date.action.title }}</span>{% endif %}
           </div>
+          {% if can_manage_project %}
           <details class="row-editor">
             <summary><span class="action-btn"><i class="bi bi-pencil"></i> Modifier</span></summary>
             <form method="post" action="{% url 'technique:dossier_key_date_update' key_date.pk %}">
@@ -407,6 +418,7 @@
               </form>
             </div>
           </details>
+          {% endif %}
         </div>
       </article>
       {% endfor %}
@@ -419,18 +431,28 @@
   <section id="documents" class="dossier-section">
     <div class="section-header">
       <span class="section-header__title">Documents</span>
+      {% if can_manage_project %}
       <a href="{% url 'technique:documents_upload' %}?project={{ project.pk }}" class="btn btn-secondary">
         <i class="bi bi-plus-lg"></i> Ajouter
       </a>
+      {% endif %}
     </div>
     {% if project_documents %}
     <div class="document-grid">
       {% for document in project_documents %}
+      {% if can_manage_project %}
       <a href="{% url 'technique:documents_detail' document.pk %}" class="document-item">
         <i class="bi bi-file-earmark-text"></i>
         <span>{{ document.titre }}</span>
         <small>{{ document.created_at|date:"d/m/Y" }}</small>
       </a>
+      {% else %}
+      <div class="document-item">
+        <i class="bi bi-file-earmark-text"></i>
+        <span>{{ document.titre }}</span>
+        <small>{{ document.created_at|date:"d/m/Y" }}</small>
+      </div>
+      {% endif %}
       {% endfor %}
     </div>
     {% else %}
@@ -444,6 +466,7 @@
     </div>
 
     <div class="finance-layout">
+      {% if can_manage_project %}
       <div>
         <form method="post" class="creation-panel">
           {% csrf_token %}
@@ -493,6 +516,7 @@
           </div>
         </form>
       </div>
+      {% endif %}
 
       <aside class="finance-panel">
         <div class="summary-tile">
@@ -562,6 +586,7 @@
             <td>{{ expense.payment_date|date:"d/m/Y"|default:"—" }}</td>
             <td>{{ expense.facture.id|default:"—" }}</td>
             <td>
+              {% if can_manage_project %}
               <details class="row-editor">
                 <summary><span class="action-btn"><i class="bi bi-pencil"></i> Modifier</span></summary>
                 <form method="post" action="{% url 'technique:dossier_expense_update' expense.pk %}">
@@ -617,6 +642,7 @@
                   </form>
                 </div>
               </details>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}

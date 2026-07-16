@@ -93,7 +93,11 @@ class TechnicalProjectActionForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["assigned_to"].required = False
         self.fields["assigned_to"].empty_label = "-- Non assignée --"
-        self.fields["assigned_to"].queryset = User.objects.filter(is_active=True).order_by("username")
+        self.fields["assigned_to"].queryset = (
+            User.objects.filter(is_active=True, groups__name="POLE_TECHNIQUE")
+            .distinct()
+            .order_by("username")
+        )
 
     class Meta:
         model = TechnicalProjectAction

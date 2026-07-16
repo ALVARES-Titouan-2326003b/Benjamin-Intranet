@@ -31,6 +31,13 @@ def has_technique_access(user):
     user = User.objects.get(username=user.username)
     return user.is_superuser or user.is_staff or user.groups.filter(name="POLE_TECHNIQUE").exists()
 
+
+def can_view_technical_dossiers(user):
+    """Autorise la consultation des dossiers techniques sans ouvrir le reste du pôle."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return has_technique_access(user) or user.groups.filter(name="POLE_ADMINISTRATIF").exists()
+
 def has_ceo_access(user):
     """
     Renvoie vrai si un utilisateur a les accès du CEO / administrateur

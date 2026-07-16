@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from invoices.models import ActeurExterne, Client, Facture, Fournisseur
+from technique.forms import TechnicalProjectActionForm
 from technique.models import (
     DocumentTechnique,
     ProjectExpense,
@@ -37,6 +38,14 @@ def technique_user(user_factory, technique_group):
 def other_technique_user(user_factory, technique_group):
     user = user_factory(username="other_tech", email="other@example.com")
     user.groups.add(technique_group)
+    return user
+
+
+@pytest.fixture
+def administrative_user(user_factory, db):
+    group, _ = Group.objects.get_or_create(name="POLE_ADMINISTRATIF")
+    user = user_factory(username="admin_pole", email="admin-pole@example.com")
+    user.groups.add(group)
     return user
 
 
@@ -380,6 +389,69 @@ def test_project_actions_can_be_managed_from_project_detail(client, technique_us
 
 
 @pytest.mark.django_db
+def test_project_actions_only_allow_technical_assignees(
+    client, technique_user, project, user_factory
+):
+    non_technical_user = user_factory(username="finance_user", email="finance@example.com")
+
+    form = TechnicalProjectActionForm()
+    assert list(form.fields["assigned_to"].queryset) == [technique_user]
+
+    client.force_login(technique_user)
+    response = client.post(
+        reverse("technique:dossier_action_create", args=[project.pk]),
+        {
+            "title": "Action mal assignée",
+            "assigned_to": non_technical_user.pk,
+            "status": "todo",
+            "priority": "normal",
+            "description": "",
+            "due_date": "",
+        },
+    )
+
+    assert response.status_code == 302
+    assert not TechnicalProjectAction.objects.filter(title="Action mal assignée").exists()
+
+
+@pytest.mark.django_db
+def test_administrative_pole_has_read_only_technical_project_access(
+    client, administrative_user, project
+):
+    action = TechnicalProjectAction.objects.create(project=project, title="Action visible")
+    client.force_login(administrative_user)
+
+    list_response = client.get(reverse("technique:dossiers_list"))
+    assert list_response.status_code == 200
+    assert list_response.context["can_manage_projects"] is False
+    assert "Consultation en lecture seule" in list_response.content.decode()
+    assert "Créer un dossier" not in list_response.content.decode()
+
+    detail_response = client.get(reverse("technique:dossier_detail", args=[project.pk]))
+    assert detail_response.status_code == 200
+    assert detail_response.context["can_manage_project"] is False
+    assert "Action visible" in detail_response.content.decode()
+    assert "Ajouter l'action" not in detail_response.content.decode()
+
+    denied_update = client.post(
+        reverse("technique:dossier_detail", args=[project.pk]),
+        {"update_project_status": "1", "status": "acquis"},
+    )
+    assert denied_update.status_code == 403
+
+    denied_action = client.post(
+        reverse("technique:dossier_action_create", args=[project.pk]),
+        {"title": "Action interdite"},
+    )
+    assert denied_action.status_code == 302
+    assert not TechnicalProjectAction.objects.filter(title="Action interdite").exists()
+
+    assert client.get(reverse("technique:documents_list")).status_code == 302
+    assert client.get(reverse("technique:dossier_budget_pdf", args=[project.pk])).status_code == 200
+    assert client.get(reverse("technique:dossier_budget_excel", args=[project.pk])).status_code == 200
+
+
+@pytest.mark.django_db
 def test_project_key_dates_can_link_documents_and_actions(client, technique_user, project, settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path
     client.force_login(technique_user)
@@ -573,7 +645,6 @@ def test_financial_calculations_and_exports_still_work(client, technique_user, p
     client.force_login(technique_user)
     for url_name in (
         "dossier_budget_pdf",
-        "dossier_budget_csv",
         "dossier_budget_excel",
     ):
         response = client.get(reverse(f"technique:{url_name}", args=[project.pk]))

@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-document.getElementById("showCreateFormBtn").addEventListener("click", function () {
+document.getElementById("showCreateFormBtn")?.addEventListener("click", function () {
         const form = document.getElementById("createProjectForm");
         form.style.display = (form.style.display === "none") ? "block" : "none";
     });

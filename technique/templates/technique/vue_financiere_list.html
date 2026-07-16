@@ -13,11 +13,14 @@
             Point d'entrée central pour les dossiers, documents et données financières.
         </p>
     </div>
+    {% if can_manage_projects %}
     <button class="btn btn-primary" id="showCreateFormBtn">
         <i class="bi bi-plus-lg"></i> Créer un dossier
     </button>
+    {% endif %}
 </div>
 
+{% if can_manage_projects %}
 <!-- Formulaire Création (Hidden by default) -->
 <div class="card mb-4" id="createProjectForm" style="display: none; margin-bottom: 1.5rem;">
     <div class="card-title">Créer un nouveau dossier</div>
@@ -32,6 +35,11 @@
         </div>
     </form>
 </div>
+{% else %}
+<div class="alert alert-info" style="margin-bottom: 1.5rem;">
+    Consultation en lecture seule des dossiers techniques.
+</div>
+{% endif %}
 
 <div class="card" style="margin-bottom: 1.5rem;">
     <div class="card-title">Filtres</div>
@@ -112,7 +120,7 @@
                 <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedProjectsCount">0</span>)
             </button>
         </div>
-        {% else %}
+        {% elif can_manage_projects %}
         <div style="margin-bottom: 1rem; color: var(--text-secondary);">
             La suppression définitive des dossiers est réservée au CEO / superadmin.
         </div>
