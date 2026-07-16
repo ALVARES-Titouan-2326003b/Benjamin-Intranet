@@ -320,7 +320,13 @@ class Activite(models.Model):
 
     id = models.TextField(primary_key=True)
     titre = models.CharField(max_length=255, blank=True)
-    dossier = models.ForeignKey("technique.TechnicalProject", on_delete=models.CASCADE, db_column='dossier')
+    dossier = models.ForeignKey(
+        "technique.TechnicalProject",
+        on_delete=models.SET_NULL,
+        db_column='dossier',
+        null=True,
+        blank=True,
+    )
     type = models.ForeignKey(TypeActivite, on_delete=models.CASCADE, db_column='type')
     date = models.DateTimeField(blank=True, null=True)
     duree_minutes = models.PositiveSmallIntegerField("Durée du créneau", choices=DUREES_CRENEAU, default=60)
@@ -360,7 +366,8 @@ class Activite(models.Model):
 
     def __str__(self):
         date_label = self.date.strftime('%Y-%m-%d') if self.date else "sans date"
-        return f"{self.titre or self.type} - {self.dossier} ({date_label})"
+        dossier_label = self.dossier or "sans dossier"
+        return f"{self.titre or self.type} - {dossier_label} ({date_label})"
 
 
 class HistoriqueRappelActivite(models.Model):

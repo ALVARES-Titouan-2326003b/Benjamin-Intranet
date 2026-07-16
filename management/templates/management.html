@@ -88,54 +88,43 @@
    <div class="card" style="height: 100%;">
       <div class="card-title">Calendrier &amp; Suivi des activités</div>
 
+      <div id="admin-calendar-config"
+           data-current-user-id="{{ current_calendar_user.pk }}"
+           data-ceo-user-id="{% if ceo_calendar_user %}{{ ceo_calendar_user.pk }}{% endif %}"
+           data-default-scope="mine"></div>
+
+      {% if show_ceo_calendar_toggle %}
+      <div class="cal-view-toggle" style="justify-content:flex-start;margin:.25rem 0 .75rem;">
+         <button type="button" class="cal-view-btn active" data-calendar-scope="mine">
+            <i class="bi bi-person"></i> Mon calendrier
+         </button>
+         <button type="button" class="cal-view-btn" data-calendar-scope="ceo">
+            <i class="bi bi-eye"></i> Calendrier administrateur
+         </button>
+      </div>
+      {% endif %}
+
       <!-- Filtres du calendrier -->
       <div class="calendar-filters">
          <!-- Les filtres seront générés dynamiquement par JavaScript -->
       </div>
 
       <!-- Actions calendrier -->
-      <div style="display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; margin: 0.75rem 0;">
+      <div class="calendar-write-actions" style="display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; margin: 0.75rem 0;">
          <a id="calendar-export-ics" class="btn btn-secondary" href="{% url 'calendar_export_ics' %}">
             <i class="bi bi-calendar-arrow-down"></i> Exporter .ics
          </a>
-         <button id="add-activity-btn" class="btn btn-primary" style="display:flex;align-items:center;gap:.5rem;">
+         <button id="add-activity-btn" type="button" class="btn btn-primary" style="display:flex;align-items:center;gap:.5rem;">
             <i class="bi bi-plus-circle"></i> Ajouter une activité
          </button>
       </div>
 
-      <form method="post" action="{% url 'calendar_import_ics' %}" enctype="multipart/form-data"
-            style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;align-items:end;margin:.75rem 0 1rem;">
+      <form class="calendar-write-actions" method="post" action="{% url 'calendar_import_ics' %}" enctype="multipart/form-data"
+            style="display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:.5rem;align-items:end;margin:.75rem 0 1rem;">
          {% csrf_token %}
          <div>
             <label class="form-label">Fichier .ics</label>
             <input type="file" name="file" class="form-control" accept=".ics,text/calendar" required>
-         </div>
-         <div>
-            <label class="form-label">Dossier</label>
-            <select name="dossier" class="form-control" required>
-               <option value="">-- Dossier --</option>
-               {% for dossier in dossiers %}
-               <option value="{{ dossier.reference }}">{{ dossier.reference }} — {{ dossier.affaire|default:dossier.name }}</option>
-               {% endfor %}
-            </select>
-         </div>
-         <div>
-            <label class="form-label">Type</label>
-            <select name="type" class="form-control" required>
-               <option value="">-- Type --</option>
-               {% for type in types %}
-               <option value="{{ type.type }}">{{ type.type }}</option>
-               {% endfor %}
-            </select>
-         </div>
-         <div>
-            <label class="form-label">Responsable</label>
-            <select name="responsable" class="form-control">
-               <option value="">-- Aucun --</option>
-               {% for admin_user in users %}
-               <option value="{{ admin_user.pk }}">{{ admin_user.get_full_name|default:admin_user.username }}</option>
-               {% endfor %}
-            </select>
          </div>
          <button type="submit" class="btn btn-secondary">
             <i class="bi bi-calendar-arrow-up"></i> Importer .ics
@@ -300,9 +289,9 @@
 
          <!-- Dossier administratif avec recherche -->
          <div class="form-group">
-            <label class="form-label">Dossier administratif *</label>
-            <select id="activity-dossier" name="dossier" class="form-control" required>
-               <option value="">-- Sélectionner un dossier --</option>
+            <label class="form-label">Dossier administratif</label>
+            <select id="activity-dossier" name="dossier" class="form-control">
+               <option value="">-- Aucun dossier --</option>
                {% for dossier in dossiers %}
                <option value="{{ dossier.reference }}" data-nom="{{ dossier.affaire|default:dossier.name }}">
                   {{ dossier.reference }} — {{ dossier.affaire|default:dossier.name }}
@@ -424,7 +413,14 @@ async function loadUpcomingActivities() {
       const month = now.getMonth() + 1;
       const year  = now.getFullYear();
 
-      const resp = await fetch(`/api/calendar-activities/?month=${month}&year=${year}`);
+      const scopeButton = document.querySelector('[data-calendar-scope].active');
+      const calendarScope = scopeButton?.dataset?.calendarScope || 'mine';
+      const params = new URLSearchParams({
+         month: String(month),
+         year: String(year),
+         calendar_scope: calendarScope
+      });
+      const resp = await fetch(`/api/calendar-activities/?${params.toString()}`);
       const data = await resp.json();
       if (!data.success) throw new Error(data.message);
 
@@ -511,6 +507,6 @@ document.addEventListener('click', async function(event) {
 
 {% block extra_js %}
 <script src="{% static '/js/mails.js' %}?v=5"></script>
-<script src="{% static '/js/calendar.js' %}?v=5"></script>
+<script src="{% static '/js/calendar.js' %}?v=6"></script>
 <script src="{% static '/js/oauth_status.js' %}?v=4"></script>
 {% endblock %}

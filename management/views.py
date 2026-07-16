@@ -573,6 +573,42 @@ def _user_label(user):
     return full_name or user.get_username()
 
 
+def _is_ceo_user(user):
+    """Dans l'application, le CEO métier correspond au superadmin du site."""
+    return bool(user and user.is_superuser)
+
+
+def _get_ceo_calendar_user():
+    return (
+        Utilisateur.objects.filter(is_superuser=True, is_active=True)
+        .distinct()
+        .order_by("last_name", "first_name", "username")
+        .first()
+    )
+
+
+def _calendar_scope(request):
+    scope = (request.GET.get("calendar_scope") or "mine").strip()
+    if scope == "ceo":
+        ceo_user = _get_ceo_calendar_user()
+        if ceo_user:
+            return scope, ceo_user
+    return "mine", request.user
+
+
+def _apply_calendar_scope(queryset, request):
+    scope, owner = _calendar_scope(request)
+    return queryset.filter(responsable=owner), scope, owner
+
+
+def _can_mutate_calendar_activity(user, activity):
+    if _is_ceo_user(user):
+        return True
+    if activity.responsable_id and _is_ceo_user(activity.responsable):
+        return False
+    return True
+
+
 def _serialize_activity(activity, include_datetime=False):
     date_value = activity.date
     duree_minutes = activity.duree_minutes or 60
@@ -1175,17 +1211,24 @@ def _parse_calendar_ics_events(uploaded_file):
     return parsed_events
 
 
-def _import_calendar_ics(uploaded_file, dossier, type_activite, responsable, user):
+def _get_calendar_import_type():
+    type_activite, _ = TypeActivite.objects.get_or_create(type="Import calendrier")
+    return type_activite
+
+
+def _import_calendar_ics(uploaded_file, user):
     events = _parse_calendar_ics_events(uploaded_file)
+    type_activite = _get_calendar_import_type()
     created = 0
     skipped = 0
 
     for event in events:
         duplicate = Activite.objects.filter(
-            dossier=dossier,
+            dossier__isnull=True,
             type=type_activite,
             titre=event["titre"],
             date=event["date"],
+            responsable=user,
         ).exists()
         if duplicate:
             skipped += 1
@@ -1200,7 +1243,7 @@ def _import_calendar_ics(uploaded_file, dossier, type_activite, responsable, use
         Activite.objects.create(
             id=_next_activity_id(),
             titre=event["titre"],
-            dossier=dossier,
+            dossier=None,
             type=type_activite,
             date=event["date"],
             duree_minutes=event["duree_minutes"],
@@ -1208,7 +1251,7 @@ def _import_calendar_ics(uploaded_file, dossier, type_activite, responsable, use
             commentaire="\n\n".join(commentaire_parts),
             statut="todo",
             priorite="normal",
-            responsable=responsable,
+            responsable=user,
             created_by=user,
             updated_by=user,
         )
@@ -1243,6 +1286,7 @@ def _calendar_export_queryset_from_request(request):
         )
         queryset = queryset.filter(date__gte=start_date, date__lt=end_date)
 
+    queryset, _, _ = _apply_calendar_scope(queryset, request)
     return _apply_calendar_filters(queryset, request.GET)
 
 
@@ -1262,9 +1306,10 @@ def _build_calendar_ics(activities):
         duration = activity.duree_minutes or 60
         end = start + timedelta(minutes=duration)
         dossier_label = getattr(activity.dossier, "affaire", "") or getattr(activity.dossier, "name", "") or ""
-        summary = activity.titre or f"{activity.type} - {activity.dossier.reference}"
+        dossier_reference = getattr(activity.dossier, "reference", "") or "Sans dossier"
+        summary = activity.titre or f"{activity.type} - {dossier_reference}"
         description_parts = [
-            f"Dossier : {activity.dossier.reference} {dossier_label}".strip(),
+            f"Dossier : {dossier_reference} {dossier_label}".strip(),
             f"Type : {activity.type}",
             f"Statut : {activity.get_statut_display()}",
             f"Priorité : {activity.get_priorite_display()}",
@@ -1296,12 +1341,14 @@ def _activity_form_data(data):
     type_label = (data.get("type") or "").strip()
     date_str = (data.get("date") or "").strip()
 
-    if not dossier_ref or not type_label or not date_str:
+    if not type_label or not date_str:
         raise ValueError("Champs obligatoires manquants")
 
-    dossier_obj = TechnicalProject.objects.filter(reference=dossier_ref).first()
-    if not dossier_obj:
-        raise LookupError(f'Dossier introuvable : "{dossier_ref}"')
+    dossier_obj = None
+    if dossier_ref:
+        dossier_obj = TechnicalProject.objects.filter(reference=dossier_ref).first()
+        if not dossier_obj:
+            raise LookupError(f'Dossier introuvable : "{dossier_ref}"')
 
     type_obj = TypeActivite.objects.filter(type__iexact=type_label).first()
     if not type_obj:
@@ -1412,25 +1459,28 @@ def administratif_view(request):
         .first()
     )
 
-    return render(
-        request,
-        "management.html",
-        {
-            "pole_name": "Administratif",
-            "conversations": conversations,
-            "journal_status": journal_status,
-            "journal_q": journal_q,
-            "journal_status_choices": GmailConversation.STATUS_CHOICES,
-            "last_journal_sync": last_journal_sync,
-            "dossiers": dossiers,
-            "types": types,
-            "users": users,
-            "notifications": notifications,
-            "notification_count": len(notifications),
-            "reminder_rules": reminder_rules,
-            "reminder_timing_choices": RegleRappelActivite.TIMING_CHOICES,
-        },
-    )
+    ceo_calendar_user = _get_ceo_calendar_user()
+    context = {
+        "pole_name": "Administratif",
+        "conversations": conversations,
+        "journal_status": journal_status,
+        "journal_q": journal_q,
+        "journal_status_choices": GmailConversation.STATUS_CHOICES,
+        "last_journal_sync": last_journal_sync,
+        "dossiers": dossiers,
+        "types": types,
+        "users": users,
+        "ceo_calendar_user": ceo_calendar_user,
+        "show_ceo_calendar_toggle": bool(
+            ceo_calendar_user and not _is_ceo_user(user) and ceo_calendar_user.pk != user.pk
+        ),
+        "current_calendar_user": user,
+        "notifications": notifications,
+        "notification_count": len(notifications),
+        "reminder_rules": reminder_rules,
+        "reminder_timing_choices": RegleRappelActivite.TIMING_CHOICES,
+    }
+    return render(request, "management.html", context)
 
 
 @require_http_methods(["POST"])
@@ -1807,6 +1857,7 @@ def get_calendar_activities(request):
             .select_related("dossier", "type", "responsable")
             .order_by("date", "id")
         )
+        activites, scope, owner = _apply_calendar_scope(activites, request)
         activites = _apply_calendar_filters(activites, request.GET)
 
         activites_list = [_serialize_activity(act, include_datetime=True) for act in activites]
@@ -1817,6 +1868,9 @@ def get_calendar_activities(request):
                 "activites": activites_list,
                 "month": month,
                 "year": year,
+                "calendar_scope": scope,
+                "calendar_owner_id": owner.pk if owner else None,
+                "read_only": scope == "ceo" and not _is_ceo_user(request.user),
             }
         )
 
@@ -1856,6 +1910,7 @@ def get_calendar_activities_week(request):
             .select_related("dossier", "type", "responsable")
             .order_by("date", "id")
         )
+        activites, scope, owner = _apply_calendar_scope(activites, request)
         activites = _apply_calendar_filters(activites, request.GET)
 
         activites_list = [_serialize_activity(act, include_datetime=True) for act in activites]
@@ -1866,6 +1921,9 @@ def get_calendar_activities_week(request):
                 "activites": activites_list,
                 "week_start": monday.isoformat(),
                 "week_end": sunday.isoformat(),
+                "calendar_scope": scope,
+                "calendar_owner_id": owner.pk if owner else None,
+                "read_only": scope == "ceo" and not _is_ceo_user(request.user),
             }
         )
 
@@ -1896,36 +1954,13 @@ def export_calendar_ics_view(request):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def import_calendar_ics_view(request):
     uploaded_file = request.FILES.get("file")
-    dossier_ref = (request.POST.get("dossier") or "").strip()
-    type_label = (request.POST.get("type") or "").strip()
-    responsable_id = (request.POST.get("responsable") or "").strip()
 
     if not uploaded_file:
         messages.error(request, "Merci de sélectionner un fichier .ics à importer.")
         return redirect("admin_view")
-    if not dossier_ref or not type_label:
-        messages.error(request, "Le dossier et le type d'activité sont obligatoires pour l'import calendrier.")
-        return redirect("admin_view")
-
-    dossier = TechnicalProject.objects.filter(reference=dossier_ref).first()
-    if not dossier:
-        messages.error(request, "Dossier administratif introuvable pour l'import calendrier.")
-        return redirect("admin_view")
-
-    type_activite = TypeActivite.objects.filter(type__iexact=type_label).first()
-    if not type_activite:
-        messages.error(request, "Type d'activité introuvable pour l'import calendrier.")
-        return redirect("admin_view")
-
-    responsable = None
-    if responsable_id:
-        responsable = Utilisateur.objects.filter(pk=responsable_id, is_active=True).first()
-        if not responsable:
-            messages.error(request, "Responsable introuvable pour l'import calendrier.")
-            return redirect("admin_view")
 
     try:
-        result = _import_calendar_ics(uploaded_file, dossier, type_activite, responsable, request.user)
+        result = _import_calendar_ics(uploaded_file, request.user)
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect("admin_view")
@@ -1951,8 +1986,13 @@ def create_activity_view(request):
     try:
         data = _parse_request_json(request)
         activity_data = _activity_form_data(data)
+        if not activity_data["responsable"]:
+            activity_data["responsable"] = request.user
         if not activity_data["titre"]:
-            activity_data["titre"] = f"{activity_data['type'].type} - {activity_data['dossier'].reference}"
+            if activity_data["dossier"]:
+                activity_data["titre"] = f"{activity_data['type'].type} - {activity_data['dossier'].reference}"
+            else:
+                activity_data["titre"] = str(activity_data["type"].type)
 
         nouvelle_activite = Activite.objects.create(
             id=_next_activity_id(),
@@ -2003,10 +2043,17 @@ def update_activity_view(request, activity_id):
         )
         if not activity:
             return _json_error("Activité introuvable", status=404)
+        if not _can_mutate_calendar_activity(request.user, activity):
+            return _json_error("Le calendrier administrateur est consultable en lecture seule.", status=403)
 
         activity_data = _activity_form_data(data)
+        if not activity_data["responsable"]:
+            activity_data["responsable"] = request.user
         if not activity_data["titre"]:
-            activity_data["titre"] = f"{activity_data['type'].type} - {activity_data['dossier'].reference}"
+            if activity_data["dossier"]:
+                activity_data["titre"] = f"{activity_data['type'].type} - {activity_data['dossier'].reference}"
+            else:
+                activity_data["titre"] = str(activity_data["type"].type)
 
         for field, value in activity_data.items():
             setattr(activity, field, value)
@@ -2055,6 +2102,8 @@ def delete_activity_view(request):
             activity = Activite.objects.filter(pk=activity_id).first()
             if not activity:
                 return _json_error("Activité introuvable", status=404)
+            if not _can_mutate_calendar_activity(request.user, activity):
+                return _json_error("Le calendrier administrateur est consultable en lecture seule.", status=403)
 
             warning = ""
             if activity.outlook_event_id:
@@ -2075,12 +2124,14 @@ def delete_activity_view(request):
         type_label = (data.get("type") or "").strip()
         date_str = (data.get("date") or "").strip()
 
-        if not dossier_ref or not type_label or not date_str:
+        if not type_label or not date_str:
             return _json_error("Champs obligatoires manquants")
 
-        dossier_obj = TechnicalProject.objects.filter(reference=dossier_ref).first()
-        if not dossier_obj:
-            return _json_error(f'Dossier introuvable : "{dossier_ref}"', status=404)
+        dossier_obj = None
+        if dossier_ref:
+            dossier_obj = TechnicalProject.objects.filter(reference=dossier_ref).first()
+            if not dossier_obj:
+                return _json_error(f'Dossier introuvable : "{dossier_ref}"', status=404)
 
         type_obj = TypeActivite.objects.filter(type__iexact=type_label).first()
         if not type_obj:
@@ -2091,11 +2142,13 @@ def delete_activity_view(request):
         date_fin = date_debut + timedelta(minutes=1)
 
         queryset = Activite.objects.filter(
-            dossier=dossier_obj,
             type=type_obj,
             date__gte=date_debut,
             date__lt=date_fin,
         )
+        queryset = queryset.filter(dossier=dossier_obj) if dossier_obj else queryset.filter(dossier__isnull=True)
+        if not _is_ceo_user(request.user):
+            queryset = queryset.exclude(responsable__is_superuser=True)
 
         count_before = queryset.count()
         if count_before == 0:

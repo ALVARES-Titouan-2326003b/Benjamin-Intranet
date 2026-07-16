@@ -52,8 +52,16 @@
         filtresResponsables: {},
         filtreClient: '',
         filtreContact: '',
-        filtersCollapsed: true
+        filtersCollapsed: true,
+        calendarScope: 'mine',
+        calendarReadOnly: false
     };
+    window.adminCalendarState = state;
+
+    const calendarConfig = document.getElementById('admin-calendar-config');
+    if (calendarConfig?.dataset?.defaultScope) {
+        state.calendarScope = calendarConfig.dataset.defaultScope;
+    }
 
     // Éléments DOM
     const days = document.querySelector(".days");
@@ -167,9 +175,12 @@
         try {
             console.log(` Chargement activités pour ${month + 1}/${year}`);
 
-            const response = await fetch(
-                `/api/calendar-activities/?month=${month + 1}&year=${year}`
-            );
+            const params = new URLSearchParams({
+                month: String(month + 1),
+                year: String(year),
+                calendar_scope: state.calendarScope
+            });
+            const response = await fetch(`/api/calendar-activities/?${params.toString()}`);
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -179,9 +190,11 @@
 
             if (data.success) {
                 state.activites = data.activites;
+                state.calendarReadOnly = !!data.read_only;
                 console.log(` ${data.activites.length} activités chargées`);
 
                 initFilters();
+                updateCalendarModeUi();
                 renderCalendar();
             } else {
                 console.error(' Erreur API:', data.message);
@@ -303,10 +316,48 @@
 
         const params = new URLSearchParams({
             month: String(state.currMonth + 1),
-            year: String(state.currYear)
+            year: String(state.currYear),
+            calendar_scope: state.calendarScope
         });
         link.href = `/administratif/calendrier/export.ics?${params.toString()}`;
         link.setAttribute('download', `calendrier_administratif_${state.currYear}_${String(state.currMonth + 1).padStart(2, '0')}.ics`);
+    }
+
+    function updateCalendarModeUi() {
+        document.querySelectorAll('[data-calendar-scope]').forEach(button => {
+            button.classList.toggle('active', button.dataset.calendarScope === state.calendarScope);
+        });
+
+        document.querySelectorAll('.calendar-write-actions').forEach(element => {
+            if (!element.dataset.defaultDisplay) {
+                element.dataset.defaultDisplay = element.style.display || '';
+            }
+            element.style.display = state.calendarReadOnly ? 'none' : element.dataset.defaultDisplay;
+        });
+
+        const modal = document.getElementById('activity-modal');
+        if (modal && state.calendarReadOnly) {
+            modal.style.display = 'none';
+        }
+        updateCalendarExportLink();
+    }
+    window.updateCalendarModeUi = updateCalendarModeUi;
+
+    function setupCalendarScopeButtons() {
+        document.querySelectorAll('[data-calendar-scope]').forEach(button => {
+            button.addEventListener('click', () => {
+                const nextScope = button.dataset.calendarScope || 'mine';
+                if (nextScope === state.calendarScope) return;
+                state.calendarScope = nextScope;
+                hideTooltip();
+                loadActivities(state.currMonth, state.currYear);
+                document.dispatchEvent(new Event('activity-changed'));
+                if (document.getElementById('cal-week-view')?.style.display === 'block') {
+                    renderWeekView();
+                }
+            });
+        });
+        updateCalendarModeUi();
     }
 
     /* ── Initialise le comportement collapse ── */
@@ -358,7 +409,8 @@
         dossiers.forEach((dossier, idx) => {
             const count = state.activites.filter(a => a.dossier === dossier).length;
             const sel   = state.filtresDossiers[dossier] ? 'selected' : '';
-            dossierOptions += `<option value="${escapeHtml(dossier)}" ${sel}>${escapeHtml(dossier)} (${count})</option>`;
+            const label = dossier || 'Sans dossier';
+            dossierOptions += `<option value="${escapeHtml(dossier)}" ${sel}>${escapeHtml(label)} (${count})</option>`;
         });
 
         let statutOptions = '';
@@ -601,7 +653,7 @@
         return state.activites.filter(act => {
             if (act.date !== dateStr) return false;
             if (!state.filtresTypes[act.type]) return false;
-            if (!state.filtresDossiers[act.dossier]) return false;
+            if (!state.filtresDossiers[act.dossier || '']) return false;
             if (!state.filtresStatuts[act.statut || 'todo']) return false;
             if (!state.filtresPriorites[act.priorite || 'normal']) return false;
             if (act.responsable_id && !state.filtresResponsables[act.responsable_id]) return false;
@@ -688,7 +740,7 @@
 
             li.addEventListener("click", () => {
                 li.classList.add("active");
-                document.querySelectorAll(".active").forEach(el => {
+                document.querySelectorAll(".calendar .active").forEach(el => {
                     if (el !== li) el.classList.remove("active");
                 });
 
@@ -707,6 +759,10 @@
     }
 
     function openModalWithActivity(act, dateStr) {
+        if (state.calendarReadOnly) {
+            alert("Le calendrier administrateur est disponible en lecture seule.");
+            return;
+        }
         const modal = document.getElementById('activity-modal');
         if (!modal) return;
 
@@ -849,6 +905,7 @@
     console.log(' Initialisation du calendrier avec tooltips');
 
     createTooltip();
+    setupCalendarScopeButtons();
     loadActivities(state.currMonth, state.currYear);
 
     prevNextIcon.forEach(icon => {
@@ -893,6 +950,7 @@
 
 
     openBtn.addEventListener('click', function() {
+        if (window.adminCalendarState?.calendarReadOnly) return;
         console.log('Clic sur le bouton détecté !');
         const modalTitle = modal.querySelector('.activity-modal-header h3');
         if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-calendar-plus"></i> Nouvelle activité';
@@ -933,12 +991,13 @@
             commentaire: document.getElementById('activity-commentaire').value.trim()
         };
 
-        if (!formData.dossier || !formData.type || !formData.date) {
+        if (!formData.type || !formData.date) {
             showStatus('Veuillez remplir tous les champs obligatoires pour supprimer', 'error');
             return;
         }
 
-        if (!confirm(`Êtes-vous sûr de vouloir supprimer l'activité correspondant à ces critères ?\n\nDossier: ${formData.dossier}\nType: ${formData.type}\nDate: ${formData.date}`)) {
+        const dossierLabel = formData.dossier || 'Sans dossier';
+        if (!confirm(`Êtes-vous sûr de vouloir supprimer l'activité correspondant à ces critères ?\n\nDossier: ${dossierLabel}\nType: ${formData.type}\nDate: ${formData.date}`)) {
             return;
         }
 
@@ -990,7 +1049,7 @@
             sync_outlook: document.getElementById('activity-sync-outlook')?.checked || false
         };
 
-        if (!formData.dossier || !formData.type || !formData.date) {
+        if (!formData.type || !formData.date) {
             showStatus('Veuillez remplir tous les champs obligatoires', 'error');
             return;
         }
@@ -1276,10 +1335,17 @@
         if (loading) loading.style.display = 'block';
         try {
             const dateStr = toISODate(refDate);
-            const resp    = await fetch(`/api/calendar-activities-week/?date=${dateStr}`);
+            const calendarState = window.adminCalendarState || { calendarScope: 'mine', calendarReadOnly: false };
+            const params = new URLSearchParams({
+                date: dateStr,
+                calendar_scope: calendarState.calendarScope
+            });
+            const resp = await fetch(`/api/calendar-activities-week/?${params.toString()}`);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const data = await resp.json();
             weekActivites = data.success ? data.activites : [];
+            calendarState.calendarReadOnly = !!data.read_only;
+            window.updateCalendarModeUi?.();
         } catch (e) {
             console.error('Erreur chargement semaine:', e);
             weekActivites = [];

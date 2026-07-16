@@ -4,7 +4,7 @@ from datetime import timedelta, timezone as dt_timezone
 from unittest.mock import patch
 
 import pytest
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
@@ -105,6 +105,35 @@ def _xlsx_upload_sheets(sheets, name="dossiers.xlsx"):
 
 
 @pytest.mark.django_db
+def test_superadmin_does_not_see_admin_calendar_toggle(client, admin_user):
+    client.force_login(admin_user)
+
+    response = client.get("/administratif/")
+
+    assert response.status_code == 200
+    assert b'data-calendar-scope="ceo"' not in response.content
+    assert b"Calendrier administrateur" not in response.content
+
+
+@pytest.mark.django_db
+def test_pole_administratif_sees_admin_calendar_toggle(client, admin_user):
+    pole_admin, _ = Group.objects.get_or_create(name="POLE_ADMINISTRATIF")
+    user = User.objects.create_user(
+        username="membre_admin",
+        email="membre_admin@example.com",
+        password="testpass123",
+    )
+    user.groups.add(pole_admin)
+    client.force_login(user)
+
+    response = client.get("/administratif/")
+
+    assert response.status_code == 200
+    assert b'data-calendar-scope="ceo"' in response.content
+    assert "Calendrier administrateur".encode() in response.content
+
+
+@pytest.mark.django_db
 def test_activity_create_update_delete_with_outlook(client, admin_user, responsable, dossier, type_activite):
     client.force_login(admin_user)
     date_value = (timezone.now() + timedelta(days=8)).replace(second=0, microsecond=0)
@@ -188,6 +217,34 @@ def test_activity_rejects_invalid_duration(client, admin_user, dossier, type_act
 
 
 @pytest.mark.django_db
+def test_activity_can_be_created_without_dossier(client, admin_user, type_activite):
+    client.force_login(admin_user)
+    date_value = (timezone.now() + timedelta(days=2)).replace(second=0, microsecond=0)
+
+    response = _post_json(
+        client,
+        "/api/create-activity/",
+        {
+            "titre": "Rappel interne",
+            "dossier": "",
+            "type": type_activite.type,
+            "date": date_value.isoformat(),
+            "duree_minutes": 60,
+            "statut": "todo",
+            "priorite": "normal",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    activity = Activite.objects.get(pk=data["activity_id"])
+    assert activity.dossier is None
+    assert activity.responsable == admin_user
+    assert data["activity"]["dossier"] == ""
+
+
+@pytest.mark.django_db
 def test_activity_outlook_payload_uses_duration(dossier, type_activite):
     start = timezone.make_aware(timezone.datetime(2026, 7, 1, 9, 30))
     activity = Activite.objects.create(
@@ -222,7 +279,7 @@ def test_calendar_export_ics_uses_activity_duration(client, admin_user, dossier,
         date_type="date",
         statut="todo",
         priorite="high",
-        responsable=responsable,
+        responsable=admin_user,
         commentaire="Prévoir les pièces annexes.",
         created_by=admin_user,
     )
@@ -252,13 +309,13 @@ def test_calendar_export_ics_uses_activity_duration(client, admin_user, dossier,
     assert "DTSTART:20260701T093000Z" in unfolded_content
     assert "DTEND:20260701T110000Z" in unfolded_content
     assert "Créneau : 1 h 30" in unfolded_content
-    assert "Responsable : responsable_module1" in unfolded_content
+    assert "Responsable : admin_module1" in unfolded_content
     assert "Prévoir les pièces annexes." in unfolded_content
     assert "Hors mois" not in content
 
 
 @pytest.mark.django_db
-def test_calendar_import_ics_creates_activities_and_skips_duplicates(client, admin_user, dossier, type_activite, responsable):
+def test_calendar_import_ics_creates_activities_and_skips_duplicates(client, admin_user):
     client.force_login(admin_user)
     content = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -277,17 +334,14 @@ END:VCALENDAR
         "/administratif/calendrier/import/",
         {
             "file": uploaded,
-            "dossier": dossier.reference,
-            "type": type_activite.type,
-            "responsable": str(responsable.pk),
         },
     )
 
     assert response.status_code == 302
     activity = Activite.objects.get(titre="Signature promesse importée")
-    assert activity.dossier == dossier
-    assert activity.type == type_activite
-    assert activity.responsable == responsable
+    assert activity.dossier is None
+    assert activity.type_id == "Import calendrier"
+    assert activity.responsable == admin_user
     assert activity.duree_minutes == 90
     assert "Prévoir les annexes" in activity.commentaire
     assert "UID calendrier : notaire-1@example.com" in activity.commentaire
@@ -297,13 +351,40 @@ END:VCALENDAR
         "/administratif/calendrier/import/",
         {
             "file": uploaded,
-            "dossier": dossier.reference,
-            "type": type_activite.type,
         },
     )
 
     assert response.status_code == 302
     assert Activite.objects.filter(titre="Signature promesse importée").count() == 1
+
+
+@pytest.mark.django_db
+def test_calendar_import_ics_can_create_activity_without_dossier(client, admin_user, type_activite):
+    client.force_login(admin_user)
+    content = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:external-calendar-1@example.com
+DTSTART:20260702T080000Z
+DTEND:20260702T090000Z
+SUMMARY:Rendez-vous externe importé
+DESCRIPTION:Événement sans dossier intranet
+END:VEVENT
+END:VCALENDAR
+"""
+    uploaded = SimpleUploadedFile("calendrier-externe.ics", content.encode("utf-8"), content_type="text/calendar")
+
+    response = client.post(
+        "/administratif/calendrier/import/",
+        {"file": uploaded},
+    )
+
+    assert response.status_code == 302
+    activity = Activite.objects.get(titre="Rendez-vous externe importé")
+    assert activity.dossier is None
+    assert activity.type_id == "Import calendrier"
+    assert activity.responsable == admin_user
+    assert "UID calendrier : external-calendar-1@example.com" in activity.commentaire
 
 
 @pytest.mark.django_db
