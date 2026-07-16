@@ -9,15 +9,16 @@ Note de cadrage : les nouveaux besoins exprimés par le pôle technique complèt
 Points à confirmer avant validation définitive :
 
 - le retrait du typage des documents techniques ;
-- les règles de suppression des dossiers, à valider par le rôle CEO / superadmin.
+- les règles d'archivage des dossiers, à valider par le rôle CEO / superadmin ;
+- les modalités de convergence avec le dossier administratif dans une logique de dossier unique.
 
 ## 2. Socle transversal – Dossiers techniques
 
 ### 2.1 Objectif
 
-Faire du dossier technique l'objet central du pôle technique.
+Faire du dossier technique l'objet central du pôle technique, avec une convergence progressive vers un dossier unique partagé avec le pôle administratif.
 
-Chaque dossier doit pouvoir regrouper les informations métier, les documents, les dates clés, les actions à mener, les éléments financiers et les liens éventuels avec les affaires ou dossiers des autres pôles.
+Chaque dossier doit pouvoir regrouper les informations métier, les documents, les dates clés, les actions à mener, les éléments financiers et les liens éventuels avec les affaires ou dossiers des autres pôles. L'objectif fonctionnel est d'éviter deux référentiels concurrents entre dossiers techniques et dossiers administratifs : les écrans peuvent rester adaptés à chaque pôle, mais la donnée dossier doit être centralisée autant que possible.
 
 ### 2.2 Informations principales du dossier
 
@@ -70,19 +71,20 @@ Les types de dossiers techniques peuvent être conservés si le pôle technique 
 
 Correction de cadrage : le retrait demandé ne concerne pas les types de dossiers, mais les types de documents.
 
-### 2.6 Suppression des dossiers
+### 2.6 Archivage des dossiers
 
-La suppression de dossiers techniques correspond à une suppression définitive, uniquement possible après validation par le rôle CEO / superadmin.
+La règle attendue est d'archiver les dossiers techniques plutôt que de les supprimer définitivement.
 
-Dans le contexte actuel, Rudy représente ce rôle de validation. La règle fonctionnelle ne doit donc pas dépendre d'une personne nommée en dur, mais d'un niveau de droit.
+Dans le contexte actuel, Rudy représente le rôle CEO / superadmin. La règle fonctionnelle ne doit donc pas dépendre d'une personne nommée en dur, mais d'un niveau de droit.
 
 Règles attendues :
 
-- validation obligatoire par le CEO / superadmin ;
-- contrôle préalable des éléments liés au dossier : documents, factures, dépenses, e-mails ou historiques ;
-- affichage d'un avertissement clair avant confirmation ;
-- confirmation explicite par le CEO / superadmin lorsque le dossier contient déjà des éléments liés ;
-- conservation d'une trace d'audit lorsqu'un dossier est supprimé.
+- l'archivage doit être préféré à toute suppression définitive ;
+- un dossier archivé doit rester consultable depuis son historique ou sa fiche, selon les droits de l'utilisateur ;
+- un dossier archivé ne doit plus pouvoir être sélectionné lors de la création ou du rattachement d'une facture ;
+- un dossier archivé ne doit plus pouvoir être sélectionné lors de la création ou du rattachement d'une activité ;
+- l'archivage doit être historisé avec l'utilisateur, la date et, si possible, un commentaire ;
+- la suppression définitive éventuelle doit rester exceptionnelle et validée par le CEO / superadmin.
 
 ## 3. Module 1 – Assistant IA juridique pour la promotion immobilière
 
@@ -161,7 +163,7 @@ Classer automatiquement les e-mails et pièces jointes reçues selon les projets
 ### 5.3 Spécifications techniques
 
 - Intégration de la solution Emana ou développement sur mesure avec NLP.
-- API de liaison vers l’intranet pour affichage par projet.
+- Interface de liaison vers l’intranet pour affichage par projet.
 - RGPD : respect du traitement des données personnelles et professionnelles.
 
 ## 6. Module 4 – Suivi de paiement des factures
@@ -176,12 +178,15 @@ Donner au pôle technique une visibilité en temps réel sur les paiements liés
 - Filtres par fournisseur, date, projet.
 - Téléchargement des justificatifs.
 - Accès aux justificatifs et documents financiers depuis la fiche dossier technique.
+- Les dossiers archivés ne doivent pas être proposés comme dossiers rattachables à une facture.
 
 ### 6.3 Spécifications techniques
 
-- Module intranet synchronisé avec la base finance (Cegid/Lockimmo si possible).
+- Module intranet alimenté par les données finance disponibles dans l’intranet.
+- Les éventuels échanges avec Cegid / Lockimmo relèvent d’un cadrage documentaire futur et ne doivent pas être considérés comme un développement API dans ce périmètre.
 - Notification automatique lors des changements de statut.
 - Vue tableau + export Excel/PDF.
+- L'export CSV n'est pas retenu pour les dossiers techniques et ne doit pas être proposé dans l'interface.
 
 ## 7. Module 5 – Données financières du dossier
 
@@ -208,7 +213,7 @@ Une facture est un élément issu du pôle financier. Une dépense est une ligne
 ### 7.3 Spécifications techniques
 
 - Interface web interactive (React/Vue.js).
-- Liaison avec base de données projets + API finance.
+- Liaison avec la base de données projets et les données finance disponibles.
 - Historique des mises à jour par utilisateur.
 
 ## 8. Module 6 – Dates clés du dossier
@@ -251,7 +256,7 @@ Ajouter au pôle technique une brique d'actions à mener, similaire à une liste
 Le module doit permettre :
 
 - de créer une action depuis un dossier technique ;
-- d'assigner une action à un collaborateur ;
+- d'assigner une action à un collaborateur membre du pôle technique ;
 - de définir un statut ;
 - de définir une priorité ;
 - d'ajouter une description ou un commentaire ;
@@ -268,10 +273,12 @@ Statuts proposés pour les actions :
 
 Les dates des actions ne doivent pas obligatoirement être liées aux dates clés du dossier. Une action peut exister sans date ou avec une date de suivi propre.
 
+Les dossiers archivés ne doivent pas être proposés comme dossiers rattachables à une action technique.
+
 ## 10. Sécurité et évolutivité
 
 - Respect du RGPD et chiffrement des données sensibles.
 - Architecture modulaire pour ajouter d’autres fonctions techniques (planning travaux, documents techniques, etc.).
 - Documentation technique et formation des utilisateurs.
-- Gestion fine des droits sur les dossiers, documents, actions, dates clés et suppressions.
-- Traçabilité des modifications importantes, notamment sur les dossiers, budgets, documents et suppressions.
+- Gestion fine des droits sur les dossiers, documents, actions, dates clés et archivages.
+- Traçabilité des modifications importantes, notamment sur les dossiers, budgets, documents et archivages.

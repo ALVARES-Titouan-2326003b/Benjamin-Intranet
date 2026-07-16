@@ -14,7 +14,8 @@ Note de cadrage : les nouveaux besoins du pôle finance ajoutent un module de **
 - Gestion des rôles :
   - Tout utilisateur connecté : création / transmission de factures et consultation de ses propres factures.
   - Pôle Administratif : création et gestion des projets auxquels les factures peuvent être rattachées.
-  - Pôle Financier : modification exclusive de l’état des factures.
+  - Pôle Financier : validation, correction, changement de statut, paiement et archivage des factures.
+  - CEO / superadmin : droits complets, dont modification du statut des factures.
 - Gestion des statuts de factures : Reçue, En cours, Payée, Refusée, Archivées.
 - Filtres disponibles : par société, dossier / affaire, montant, date, statut, service.
 - Téléversement de justificatifs et factures PDF.
@@ -44,7 +45,9 @@ Les champs attendus pour une facture sont notamment :
 - priorité de traitement : Normal, Urgent, Critique ;
 - commentaire libre à destination de la comptabilité.
 
-La création d’une facture doit être ouverte à n’importe quel utilisateur connecté, sans restriction au seul pôle financier. Le pôle financier conserve en revanche les droits de validation, correction, changement de statut, paiement et archivage.
+La création d’une facture doit être ouverte à n’importe quel utilisateur connecté, sans restriction au seul pôle financier. Le pôle financier et le CEO / superadmin conservent en revanche les droits de validation, correction, changement de statut, paiement et archivage.
+
+Les dossiers archivés ne doivent pas être proposés comme dossiers rattachables à une facture.
 
 ### Notifications et circuit d’information
 
@@ -73,7 +76,7 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
   - Backend : Node.js ou Django
   - Base de données : PostgreSQL ou Firebase
   - Authentification : SSO entreprise ou gestion simple par e-mail/mot de passe
-- API REST pour intégration future avec outils de facturation.
+- Interfaces d’échange à documenter pour une éventuelle intégration future avec les outils de facturation.
 - Hébergement : cloud (AWS, OVH, ou autre).
 
 ### Extension IA (phase 2)
@@ -81,30 +84,27 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 - Assistant conversationnel pour interroger l’état d’une facture.
 - Prévision automatique de date probable de paiement via modèle ML.
 
-## Point 2 – Export Lockimmo vers Cegid Quadra au format ASCII
+## Point 2 – Documentation Cegid Quadra pour échange futur
 
-**Objectif :** Automatiser l’exportation des données de factures depuis Lockimmo vers le logiciel Cegid Quadra dans un format ASCII conforme.
+**Objectif :** Se renseigner et documenter les possibilités d’échange futur avec Cegid Quadra, sans développement API dans le périmètre actuel.
 
 ### Spécifications fonctionnelles
 
-- Extraction régulière (quotidienne/hebdomadaire) des données de factures depuis Lockimmo.
-- Transformation des données au format ASCII attendu par Cegid Quadra.
-- Dépôt automatique des fichiers dans un dossier surveillé ou envoi via API à Quadra.
-- Tableau de bord de suivi des exports.
+- Identifier les formats d’import ou d’export acceptés par Cegid Quadra, notamment les formats ASCII ou équivalents.
+- Documenter les champs attendus, règles de formatage, contraintes d’encodage, séparateurs et contrôles comptables connus.
+- Recenser les interlocuteurs, documentations officielles, accès nécessaires et limites éventuelles.
+- Distinguer clairement ce qui relève d’un export fichier, d’un dépôt manuel, d’un dossier surveillé ou d’une API éventuelle.
+- Conserver ces informations comme base de travail future, sans lancer d’intégration dans cette version.
 
 ### Spécifications techniques
 
-- Technologies suggérées :
-  - Script Python (avec pandas) pour traitement et formatage
-  - Utilisation des API de Lockimmo (si existante)
-- Export ASCII avec règles métier (encodage, padding, séparateurs…)
-- Journalisation des opérations (logs, erreurs)
-- Interface CLI ou web légère pour déclencher manuellement si besoin
+- Produire une note documentaire exploitable par un futur prestataire ou un futur projet.
+- Ne pas prévoir de développement API Cegid Quadra dans ce périmètre.
+- Ne pas engager de choix technique tant que la documentation officielle et les contraintes métier n’ont pas été confirmées.
 
 ### Extension IA
 
-- Vérification automatique de cohérence entre les champs.
-- Alerte en cas de doublon ou anomalie détectée.
+- Hors périmètre actuel.
 
 ## Point 3 – Numérisation de la signature et automatisation du tampon
 
@@ -121,7 +121,7 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 ### Spécifications techniques
 
 - Solution SaaS à intégrer : Yousign, DocuSign, Universign, Adobe Sign…
-- Intégration API pour automatiser les workflows de signature
+- Intégration à une solution externe de signature à étudier ultérieurement si le besoin est confirmé.
 - Technologies de l’interface : Bubble.io ou Vue.js/Node.js
 - Stockage sécurisé (Cloud privé ou local RGPD)
 
@@ -138,7 +138,7 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 - Dashboard de visualisation :
   - Factures en attente, payées, en retard
   - Moyenne de traitement
-  - Top 10 fournisseurs, dépenses par mois…
+  - Top 5 fournisseurs, dépenses par mois…
   - Évolution mensuelle des factures et montants engagés / payés
 - Système de relances :
   - Relance automatique à J+X selon la date d’échéance
@@ -154,7 +154,7 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 ### Spécifications techniques
 
 - Dashboard : Power BI, Google Data Studio ou interface personnalisée
-- Automatisation : Zapier / Make, ou Node.js / Python + SMTP/API mail
+- Automatisation : Zapier / Make, ou Node.js / Python + SMTP / service mail
 - Connexion à la base de données de factures
 - Hébergement : Cloud sécurisé (type OVH ou AWS)
 
@@ -164,10 +164,27 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 - Détection de fournisseurs à risque
 - Prévisions budgétaires basées sur les historiques
 
+## Point 5 – Référentiel sociétés
+
+**Objectif :** Centraliser la liste des sociétés utilisées dans les factures, filtres, tableaux de bord et tampons.
+
+### Spécifications fonctionnelles
+
+- Prévoir une liste de sociétés proposée dans les formulaires finance.
+- Permettre le pré-enregistrement d’une société afin d’éviter les saisies libres incohérentes.
+- Étudier une section dédiée aux sociétés dans le pôle finance.
+- Afficher des statistiques par société lorsque les données sont disponibles : nombre de factures, montants engagés, montants payés, factures en retard et répartition par statut.
+- Utiliser ce référentiel pour fiabiliser les filtres et les contrôles de doublons.
+
+### Spécifications techniques
+
+- Prévoir un modèle ou référentiel de sociétés réutilisable par les factures, les dossiers et les tampons.
+- Conserver une compatibilité avec les factures existantes contenant déjà une société saisie en texte libre.
+
 ## Documents à collecter (pré-requis)
 
-- Accès/API de Lockimmo
-- Documentation ASCII Cegid Quadra
+- Documentation Lockimmo utile aux exports éventuels
+- Documentation Cegid Quadra : formats acceptés, contraintes d’import/export, interlocuteurs et accès nécessaires
 - Modèles de signature acceptés par la direction
 - Liste des rôles/accès utilisateurs
 - Modèle de relance actuel utilisé
