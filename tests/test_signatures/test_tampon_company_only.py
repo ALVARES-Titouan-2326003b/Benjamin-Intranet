@@ -9,3 +9,4 @@ def test_tampon_uses_company_without_name():
     field_names = {field.name for field in Tampon._meta.fields}
     assert "nom" not in field_names
     assert list(TamponForm().fields) == ["societe", "image", "is_active"]
+    assert Tampon._meta.get_field("societe").remote_field.model._meta.label == "invoices.Societe"

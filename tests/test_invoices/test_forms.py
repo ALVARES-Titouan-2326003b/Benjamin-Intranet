@@ -1,7 +1,7 @@
 import pytest
 
 from invoices.forms import FactureForm, best_match, build_choices, normalize_label
-from invoices.models import Client, InvoiceReminderSettings
+from invoices.models import Client, InvoiceReminderSettings, Societe
 from technique.models import TechnicalProject
 
 
@@ -24,41 +24,29 @@ def test_choice_helpers():
     assert build_choices(labels) == [(label, label) for label in labels]
 
 
-def test_facture_form_service_uses_pole_choices():
+def test_facture_form_keeps_service_assignment_outside_user_input():
     form = FactureForm()
 
     assert "client_input" not in form.fields
-    assert form.fields["service"].choices == [
-        ("", "-- Sélectionner un pôle --"),
-        ("developpement", "Développement"),
-        ("administratif", "Administratif"),
-        ("technique", "Technique"),
-        ("promotion", "Promotion"),
-        ("investissement", "Investissement"),
-        ("fonciere", "Foncière"),
-        ("financier", "Financier"),
-    ]
+    assert "service" not in form.fields
 
 
 @pytest.mark.django_db
-def test_facture_form_collaborateur_uses_active_users(user_factory):
-    active = user_factory(username="active-user")
-    inactive = user_factory(username="inactive-user", is_active=False)
-
+def test_facture_form_keeps_requester_assignment_outside_user_input():
     form = FactureForm()
 
-    assert active in form.fields["collaborateur"].queryset
-    assert inactive not in form.fields["collaborateur"].queryset
+    assert "collaborateur" not in form.fields
 
 
 @pytest.mark.django_db
 def test_facture_form_assigns_default_internal_client():
     project = TechnicalProject.objects.create(reference="DOS-001", name="Dossier Test")
+    company = Societe.objects.create(nom="Benjamin Immobilier")
     form = FactureForm(
         data={
             "fournisseur_input": "Fournisseur Test",
             "numero_facture": "FA-001",
-            "societe": "Benjamin Immobilier",
+            "societe": company.pk,
             "affaire": "Dossier Test",
             "dossier": project.pk,
             "montant": "120.50",

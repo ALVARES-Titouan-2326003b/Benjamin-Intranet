@@ -27,7 +27,7 @@ def get_invoice_anomalies(queryset=None):
 
     duplicate_keys = (
         qs.values("societe", "affaire", "montant", "numero_facture")
-        .exclude(societe="")
+        .exclude(societe__isnull=True)
         .exclude(affaire="")
         .exclude(numero_facture="")
         .exclude(montant__isnull=True)
@@ -50,7 +50,7 @@ def get_invoice_anomalies(queryset=None):
             add(facture, "overdue_open", "warning", "Facture échue non payée")
 
         duplicate_key = (
-            facture.societe,
+            facture.societe_id,
             facture.affaire,
             facture.montant,
             facture.numero_facture,

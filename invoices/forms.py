@@ -2,10 +2,10 @@ from django import forms
 from uuid import uuid4
 from datetime import datetime, time
 from django.utils import timezone
-from django.db import connection
+from django.db import connection, models
 
 from technique.models import TechnicalProject
-from .models import Facture, Entreprise, Fournisseur, Client, PieceJointe, ActeurExterne
+from .models import ActeurExterne, Client, Entreprise, Facture, Fournisseur, PieceJointe, Societe
 
 
 def get_enum_labels(enum_name: str) -> list[str]:
@@ -145,6 +145,12 @@ class FactureForm(forms.ModelForm):
         self.fields["montant"].label = "Montant TTC (€)"
         self.fields["numero_facture"].required = True
         self.fields["societe"].required = True
+        active_companies = Societe.objects.filter(is_active=True)
+        if self.instance.societe_id:
+            active_companies = Societe.objects.filter(
+                models.Q(is_active=True) | models.Q(pk=self.instance.societe_id)
+            )
+        self.fields["societe"].queryset = active_companies.order_by("nom")
 
         # Pré-remplir l'échéance avec la date existante (mode édition)
         if self.instance.echeance:
@@ -240,6 +246,21 @@ class FactureFormCollaborateur(FactureForm):
         # Supprimer le champ statut pour les collaborateurs
         if 'statut' in self.fields:
             del self.fields['statut']
+
+
+class SocieteForm(forms.ModelForm):
+    class Meta:
+        model = Societe
+        fields = ["nom", "is_active"]
+
+    def clean_nom(self):
+        nom = (self.cleaned_data.get("nom") or "").strip()
+        duplicate = Societe.objects.filter(nom__iexact=nom)
+        if self.instance.pk:
+            duplicate = duplicate.exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise forms.ValidationError("Une société portant ce nom existe déjà.")
+        return nom
 
 
 # --- Pièce jointe (PDF) ----------------------------------------------------

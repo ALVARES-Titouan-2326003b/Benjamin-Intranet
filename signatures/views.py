@@ -94,7 +94,7 @@ def _get_signature_email_recipients(designated_signer=None):
 
 
 def _active_tampons():
-    return Tampon.objects.filter(is_active=True).order_by("societe")
+    return Tampon.objects.filter(is_active=True, societe__is_active=True).order_by("societe__nom")
 
 
 def _get_selected_signature_options(data):
@@ -430,7 +430,7 @@ def tampon_edit(request):
         {
             "form": form,
             "tampon": tampon,
-            "tampons": Tampon.objects.all().order_by("societe"),
+            "tampons": Tampon.objects.select_related("societe").order_by("societe__nom"),
         },
     )
 

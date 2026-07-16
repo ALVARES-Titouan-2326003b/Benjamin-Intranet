@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Sociétés{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-between align-center mb-4" style="margin-bottom:1.5rem;">
+    <div>
+        <h2>Référentiel des sociétés</h2>
+        <p style="color:var(--text-secondary);margin-top:.5rem;">
+            Sociétés disponibles pour les factures et les tampons.
+        </p>
+    </div>
+    <a href="{% url 'invoices:list' %}" class="btn btn-secondary">Retour aux factures</a>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(280px,.7fr) minmax(520px,1.6fr);gap:1.5rem;align-items:start;">
+    <section class="card">
+        <div class="card-title">
+            {% if editing_company %}Modifier la société{% else %}Pré-enregistrer une société{% endif %}
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <div style="display:flex;justify-content:flex-end;gap:.75rem;">
+                {% if editing_company %}
+                <a href="{% url 'invoices:societes' %}" class="btn btn-ghost">Annuler</a>
+                {% endif %}
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="card">
+        <div class="card-title">Sociétés enregistrées</div>
+        <div class="table-responsive">
+            <table class="table dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Société</th>
+                        <th>État</th>
+                        <th>Factures</th>
+                        <th>Total</th>
+                        <th>Payé</th>
+                        <th>En retard</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for company in companies %}
+                    <tr>
+                        <td><strong>{{ company.nom }}</strong></td>
+                        <td>
+                            {% if company.is_active %}
+                            <span class="badge success-soft">Active</span>
+                            {% else %}
+                            <span class="badge neutral-soft">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ company.invoice_count }}</td>
+                        <td>{{ company.total_amount|default:0|floatformat:2 }} €</td>
+                        <td>{{ company.paid_amount|default:0|floatformat:2 }} €</td>
+                        <td>{{ company.overdue_count }}</td>
+                        <td>
+                            <a href="{% url 'invoices:societe_update' company.pk %}" class="btn btn-sm btn-secondary">Modifier</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7">Aucune société enregistrée.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

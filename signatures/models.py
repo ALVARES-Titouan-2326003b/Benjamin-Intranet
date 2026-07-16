@@ -38,13 +38,18 @@ class Tampon(models.Model):
     Attributes:
         image (ImageFieldFile): Fichier image du tampon
     """
-    societe = models.CharField("Société", max_length=200, default="Benjamin Immobilier")
+    societe = models.ForeignKey(
+        "invoices.Societe",
+        on_delete=models.PROTECT,
+        related_name="tampons",
+        verbose_name="Société",
+    )
     image = models.ImageField(upload_to="tampons/")
     is_active = models.BooleanField("Actif", default=True)
 
     class Meta:
         db_table = 'tampon'
-        ordering = ["societe"]
+        ordering = ["societe__nom"]
 
     def __str__(self):
         return self.societe

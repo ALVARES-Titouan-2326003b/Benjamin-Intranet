@@ -1,6 +1,7 @@
 import django_filters
+from django import forms
 from django.db.models import Q
-from .models import Facture
+from .models import Facture, Societe
 
 
 class FactureFilter(django_filters.FilterSet):
@@ -8,9 +9,11 @@ class FactureFilter(django_filters.FilterSet):
         field_name='numero_facture',
         lookup_expr='icontains'
     )
-    societe = django_filters.CharFilter(
+    societe = django_filters.ModelChoiceFilter(
         field_name='societe',
-        lookup_expr='icontains'
+        queryset=Societe.objects.order_by('nom'),
+        empty_label='Toutes',
+        widget=forms.Select(attrs={'class': 'form-control'}),
     )
     affaire = django_filters.CharFilter(
         field_name='affaire',

@@ -6,6 +6,7 @@ from django.core import mail
 from django.utils import timezone
 from unittest.mock import patch
 
+from invoices.forms import FactureForm
 from invoices.models import (
     ActeurExterne,
     Client,
@@ -17,6 +18,7 @@ from invoices.models import (
     Fournisseur,
     InvoiceReminderSettings,
     RelanceFournisseur,
+    Societe,
 )
 from management.models import OAuthToken
 from invoices.services.quality import get_invoice_anomalies
@@ -54,11 +56,11 @@ def client_entity(db):
 
 
 @pytest.fixture
-def invoice(db, project, supplier, client_entity):
+def invoice(db, project, supplier, client_entity, societe):
     return Facture.objects.create(
         id="FAC-001",
         numero_facture="FA-2026-001",
-        societe="Benjamin Immobilier",
+        societe=societe,
         affaire="Affaire Démo",
         dossier=project,
         fournisseur=supplier,
@@ -83,11 +85,11 @@ def configure_gmail_sender(user):
     InvoiceReminderSettings.objects.create(sender=user)
 
 
-def invoice_payload(project, **overrides):
+def invoice_payload(project, societe, **overrides):
     payload = {
         "fournisseur_input": "Fournisseur formulaire",
         "numero_facture": "FA-FORM-001",
-        "societe": "Benjamin Immobilier",
+        "societe": societe.pk,
         "affaire": "Affaire formulaire",
         "dossier": project.pk,
         "montant": "450.00",
@@ -189,12 +191,12 @@ def test_average_processing_days_uses_history(invoice):
 
 
 @pytest.mark.django_db
-def test_finance_dashboard_groups_invoices_by_company_and_project(client, finance_user, invoice, supplier, client_entity):
+def test_finance_dashboard_groups_invoices_by_company_and_project(client, finance_user, invoice, supplier, client_entity, societe):
     project_2 = TechnicalProject.objects.create(reference="TECH-002", name="Projet Second")
     Facture.objects.create(
         id="FAC-002",
         numero_facture="FA-2026-002",
-        societe="Benjamin Immobilier",
+        societe=societe,
         affaire="Ancien libellé",
         dossier=invoice.dossier,
         fournisseur=supplier,
@@ -209,7 +211,7 @@ def test_finance_dashboard_groups_invoices_by_company_and_project(client, financ
     Facture.objects.create(
         id="FAC-003",
         numero_facture="FA-2026-003",
-        societe="Autre Société",
+        societe=Societe.objects.create(nom="Autre Société"),
         affaire=str(project_2),
         dossier=project_2,
         fournisseur=supplier,
@@ -224,7 +226,7 @@ def test_finance_dashboard_groups_invoices_by_company_and_project(client, financ
     Facture.objects.create(
         id="FAC-004",
         numero_facture="FA-2026-004",
-        societe="",
+        societe=None,
         affaire="Sans dossier",
         dossier=None,
         fournisseur=supplier,
@@ -256,7 +258,7 @@ def test_finance_dashboard_groups_invoices_by_company_and_project(client, financ
     assert alert_counts["Factures sans dossier"] == 1
     assert alert_counts["Affaire différente du dossier lié"] == 2
     assert alert_counts["Dossiers avec factures en retard"] == 1
-    assert b"/finance/?societe=Benjamin+Immobilier" in response.content
+    assert f"/finance/?societe={societe.pk}".encode() in response.content
     assert b"/finance/?dossier=TECH-001" in response.content
     assert f"/pole-technique/dossiers/{invoice.dossier.pk}/".encode() in response.content
 
@@ -267,7 +269,7 @@ def test_finance_dashboard_filters_company_and_project(client, finance_user, inv
     Facture.objects.create(
         id="FAC-002",
         numero_facture="FA-2026-002",
-        societe="Autre Société",
+        societe=Societe.objects.create(nom="Autre Société"),
         affaire=str(project_2),
         dossier=project_2,
         fournisseur=supplier,
@@ -303,7 +305,7 @@ def test_finance_dashboard_rankings_are_limited_to_top_five(
         Facture.objects.create(
             id=f"FAC-TOP-{index}",
             numero_facture=f"TOP-{index}",
-            societe=f"Société {index}",
+            societe=Societe.objects.create(nom=f"Société {index}"),
             affaire=str(project),
             dossier=project,
             fournisseur=supplier,
@@ -326,6 +328,46 @@ def test_finance_dashboard_rankings_are_limited_to_top_five(
 
 
 @pytest.mark.django_db
+def test_finance_can_pre_register_company(client, finance_user):
+    client.force_login(finance_user)
+
+    response = client.post(
+        "/finance/societes/",
+        {"nom": "Nouvelle Foncière", "is_active": "on"},
+    )
+
+    assert response.status_code == 302
+    company = Societe.objects.get(nom="Nouvelle Foncière")
+    assert company.is_active is True
+    assert company in FactureForm().fields["societe"].queryset
+
+
+@pytest.mark.django_db
+def test_invoice_company_filter_uses_registered_companies(client, finance_user, invoice, societe):
+    client.force_login(finance_user)
+
+    response = client.get("/finance/", {"societe": societe.pk})
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert '<select name="societe"' in content
+    assert f'value="{societe.pk}" selected' in content
+    assert list(response.context["filter"].qs) == [invoice]
+
+
+@pytest.mark.django_db
+def test_non_finance_user_cannot_manage_companies(client):
+    group, _ = Group.objects.get_or_create(name="POLE_TECHNIQUE")
+    user = User.objects.create_user(username="company-denied")
+    user.groups.add(group)
+    client.force_login(user)
+
+    response = client.get("/finance/societes/")
+
+    assert response.status_code == 302
+
+
+@pytest.mark.django_db
 def test_finance_dashboard_stays_finance_only(client):
     group, _ = Group.objects.get_or_create(name="POLE_TECHNIQUE")
     user = User.objects.create_user(username="technique-dashboard", email="technique-dashboard@example.com")
@@ -338,7 +380,7 @@ def test_finance_dashboard_stays_finance_only(client):
 
 
 @pytest.mark.django_db
-def test_promotion_user_can_create_invoice_without_collaborateur_role(client, project):
+def test_promotion_user_can_create_invoice_without_collaborateur_role(client, project, societe):
     group, _ = Group.objects.get_or_create(name="POLE_PROMOTION")
     user = User.objects.create_user(username="promotion", email="promotion@example.com")
     user.groups.add(group)
@@ -346,7 +388,7 @@ def test_promotion_user_can_create_invoice_without_collaborateur_role(client, pr
 
     response = client.post(
         "/finance/facture/new/",
-        invoice_payload(project, statut="paid"),
+        invoice_payload(project, societe, statut="paid"),
     )
 
     assert response.status_code == 302
@@ -361,7 +403,7 @@ def test_promotion_user_can_create_invoice_without_collaborateur_role(client, pr
 
 
 @pytest.mark.django_db
-def test_invoice_creation_notifies_finance_and_ceo(client, project, settings):
+def test_invoice_creation_notifies_finance_and_ceo(client, project, settings, societe):
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     settings.DEFAULT_FROM_EMAIL = "intranet@example.com"
     settings.SITE_URL = "https://intranet.example.test"
@@ -381,7 +423,7 @@ def test_invoice_creation_notifies_finance_and_ceo(client, project, settings):
 
     response = client.post(
         "/finance/facture/new/",
-        invoice_payload(project, numero_facture="FA-NOTIF-001"),
+        invoice_payload(project, societe, numero_facture="FA-NOTIF-001"),
     )
 
     assert response.status_code == 302
@@ -428,7 +470,7 @@ def test_technique_user_can_view_invoice_overview(client, invoice):
 
 
 @pytest.mark.django_db
-def test_non_finance_user_cannot_forge_invoice_status_update(client, invoice):
+def test_non_finance_user_cannot_forge_invoice_status_update(client, invoice, societe):
     group, _ = Group.objects.get_or_create(name="POLE_DEVELOPPEMENT")
     user = User.objects.create_user(username="developpement", email="developpement@example.com")
     user.groups.add(group)
@@ -442,6 +484,7 @@ def test_non_finance_user_cannot_forge_invoice_status_update(client, invoice):
         f"/finance/facture/{invoice.pk}/edit/",
         invoice_payload(
             invoice.dossier,
+            societe,
             fournisseur_input=invoice.fournisseur_id,
             numero_facture=invoice.numero_facture,
             statut="paid",
@@ -456,7 +499,7 @@ def test_non_finance_user_cannot_forge_invoice_status_update(client, invoice):
 
 
 @pytest.mark.django_db
-def test_finance_user_can_change_invoice_status(client, finance_user, invoice):
+def test_finance_user_can_change_invoice_status(client, finance_user, invoice, societe):
     client.force_login(finance_user)
 
     response = client.post(
@@ -464,6 +507,7 @@ def test_finance_user_can_change_invoice_status(client, finance_user, invoice):
         {
             **invoice_payload(
                 invoice.dossier,
+                societe,
                 fournisseur_input=invoice.fournisseur_id,
                 numero_facture=invoice.numero_facture,
                 service="financier",

@@ -2,10 +2,11 @@ import io
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views import View
 from django.utils.decorators import method_decorator
 from django_filters.views import FilterView
@@ -27,12 +28,13 @@ from user_access.user_test_functions import (
     has_collaborateur_access,
 )
 from .filters import FactureFilter
-from .forms import FactureForm, PieceJointeForm
+from .forms import FactureForm, PieceJointeForm, SocieteForm
 from .models import (
     Facture,
     PieceJointe,
     FactureHistorique,
     InvoiceReminderSettings,
+    Societe,
 )
 from .services.email import send_invoice_submission_email
 from .services.quality import get_invoice_anomalies
@@ -76,7 +78,7 @@ class FactureListView(FilterView):
         qs = (
             super()
             .get_queryset()
-            .select_related('collaborateur', 'demandeur', 'dossier')
+            .select_related('collaborateur', 'demandeur', 'dossier', 'societe')
             .order_by('-date_soumission', '-id')
         )
         user = self.request.user
@@ -132,7 +134,7 @@ class FactureListView(FilterView):
             ws.append([
                 invoice.id,
                 invoice.numero_facture or '',
-                invoice.societe or '',
+                str(invoice.societe) if invoice.societe else '',
                 invoice.affaire or '',
                 str(invoice.dossier) if invoice.dossier else '',
                 invoice.get_service_display() if invoice.service else '',
@@ -176,7 +178,7 @@ class FactureListView(FilterView):
             data.append([
                 invoice.id,
                 invoice.numero_facture or '',
-                invoice.societe or '',
+                str(invoice.societe) if invoice.societe else '',
                 invoice.affaire or '',
                 str(invoice.dossier) if invoice.dossier else '',
                 invoice.get_service_display() if invoice.service else '',
@@ -245,7 +247,7 @@ class FactureDetailView(DetailView):
     template_name = 'invoices/invoice_detail.html'
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related('collaborateur', 'demandeur', 'dossier')
+        qs = super().get_queryset().select_related('collaborateur', 'demandeur', 'dossier', 'societe')
         user = self.request.user
         
         # Tous les pôles ont une vue d'ensemble des factures.
@@ -517,3 +519,65 @@ class InvoiceAnomaliesView(TemplateView):
         return context
 
 
+@login_required
+@user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)
+def societe_list_create(request):
+    if request.method == "POST":
+        form = SocieteForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Société pré-enregistrée.")
+            return redirect("invoices:societes")
+    else:
+        form = SocieteForm()
+
+    companies = Societe.objects.annotate(
+        invoice_count=Count("factures", distinct=True),
+        total_amount=Sum("factures__montant"),
+        paid_amount=Sum("factures__montant", filter=Q(factures__statut="paid")),
+        overdue_count=Count(
+            "factures",
+            filter=Q(
+                factures__statut__in=["ongoing", "received"],
+                factures__echeance__lt=timezone.now(),
+            ),
+            distinct=True,
+        ),
+    ).order_by("nom")
+    return render(
+        request,
+        "invoices/societe_list.html",
+        {"companies": companies, "form": form},
+    )
+
+
+@login_required
+@user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)
+def societe_update(request, pk):
+    company = get_object_or_404(Societe, pk=pk)
+    if request.method == "POST":
+        form = SocieteForm(request.POST, instance=company)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Société mise à jour.")
+            return redirect("invoices:societes")
+    else:
+        form = SocieteForm(instance=company)
+    companies = Societe.objects.annotate(
+        invoice_count=Count("factures", distinct=True),
+        total_amount=Sum("factures__montant"),
+        paid_amount=Sum("factures__montant", filter=Q(factures__statut="paid")),
+        overdue_count=Count(
+            "factures",
+            filter=Q(
+                factures__statut__in=["ongoing", "received"],
+                factures__echeance__lt=timezone.now(),
+            ),
+            distinct=True,
+        ),
+    ).order_by("nom")
+    return render(
+        request,
+        "invoices/societe_list.html",
+        {"companies": companies, "form": form, "editing_company": company},
+    )

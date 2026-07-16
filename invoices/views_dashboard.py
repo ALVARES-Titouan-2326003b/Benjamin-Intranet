@@ -55,7 +55,7 @@ class DashboardView(TemplateView):
         context = super().get_context_data(**kwargs)
         
         # 1. Base QuerySet filtré par le tableau de bord
-        base_qs = Facture.objects.select_related("dossier", "fournisseur")
+        base_qs = Facture.objects.select_related("dossier", "fournisseur", "societe")
         qs = self._filtered_queryset(base_qs)
         now = timezone.now()
         overdue_filter = Q(statut__in=OPEN_STATUSES, echeance__lt=now)
@@ -179,7 +179,7 @@ class DashboardView(TemplateView):
     def _filtered_queryset(self, queryset):
         filters = self._active_filters()
         if filters["societe"]:
-            queryset = queryset.filter(societe__icontains=filters["societe"])
+            queryset = queryset.filter(societe__nom__icontains=filters["societe"])
         if filters["dossier"]:
             dossier_search = filters["dossier"]
             queryset = queryset.filter(
@@ -203,8 +203,8 @@ class DashboardView(TemplateView):
 
     def _company_rows(self, queryset, pending_filter, overdue_filter):
         rows = (
-            queryset.exclude(societe="")
-            .values("societe")
+            queryset.exclude(societe__isnull=True)
+            .values("societe", "societe__nom")
             .annotate(
                 total=Sum("montant"),
                 count=Count("id"),
@@ -212,11 +212,13 @@ class DashboardView(TemplateView):
                 overdue_total=Sum("montant", filter=overdue_filter),
                 overdue_count=Count("id", filter=overdue_filter),
             )
-            .order_by("-total", "societe")[:5]
+            .order_by("-total", "societe__nom")[:5]
         )
         return [
             {
                 **row,
+                "societe_id": row["societe"],
+                "societe": row["societe__nom"],
                 "total": _total(row["total"]),
                 "pending_total": _total(row["pending_total"]),
                 "overdue_total": _total(row["overdue_total"]),
@@ -253,7 +255,7 @@ class DashboardView(TemplateView):
         ]
 
     def _business_alerts(self, queryset, overdue_filter):
-        missing_company_count = queryset.filter(Q(societe="") | Q(societe__isnull=True)).count()
+        missing_company_count = queryset.filter(societe__isnull=True).count()
         missing_project_count = queryset.filter(dossier__isnull=True).count()
         inconsistent_project_count = sum(
             1

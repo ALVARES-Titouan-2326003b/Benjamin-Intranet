@@ -117,6 +117,22 @@ class Fournisseur(models.Model):
         return self.nom or str(self.id_id)
 
 
+class Societe(models.Model):
+    nom = models.CharField("Nom", max_length=255, unique=True)
+    is_active = models.BooleanField("Active", default=True)
+    created_at = models.DateTimeField("Créée le", auto_now_add=True)
+    updated_at = models.DateTimeField("Modifiée le", auto_now=True)
+
+    class Meta:
+        db_table = "societe"
+        ordering = ["nom"]
+        verbose_name = "Société"
+        verbose_name_plural = "Sociétés"
+
+    def __str__(self):
+        return self.nom
+
+
 class Facture(models.Model):
     STATUS = [
         ("ongoing", "En cours"),
@@ -142,7 +158,14 @@ class Facture(models.Model):
 
     id = models.CharField(primary_key=True, max_length=255)
     numero_facture = models.CharField("N° de facture", max_length=100, blank=True, default="")
-    societe = models.CharField("Société concernée", max_length=255, blank=True, default="")
+    societe = models.ForeignKey(
+        Societe,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="factures",
+        verbose_name="Société concernée",
+    )
     affaire = models.CharField("Affaire concernée", max_length=255, blank=True, default="")
     dossier = models.ForeignKey(
         TechnicalProject,
@@ -246,4 +269,3 @@ class PieceJointe(models.Model):
 
     class Meta:
         db_table = 'pieces_upload_local'  # table locale
-

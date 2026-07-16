@@ -592,11 +592,18 @@ def signature_user_ceo(db, user_factory, image_signature):
 
 
 @pytest.fixture
-def tampon_entreprise(db, image_tampon):
+def societe(db):
+    from invoices.models import Societe
+
+    return Societe.objects.get_or_create(nom="Benjamin Immobilier")[0]
+
+
+@pytest.fixture
+def tampon_entreprise(db, image_tampon, societe):
     """Tampon officiel de l'entreprise"""
     from signatures.models import Tampon
 
-    tampon = Tampon.objects.create()
+    tampon = Tampon.objects.create(societe=societe)
     tampon.image.save('tampon_officiel.png', image_tampon, save=True)
 
     return tampon

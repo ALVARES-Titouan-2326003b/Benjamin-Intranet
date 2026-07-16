@@ -56,8 +56,14 @@
 
       {# --- CORRECTION : Condition séparée pour éviter les erreurs de syntaxe sur les lignes longues --- #}
       {% if user.is_authenticated %}
-      <a href="{% url 'invoices:list' %}" class="nav-item {% if '/finance/' in p %}active{% endif %}">
+      <a href="{% url 'invoices:list' %}" class="nav-item {% if '/finance/' in p and '/societes/' not in p %}active{% endif %}">
         <i class="bi bi-receipt"></i> Factures
+      </a>
+      {% endif %}
+
+      {% if user.is_superuser or "POLE_FINANCIER" in u_groups_str %}
+      <a href="{% url 'invoices:societes' %}" class="nav-item {% if '/finance/societes/' in p %}active{% endif %}">
+        <i class="bi bi-buildings"></i> Sociétés
       </a>
       {% endif %}
 
