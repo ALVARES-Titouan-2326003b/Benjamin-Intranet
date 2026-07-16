@@ -162,7 +162,7 @@ class DashboardView(TemplateView):
         context['top_suppliers'] = (
             qs.values('fournisseur', 'fournisseur__nom')
             .annotate(total=Sum('montant'), count=Count('id'))
-            .order_by('-total')[:10]
+            .order_by('-total')[:5]
         )
         anomalies = get_invoice_anomalies(qs)
         context['anomaly_count'] = len(anomalies)
@@ -212,7 +212,7 @@ class DashboardView(TemplateView):
                 overdue_total=Sum("montant", filter=overdue_filter),
                 overdue_count=Count("id", filter=overdue_filter),
             )
-            .order_by("-total", "societe")[:10]
+            .order_by("-total", "societe")[:5]
         )
         return [
             {
@@ -238,7 +238,7 @@ class DashboardView(TemplateView):
                 overdue_count=Count("id", filter=overdue_filter),
                 urgent_count=Count("id", filter=Q(priorite__in=["urgent", "critical"])),
             )
-            .order_by("-open_count", "-overdue_total", "-total")[:10]
+            .order_by("-open_count", "-overdue_total", "-total")[:5]
         )
         return [
             {

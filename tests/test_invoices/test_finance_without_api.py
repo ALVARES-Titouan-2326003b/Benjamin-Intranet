@@ -291,6 +291,41 @@ def test_finance_dashboard_filters_company_and_project(client, finance_user, inv
 
 
 @pytest.mark.django_db
+def test_finance_dashboard_rankings_are_limited_to_top_five(
+    client, finance_user, client_entity
+):
+    for index in range(6):
+        actor = ActeurExterne.objects.create(id=f"SUP-TOP-{index}")
+        supplier = Fournisseur.objects.create(id=actor, nom=f"Fournisseur {index}")
+        project = TechnicalProject.objects.create(
+            reference=f"TOP-{index}", name=f"Projet {index}"
+        )
+        Facture.objects.create(
+            id=f"FAC-TOP-{index}",
+            numero_facture=f"TOP-{index}",
+            societe=f"Société {index}",
+            affaire=str(project),
+            dossier=project,
+            fournisseur=supplier,
+            client=client_entity,
+            montant=100 + index,
+            statut="ongoing",
+            echeance=timezone.now() + timedelta(days=10),
+            titre=f"Facture top {index}",
+        )
+
+    client.force_login(finance_user)
+    response = client.get("/finance/dashboard/")
+
+    assert response.status_code == 200
+    assert len(response.context["company_rows"]) == 5
+    assert len(response.context["project_rows"]) == 5
+    assert len(response.context["top_suppliers"]) == 5
+    assert "Top 5 par montant total" in response.content.decode()
+    assert "Top 5 fournisseurs" in response.content.decode()
+
+
+@pytest.mark.django_db
 def test_finance_dashboard_stays_finance_only(client):
     group, _ = Group.objects.get_or_create(name="POLE_TECHNIQUE")
     user = User.objects.create_user(username="technique-dashboard", email="technique-dashboard@example.com")
