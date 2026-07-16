@@ -51,11 +51,15 @@ def _can_delete_signature_documents(user):
     return has_ceo_access(user) or has_administratif_access(user)
 
 
+def _can_supervise_signature_documents(user):
+    return user.is_superuser
+
+
 def _get_admin_signature_users():
     User = get_user_model()
     return (
         User.objects.filter(groups__name="POLE_ADMINISTRATIF", is_active=True)
-        .exclude(groups__name="CEO")
+        .exclude(is_superuser=True)
         .exclude(email="")
         .distinct()
         .order_by("first_name", "last_name", "username")
@@ -65,7 +69,7 @@ def _get_admin_signature_users():
 def _get_ceo_signature_users():
     User = get_user_model()
     return (
-        User.objects.filter(Q(groups__name="CEO") | Q(is_superuser=True), is_active=True)
+        User.objects.filter(is_superuser=True, is_active=True)
         .exclude(email="")
         .distinct()
     )
@@ -150,17 +154,47 @@ def _can_user_sign_document(user, document):
 
     return (
         user.is_superuser
-        or user.is_staff
-        or _has_group(user, "CEO")
         or _has_group(user, "POLE_ADMINISTRATIF")
     )
 
 
 def _get_pending_signature_requests_for_user(user):
     pending_requests = SignatureRequest.objects.filter(statut="pending")
-    if user.is_superuser or user.is_staff or _has_group(user, "CEO"):
+    if _can_supervise_signature_documents(user):
         return pending_requests
     return pending_requests.filter(approver=user)
+
+
+def _signature_document_visibility_filter(user):
+    return (
+        Q(uploaded_by=user)
+        | Q(demandes_signature__requested_by=user)
+        | Q(demandes_signature__approver=user)
+    )
+
+
+def _visible_signature_documents(user):
+    queryset = Document.objects.all()
+    if _can_supervise_signature_documents(user):
+        return queryset
+
+    return queryset.filter(
+        Q(fichier_signe__isnull=True)
+        | Q(fichier_signe="")
+        | _signature_document_visibility_filter(user)
+    ).distinct()
+
+
+def _can_user_view_signature_document(user, document):
+    if _can_supervise_signature_documents(user):
+        return True
+    if not document.fichier_signe:
+        return True
+    if document.uploaded_by_id == user.id:
+        return True
+    return document.demandes_signature.filter(
+        Q(requested_by=user) | Q(approver=user)
+    ).exists()
 
 
 def _can_user_approve_signature_request(user, demande):
@@ -170,8 +204,6 @@ def _can_user_approve_signature_request(user, demande):
     return (
         user == demande.approver
         or user.is_superuser
-        or user.is_staff
-        or _has_group(user, "CEO")
     )
 
 
@@ -192,7 +224,7 @@ def document_list(request):
         return redirect("signatures:ceo_dashboard")
 
     documents = (
-        Document.objects
+        _visible_signature_documents(request.user)
         .order_by("-date_upload")
         .prefetch_related("historique", "demandes_signature")
     )
@@ -241,7 +273,9 @@ def upload_document(request):
     if request.method == "POST":
         form = DocumentUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            doc = form.save()
+            doc = form.save(commit=False)
+            doc.uploaded_by = request.user
+            doc.save()
             init_workflow(doc)
             messages.success(request, "Document ajouté.")
             return redirect("signatures:document_detail", pk=doc.pk)
@@ -262,6 +296,8 @@ def document_detail(request, pk):
         pk (int): Identifiant du document
     """
     doc = get_object_or_404(Document, pk=pk)
+    if not _can_user_view_signature_document(request.user, doc):
+        return HttpResponseForbidden("Vous n'êtes pas autorisé à consulter ce document signé.")
     is_designated_signer = _can_user_sign_document(request.user, doc)
     historiques = doc.historique.order_by("-date_action")
 
@@ -297,6 +333,8 @@ def document_detail(request, pk):
 @user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def document_update(request, pk):
     doc = get_object_or_404(Document, pk=pk)
+    if not _can_user_view_signature_document(request.user, doc):
+        return HttpResponseForbidden("Vous n'êtes pas autorisé à modifier ce document.")
     messages.error(request, "La modification des documents a signer n'est plus autorisee.")
     return redirect("signatures:document_detail", pk=doc.pk)
 
@@ -335,6 +373,8 @@ def envoyer_signature(request, pk):
     On n'affiche plus le bouton dans l'UI, mais on laisse la vue au cas où.
     """
     doc = get_object_or_404(Document, pk=pk)
+    if not _can_user_view_signature_document(request.user, doc):
+        return HttpResponseForbidden("Vous n'êtes pas autorisé à agir sur ce document.")
     lancer_signature(doc)
     messages.info(request, "Document mis en attente de signature.")
     return redirect("signatures:document_detail", pk=doc.pk)
@@ -403,6 +443,8 @@ def config_placement(request, pk):
     Tu peux le garder pour des tests avancés.
     """
     doc = get_object_or_404(Document, pk=pk)
+    if not _can_user_view_signature_document(request.user, doc):
+        return HttpResponseForbidden("Vous n'êtes pas autorisé à consulter ce document.")
 
     if request.method == "POST":
         form = PlacementForm(request.POST, instance=doc)
@@ -691,7 +733,7 @@ def ceo_dashboard(request):
 
     # Historique global : on prend les Documents directement
     documents_history = (
-        Document.objects.all()
+        _visible_signature_documents(request.user)
         .order_by("-date_upload")[:50]
         .prefetch_related("historique", "demandes_signature__requested_by")
     )

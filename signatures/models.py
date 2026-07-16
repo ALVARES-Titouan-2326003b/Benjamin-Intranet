@@ -73,6 +73,13 @@ class Document(models.Model):
 
     titre = models.CharField(max_length=255)
     fichier = models.FileField(upload_to="documents/originaux/")
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents_signature_uploades",
+    )
     signataire_requis = models.CharField(
         max_length=10,
         choices=SIGNATAIRES_REQUIS,

@@ -51,9 +51,9 @@ def test_destinataires_signature_incluent_admin_et_superadmin(
     admin = user_factory(username="admin_signature", email="admin@example.com")
     admin.groups.add(pole_administratif_group)
 
-    ceo_group = Group.objects.get_or_create(name="CEO")[0]
-    ceo = user_factory(username="ceo_signature", email="ceo@example.com")
-    ceo.groups.add(ceo_group)
+    legacy_ceo_group = Group.objects.get_or_create(name="CEO")[0]
+    legacy_ceo = user_factory(username="ceo_signature", email="ceo@example.com")
+    legacy_ceo.groups.add(legacy_ceo_group)
 
     superadmin = User.objects.create_superuser(
         username="superadmin_signature",
@@ -65,10 +65,10 @@ def test_destinataires_signature_incluent_admin_et_superadmin(
 
     assert set(destinataires) == {
         "admin@example.com",
-        "ceo@example.com",
         "superadmin@example.com",
     }
     assert destinataires.count("admin@example.com") == 1
+    assert legacy_ceo.email not in destinataires
     assert superadmin.email in destinataires
 
 
@@ -94,11 +94,11 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
     autre_admin = user_factory(username="autre_admin_signature", email="autre-admin@example.com")
     autre_admin.groups.add(pole_administratif_group)
 
-    ceo_group = Group.objects.get_or_create(name="CEO")[0]
-    ceo = user_factory(username="ceo_signature", email="ceo@example.com")
-    ceo.groups.add(ceo_group)
+    legacy_ceo_group = Group.objects.get_or_create(name="CEO")[0]
+    legacy_ceo = user_factory(username="ceo_signature", email="ceo@example.com")
+    legacy_ceo.groups.add(legacy_ceo_group)
 
-    User.objects.create_superuser(
+    superadmin = User.objects.create_superuser(
         username="superadmin_signature",
         email="superadmin@example.com",
         password="testpass123",
@@ -126,12 +126,12 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
     assert len(mail.outbox) == 1
     assert set(mail.outbox[0].to) == {
         "autre-admin@example.com",
-        "ceo@example.com",
         "superadmin@example.com",
     }
 
     assert _can_user_sign_document(admin, document_pdf_simple)
-    assert _can_user_sign_document(ceo, document_pdf_simple)
+    assert not _can_user_sign_document(legacy_ceo, document_pdf_simple)
+    assert _can_user_sign_document(superadmin, document_pdf_simple)
 
     client.force_login(admin)
     response = client.get(reverse("signatures:signature_approval", args=[demande.token]))
@@ -143,7 +143,13 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
 
     assert response.status_code == 200
 
-    client.force_login(ceo)
+    client.force_login(legacy_ceo)
+    response = client.get(reverse("signatures:signature_approval", args=[demande.token]))
+
+    assert response.status_code == 302
+    assert response.url == "/"
+
+    client.force_login(superadmin)
     response = client.get(reverse("signatures:signature_approval", args=[demande.token]))
 
     assert response.status_code == 200

@@ -577,10 +577,13 @@ def document_pdf_multi(db, pdf_multi_pages):
 
 @pytest.fixture
 def signature_user_ceo(db, user_factory, image_signature):
-    """SignatureUser (CEO) avec image de signature"""
+    """SignatureUser superadmin avec image de signature"""
     from signatures.models import SignatureUser
 
     user = user_factory(username='ceo', email='ceo@benjamin-immo.fr')
+    user.is_superuser = True
+    user.is_staff = True
+    user.save()
 
     sig_user = SignatureUser.objects.create(user=user)
     sig_user.image.save('ceo_signature.png', image_signature, save=True)
