@@ -36,20 +36,18 @@ class Tampon(models.Model):
     Tampon officiel de l'entreprise.
 
     Attributes:
-        nom (str): Nom du tampon
         image (ImageFieldFile): Fichier image du tampon
     """
     societe = models.CharField("Société", max_length=200, default="Benjamin Immobilier")
-    nom = models.CharField(max_length=200, default="Tampon officiel")
     image = models.ImageField(upload_to="tampons/")
     is_active = models.BooleanField("Actif", default=True)
 
     class Meta:
         db_table = 'tampon'
-        ordering = ["societe", "nom"]
+        ordering = ["societe"]
 
     def __str__(self):
-        return f"{self.societe} - {self.nom}"
+        return self.societe
 
 
 class Document(models.Model):

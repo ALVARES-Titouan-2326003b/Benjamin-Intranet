@@ -49,17 +49,6 @@
                     {% endif %}
                 </div>
 
-                {# Nom #}
-                <div class="form-group" style="margin: 0;">
-                    <label class="form-label">{{ form.nom.label }}</label>
-                    {{ form.nom }}
-                    {% if form.nom.errors %}
-                    <div class="alert alert-danger" style="margin-top: .5rem;">
-                        {{ form.nom.errors }}
-                    </div>
-                    {% endif %}
-                </div>
-
                 {# Image #}
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label">{{ form.image.label }}</label>
@@ -102,8 +91,7 @@
                 <div style="border:1px solid var(--border-light); border-radius:8px; padding:.75rem; display:grid; gap:.5rem;">
                     <div style="display:flex; justify-content:space-between; gap:.75rem; align-items:flex-start;">
                         <div>
-                            <strong>{{ item.societe }}</strong><br>
-                            <span style="color:var(--text-secondary);">{{ item.nom }}</span>
+                            <strong>{{ item.societe }}</strong>
                         </div>
                         <span class="status-badge" {% if not item.is_active %}style="background:#fee2e2;color:#991b1b;"{% endif %}>
                             {% if item.is_active %}Actif{% else %}Inactif{% endif %}
@@ -111,7 +99,7 @@
                     </div>
                     {% if item.image %}
                     <div style="display:flex; justify-content:center; align-items:center; min-height:90px; background:#f8fafc; border-radius:6px;">
-                        <img src="{{ item.image.url }}" alt="Tampon {{ item.nom }}" style="max-width:100%; max-height:120px;">
+                        <img src="{{ item.image.url }}" alt="Tampon {{ item.societe }}" style="max-width:100%; max-height:120px;">
                     </div>
                     {% endif %}
                     <div style="display:flex; justify-content:flex-end;">

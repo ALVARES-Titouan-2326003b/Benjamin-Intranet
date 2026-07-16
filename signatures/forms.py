@@ -26,7 +26,7 @@ class TamponForm(forms.ModelForm):
     """
     class Meta:
         model = Tampon
-        fields = ["societe", "nom", "image", "is_active"]
+        fields = ["societe", "image", "is_active"]
 
 
 class PlacementForm(forms.ModelForm):

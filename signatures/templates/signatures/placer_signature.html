@@ -63,7 +63,7 @@
                 style="width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); background: white;">
                 <option value="">Sélectionner un tampon</option>
                 {% for tampon in tampons %}
-                <option value="{{ tampon.pk }}">{{ tampon.societe }} — {{ tampon.nom }}</option>
+                <option value="{{ tampon.pk }}">{{ tampon.societe }}</option>
                 {% endfor %}
             </select>
         </label>

@@ -596,7 +596,7 @@ def tampon_entreprise(db, image_tampon):
     """Tampon officiel de l'entreprise"""
     from signatures.models import Tampon
 
-    tampon = Tampon.objects.create(nom="Tampon Benjamin Immobilier")
+    tampon = Tampon.objects.create()
     tampon.image.save('tampon_officiel.png', image_tampon, save=True)
 
     return tampon
