@@ -16,11 +16,6 @@
             <i class="bi bi-exclamation-triangle"></i> Anomalies
         </a>
         {% endif %}
-        {% if can_view_exports %}
-        <a class="btn btn-secondary" href="{% url 'invoices:cegid_exports' %}">
-            <i class="bi bi-filetype-txt"></i> Exports Cegid
-        </a>
-        {% endif %}
         {% if can_create_invoice %}
         <a class="btn btn-primary" href="{% url 'invoices:create' %}">
             <i class="bi bi-plus-lg"></i> Nouvelle facture

@@ -1,10 +1,9 @@
 import io
-from datetime import datetime
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.db.models import Q
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.views import View
@@ -30,13 +29,11 @@ from user_access.user_test_functions import (
 from .filters import FactureFilter
 from .forms import FactureForm, PieceJointeForm
 from .models import (
-    ExportCegidRun,
     Facture,
     PieceJointe,
     FactureHistorique,
     InvoiceReminderSettings,
 )
-from .services.cegid import generate_cegid_export
 from .services.email import send_invoice_submission_email
 from .services.quality import get_invoice_anomalies
 
@@ -520,55 +517,3 @@ class InvoiceAnomaliesView(TemplateView):
         return context
 
 
-@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
-class CegidExportListView(TemplateView):
-    template_name = 'invoices/cegid_exports.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['exports'] = ExportCegidRun.objects.select_related('triggered_by')[:50]
-        return context
-
-
-@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
-class CegidExportCreateView(View):
-    def post(self, request, *args, **kwargs):
-        try:
-            period_start = _parse_optional_date(request.POST.get('period_start'))
-            period_end = _parse_optional_date(request.POST.get('period_end'))
-        except ValueError:
-            messages.error(request, "Les dates d'export doivent respecter le format AAAA-MM-JJ.")
-            return redirect('invoices:cegid_exports')
-
-        if period_start and period_end and period_start > period_end:
-            messages.error(request, "La date de début doit être antérieure à la date de fin.")
-            return redirect('invoices:cegid_exports')
-
-        run = generate_cegid_export(
-            user=request.user,
-            period_start=period_start,
-            period_end=period_end,
-        )
-        if run.status == "success":
-            messages.success(
-                request,
-                f"Export Cegid généré : {run.line_count} ligne(s), {run.anomaly_count} anomalie(s).",
-            )
-        else:
-            messages.error(request, f"Export Cegid en erreur : {run.error_message}")
-        return redirect('invoices:cegid_exports')
-
-
-@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
-class CegidExportDownloadView(View):
-    def get(self, request, pk, *args, **kwargs):
-        run = ExportCegidRun.objects.filter(pk=pk, status="success").first()
-        if not run or not run.file:
-            raise Http404("Export introuvable")
-        return FileResponse(run.file.open("rb"), as_attachment=True, filename=run.file.name.split("/")[-1])
-
-
-def _parse_optional_date(value):
-    if not value:
-        return None
-    return datetime.strptime(value, "%Y-%m-%d").date()

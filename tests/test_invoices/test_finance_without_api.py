@@ -19,7 +19,6 @@ from invoices.models import (
     RelanceFournisseur,
 )
 from management.models import OAuthToken
-from invoices.services.cegid import build_cegid_line, generate_cegid_export
 from invoices.services.quality import get_invoice_anomalies
 from invoices.tasks import check_and_send_invoice_reminders
 from invoices.views_dashboard import DashboardView
@@ -118,25 +117,6 @@ def test_site_admin_can_change_invoice_status_without_ceo_group():
     )
 
     assert can_change_facture_status(admin) is True
-
-
-@pytest.mark.django_db
-def test_cegid_line_is_ascii_and_deterministic(invoice):
-    line = build_cegid_line(invoice)
-
-    line.encode("ascii")
-    assert line == "FAC-001;FA-2026-001;Benjamin Immobilier;Affaire Demo;financier;TECH-001 - Projet Test;Fournisseur Energie;1234.50;ongoing;" + invoice.echeance.strftime("%Y%m%d") + ";Facture energie"
-
-
-@pytest.mark.django_db
-def test_generate_cegid_export_creates_successful_run(finance_user, invoice):
-    run = generate_cegid_export(user=finance_user)
-
-    assert run.status == "success"
-    assert run.line_count == 1
-    assert run.total_amount == 1234.5
-    assert run.file.name.endswith(".txt")
-    assert run.file.read().decode("ascii").startswith("FAC-001;FA-2026-001;Benjamin Immobilier;Affaire Demo;financier;")
 
 
 @pytest.mark.django_db

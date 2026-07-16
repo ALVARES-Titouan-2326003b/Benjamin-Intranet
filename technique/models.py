@@ -215,7 +215,8 @@ class ProjectExpense(models.Model):
         ordering = ["due_date", "id"]
 
     def __str__(self):
-        return f"{self.project.reference} - {self.label}"
+        project_label = self.project.reference if self.project else "Sans dossier"
+        return f"{project_label} - {self.label}"
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

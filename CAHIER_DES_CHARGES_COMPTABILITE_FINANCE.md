@@ -84,29 +84,7 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 - Assistant conversationnel pour interroger l’état d’une facture.
 - Prévision automatique de date probable de paiement via modèle ML.
 
-## Point 2 – Documentation Cegid Quadra pour échange futur
-
-**Objectif :** Se renseigner et documenter les possibilités d’échange futur avec Cegid Quadra, sans développement API dans le périmètre actuel.
-
-### Spécifications fonctionnelles
-
-- Identifier les formats d’import ou d’export acceptés par Cegid Quadra, notamment les formats ASCII ou équivalents.
-- Documenter les champs attendus, règles de formatage, contraintes d’encodage, séparateurs et contrôles comptables connus.
-- Recenser les interlocuteurs, documentations officielles, accès nécessaires et limites éventuelles.
-- Distinguer clairement ce qui relève d’un export fichier, d’un dépôt manuel, d’un dossier surveillé ou d’une API éventuelle.
-- Conserver ces informations comme base de travail future, sans lancer d’intégration dans cette version.
-
-### Spécifications techniques
-
-- Produire une note documentaire exploitable par un futur prestataire ou un futur projet.
-- Ne pas prévoir de développement API Cegid Quadra dans ce périmètre.
-- Ne pas engager de choix technique tant que la documentation officielle et les contraintes métier n’ont pas été confirmées.
-
-### Extension IA
-
-- Hors périmètre actuel.
-
-## Point 3 – Numérisation de la signature et automatisation du tampon
+## Point 2 – Numérisation de la signature et automatisation du tampon
 
 **Objectif :** Faciliter la validation des documents en remplaçant la signature manuelle du CEO par une signature électronique sécurisée.
 
@@ -129,7 +107,7 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 
 - Classification automatique des documents nécessitant une signature via OCR + NLP.
 
-## Point 4 – Dashboard analytique & relances automatisées
+## Point 3 – Dashboard analytique & relances automatisées
 
 **Objectif :** Créer une interface de visualisation financière et un moteur de relance automatisée selon les statuts des factures.
 
@@ -164,7 +142,7 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 - Détection de fournisseurs à risque
 - Prévisions budgétaires basées sur les historiques
 
-## Point 5 – Référentiel sociétés
+## Point 4 – Référentiel sociétés
 
 **Objectif :** Centraliser la liste des sociétés utilisées dans les factures, filtres, tableaux de bord et tampons.
 
@@ -184,7 +162,6 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 ## Documents à collecter (pré-requis)
 
 - Documentation Lockimmo utile aux exports éventuels
-- Documentation Cegid Quadra : formats acceptés, contraintes d’import/export, interlocuteurs et accès nécessaires
 - Modèles de signature acceptés par la direction
 - Liste des rôles/accès utilisateurs
 - Modèle de relance actuel utilisé

@@ -247,36 +247,3 @@ class PieceJointe(models.Model):
     class Meta:
         db_table = 'pieces_upload_local'  # table locale
 
-
-class ExportCegidRun(models.Model):
-    STATUS = [
-        ("pending", "En attente"),
-        ("success", "Succès"),
-        ("error", "Erreur"),
-    ]
-
-    status = models.CharField(max_length=20, choices=STATUS, default="pending")
-    triggered_by = models.ForeignKey(
-        Utilisateur,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="cegid_exports",
-    )
-    period_start = models.DateField(null=True, blank=True)
-    period_end = models.DateField(null=True, blank=True)
-    file = models.FileField(upload_to="exports/cegid/", null=True, blank=True)
-    line_count = models.PositiveIntegerField(default=0)
-    total_amount = models.FloatField(default=0)
-    anomaly_count = models.PositiveIntegerField(default=0)
-    warning_summary = models.TextField(blank=True, default="")
-    error_message = models.TextField(blank=True, default="")
-    started_at = models.DateTimeField(auto_now_add=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        db_table = "export_cegid_run"
-        ordering = ["-started_at"]
-
-    def __str__(self):
-        return f"Export Cegid #{self.pk} - {self.get_status_display()}"

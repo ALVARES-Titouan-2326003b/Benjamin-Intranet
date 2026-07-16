@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ExportCegidRun, Facture, PieceJointe, Entreprise, InvoiceReminderSettings
+from .models import Facture, PieceJointe, Entreprise, InvoiceReminderSettings
 
 @admin.register(Facture)
 class FactureAdmin(admin.ModelAdmin):
@@ -14,13 +14,6 @@ class PieceJointeAdmin(admin.ModelAdmin):
 @admin.register(Entreprise)
 class EntrepriseAdmin(admin.ModelAdmin):
     list_display = ('id', 'nom')
-
-
-@admin.register(ExportCegidRun)
-class ExportCegidRunAdmin(admin.ModelAdmin):
-    list_display = ('id', 'status', 'triggered_by', 'line_count', 'total_amount', 'anomaly_count', 'started_at')
-    list_filter = ('status',)
-    readonly_fields = ('started_at', 'completed_at')
 
 
 @admin.register(InvoiceReminderSettings)

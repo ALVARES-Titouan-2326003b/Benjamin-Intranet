@@ -183,7 +183,7 @@ Donner au pôle technique une visibilité en temps réel sur les paiements liés
 ### 6.3 Spécifications techniques
 
 - Module intranet alimenté par les données finance disponibles dans l’intranet.
-- Les éventuels échanges avec Cegid / Lockimmo relèvent d’un cadrage documentaire futur et ne doivent pas être considérés comme un développement API dans ce périmètre.
+- Les éventuels échanges avec Lockimmo relèvent d’un cadrage documentaire futur et ne doivent pas être considérés comme un développement API dans ce périmètre.
 - Notification automatique lors des changements de statut.
 - Vue tableau + export Excel/PDF.
 - L'export CSV n'est pas retenu pour les dossiers techniques et ne doit pas être proposé dans l'interface.
