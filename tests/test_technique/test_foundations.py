@@ -521,34 +521,72 @@ def test_project_key_dates_can_link_documents_and_actions(client, technique_user
 
 
 @pytest.mark.django_db
-def test_project_deletion_requires_superadmin_validation(client, technique_user, admin_user):
-    project = TechnicalProject.objects.create(reference="DEL-001", name="Projet à supprimer")
+def test_project_can_be_archived_and_restored_with_history(client, technique_user):
+    project = TechnicalProject.objects.create(reference="ARC-001", name="Projet à archiver")
 
     client.force_login(technique_user)
     response = client.post(
-        reverse("technique:dossiers_bulk_delete"),
-        {"project_ids": [project.pk]},
+        reverse("technique:dossiers_bulk_archive"),
+        {"project_ids": [project.pk], "archive_comment": "Dossier terminé"},
     )
 
     assert response.status_code == 302
-    assert TechnicalProject.objects.filter(pk=project.pk).exists()
-    assert not TechnicalProjectHistory.objects.filter(action="project_deleted", project_reference="DEL-001").exists()
+    project.refresh_from_db()
+    assert project.is_archived
+    assert project.archived_by == technique_user
+    assert project.archive_comment == "Dossier terminé"
+    assert TechnicalProjectHistory.objects.filter(project=project, action="project_archived").exists()
 
-    client.force_login(admin_user)
     response = client.post(
         reverse("technique:dossiers_bulk_delete"),
+        {"project_ids": [project.pk], "confirm_permanent": "1"},
+    )
+    assert response.status_code == 302
+    assert TechnicalProject.objects.filter(pk=project.pk).exists()
+
+    response = client.post(
+        reverse("technique:dossiers_bulk_restore"),
         {"project_ids": [project.pk]},
     )
 
     assert response.status_code == 302
-    history = TechnicalProjectHistory.objects.get(action="project_deleted", project_reference="DEL-001")
-    assert history.project is None
-    assert history.project_name == "Projet à supprimer"
+    project.refresh_from_db()
+    assert not project.is_archived
+    assert project.archived_by is None
+    assert TechnicalProjectHistory.objects.filter(project=project, action="project_restored").exists()
+
+
+@pytest.mark.django_db
+def test_archived_project_is_read_only_and_hidden_from_active_list(client, technique_user):
+    project = TechnicalProject.objects.create(
+        reference="ARC-READONLY",
+        name="Dossier archivé",
+        archived_at=timezone.now(),
+        archived_by=technique_user,
+    )
+    client.force_login(technique_user)
+
+    active_response = client.get(reverse("technique:dossiers_list"))
+    archived_response = client.get(reverse("technique:dossiers_list"), {"archive": "archived"})
+    mutation_response = client.post(
+        reverse("technique:dossier_action_create", args=[project.pk]),
+        {"title": "Action interdite", "status": "todo", "priority": "normal"},
+    )
+
+    assert project not in active_response.context["projects"]
+    assert project in archived_response.context["projects"]
+    assert mutation_response.status_code == 302
+    assert not TechnicalProjectAction.objects.filter(project=project).exists()
 
 
 @pytest.mark.django_db
 def test_project_deletion_with_related_data_requires_explicit_confirmation(client, admin_user):
-    project = TechnicalProject.objects.create(reference="DEL-LINK", name="Dossier avec liens")
+    project = TechnicalProject.objects.create(
+        reference="DEL-LINK",
+        name="Dossier avec liens",
+        archived_at=timezone.now(),
+        archived_by=admin_user,
+    )
     ProjectExpense.objects.create(
         project=project,
         label="Dépense existante",
@@ -558,7 +596,7 @@ def test_project_deletion_with_related_data_requires_explicit_confirmation(clien
     client.force_login(admin_user)
     response = client.post(
         reverse("technique:dossiers_bulk_delete"),
-        {"project_ids": [project.pk]},
+        {"project_ids": [project.pk], "confirm_permanent": "1"},
     )
 
     assert response.status_code == 302
@@ -566,7 +604,11 @@ def test_project_deletion_with_related_data_requires_explicit_confirmation(clien
 
     response = client.post(
         reverse("technique:dossiers_bulk_delete"),
-        {"project_ids": [project.pk], "confirm_related": "1"},
+        {
+            "project_ids": [project.pk],
+            "confirm_permanent": "1",
+            "confirm_related": "1",
+        },
     )
 
     assert response.status_code == 302

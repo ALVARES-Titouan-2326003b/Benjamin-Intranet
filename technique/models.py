@@ -155,6 +155,16 @@ class TechnicalProject(models.Model):
         blank=True,
         related_name="technical_dossiers_updated",
     )
+    archived_at = models.DateTimeField("Archivé le", null=True, blank=True, db_index=True)
+    archived_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="technical_dossiers_archived",
+        verbose_name="Archivé par",
+    )
+    archive_comment = models.TextField("Commentaire d'archivage", blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -165,6 +175,10 @@ class TechnicalProject(models.Model):
 
     def __str__(self):
         return f"{self.reference} - {self.name}"
+
+    @property
+    def is_archived(self):
+        return self.archived_at is not None
 
     def refresh_amounts_from_expenses(self, save=True):
         expenses = self.expenses.all()
@@ -367,6 +381,8 @@ class TechnicalProjectHistory(models.Model):
         ("action_updated", "Action modifiée"),
         ("action_deleted", "Action supprimée"),
         ("status_updated", "Statut modifié"),
+        ("project_archived", "Dossier archivé"),
+        ("project_restored", "Dossier restauré"),
         ("project_deleted", "Dossier supprimé"),
     ]
 

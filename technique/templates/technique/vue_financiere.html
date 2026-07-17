@@ -6,7 +6,14 @@
 <link rel="stylesheet" href="{% static 'technique/css/style.css' %}">
 
 <div class="dossier-page">
-  {% if not can_manage_project %}
+  {% if project.is_archived %}
+  <div class="alert alert-warning">
+    <strong>Dossier archivé le {{ project.archived_at|date:"d/m/Y à H:i" }}</strong>
+    {% if project.archived_by %} par {{ project.archived_by.get_full_name|default:project.archived_by.username }}{% endif %}.
+    Il reste consultable, mais aucune donnée ne peut être ajoutée ou modifiée.
+    {% if project.archive_comment %}<div style="margin-top:.4rem;">{{ project.archive_comment }}</div>{% endif %}
+  </div>
+  {% elif not can_manage_project %}
   <div class="alert alert-info">Consultation en lecture seule de ce dossier technique.</div>
   {% endif %}
   <header class="dossier-hero">

@@ -515,7 +515,7 @@
         const id = fields.id.value;
         if (!id) return;
         const project = projects.find(item => String(item.id) === String(id));
-        if (!confirm(`Supprimer le dossier ${project?.reference || ''} ?`)) return;
+        if (!confirm(`Archiver le dossier ${project?.reference || ''} ?`)) return;
 
         try {
             const response = await fetch(`/api/admin-projects/${id}/delete/`, {
@@ -523,7 +523,7 @@
                 headers: { 'X-CSRFToken': csrftoken() },
             });
             const data = await response.json();
-            if (!data.success) throw new Error(data.message || 'Suppression impossible');
+            if (!data.success) throw new Error(data.message || 'Archivage impossible');
 
             projects = projects.filter(item => String(item.id) !== String(id));
             renderProjects();

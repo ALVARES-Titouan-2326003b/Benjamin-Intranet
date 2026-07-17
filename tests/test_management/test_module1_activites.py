@@ -20,7 +20,7 @@ from management.models import (
     ValeurChampPersonnaliseDossier,
 )
 from management.tasks import check_and_send_activite_reminders
-from technique.models import DocumentTechnique, TechnicalProject
+from technique.models import DocumentTechnique, TechnicalProject, TechnicalProjectHistory
 
 
 @pytest.fixture
@@ -245,6 +245,30 @@ def test_activity_can_be_created_without_dossier(client, admin_user, type_activi
 
 
 @pytest.mark.django_db
+def test_activity_cannot_be_attached_to_archived_project(client, admin_user, dossier, type_activite):
+    dossier.archived_at = timezone.now()
+    dossier.archived_by = admin_user
+    dossier.save(update_fields=["archived_at", "archived_by"])
+    client.force_login(admin_user)
+
+    response = _post_json(
+        client,
+        "/api/create-activity/",
+        {
+            "titre": "Activité refusée",
+            "dossier": dossier.reference,
+            "type": type_activite.type,
+            "date": (timezone.now() + timedelta(days=1)).isoformat(),
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["success"] is False
+    assert "archivé" in response.json()["message"]
+    assert not Activite.objects.filter(titre="Activité refusée").exists()
+
+
+@pytest.mark.django_db
 def test_activity_outlook_payload_uses_duration(dossier, type_activite):
     start = timezone.make_aware(timezone.datetime(2026, 7, 1, 9, 30))
     activity = Activite.objects.create(
@@ -388,7 +412,7 @@ END:VCALENDAR
 
 
 @pytest.mark.django_db
-def test_admin_dossier_create_update_delete_and_block_when_used(client, admin_user, type_activite, categorie):
+def test_admin_dossier_create_update_and_archive_with_related_data(client, admin_user, type_activite, categorie):
     client.force_login(admin_user)
 
     response = _post_json(
@@ -468,15 +492,13 @@ def test_admin_dossier_create_update_delete_and_block_when_used(client, admin_us
     )
 
     response = client.post(f"/api/admin-projects/{project.pk}/delete/")
-    assert response.status_code == 409
-    assert response.json()["success"] is False
-    assert TechnicalProject.objects.filter(pk=project.pk).exists()
-
-    Activite.objects.filter(dossier=project).delete()
-    response = client.post(f"/api/admin-projects/{project.pk}/delete/")
     assert response.status_code == 200
     assert response.json()["success"] is True
-    assert not TechnicalProject.objects.filter(pk=project.pk).exists()
+    project.refresh_from_db()
+    assert project.is_archived
+    assert project.archived_by == admin_user
+    assert Activite.objects.filter(dossier=project).exists()
+    assert TechnicalProjectHistory.objects.filter(project=project, action="project_archived").exists()
 
 
 @pytest.mark.django_db
@@ -533,7 +555,7 @@ def test_admin_dossier_accepts_promotion_immobiliere_fields(client, admin_user, 
 
 
 @pytest.mark.django_db
-def test_admin_dossier_delete_is_blocked_by_technical_links(client, admin_user, categorie):
+def test_admin_dossier_archive_preserves_technical_links(client, admin_user, categorie):
     client.force_login(admin_user)
     project = TechnicalProject.objects.create(
         reference="ADM-TECH-LINK",
@@ -541,7 +563,7 @@ def test_admin_dossier_delete_is_blocked_by_technical_links(client, admin_user, 
         affaire="Dossier avec document technique",
         categorie=categorie,
     )
-    DocumentTechnique.objects.create(
+    document = DocumentTechnique.objects.create(
         project=project,
         titre="Promesse",
         fichier=SimpleUploadedFile("promesse.txt", b"contenu"),
@@ -550,10 +572,12 @@ def test_admin_dossier_delete_is_blocked_by_technical_links(client, admin_user, 
 
     response = client.post(f"/api/admin-projects/{project.pk}/delete/")
 
-    assert response.status_code == 409
-    assert response.json()["success"] is False
-    assert "document" in response.json()["message"]
-    assert TechnicalProject.objects.filter(pk=project.pk).exists()
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+    project.refresh_from_db()
+    document.refresh_from_db()
+    assert project.is_archived
+    assert document.project == project
 
 
 @pytest.mark.django_db

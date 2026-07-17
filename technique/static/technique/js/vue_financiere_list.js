@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteProjectsBtn = document.getElementById('deleteProjectsBtn');
     const selectedProjectsCount = document.getElementById('selectedProjectsCount');
     const confirmRelatedWrapper = document.getElementById('confirmRelatedWrapper');
+    const permanentDeleteProjectsBtn = document.getElementById('permanentDeleteProjectsBtn');
 
     if (selectAllProjects) {
         selectAllProjects.addEventListener('change', function() {
@@ -23,6 +24,9 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedProjectsCount.textContent = count;
         if (confirmRelatedWrapper) {
             confirmRelatedWrapper.style.display = count > 0 ? 'flex' : 'none';
+        }
+        if (permanentDeleteProjectsBtn) {
+            permanentDeleteProjectsBtn.style.display = count > 0 ? 'inline-block' : 'none';
         }
         if (selectAllProjects) {
             const total = document.querySelectorAll('.project-checkbox').length;

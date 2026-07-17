@@ -22,6 +22,8 @@ urlpatterns = [
 
     # Dossiers techniques
     path("dossiers/",                                         views.financial_overview,                  name="dossiers_list"),
+    path("dossiers/bulk-archive/",                            views.bulk_archive_projects,               name="dossiers_bulk_archive"),
+    path("dossiers/bulk-restore/",                            views.bulk_restore_projects,               name="dossiers_bulk_restore"),
     path("dossiers/bulk-delete/",                             views.bulk_delete_projects,                name="dossiers_bulk_delete"),
     path("dossiers/<int:pk>/",                                views.financial_project_detail,            name="dossier_detail"),
     path("dossiers/<int:pk>/pdf/",                            views.financial_project_pdf,               name="dossier_budget_pdf"),
@@ -38,6 +40,8 @@ urlpatterns = [
 
     # Vue financière : anciennes URLs conservées pour compatibilité
     path("vue-financiere/",                                    views.financial_overview,                  name="technique_financial_overview"),
+    path("vue-financiere/bulk-archive/",                        views.bulk_archive_projects,               name="bulk_archive_projects"),
+    path("vue-financiere/bulk-restore/",                        views.bulk_restore_projects,               name="bulk_restore_projects"),
     path("vue-financiere/bulk-delete/",                        views.bulk_delete_projects,                name="bulk_delete_projects"),
     path("vue-financiere/<int:pk>/",                           views.financial_project_detail,            name="technique_financial_project_detail"),
     path("vue-financiere/<int:pk>/pdf/",                       views.financial_project_pdf,               name="technique_financial_project_pdf"),

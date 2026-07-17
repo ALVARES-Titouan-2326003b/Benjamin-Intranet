@@ -45,7 +45,7 @@
     <div class="card-title">Filtres</div>
 
     <form method="get"
-          style="display: grid; grid-template-columns: 2fr 1.1fr 1.1fr 1.1fr 1.1fr; gap: 1rem; align-items: end;">
+          style="display: grid; grid-template-columns: 2fr repeat(5, 1.1fr); gap: 1rem; align-items: end;">
         <div>
             <label style="display:block; margin-bottom: .4rem; font-weight:500;">Recherche</label>
             <input type="text" name="q" class="form-control" placeholder="Nom ou référence du dossier..." value="{{ q }}">
@@ -73,6 +73,15 @@
                 {% for value, label in status_choices %}
                     <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label style="display:block; margin-bottom: .4rem; font-weight:500;">Archivage</label>
+            <select name="archive" class="form-control">
+                <option value="active" {% if archive_filter == "active" %}selected{% endif %}>Dossiers actifs</option>
+                <option value="archived" {% if archive_filter == "archived" %}selected{% endif %}>Dossiers archivés</option>
+                <option value="all" {% if archive_filter == "all" %}selected{% endif %}>Tous les dossiers</option>
             </select>
         </div>
 
@@ -106,23 +115,34 @@
     </div>
 
     {% if projects %}
-    <form method="post" action="{% url 'technique:dossiers_bulk_delete' %}" id="bulkDeleteProjectsForm">
+    <form method="post" action="{% if archive_filter == 'archived' %}{% url 'technique:dossiers_bulk_restore' %}{% else %}{% url 'technique:dossiers_bulk_archive' %}{% endif %}" id="bulkDeleteProjectsForm">
         {% csrf_token %}
 
-        {% if can_delete_projects %}
+        {% if can_archive_projects %}
         <div style="margin-bottom: 1rem;">
-            <label id="confirmRelatedWrapper" style="display:none; align-items:center; gap:.5rem; margin-bottom:.75rem; color:var(--text-secondary);">
-                <input type="checkbox" name="confirm_related" value="1">
-                Je confirme la suppression définitive, y compris si des éléments sont liés aux dossiers sélectionnés.
-            </label>
-            <button type="submit" class="btn btn-danger" id="deleteProjectsBtn" style="display: none;"
-                    onclick="return confirm('Êtes-vous sûr de vouloir supprimer les dossiers sélectionnés ? Cette action est irréversible.');">
-                <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedProjectsCount">0</span>)
+            {% if archive_filter == "archived" %}
+            <button type="submit" class="btn btn-primary" id="deleteProjectsBtn" style="display: none;">
+                <i class="bi bi-arrow-counterclockwise"></i> Restaurer la sélection (<span id="selectedProjectsCount">0</span>)
             </button>
-        </div>
-        {% elif can_manage_projects %}
-        <div style="margin-bottom: 1rem; color: var(--text-secondary);">
-            La suppression définitive des dossiers est réservée au CEO / superadmin.
+            {% if can_delete_projects %}
+            <label id="confirmRelatedWrapper" style="display:none; align-items:center; gap:.5rem; margin: .75rem 0; color:var(--text-secondary);">
+                <input type="checkbox" name="confirm_related" value="1">
+                Je confirme la suppression des données liées.
+            </label>
+            <button type="submit" class="btn btn-danger" id="permanentDeleteProjectsBtn" style="display:none;"
+                    formaction="{% url 'technique:dossiers_bulk_delete' %}" name="confirm_permanent" value="1"
+                    onclick="return confirm('Supprimer définitivement les dossiers sélectionnés ? Cette action est irréversible.');">
+                <i class="bi bi-trash"></i> Supprimer définitivement
+            </button>
+            {% endif %}
+            {% else %}
+            <input type="text" name="archive_comment" class="form-control" maxlength="500"
+                   placeholder="Commentaire d’archivage (facultatif)" style="max-width:520px;margin-bottom:.75rem;">
+            <button type="submit" class="btn btn-secondary" id="deleteProjectsBtn" style="display: none;"
+                    onclick="return confirm('Archiver les dossiers sélectionnés ?');">
+                <i class="bi bi-archive"></i> Archiver la sélection (<span id="selectedProjectsCount">0</span>)
+            </button>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -130,7 +150,7 @@
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        {% if can_delete_projects %}
+                        {% if can_archive_projects %}
                         <th style="width: 40px;"><input type="checkbox" id="selectAllProjects" title="Tout sélectionner"></th>
                         {% endif %}
                         <th>Référence</th>
@@ -144,15 +164,19 @@
                 <tbody>
                     {% for p in projects %}
                     <tr>
-                        {% if can_delete_projects %}
+                        {% if can_archive_projects %}
                         <td><input type="checkbox" class="project-checkbox" name="project_ids" value="{{ p.id }}"></td>
                         {% endif %}
                         <td><span style="font-weight: 600; color: var(--text-main);">{{ p.reference }}</span></td>
                         <td>{{ p.name }}</td>
                         <td>
+                            {% if p.is_archived %}
+                            <span class="badge" style="background:#fef3c7; color:#92400e;">Archivé</span>
+                            {% else %}
                             <span class="badge" style="background:#ecfdf5; color:#047857;">
                                 {{ p.get_status_display }}
                             </span>
+                            {% endif %}
                         </td>
                         <td>
                             <span class="badge" style="background:#f3f4f6; color:#374151;">
@@ -184,11 +208,11 @@
 {% if page_obj.paginator.num_pages > 1 %}
     <div style="display:flex; justify-content:center; align-items:center; gap:.5rem; margin-top:1.5rem; flex-wrap:wrap;">
         {% if page_obj.has_previous %}
-            <a href="?page=1{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page=1{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 « Première
             </a>
-            <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 Précédente
             </a>
@@ -199,11 +223,11 @@
         </span>
 
         {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 Suivante
             </a>
-            <a href="?page={{ page_obj.paginator.num_pages }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 Dernière »
             </a>

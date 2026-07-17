@@ -151,6 +151,12 @@ class FactureForm(forms.ModelForm):
                 models.Q(is_active=True) | models.Q(pk=self.instance.societe_id)
             )
         self.fields["societe"].queryset = active_companies.order_by("nom")
+        available_projects = TechnicalProject.objects.filter(archived_at__isnull=True)
+        if self.instance.dossier_id:
+            available_projects = TechnicalProject.objects.filter(
+                models.Q(archived_at__isnull=True) | models.Q(pk=self.instance.dossier_id)
+            )
+        self.fields["dossier"].queryset = available_projects.order_by("reference", "name")
 
         # Pré-remplir l'échéance avec la date existante (mode édition)
         if self.instance.echeance:

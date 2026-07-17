@@ -85,6 +85,9 @@ def _snapshot_project(project):
         "engaged_amount": _history_value(project.engaged_amount),
         "paid_amount": _history_value(project.paid_amount),
         "total_estimated": _history_value(project.total_estimated),
+        "archived_at": _history_value(project.archived_at),
+        "archived_by": project.archived_by_id or "",
+        "archive_comment": project.archive_comment,
     }
 
 
@@ -141,7 +144,16 @@ def _log_project_history(project, user, action, target_type, target_label="", be
 def _user_can_delete_technical_projects(user):
     if not getattr(user, "is_authenticated", False):
         return False
-    return user.is_superuser or user.groups.filter(name="CEO").exists()
+    return user.is_superuser
+
+
+def _user_can_archive_technical_projects(user):
+    return has_technique_access(user)
+
+
+def _archived_project_response(request, project):
+    messages.error(request, "Ce dossier est archivé et disponible uniquement en consultation.")
+    return redirect("technique:dossier_detail", pk=project.pk)
 
 
 def _project_related_counts(project):
@@ -454,6 +466,7 @@ def financial_overview(request):
     reference = (request.GET.get("reference") or "").strip()
     project_type = (request.GET.get("type") or "").strip()
     project_status = (request.GET.get("status") or "").strip()
+    archive_filter = (request.GET.get("archive") or "active").strip()
     sort = (request.GET.get("sort") or "").strip()
 
     if q:
@@ -469,6 +482,14 @@ def financial_overview(request):
 
     if project_status:
         projects = projects.filter(status=project_status)
+
+    if archive_filter == "archived":
+        projects = projects.filter(archived_at__isnull=False)
+    elif archive_filter == "all":
+        pass
+    else:
+        archive_filter = "active"
+        projects = projects.filter(archived_at__isnull=True)
 
     if sort == "name_desc":
         projects = projects.order_by("-name")
@@ -524,10 +545,12 @@ def financial_overview(request):
             "reference": reference,
             "selected_type": project_type,
             "selected_status": project_status,
+            "archive_filter": archive_filter,
             "sort": sort,
             "type_choices": TechnicalProject.DOSSIER_TYPES,
             "status_choices": TechnicalProject.STATUS_CHOICES,
             "can_delete_projects": _user_can_delete_technical_projects(request.user),
+            "can_archive_projects": _user_can_archive_technical_projects(request.user),
             "can_manage_projects": can_manage_projects,
         },
     )
@@ -543,7 +566,7 @@ def financial_project_detail(request, pk):
         pk (str): Identifiant du dossier
     """
     project = get_object_or_404(TechnicalProject, pk=pk)
-    can_manage_project = has_technique_access(request.user)
+    can_manage_project = has_technique_access(request.user) and not project.is_archived
     if request.method == "POST" and not can_manage_project:
         return HttpResponseForbidden("Accès en lecture seule aux dossiers techniques.")
     project.refresh_amounts_from_expenses()
@@ -748,6 +771,8 @@ def financial_project_detail(request, pk):
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def project_expense_create(request, pk):
     project = get_object_or_404(TechnicalProject, pk=pk)
+    if project.is_archived:
+        return _archived_project_response(request, project)
 
     if request.method == "POST":
         form = ProjectExpenseForm(request.POST)
@@ -776,6 +801,8 @@ def project_expense_create(request, pk):
 def project_expense_update(request, expense_pk):
     expense = get_object_or_404(ProjectExpense, pk=expense_pk)
     project = expense.project
+    if project.is_archived:
+        return _archived_project_response(request, project)
 
     if request.method == "POST":
         before_expense = _snapshot_expense(expense)
@@ -805,6 +832,8 @@ def project_expense_update(request, expense_pk):
 def project_expense_delete(request, expense_pk):
     expense = get_object_or_404(ProjectExpense, pk=expense_pk)
     project = expense.project
+    if project.is_archived:
+        return _archived_project_response(request, project)
 
     if request.method == "POST":
         before_expense = _snapshot_expense(expense)
@@ -826,6 +855,8 @@ def project_expense_delete(request, expense_pk):
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def project_action_create(request, pk):
     project = get_object_or_404(TechnicalProject, pk=pk)
+    if project.is_archived:
+        return _archived_project_response(request, project)
 
     if request.method == "POST":
         form = TechnicalProjectActionForm(request.POST)
@@ -856,6 +887,8 @@ def project_action_create(request, pk):
 def project_action_update(request, action_pk):
     action_item = get_object_or_404(TechnicalProjectAction, pk=action_pk)
     project = action_item.project
+    if project.is_archived:
+        return _archived_project_response(request, project)
 
     if request.method == "POST":
         before_action = _snapshot_action(action_item)
@@ -888,6 +921,8 @@ def project_action_update(request, action_pk):
 def project_action_delete(request, action_pk):
     action_item = get_object_or_404(TechnicalProjectAction, pk=action_pk)
     project = action_item.project
+    if project.is_archived:
+        return _archived_project_response(request, project)
 
     if request.method == "POST":
         before_action = _snapshot_action(action_item)
@@ -909,6 +944,8 @@ def project_action_delete(request, action_pk):
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def project_key_date_create(request, pk):
     project = get_object_or_404(TechnicalProject, pk=pk)
+    if project.is_archived:
+        return _archived_project_response(request, project)
 
     if request.method == "POST":
         form = TechnicalProjectKeyDateForm(request.POST, project=project)
@@ -939,6 +976,8 @@ def project_key_date_create(request, pk):
 def project_key_date_update(request, key_date_pk):
     key_date = get_object_or_404(TechnicalProjectKeyDate, pk=key_date_pk)
     project = key_date.project
+    if project.is_archived:
+        return _archived_project_response(request, project)
 
     if request.method == "POST":
         before_key_date = _snapshot_key_date(key_date)
@@ -971,6 +1010,8 @@ def project_key_date_update(request, key_date_pk):
 def project_key_date_delete(request, key_date_pk):
     key_date = get_object_or_404(TechnicalProjectKeyDate, pk=key_date_pk)
     project = key_date.project
+    if project.is_archived:
+        return _archived_project_response(request, project)
 
     if request.method == "POST":
         before_key_date = _snapshot_key_date(key_date)
@@ -1187,7 +1228,9 @@ def mail_assign_project(request, pk):
     if request.method == "POST":
         project_id = request.POST.get("project_id")
         if project_id:
-            project = get_object_or_404(TechnicalProject, pk=project_id)
+            project = get_object_or_404(
+                TechnicalProject, pk=project_id, archived_at__isnull=True
+            )
             email.project = project
             email.status = "classified"
             email.save(update_fields=["project", "status"])
@@ -1287,7 +1330,9 @@ def email_detail(request, pk):
         {
             "email": email,
             # Liste des dossiers pour le sélecteur de rattachement
-            "projects": TechnicalProject.objects.order_by("reference"),
+            "projects": TechnicalProject.objects.filter(
+                archived_at__isnull=True
+            ).order_by("reference"),
         },
     )
 
@@ -1307,7 +1352,7 @@ def email_ai_classify(request, pk):
     from technique.services.ai_classify import classify_and_save
 
     email = get_object_or_404(TechnicalEmail, pk=pk, imported_by=request.user)
-    projects = TechnicalProject.objects.order_by("reference")
+    projects = TechnicalProject.objects.filter(archived_at__isnull=True).order_by("reference")
 
     # sleep=0 : pas de pause pour un email individuel (l'utilisateur attend la reponse)
     result = classify_and_save(email, projects, sleep=0)
@@ -1360,7 +1405,9 @@ def email_ai_classify_bulk(request):
         status="unassigned",
         imported_by=request.user,
     ).order_by("-received_at")
-    projects = list(TechnicalProject.objects.order_by("reference"))
+    projects = list(
+        TechnicalProject.objects.filter(archived_at__isnull=True).order_by("reference")
+    )
 
     stats = {
         "classified": 0,
@@ -1426,13 +1473,84 @@ def email_ai_classify_bulk(request):
             f"— sur {processed} email(s) traité(s)."
         ),
     })
-# ================== Suppression en masse ==================
+# ================== Archivage / restauration / suppression exceptionnelle ==================
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def bulk_archive_projects(request):
+    if request.method != "POST":
+        return redirect("technique:dossiers_list")
+
+    ids = request.POST.getlist("project_ids")
+    if not ids:
+        messages.warning(request, "Aucun dossier sélectionné.")
+        return redirect("technique:dossiers_list")
+
+    comment = (request.POST.get("archive_comment") or "").strip()
+    projects = list(
+        TechnicalProject.objects.filter(id__in=ids, archived_at__isnull=True)
+    )
+    archived_at = timezone.now()
+    for project in projects:
+        before = _snapshot_project(project)
+        project.archived_at = archived_at
+        project.archived_by = request.user
+        project.archive_comment = comment
+        project.updated_by = request.user
+        project.save(
+            update_fields=["archived_at", "archived_by", "archive_comment", "updated_by", "updated_at"]
+        )
+        _log_project_history(
+            project=project,
+            user=request.user,
+            action="project_archived",
+            target_type="project",
+            target_label=project.reference,
+            before=before,
+            after=_snapshot_project(project),
+        )
+
+    messages.success(request, f"{len(projects)} dossier(s) archivé(s) avec succès.")
+    return redirect("technique:dossiers_list")
+
+
+@login_required
+@user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
+def bulk_restore_projects(request):
+    if request.method != "POST":
+        return redirect("technique:dossiers_list")
+
+    ids = request.POST.getlist("project_ids")
+    projects = list(
+        TechnicalProject.objects.filter(id__in=ids, archived_at__isnull=False)
+    )
+    for project in projects:
+        before = _snapshot_project(project)
+        project.archived_at = None
+        project.archived_by = None
+        project.archive_comment = ""
+        project.updated_by = request.user
+        project.save(
+            update_fields=["archived_at", "archived_by", "archive_comment", "updated_by", "updated_at"]
+        )
+        _log_project_history(
+            project=project,
+            user=request.user,
+            action="project_restored",
+            target_type="project",
+            target_label=project.reference,
+            before=before,
+            after=_snapshot_project(project),
+        )
+
+    messages.success(request, f"{len(projects)} dossier(s) restauré(s) avec succès.")
+    return redirect("technique:dossiers_list")
 
 @login_required
 @user_passes_test(has_technique_access, login_url="/", redirect_field_name=None)
 def bulk_delete_projects(request):
     """
-    Vue pour supprimer plusieurs dossiers techniques en une seule action
+    Suppression définitive exceptionnelle d'un dossier déjà archivé.
     """
     if request.method != "POST":
         return redirect("technique:dossiers_list")
@@ -1441,12 +1559,21 @@ def bulk_delete_projects(request):
         messages.error(request, "Suppression refusée : validation CEO / superadmin obligatoire.")
         return redirect("technique:dossiers_list")
 
+    if request.POST.get("confirm_permanent") != "1":
+        messages.error(request, "La suppression définitive doit être confirmée explicitement.")
+        return redirect("technique:dossiers_list")
+
     ids = request.POST.getlist("project_ids")
     if not ids:
         messages.warning(request, "Aucun dossier sélectionné.")
         return redirect("technique:dossiers_list")
 
-    projects_to_delete = list(TechnicalProject.objects.filter(id__in=ids))
+    projects_to_delete = list(
+        TechnicalProject.objects.filter(id__in=ids, archived_at__isnull=False)
+    )
+    if len(projects_to_delete) != len(set(ids)):
+        messages.error(request, "Seuls les dossiers déjà archivés peuvent être supprimés définitivement.")
+        return redirect("technique:dossiers_list")
     projects_with_related_data = [
         project for project in projects_to_delete if _project_has_related_data(project)
     ]
@@ -1470,7 +1597,7 @@ def bulk_delete_projects(request):
 
     TechnicalProject.objects.filter(id__in=[p.id for p in projects_to_delete]).delete()
     deleted_count = len(projects_to_delete)
-    messages.success(request, f"{deleted_count} dossier(s) supprimé(s) avec succès.")
+    messages.success(request, f"{deleted_count} dossier(s) supprimé(s) définitivement.")
     return redirect("technique:dossiers_list")
 
 

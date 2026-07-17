@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.db import models
 from .models import (
     DocumentTechnique,
     ProjectExpense,
@@ -12,6 +13,12 @@ User = get_user_model()
 
 
 class DocumentTechniqueUploadForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["project"].queryset = TechnicalProject.objects.filter(
+            archived_at__isnull=True
+        ).order_by("reference")
+
     class Meta:
         model = DocumentTechnique
         fields = ["project", "titre", "fichier"]
@@ -61,6 +68,15 @@ class TechnicalProjectStatusForm(forms.ModelForm):
 
 
 class DocumentTechniqueUpdateForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        projects = TechnicalProject.objects.filter(archived_at__isnull=True)
+        if self.instance.project_id:
+            projects = TechnicalProject.objects.filter(
+                models.Q(archived_at__isnull=True) | models.Q(pk=self.instance.project_id)
+            )
+        self.fields["project"].queryset = projects.order_by("reference")
+
     class Meta:
         model = DocumentTechnique
         fields = ["project", "titre"]

@@ -1,4 +1,5 @@
 import pytest
+from django.utils import timezone
 
 from invoices.forms import FactureForm, best_match, build_choices, normalize_label
 from invoices.models import Client, InvoiceReminderSettings, Societe
@@ -36,6 +37,21 @@ def test_facture_form_keeps_requester_assignment_outside_user_input():
     form = FactureForm()
 
     assert "collaborateur" not in form.fields
+
+
+@pytest.mark.django_db
+def test_facture_form_excludes_archived_projects():
+    active = TechnicalProject.objects.create(reference="DOS-ACTIF", name="Dossier actif")
+    archived = TechnicalProject.objects.create(
+        reference="DOS-ARCHIVE",
+        name="Dossier archivé",
+        archived_at=timezone.now(),
+    )
+
+    queryset = FactureForm().fields["dossier"].queryset
+
+    assert active in queryset
+    assert archived not in queryset
 
 
 @pytest.mark.django_db

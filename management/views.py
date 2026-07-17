@@ -23,7 +23,7 @@ from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from invoices.models import Facture
-from technique.models import TechnicalProject
+from technique.models import TechnicalProject, TechnicalProjectHistory
 from user_access.user_test_functions import has_administratif_access
 
 from .email_manager import (
@@ -270,7 +270,7 @@ def _import_amount_value(value):
 
 
 def _admin_project_queryset_from_request(request):
-    queryset = TechnicalProject.objects.select_related("categorie").order_by("reference")
+    queryset = TechnicalProject.objects.filter(archived_at__isnull=True).select_related("categorie").order_by("reference")
     q = (request.GET.get("q") or "").strip()
     if q:
         queryset = queryset.filter(
@@ -1336,7 +1336,7 @@ def _build_calendar_ics(activities):
     return "\r\n".join(lines) + "\r\n"
 
 
-def _activity_form_data(data):
+def _activity_form_data(data, current_dossier=None):
     dossier_ref = (data.get("dossier") or "").strip()
     type_label = (data.get("type") or "").strip()
     date_str = (data.get("date") or "").strip()
@@ -1346,9 +1346,12 @@ def _activity_form_data(data):
 
     dossier_obj = None
     if dossier_ref:
-        dossier_obj = TechnicalProject.objects.filter(reference=dossier_ref).first()
+        available = TechnicalProject.objects.filter(archived_at__isnull=True)
+        if current_dossier and current_dossier.reference == dossier_ref:
+            available = TechnicalProject.objects.filter(pk=current_dossier.pk)
+        dossier_obj = available.filter(reference=dossier_ref).first()
         if not dossier_obj:
-            raise LookupError(f'Dossier introuvable : "{dossier_ref}"')
+            raise LookupError(f'Dossier introuvable ou archivé : "{dossier_ref}"')
 
     type_obj = TypeActivite.objects.filter(type__iexact=type_label).first()
     if not type_obj:
@@ -1439,7 +1442,7 @@ def administratif_view(request):
         )
     conversations = conversations[:100]
 
-    dossiers = TechnicalProject.objects.all().order_by("reference")
+    dossiers = TechnicalProject.objects.filter(archived_at__isnull=True).order_by("reference")
     types = TypeActivite.objects.all().order_by("type")
     users = Utilisateur.objects.filter(is_active=True).order_by(
         "last_name",
@@ -2046,7 +2049,7 @@ def update_activity_view(request, activity_id):
         if not _can_mutate_calendar_activity(request.user, activity):
             return _json_error("Le calendrier administrateur est consultable en lecture seule.", status=403)
 
-        activity_data = _activity_form_data(data)
+        activity_data = _activity_form_data(data, current_dossier=activity.dossier)
         if not activity_data["responsable"]:
             activity_data["responsable"] = request.user
         if not activity_data["titre"]:
@@ -2233,6 +2236,8 @@ def update_project_view(request, project_id):
         project = TechnicalProject.objects.filter(pk=project_id).first()
         if not project:
             return _json_error("Dossier introuvable", status=404)
+        if project.is_archived:
+            return _json_error("Ce dossier est archivé et disponible uniquement en consultation.", status=409)
 
         project_data = _project_form_data(data, existing_project=project)
         with transaction.atomic():
@@ -2299,17 +2304,37 @@ def delete_project_view(request, project_id):
         if not project:
             return _json_error("Dossier introuvable", status=404)
 
-        blockers = _project_delete_blockers(project)
-        if blockers:
-            return _json_error(
-                "Suppression impossible : ce dossier est lié à "
-                + ", ".join(blockers)
-                + ".",
-                status=409,
-            )
+        if project.is_archived:
+            return _json_error("Ce dossier est déjà archivé.", status=409)
 
-        project.delete()
-        return JsonResponse({"success": True, "message": "Dossier supprimé avec succès."})
+        before = {
+            "archived_at": None,
+            "archived_by": "",
+            "archive_comment": "",
+        }
+        project.archived_at = timezone.now()
+        project.archived_by = request.user
+        project.archive_comment = "Archivé depuis le pôle administratif"
+        project.updated_by = request.user
+        project.save(
+            update_fields=["archived_at", "archived_by", "archive_comment", "updated_by", "updated_at"]
+        )
+        TechnicalProjectHistory.objects.create(
+            project=project,
+            project_reference=project.reference,
+            project_name=project.name,
+            user=request.user,
+            action="project_archived",
+            target_type="project",
+            target_label=project.reference,
+            before=before,
+            after={
+                "archived_at": project.archived_at.isoformat(),
+                "archived_by": request.user.pk,
+                "archive_comment": project.archive_comment,
+            },
+        )
+        return JsonResponse({"success": True, "message": "Dossier archivé avec succès."})
     except Exception as e:
         traceback.print_exc()
         return _json_error(f"Erreur : {str(e)}", status=500)
