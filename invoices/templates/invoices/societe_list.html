@@ -7,7 +7,7 @@
     <div>
         <h2>Référentiel des sociétés</h2>
         <p style="color:var(--text-secondary);margin-top:.5rem;">
-            Sociétés disponibles pour les factures et les tampons.
+            Sociétés disponibles pour les factures, tampons, dossiers et activités.
         </p>
     </div>
     <a href="{% url 'invoices:list' %}" class="btn btn-secondary">Retour aux factures</a>
@@ -39,6 +39,8 @@
                         <th>Société</th>
                         <th>État</th>
                         <th>Factures</th>
+                        <th>Dossiers</th>
+                        <th>Activités</th>
                         <th>Total</th>
                         <th>Payé</th>
                         <th>En retard</th>
@@ -57,6 +59,8 @@
                             {% endif %}
                         </td>
                         <td>{{ company.invoice_count }}</td>
+                        <td>{{ company.dossiers.count }}</td>
+                        <td>{{ company.activites.count }}</td>
                         <td>{{ company.total_amount|default:0|floatformat:2 }} €</td>
                         <td>{{ company.paid_amount|default:0|floatformat:2 }} €</td>
                         <td>{{ company.overdue_count }}</td>
@@ -65,7 +69,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7">Aucune société enregistrée.</td></tr>
+                    <tr><td colspan="9">Aucune société enregistrée.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

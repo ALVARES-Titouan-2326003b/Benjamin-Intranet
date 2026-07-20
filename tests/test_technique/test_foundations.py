@@ -9,7 +9,7 @@ from django.contrib.auth.models import Group
 from django.urls import reverse
 from django.utils import timezone
 
-from invoices.models import ActeurExterne, Client, Facture, Fournisseur
+from invoices.models import ActeurExterne, Client, Facture, Fournisseur, Societe
 from technique.forms import TechnicalProjectActionForm
 from technique.models import (
     DocumentTechnique,
@@ -577,6 +577,20 @@ def test_archived_project_is_read_only_and_hidden_from_active_list(client, techn
     assert project in archived_response.context["projects"]
     assert mutation_response.status_code == 302
     assert not TechnicalProjectAction.objects.filter(project=project).exists()
+
+
+@pytest.mark.django_db
+def test_technical_project_can_optionally_use_registered_company(client, technique_user):
+    company = Societe.objects.create(nom="Société Dossier")
+    client.force_login(technique_user)
+
+    response = client.post(
+        reverse("technique:dossiers_list"),
+        {"reference": "SOC-001", "name": "Dossier société", "societe": company.pk, "status": "etude", "type": "marchands_de_bien"},
+    )
+
+    assert response.status_code == 302
+    assert TechnicalProject.objects.get(reference="SOC-001").societe == company
 
 
 @pytest.mark.django_db

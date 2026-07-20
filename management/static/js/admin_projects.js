@@ -40,6 +40,7 @@
         id: document.getElementById('project-id'),
         reference: document.getElementById('project-reference'),
         affaire: document.getElementById('project-affaire'),
+        societe: document.getElementById('project-societe'),
         type: document.getElementById('project-type'),
         activiteMetier: document.getElementById('project-activite-metier'),
         etat: document.getElementById('project-etat'),
@@ -381,6 +382,7 @@
         setValue(fields.id, project?.id);
         setValue(fields.reference, project?.reference);
         setValue(fields.affaire, project?.affaire || project?.name);
+        setValue(fields.societe, project?.societe_id);
         setValue(fields.type, project?.type_dossier || project?.type || 'vente');
         setValue(fields.activiteMetier, project?.activite_metier || 'marchand_biens');
         setValue(fields.etat, project?.etat || 'promesse');
@@ -439,6 +441,7 @@
         return {
             reference: fields.reference.value,
             affaire: fields.affaire.value,
+            societe_id: fields.societe.value,
             type_dossier: fields.type.value,
             activite_metier: fields.activiteMetier.value,
             etat: fields.etat.value,

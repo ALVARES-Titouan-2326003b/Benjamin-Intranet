@@ -187,6 +187,13 @@
                <label class="form-label">Affaire *</label>
                <input type="text" id="project-affaire" class="form-control" required placeholder="Ex. Résidence Les Oliviers">
             </div>
+            <div class="form-group">
+               <label class="form-label">Société</label>
+               <select id="project-societe" class="form-control">
+                  <option value="">-- Aucune société --</option>
+                  {% for societe in societes %}<option value="{{ societe.pk }}" {% if not societe.is_active %}disabled{% endif %}>{{ societe.nom }}{% if not societe.is_active %} (inactive){% endif %}</option>{% endfor %}
+               </select>
+            </div>
          </div>
 
          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">

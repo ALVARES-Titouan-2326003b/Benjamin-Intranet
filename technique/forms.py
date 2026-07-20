@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.db import models
+from invoices.models import Societe
 from .models import (
     DocumentTechnique,
     ProjectExpense,
@@ -32,12 +33,19 @@ class DocumentTechniqueUploadForm(forms.ModelForm):
 
 
 class TechnicalProjectCreateForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["societe"].queryset = Societe.objects.filter(is_active=True).order_by("nom")
+        self.fields["societe"].required = False
+        self.fields["societe"].empty_label = "-- Aucune société --"
+
     class Meta:
         model = TechnicalProject
-        fields = ["reference", "name", "status", "type"]
+        fields = ["reference", "name", "societe", "status", "type"]
         widgets = {
             "reference": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ex. TECH-001"}),
             "name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Nom du dossier"}),
+            "societe": forms.Select(attrs={"class": "form-control"}),
             "status": forms.Select(attrs={"class": "form-control"}),
             "type": forms.Select(attrs={"class": "form-control"}),
         }

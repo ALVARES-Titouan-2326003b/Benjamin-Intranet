@@ -293,10 +293,18 @@
             <select id="activity-dossier" name="dossier" class="form-control">
                <option value="">-- Aucun dossier --</option>
                {% for dossier in dossiers %}
-               <option value="{{ dossier.reference }}" data-nom="{{ dossier.affaire|default:dossier.name }}">
+               <option value="{{ dossier.reference }}" data-nom="{{ dossier.affaire|default:dossier.name }}" data-societe="{{ dossier.societe_id|default:'' }}">
                   {{ dossier.reference }} — {{ dossier.affaire|default:dossier.name }}
                </option>
                {% endfor %}
+            </select>
+         </div>
+
+         <div class="form-group">
+            <label class="form-label">Société</label>
+            <select id="activity-societe" name="societe" class="form-control">
+               <option value="">-- Aucune société --</option>
+               {% for societe in societes %}<option value="{{ societe.pk }}" {% if not societe.is_active %}disabled{% endif %}>{{ societe.nom }}{% if not societe.is_active %} (inactive){% endif %}</option>{% endfor %}
             </select>
          </div>
 

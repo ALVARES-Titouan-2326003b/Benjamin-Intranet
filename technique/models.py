@@ -117,6 +117,14 @@ class TechnicalProject(models.Model):
         blank=True,
         related_name="technical_dossiers",
     )
+    societe = models.ForeignKey(
+        "invoices.Societe",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="dossiers",
+        verbose_name="Société",
+    )
     date_promesse = models.DateField(blank=True, null=True)
     premiere_periode = models.CharField("1ère période", max_length=120, blank=True)
     deuxieme_periode = models.CharField("2ème période", max_length=120, blank=True)

@@ -772,6 +772,7 @@
         }
 
         const dossierSelect    = document.getElementById('activity-dossier');
+        const societeSelect    = document.getElementById('activity-societe');
         const titleInput       = document.getElementById('activity-title');
         const typeSelect       = document.getElementById('activity-type');
         const dateInput        = document.getElementById('activity-date');
@@ -798,6 +799,7 @@
             }
         }
         if (titleInput) titleInput.value = act.titre || '';
+        if (societeSelect) societeSelect.value = act.societe_id || '';
         if (typeSelect)    typeSelect.value    = act.type       || '';
         if (dateInput)     dateInput.value     = fullDateStr;
         if (dureeSelect)   dureeSelect.value   = String(act.duree_minutes || 60);
@@ -931,6 +933,13 @@
     const deleteBtn = document.getElementById('delete-activity-btn');
     const form      = document.getElementById('activity-form');
     const statusDiv = document.getElementById('activity-form-status');
+    const dossierSelect = document.getElementById('activity-dossier');
+    const societeSelect = document.getElementById('activity-societe');
+
+    dossierSelect?.addEventListener('change', function() {
+        const option = this.options[this.selectedIndex];
+        if (societeSelect) societeSelect.value = option?.dataset?.societe || '';
+    });
 
     console.log('Modal:', modal);
     console.log('Button:', openBtn);
@@ -986,6 +995,7 @@
         const formData = {
             activity_id: deleteBtn.dataset.activityId || form.dataset.activityId || '',
             dossier:     document.getElementById('activity-dossier').value.trim(),
+            societe:     document.getElementById('activity-societe').value,
             type:        document.getElementById('activity-type').value,
             date:        document.getElementById('activity-date').value,
             commentaire: document.getElementById('activity-commentaire').value.trim()
@@ -1039,6 +1049,7 @@
         const formData = {
             titre:       document.getElementById('activity-title').value.trim(),
             dossier:     document.getElementById('activity-dossier').value.trim(),
+            societe:     document.getElementById('activity-societe').value,
             type:        document.getElementById('activity-type').value,
             date:        document.getElementById('activity-date').value,
             duree_minutes: document.getElementById('activity-duree-minutes').value,

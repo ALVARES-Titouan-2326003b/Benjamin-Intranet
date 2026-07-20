@@ -82,6 +82,7 @@ def _snapshot_project(project):
         "name": project.name,
         "type": project.type,
         "status": project.status,
+        "societe": project.societe_id or "",
         "engaged_amount": _history_value(project.engaged_amount),
         "paid_amount": _history_value(project.paid_amount),
         "total_estimated": _history_value(project.total_estimated),

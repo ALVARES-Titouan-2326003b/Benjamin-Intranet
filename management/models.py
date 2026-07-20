@@ -327,6 +327,14 @@ class Activite(models.Model):
         null=True,
         blank=True,
     )
+    societe = models.ForeignKey(
+        "invoices.Societe",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="activites",
+        verbose_name="Société",
+    )
     type = models.ForeignKey(TypeActivite, on_delete=models.CASCADE, db_column='type')
     date = models.DateTimeField(blank=True, null=True)
     duree_minutes = models.PositiveSmallIntegerField("Durée du créneau", choices=DUREES_CRENEAU, default=60)

@@ -26,6 +26,7 @@
         <span class="badge">{{ project.reference }}</span>
       </div>
       <div class="dossier-badges">
+        {% if project.societe %}<span class="badge neutral-soft"><i class="bi bi-buildings"></i> {{ project.societe.nom }}</span>{% endif %}
         <span class="badge status-soft">{{ project.get_status_display }}</span>
         <span class="badge neutral-soft">{{ project.get_type_display }}</span>
         <span class="badge {% if budget_status == 'ok' %}success-soft{% elif budget_status == 'warning' %}warning-soft{% else %}danger-soft{% endif %}">

@@ -20,6 +20,7 @@ from management.models import (
     ValeurChampPersonnaliseDossier,
 )
 from management.tasks import check_and_send_activite_reminders
+from invoices.models import Societe
 from technique.models import DocumentTechnique, TechnicalProject, TechnicalProjectHistory
 
 
@@ -266,6 +267,26 @@ def test_activity_cannot_be_attached_to_archived_project(client, admin_user, dos
     assert response.json()["success"] is False
     assert "archivé" in response.json()["message"]
     assert not Activite.objects.filter(titre="Activité refusée").exists()
+
+
+@pytest.mark.django_db
+def test_activity_can_use_company_without_project_and_inherits_project_company(client, admin_user, dossier, type_activite):
+    company = Societe.objects.create(nom="Société Activités")
+    dossier.societe = company
+    dossier.save(update_fields=["societe"])
+    client.force_login(admin_user)
+    base_payload = {
+        "type": type_activite.type,
+        "date": (timezone.now() + timedelta(days=1)).isoformat(),
+    }
+
+    direct = _post_json(client, "/api/create-activity/", {**base_payload, "titre": "Sans dossier", "societe": company.pk})
+    inherited = _post_json(client, "/api/create-activity/", {**base_payload, "titre": "Avec dossier", "dossier": dossier.reference})
+
+    assert direct.status_code == 200
+    assert inherited.status_code == 200
+    assert Activite.objects.get(titre="Sans dossier").societe == company
+    assert Activite.objects.get(titre="Avec dossier").societe == company
 
 
 @pytest.mark.django_db
