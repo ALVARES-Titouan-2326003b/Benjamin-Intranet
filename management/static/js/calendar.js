@@ -44,6 +44,7 @@
         date: new Date(),
         currYear: new Date().getFullYear(),
         currMonth: new Date().getMonth(),
+        selectedDate: null,
         activites: [],
         filtresTypes: {},
         filtresDossiers: {},
@@ -714,9 +715,19 @@
 
         if (isInactive) {
             li.classList.add("inactive");
-            li.addEventListener("click", () => { changeMonth(state.currMonth + monthOffset); });
+            li.addEventListener("click", () => {
+                const selected = new Date(state.currYear, state.currMonth + monthOffset, day);
+                state.selectedDate = `${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, '0')}-${String(selected.getDate()).padStart(2, '0')}`;
+                state.currYear = selected.getFullYear();
+                state.currMonth = selected.getMonth();
+                changeMonth(state.currMonth);
+            });
         } else {
             const dateStr = `${state.currYear}-${String(state.currMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+            if (state.selectedDate === dateStr) {
+                li.classList.add("active");
+            }
 
             if (day === state.date.getDate() &&
                 state.currMonth === new Date().getMonth() &&
@@ -739,6 +750,7 @@
             }
 
             li.addEventListener("click", () => {
+                state.selectedDate = dateStr;
                 li.classList.add("active");
                 document.querySelectorAll(".calendar .active").forEach(el => {
                     if (el !== li) el.classList.remove("active");
@@ -808,6 +820,8 @@
         if (prioriteSelect) prioriteSelect.value = act.priorite || 'normal';
         if (syncInput) syncInput.checked = !!act.outlook_synced;
         if (commentInput)  commentInput.value  = act.commentaire || '';
+        window.setActivityReminders?.(act.reminders || []);
+        window.renderActivityReminderHistory?.(act.reminder_history || []);
 
         if (deleteBtn) {
             deleteBtn.style.display = 'inline-flex';
@@ -922,6 +936,126 @@
 })();
 
 
+(function() {
+    let customReminders = [];
+    const key = item => `${item.timing}:${Number(item.days)}`;
+    const label = item => Number(item.days) === 0
+        ? 'J0'
+        : `${item.timing === 'before' ? 'J-' : 'J+'}${Number(item.days)}`;
+
+    function presetKeys() {
+        return new Set(Array.from(document.querySelectorAll('.activity-reminder-preset'))
+            .map(input => `${input.dataset.timing}:${Number(input.dataset.days)}`));
+    }
+
+    function renderCustom() {
+        const container = document.getElementById('activity-reminder-custom-list');
+        if (!container) return;
+        container.innerHTML = '';
+        customReminders.forEach(reminder => {
+            const chip = document.createElement('span');
+            chip.className = 'status-badge';
+            chip.style.cssText = 'display:inline-flex;align-items:center;gap:.35rem;background:#e0e7ff;color:#3730a3;';
+            chip.append(document.createTextNode(label(reminder)));
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.setAttribute('aria-label', `Retirer le rappel ${label(reminder)}`);
+            remove.style.cssText = 'border:0;background:transparent;color:inherit;padding:0;cursor:pointer;';
+            remove.innerHTML = '<i class="bi bi-x-lg"></i>';
+            remove.addEventListener('click', () => {
+                customReminders = customReminders.filter(item => key(item) !== key(reminder));
+                renderCustom();
+            });
+            chip.append(remove);
+            container.append(chip);
+        });
+    }
+
+    window.setActivityReminders = function(reminders) {
+        const normalized = Array.isArray(reminders) ? reminders.map(item => ({
+            timing: item.timing,
+            days: Number(item.days)
+        })) : [];
+        const selected = new Set(normalized.map(key));
+        document.querySelectorAll('.activity-reminder-preset').forEach(input => {
+            input.checked = selected.has(`${input.dataset.timing}:${Number(input.dataset.days)}`);
+        });
+        const presets = presetKeys();
+        customReminders = normalized.filter(item => !presets.has(key(item)));
+        renderCustom();
+    };
+
+    window.getActivityReminders = function() {
+        const reminders = Array.from(document.querySelectorAll('.activity-reminder-preset:checked')).map(input => ({
+            timing: input.dataset.timing,
+            days: Number(input.dataset.days)
+        }));
+        customReminders.forEach(item => {
+            if (!reminders.some(existing => key(existing) === key(item))) reminders.push(item);
+        });
+        return reminders;
+    };
+
+    window.renderActivityReminderHistory = function(history) {
+        const section = document.getElementById('activity-reminder-history-section');
+        const container = document.getElementById('activity-reminder-history');
+        if (!section || !container) return;
+        const entries = Array.isArray(history) ? history : [];
+        container.innerHTML = '';
+        section.style.display = entries.length ? 'block' : 'none';
+        entries.forEach(entry => {
+            const row = document.createElement('div');
+            row.style.cssText = 'border:1px solid #e2e8f0;border-radius:7px;padding:.55rem;background:#f8fafc;font-size:.84rem;';
+            const title = document.createElement('strong');
+            title.textContent = `${entry.offset_label} · ${entry.status_label} · ${entry.sent_at}`;
+            const detail = document.createElement('div');
+            detail.style.color = 'var(--text-secondary)';
+            detail.textContent = `${entry.channel_label} — ${entry.recipient || 'Destinataire non renseigné'}`;
+            row.append(title, detail);
+            if (entry.subject) {
+                const subject = document.createElement('div');
+                subject.textContent = entry.subject;
+                row.append(subject);
+            }
+            if (entry.content) {
+                const details = document.createElement('details');
+                const summary = document.createElement('summary');
+                summary.textContent = 'Voir le message envoyé';
+                summary.style.cursor = 'pointer';
+                const content = document.createElement('pre');
+                content.style.cssText = 'white-space:pre-wrap;margin:.4rem 0 0;font:inherit;';
+                content.textContent = entry.content;
+                details.append(summary, content);
+                row.append(details);
+            }
+            if (entry.error) {
+                const error = document.createElement('div');
+                error.style.color = '#b91c1c';
+                error.textContent = entry.error;
+                row.append(error);
+            }
+            container.append(row);
+        });
+    };
+
+    document.getElementById('activity-reminder-add')?.addEventListener('click', () => {
+        const timing = document.getElementById('activity-reminder-custom-timing')?.value || 'before';
+        const days = Number(document.getElementById('activity-reminder-custom-days')?.value);
+        if (!Number.isInteger(days) || days < 0 || days > 365) return;
+        const reminder = { timing: days === 0 ? 'before' : timing, days };
+        const reminderKey = key(reminder);
+        const preset = Array.from(document.querySelectorAll('.activity-reminder-preset'))
+            .find(input => `${input.dataset.timing}:${Number(input.dataset.days)}` === reminderKey);
+        if (preset) {
+            preset.checked = true;
+        } else if (!customReminders.some(item => key(item) === reminderKey)) {
+            customReminders.push(reminder);
+            customReminders.sort((a, b) => a.timing.localeCompare(b.timing) || a.days - b.days);
+            renderCustom();
+        }
+    });
+})();
+
 
 (function() {
     console.log(' Script modal activité chargé');
@@ -964,6 +1098,8 @@
         const modalTitle = modal.querySelector('.activity-modal-header h3');
         if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-calendar-plus"></i> Nouvelle activité';
         form.reset();
+        window.setActivityReminders?.([]);
+        window.renderActivityReminderHistory?.([]);
         form.dataset.mode = 'create';
         form.dataset.activityId = '';
         deleteBtn.style.display = 'none';
@@ -972,7 +1108,10 @@
         document.getElementById('activity-duree-minutes').value = '60';
         modal.style.display = 'flex';
         const now = new Date();
-        document.getElementById('activity-date').value = now.toISOString().slice(0, 16);
+        const selectedDate = window.adminCalendarState?.selectedDate;
+        const defaultDate = selectedDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const defaultTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        document.getElementById('activity-date').value = `${defaultDate}T${defaultTime}`;
     });
 
     function closeModal() {
@@ -1057,6 +1196,7 @@
             statut:      document.getElementById('activity-statut').value,
             priorite:    document.getElementById('activity-priorite').value,
             commentaire: document.getElementById('activity-commentaire').value.trim(),
+            reminders: window.getActivityReminders?.() || [],
             sync_outlook: document.getElementById('activity-sync-outlook')?.checked || false
         };
 

@@ -378,6 +378,49 @@ class Activite(models.Model):
         return f"{self.titre or self.type} - {dossier_label} ({date_label})"
 
 
+class RappelActivite(models.Model):
+    """Rappel configuré individuellement pour une activité."""
+
+    TIMING_CHOICES = [
+        ("before", "Avant l’échéance"),
+        ("after", "Après l’échéance"),
+    ]
+
+    activite = models.ForeignKey(
+        Activite,
+        on_delete=models.CASCADE,
+        related_name="rappels_planifies",
+    )
+    timing = models.CharField(max_length=10, choices=TIMING_CHOICES, default="before")
+    days = models.PositiveSmallIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "rappel_activite"
+        ordering = ["timing", "days"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["activite", "timing", "days"],
+                name="uniq_rappel_individuel_activite_timing_days",
+            )
+        ]
+
+    @property
+    def signed_days(self):
+        return self.days if self.timing == "before" else -self.days
+
+    @property
+    def label(self):
+        if self.days == 0:
+            return "J0"
+        prefix = "J-" if self.timing == "before" else "J+"
+        return f"{prefix}{self.days}"
+
+    def __str__(self):
+        return f"{self.activite_id} — {self.label}"
+
+
 class HistoriqueRappelActivite(models.Model):
     CANAUX = [
         ("email", "E-mail"),
@@ -397,6 +440,9 @@ class HistoriqueRappelActivite(models.Model):
     canal = models.CharField(max_length=20, choices=CANAUX)
     destinataire = models.CharField(max_length=255, blank=True)
     jours_avant_echeance = models.IntegerField()
+    date_echeance = models.DateTimeField(blank=True, null=True)
+    objet = models.CharField(max_length=255, blank=True)
+    contenu = models.TextField(blank=True)
     statut = models.CharField(max_length=20, choices=STATUTS)
     erreur = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -406,7 +452,7 @@ class HistoriqueRappelActivite(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["activite", "canal", "destinataire", "jours_avant_echeance"],
+                fields=["activite", "canal", "destinataire", "jours_avant_echeance", "date_echeance"],
                 name="uniq_rappel_activite_canal_dest_jour",
             )
         ]

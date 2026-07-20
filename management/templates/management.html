@@ -47,41 +47,6 @@
 </div>
 {% endif %}
 
-<div class="card" style="margin-bottom: 1.5rem;">
-   <div class="card-title">
-      <span><i class="bi bi-alarm"></i> Rappels d’activités</span>
-   </div>
-
-   <div class="activity-reminder-settings">
-      <div class="activity-reminder-rules">
-         {% for rule in reminder_rules %}
-         <form method="post" action="{% url 'activity_reminder_rule_delete' rule.pk %}" class="activity-reminder-chip">
-            {% csrf_token %}
-            <span>{{ rule.label }}</span>
-            <button type="submit" title="Supprimer la règle">
-               <i class="bi bi-x-lg"></i>
-            </button>
-         </form>
-         {% empty %}
-         <span class="activity-reminder-empty">Aucune règle active.</span>
-         {% endfor %}
-      </div>
-
-      <form method="post" action="{% url 'activity_reminder_rule_create' %}" class="activity-reminder-form">
-         {% csrf_token %}
-         <select name="timing" class="form-control" aria-label="Sens du rappel">
-            {% for value, label in reminder_timing_choices %}
-            <option value="{{ value }}">{{ label }}</option>
-            {% endfor %}
-         </select>
-         <input type="number" name="days" min="0" max="365" value="1" class="form-control" aria-label="Nombre de jours">
-         <button type="submit" class="btn btn-primary">
-            <i class="bi bi-plus-lg"></i> Ajouter
-         </button>
-      </form>
-   </div>
-</div>
-
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
 
       <!-- Card Calendrier -->
@@ -374,6 +339,31 @@
                       rows="3" placeholder="Informations complémentaires…"></textarea>
          </div>
 
+         <div class="form-group">
+            <label class="form-label"><i class="bi bi-alarm"></i> Rappels pour cette activité</label>
+            <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin:.4rem 0 .65rem;">
+               <label><input type="checkbox" class="activity-reminder-preset" data-timing="before" data-days="7"> J-7</label>
+               <label><input type="checkbox" class="activity-reminder-preset" data-timing="before" data-days="1"> J-1</label>
+               <label><input type="checkbox" class="activity-reminder-preset" data-timing="before" data-days="0"> J0</label>
+               <label><input type="checkbox" class="activity-reminder-preset" data-timing="after" data-days="3"> J+3</label>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(150px,1fr) 100px auto;gap:.5rem;align-items:center;">
+               <select id="activity-reminder-custom-timing" class="form-control">
+                  <option value="before">Avant l’échéance</option>
+                  <option value="after">Après l’échéance</option>
+               </select>
+               <input id="activity-reminder-custom-days" type="number" min="0" max="365" value="2" class="form-control" aria-label="Nombre de jours">
+               <button id="activity-reminder-add" type="button" class="btn btn-secondary"><i class="bi bi-plus-lg"></i> Ajouter</button>
+            </div>
+            <div id="activity-reminder-custom-list" style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.6rem;"></div>
+            <small style="color:var(--text-secondary);">Les rappels sont envoyés par e-mail au responsable de l’activité.</small>
+         </div>
+
+         <div id="activity-reminder-history-section" class="form-group" style="display:none;">
+            <label class="form-label"><i class="bi bi-clock-history"></i> Historique des rappels</label>
+            <div id="activity-reminder-history" style="display:grid;gap:.45rem;max-height:180px;overflow:auto;"></div>
+         </div>
+
          <!-- Status -->
          <div id="activity-form-status" style="display:none;"></div>
 
@@ -515,6 +505,6 @@ document.addEventListener('click', async function(event) {
 
 {% block extra_js %}
 <script src="{% static '/js/mails.js' %}?v=5"></script>
-<script src="{% static '/js/calendar.js' %}?v=6"></script>
+<script src="{% static '/js/calendar.js' %}?v=8"></script>
 <script src="{% static '/js/oauth_status.js' %}?v=4"></script>
 {% endblock %}

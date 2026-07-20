@@ -17,7 +17,7 @@ from .models import (
     EmailClient,
     Activite,
     HistoriqueRappelActivite,
-    RegleRappelActivite,
+    RappelActivite,
     OAuthToken,
     GmailConversation,
     GmailConversationEvent,
@@ -210,13 +210,26 @@ def check_and_send_activite_reminders():
     logger.info("DÉBUT - Vérification des rappels d'activités")
     logger.info("=" * 60)
 
-    now = datetime.now()
-    today = now.date()
+    today = timezone.localdate()
     logger.info(f"Date actuelle : {today}")
 
-    rules = list(RegleRappelActivite.objects.filter(is_active=True).order_by("timing", "days"))
-    if not rules:
-        logger.info("Aucune règle de rappel active.")
+    planned_reminders = list(
+        RappelActivite.objects.filter(
+            is_active=True,
+            activite__date__isnull=False,
+        )
+        .exclude(activite__statut__in=["done", "cancelled"])
+        .select_related(
+            "activite",
+            "activite__dossier",
+            "activite__type",
+            "activite__responsable",
+            "activite__created_by",
+        )
+        .order_by("activite__date", "timing", "days")
+    )
+    if not planned_reminders:
+        logger.info("Aucun rappel individuel actif.")
         return {
             'success': True,
             'activites_traitees': 0,
@@ -225,34 +238,22 @@ def check_and_send_activite_reminders():
             'erreurs': 0,
         }
 
-    max_before = max((rule.days for rule in rules if rule.timing == "before"), default=0)
-    max_after = max((rule.days for rule in rules if rule.timing == "after"), default=0)
-    date_debut = today - timedelta(days=max_after)
-    date_limite = today + timedelta(days=max_before)
-    logger.info(f"Période vérifiée : {date_debut} -> {date_limite}")
-
-    activites = (
-        Activite.objects.filter(
-            date__date__gte=date_debut,
-            date__date__lte=date_limite,
-        )
-        .exclude(statut__in=["done", "cancelled"])
-        .select_related("dossier", "type", "responsable", "created_by")
-        .order_by("date")
-    )
-
-    logger.info(f"Activités trouvées dans la période : {activites.count()}")
+    logger.info(f"Rappels individuels actifs : {len(planned_reminders)}")
 
     activites_traitees = 0
     rappels_envoyes = 0
     doublons_ignores = 0
     erreurs = 0
 
-    for activite in activites:
+    processed_activity_ids = set()
+    for reminder in planned_reminders:
+        activite = reminder.activite
         try:
-            activites_traitees += 1
+            if activite.pk not in processed_activity_ids:
+                activites_traitees += 1
+                processed_activity_ids.add(activite.pk)
 
-            date_activite = activite.date.date()
+            date_activite = timezone.localtime(activite.date).date()
             jours_restants = (date_activite - today).days
 
             logger.info(f"\n Activité #{activite.id}")
@@ -261,17 +262,16 @@ def check_and_send_activite_reminders():
             logger.info(f"   Date: {date_activite}")
             logger.info(f"   Jours restants: {jours_restants}")
 
-            matching_rules = [
-                rule for rule in rules
-                if (rule.timing == "before" and jours_restants == rule.days)
-                or (rule.timing == "after" and jours_restants == -rule.days)
-            ]
-            if not matching_rules:
+            matches_today = (
+                reminder.timing == "before" and jours_restants == reminder.days
+            ) or (
+                reminder.timing == "after" and jours_restants == -reminder.days
+            )
+            if not matches_today:
                 logger.info("   Pas de rappel configuré pour cette échéance")
                 continue
 
-            for rule in matching_rules:
-                recipient_user = activite.responsable or activite.created_by
+            for rule in [reminder]:
                 recipient_email = ""
                 if activite.responsable and activite.responsable.email:
                     recipient_email = activite.responsable.email
@@ -289,6 +289,7 @@ def check_and_send_activite_reminders():
                     canal="email",
                     destinataire=recipient_email,
                     jours_avant_echeance=rule.signed_days,
+                    date_echeance=activite.date,
                     statut="sent",
                 ).exists()
                 if email_already_sent:
@@ -341,7 +342,13 @@ Système de rappel Benjamin Immobilier"""
                         canal="email",
                         destinataire=recipient_email,
                         jours_avant_echeance=rule.signed_days,
-                        defaults={"statut": "sent", "erreur": ""},
+                        date_echeance=activite.date,
+                        defaults={
+                            "objet": objet,
+                            "contenu": message,
+                            "statut": "sent",
+                            "erreur": "",
+                        },
                     )
                     rappels_envoyes += 1
                     logger.info("   Rappel envoyé avec succès")
@@ -353,7 +360,13 @@ Système de rappel Benjamin Immobilier"""
                         canal="email",
                         destinataire=recipient_email,
                         jours_avant_echeance=rule.signed_days,
-                        defaults={"statut": "failed", "erreur": str(e)},
+                        date_echeance=activite.date,
+                        defaults={
+                            "objet": objet,
+                            "contenu": message,
+                            "statut": "failed",
+                            "erreur": str(e),
+                        },
                     )
 
         except Exception as e:

@@ -40,6 +40,7 @@ from .models import (
     CategorieDossierAdministratif,
     ChampPersonnaliseDossier,
     NotificationInterne,
+    RappelActivite,
     RegleRappelActivite,
     TypeActivite,
     GmailConversation,
@@ -645,6 +646,35 @@ def _serialize_activity(activity, include_datetime=False):
         "status_color": STATUS_COLORS.get(activity.statut, STATUS_COLORS["todo"]),
         "priority_color": PRIORITY_COLORS.get(activity.priorite, PRIORITY_COLORS["normal"]),
         "outlook_synced": bool(activity.outlook_event_id),
+        "reminders": [
+            {
+                "timing": reminder.timing,
+                "days": reminder.days,
+                "label": reminder.label,
+            }
+            for reminder in activity.rappels_planifies.all()
+            if reminder.is_active
+        ],
+        "reminder_history": [
+            {
+                "sent_at": timezone.localtime(entry.created_at).strftime("%d/%m/%Y %H:%M"),
+                "recipient": entry.destinataire,
+                "status": entry.statut,
+                "status_label": entry.get_statut_display(),
+                "channel_label": entry.get_canal_display(),
+                "offset_label": (
+                    "J0"
+                    if entry.jours_avant_echeance == 0
+                    else f"J-{entry.jours_avant_echeance}"
+                    if entry.jours_avant_echeance > 0
+                    else f"J+{abs(entry.jours_avant_echeance)}"
+                ),
+                "subject": entry.objet,
+                "content": entry.contenu,
+                "error": entry.erreur,
+            }
+            for entry in activity.rappels.all()[:20]
+        ],
     }
     if include_datetime:
         payload.update(
@@ -1422,6 +1452,45 @@ def _activity_form_data(data, current_dossier=None, current_societe=None):
     }
 
 
+def _parse_activity_reminders(data):
+    raw_reminders = data.get("reminders", [])
+    if raw_reminders is None:
+        return []
+    if not isinstance(raw_reminders, list):
+        raise ValueError("Le format des rappels est invalide.")
+    if len(raw_reminders) > 10:
+        raise ValueError("Une activité ne peut pas contenir plus de 10 rappels.")
+
+    reminders = []
+    seen = set()
+    for raw in raw_reminders:
+        if not isinstance(raw, dict):
+            raise ValueError("Le format d’un rappel est invalide.")
+        timing = str(raw.get("timing") or "").strip()
+        if timing not in dict(RappelActivite.TIMING_CHOICES):
+            raise ValueError("Le sens d’un rappel est invalide.")
+        try:
+            days = int(raw.get("days"))
+        except (TypeError, ValueError):
+            raise ValueError("Le nombre de jours d’un rappel doit être un entier.")
+        if days < 0 or days > 365:
+            raise ValueError("Le délai d’un rappel doit être compris entre 0 et 365 jours.")
+        if days == 0:
+            timing = "before"
+        key = (timing, days)
+        if key not in seen:
+            reminders.append({"timing": timing, "days": days})
+            seen.add(key)
+    return reminders
+
+
+def _replace_activity_reminders(activity, reminders):
+    activity.rappels_planifies.all().delete()
+    RappelActivite.objects.bulk_create(
+        [RappelActivite(activite=activity, **reminder) for reminder in reminders]
+    )
+
+
 def _sync_outlook_after_save(request, activity, sync_requested):
     if sync_requested:
         result = (
@@ -1887,7 +1956,8 @@ def get_calendar_activities(request):
                 date__gte=start_date,
                 date__lt=end_date,
             )
-            .select_related("dossier", "type", "responsable")
+            .select_related("dossier", "societe", "type", "responsable")
+            .prefetch_related("rappels_planifies", "rappels")
             .order_by("date", "id")
         )
         activites, scope, owner = _apply_calendar_scope(activites, request)
@@ -1940,7 +2010,8 @@ def get_calendar_activities_week(request):
                 date__gte=start_dt,
                 date__lte=end_dt,
             )
-            .select_related("dossier", "type", "responsable")
+            .select_related("dossier", "societe", "type", "responsable")
+            .prefetch_related("rappels_planifies", "rappels")
             .order_by("date", "id")
         )
         activites, scope, owner = _apply_calendar_scope(activites, request)
@@ -2019,6 +2090,7 @@ def create_activity_view(request):
     try:
         data = _parse_request_json(request)
         activity_data = _activity_form_data(data)
+        reminders = _parse_activity_reminders(data)
         if not activity_data["responsable"]:
             activity_data["responsable"] = request.user
         if not activity_data["titre"]:
@@ -2027,12 +2099,14 @@ def create_activity_view(request):
             else:
                 activity_data["titre"] = str(activity_data["type"].type)
 
-        nouvelle_activite = Activite.objects.create(
-            id=_next_activity_id(),
-            created_by=request.user,
-            updated_by=request.user,
-            **activity_data,
-        )
+        with transaction.atomic():
+            nouvelle_activite = Activite.objects.create(
+                id=_next_activity_id(),
+                created_by=request.user,
+                updated_by=request.user,
+                **activity_data,
+            )
+            _replace_activity_reminders(nouvelle_activite, reminders)
         warning = ""
         if "sync_outlook" in data:
             warning = _sync_outlook_after_save(
@@ -2084,6 +2158,7 @@ def update_activity_view(request, activity_id):
             current_dossier=activity.dossier,
             current_societe=activity.societe,
         )
+        reminders = _parse_activity_reminders(data)
         if not activity_data["responsable"]:
             activity_data["responsable"] = request.user
         if not activity_data["titre"]:
@@ -2092,10 +2167,12 @@ def update_activity_view(request, activity_id):
             else:
                 activity_data["titre"] = str(activity_data["type"].type)
 
-        for field, value in activity_data.items():
-            setattr(activity, field, value)
-        activity.updated_by = request.user
-        activity.save()
+        with transaction.atomic():
+            for field, value in activity_data.items():
+                setattr(activity, field, value)
+            activity.updated_by = request.user
+            activity.save()
+            _replace_activity_reminders(activity, reminders)
 
         warning = ""
         if "sync_outlook" in data:

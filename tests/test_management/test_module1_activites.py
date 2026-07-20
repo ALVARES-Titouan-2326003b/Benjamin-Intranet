@@ -15,6 +15,7 @@ from management.models import (
     CategorieDossierAdministratif,
     ChampPersonnaliseDossier,
     HistoriqueRappelActivite,
+    RappelActivite,
     RegleRappelActivite,
     TypeActivite,
     ValeurChampPersonnaliseDossier,
@@ -151,6 +152,10 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
         "client": "Client Test",
         "contact_externe": "notaire@example.com",
         "commentaire": "Vérifier les pièces manquantes.",
+        "reminders": [
+            {"timing": "before", "days": 7},
+            {"timing": "after", "days": 3},
+        ],
         "sync_outlook": True,
     }
 
@@ -168,6 +173,10 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
     assert data["activity"]["duree_minutes"] == 30
     assert data["activity"]["duree_label"] == "30 min"
     assert activity.outlook_event_id == "evt-1"
+    assert set(activity.rappels_planifies.values_list("timing", "days")) == {
+        ("before", 7),
+        ("after", 3),
+    }
 
     update_payload = {
         **payload,
@@ -177,6 +186,7 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
         "duree_minutes": 90,
         "client": "Client Test Modifié",
         "sync_outlook": True,
+        "reminders": [{"timing": "before", "days": 1}],
     }
     with patch("management.views.update_outlook_event", return_value={"success": True, "event_id": "evt-1"}):
         response = _post_json(client, f"/api/update-activity/{activity.pk}/", update_payload)
@@ -187,6 +197,7 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
     assert activity.statut == "in_progress"
     assert activity.priorite == "urgent"
     assert activity.duree_minutes == 90
+    assert list(activity.rappels_planifies.values_list("timing", "days")) == [("before", 1)]
 
     with patch("management.views.delete_outlook_event", return_value={"success": True}):
         response = _post_json(client, "/api/delete-activity/", {"activity_id": activity.pk})
@@ -989,7 +1000,6 @@ def test_activity_reminder_is_sent_once(
     type_activite,
 ):
     settings.EMAIL_HOST_USER = "fallback@example.com"
-    RegleRappelActivite.objects.get_or_create(timing="before", days=7, defaults={"is_active": True})
     activity = Activite.objects.create(
         id="1001",
         titre="Échéance J-7",
@@ -1002,6 +1012,7 @@ def test_activity_reminder_is_sent_once(
         responsable=responsable,
         created_by=responsable,
     )
+    RappelActivite.objects.create(activite=activity, timing="before", days=7)
 
     with patch("management.tasks.EmailMessage.send", return_value=1) as send_mock:
         first = check_and_send_activite_reminders()
@@ -1045,9 +1056,33 @@ def test_finished_activity_does_not_generate_reminder(settings, responsable, dos
 
 
 @pytest.mark.django_db
+def test_global_rule_does_not_apply_without_individual_reminder(settings, responsable, dossier, type_activite):
+    settings.EMAIL_HOST_USER = "fallback@example.com"
+    RegleRappelActivite.objects.get_or_create(timing="before", days=7, defaults={"is_active": True})
+    Activite.objects.create(
+        id="1004",
+        titre="Activité sans rappel individuel",
+        dossier=dossier,
+        type=type_activite,
+        date=timezone.now() + timedelta(days=7),
+        date_type="date",
+        statut="todo",
+        priorite="normal",
+        responsable=responsable,
+        created_by=responsable,
+    )
+
+    with patch("management.tasks.EmailMessage.send", return_value=1) as send_mock:
+        result = check_and_send_activite_reminders()
+
+    assert result["activites_traitees"] == 0
+    assert result["rappels_envoyes"] == 0
+    send_mock.assert_not_called()
+
+
+@pytest.mark.django_db
 def test_activity_reminder_after_due_date_uses_configured_rule(settings, responsable, dossier, type_activite):
     settings.EMAIL_HOST_USER = "fallback@example.com"
-    RegleRappelActivite.objects.create(timing="after", days=1, is_active=True)
     activity = Activite.objects.create(
         id="1003",
         titre="Échéance dépassée",
@@ -1060,6 +1095,7 @@ def test_activity_reminder_after_due_date_uses_configured_rule(settings, respons
         responsable=responsable,
         created_by=responsable,
     )
+    RappelActivite.objects.create(activite=activity, timing="after", days=1)
 
     with patch("management.tasks.EmailMessage.send", return_value=1) as send_mock:
         result = check_and_send_activite_reminders()
