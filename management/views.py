@@ -22,7 +22,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from invoices.models import Facture
+from invoices.models import Facture, Societe
 from technique.models import TechnicalProject, TechnicalProjectHistory
 from user_access.user_test_functions import has_administratif_access
 
@@ -628,6 +628,8 @@ def _serialize_activity(activity, include_datetime=False):
         "titre": activity.titre or "",
         "dossier": dossier_reference,
         "dossier_nom": dossier_nom,
+        "societe_id": activity.societe_id or "",
+        "societe_nom": getattr(activity.societe, "nom", "") or "",
         "type": getattr(activity.type, "type", "") or "",
         "date": date_value.strftime("%Y-%m-%d") if date_value else "",
         "commentaire": activity.commentaire or "",
@@ -872,6 +874,8 @@ def _serialize_project(project):
         "etat_label": project.get_etat_display(),
         "categorie_id": categorie.pk if categorie else "",
         "categorie_label": categorie.nom if categorie else "",
+        "societe_id": project.societe_id or "",
+        "societe_nom": getattr(project.societe, "nom", "") or "",
         "date_promesse": project.date_promesse.isoformat() if project.date_promesse else "",
         "premiere_periode": project.premiere_periode,
         "deuxieme_periode": project.deuxieme_periode,
@@ -910,6 +914,7 @@ def _project_form_data(data, existing_project=None):
     activite_metier = (data.get("activite_metier") or "marchand_biens").strip()
     etat = (data.get("etat") or "promesse").strip()
     categorie_id = str(data.get("categorie_id") or data.get("categorie") or "").strip()
+    societe_id = str(data.get("societe_id") or data.get("societe") or "").strip()
 
     if not reference or not affaire:
         raise ValueError("La référence et l'affaire du dossier sont obligatoires.")
@@ -930,6 +935,14 @@ def _project_form_data(data, existing_project=None):
             raise ValueError("Catégorie de dossier invalide.")
     else:
         categorie = _default_categorie()
+
+    societe = None
+    if societe_id:
+        societe = Societe.objects.filter(pk=societe_id, is_active=True).first()
+        if existing_project and str(existing_project.societe_id or "") == societe_id:
+            societe = existing_project.societe
+        if not societe:
+            raise ValueError("Société invalide ou inactive.")
 
     frais = _parse_non_negative_decimal(data.get("frais"), "Frais")
     prix = _parse_non_negative_decimal(data.get("prix") or data.get("total_estimated"), "Prix")
@@ -955,6 +968,7 @@ def _project_form_data(data, existing_project=None):
         "activite_metier": activite_metier,
         "etat": etat,
         "categorie": categorie,
+        "societe": societe,
         "date_promesse": _parse_iso_date(data.get("date_promesse"), "Date de promesse"),
         "premiere_periode": (data.get("premiere_periode") or "").strip(),
         "deuxieme_periode": (data.get("deuxieme_periode") or "").strip(),
@@ -1336,7 +1350,7 @@ def _build_calendar_ics(activities):
     return "\r\n".join(lines) + "\r\n"
 
 
-def _activity_form_data(data, current_dossier=None):
+def _activity_form_data(data, current_dossier=None, current_societe=None):
     dossier_ref = (data.get("dossier") or "").strip()
     type_label = (data.get("type") or "").strip()
     date_str = (data.get("date") or "").strip()
@@ -1352,6 +1366,18 @@ def _activity_form_data(data, current_dossier=None):
         dossier_obj = available.filter(reference=dossier_ref).first()
         if not dossier_obj:
             raise LookupError(f'Dossier introuvable ou archivé : "{dossier_ref}"')
+
+    societe_id = str(data.get("societe") or data.get("societe_id") or "").strip()
+    societe = None
+    if societe_id:
+        available_companies = Societe.objects.filter(is_active=True)
+        societe = available_companies.filter(pk=societe_id).first()
+        if not societe and current_societe and str(current_societe.pk) == societe_id:
+            societe = current_societe
+        if not societe:
+            raise ValueError("Société invalide ou inactive")
+    elif dossier_obj:
+        societe = dossier_obj.societe
 
     type_obj = TypeActivite.objects.filter(type__iexact=type_label).first()
     if not type_obj:
@@ -1384,6 +1410,7 @@ def _activity_form_data(data, current_dossier=None):
     return {
         "titre": (data.get("titre") or "").strip(),
         "dossier": dossier_obj,
+        "societe": societe,
         "type": type_obj,
         "date": _parse_iso_datetime(date_str),
         "duree_minutes": duree_minutes,
@@ -1443,6 +1470,7 @@ def administratif_view(request):
     conversations = conversations[:100]
 
     dossiers = TechnicalProject.objects.filter(archived_at__isnull=True).order_by("reference")
+    societes = Societe.objects.all().order_by("nom")
     types = TypeActivite.objects.all().order_by("type")
     users = Utilisateur.objects.filter(is_active=True).order_by(
         "last_name",
@@ -1471,6 +1499,7 @@ def administratif_view(request):
         "journal_status_choices": GmailConversation.STATUS_CHOICES,
         "last_journal_sync": last_journal_sync,
         "dossiers": dossiers,
+        "societes": societes,
         "types": types,
         "users": users,
         "ceo_calendar_user": ceo_calendar_user,
@@ -1570,6 +1599,7 @@ def admin_dossiers_view(request):
             "activite_metier_choices": TechnicalProject.ACTIVITES_METIER,
             "etat_choices": TechnicalProject.ETATS,
             "categories": categories,
+            "societes": Societe.objects.all().order_by("nom"),
             "custom_fields": [_serialize_custom_field(field) for field in custom_fields],
             "search_query": q,
         },
@@ -2049,7 +2079,11 @@ def update_activity_view(request, activity_id):
         if not _can_mutate_calendar_activity(request.user, activity):
             return _json_error("Le calendrier administrateur est consultable en lecture seule.", status=403)
 
-        activity_data = _activity_form_data(data, current_dossier=activity.dossier)
+        activity_data = _activity_form_data(
+            data,
+            current_dossier=activity.dossier,
+            current_societe=activity.societe,
+        )
         if not activity_data["responsable"]:
             activity_data["responsable"] = request.user
         if not activity_data["titre"]:
