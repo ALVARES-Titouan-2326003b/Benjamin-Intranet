@@ -2,6 +2,7 @@ from io import BytesIO
 from django.core.files.base import ContentFile
 from PIL import Image, ImageOps
 from reportlab.lib.utils import ImageReader
+from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
 from pypdf import PdfReader, PdfWriter
 from signatures.models import Document, SignatureUser, Tampon
@@ -13,10 +14,30 @@ SIGNATURE_WIDTH = 160
 SIGNATURE_HEIGHT = 70
 SIGNATURE_OFFSET_X = 30
 SIGNATURE_OFFSET_Y = -10
+SIGNATURE_TEXT_AREA_HEIGHT = 42
+SIGNATURE_TEXT_FONT_SIZE = 11
+SIGNATURE_TEXT_MAX_LENGTH = 160
 
 
 def _scaled(value, scale_pct):
     return value * (scale_pct / 100.0)
+
+
+def _fit_signature_text(text, width, area_height, scale_pct):
+    """Réduit la police si nécessaire pour conserver tout le texte dans la zone."""
+    font_size = _scaled(SIGNATURE_TEXT_FONT_SIZE, scale_pct)
+    minimum_font_size = _scaled(5, scale_pct)
+    vertical_padding = _scaled(6, scale_pct)
+
+    while font_size >= minimum_font_size:
+        lines = simpleSplit(text, "Helvetica-Bold", font_size, width)
+        line_height = font_size * 1.2
+        if len(lines) * line_height <= area_height - vertical_padding:
+            return font_size, line_height, lines
+        font_size -= _scaled(0.5, scale_pct)
+
+    lines = simpleSplit(text, "Helvetica-Bold", minimum_font_size, width)
+    return minimum_font_size, minimum_font_size * 1.2, lines
 
 
 def _normalize_pdf_image(path, rotate_degrees=0):
@@ -41,19 +62,46 @@ def _load_pdf_image(path, rotate_degrees=0):
     return ImageReader(buffer)
 
 
-def get_pdf_last_page_info(document: Document) -> dict:
+def get_pdf_document_info(document: Document, page_number: int | None = None) -> dict:
     reader = PdfReader(document.fichier.path)
-    last_page = reader.pages[-1]
+    page_count = len(reader.pages)
+    selected_page_number = page_number or page_count
+    if selected_page_number < 1 or selected_page_number > page_count:
+        raise ValueError("Numéro de page invalide.")
+    selected_page = reader.pages[selected_page_number - 1]
     return {
-        "page_count": len(reader.pages),
-        "page_width": float(last_page.mediabox.width),
-        "page_height": float(last_page.mediabox.height),
+        "page_count": page_count,
+        "page_number": selected_page_number,
+        "page_width": float(selected_page.mediabox.width),
+        "page_height": float(selected_page.mediabox.height),
+        "pages": [
+            {
+                "number": index + 1,
+                "width": float(page.mediabox.width),
+                "height": float(page.mediabox.height),
+            }
+            for index, page in enumerate(reader.pages)
+        ],
     }
 
 
-def get_signature_block_metrics(size_scale_pct: float = 100.0, signature_mode: str = "stamp_signature") -> dict:
+def get_pdf_last_page_info(document: Document) -> dict:
+    """Compatibilité avec les appels historiques centrés sur la dernière page."""
+    return get_pdf_document_info(document)
+
+
+def get_signature_block_metrics(
+    size_scale_pct: float = 100.0,
+    signature_mode: str = "stamp_signature",
+    signature_mention: str = "",
+) -> dict:
     sig_width = _scaled(SIGNATURE_WIDTH, size_scale_pct)
     sig_height = _scaled(SIGNATURE_HEIGHT, size_scale_pct)
+    text_area_height = (
+        _scaled(SIGNATURE_TEXT_AREA_HEIGHT, size_scale_pct)
+        if signature_mention.strip()
+        else 0
+    )
 
     if signature_mode == "signature":
         return {
@@ -66,7 +114,9 @@ def get_signature_block_metrics(size_scale_pct: float = 100.0, signature_mode: s
             "min_x": 0,
             "min_y": 0,
             "block_width": sig_width,
-            "block_height": sig_height,
+            "image_block_height": sig_height,
+            "text_area_height": text_area_height,
+            "block_height": sig_height + text_area_height,
         }
 
     stamp_width = _scaled(STAMP_WIDTH, size_scale_pct)
@@ -89,7 +139,9 @@ def get_signature_block_metrics(size_scale_pct: float = 100.0, signature_mode: s
         "min_x": min_x,
         "min_y": min_y,
         "block_width": max_x - min_x,
-        "block_height": max_y - min_y,
+        "image_block_height": max_y - min_y,
+        "text_area_height": text_area_height,
+        "block_height": max_y - min_y + text_area_height,
     }
 
 
@@ -101,6 +153,8 @@ def signer_pdf_avec_images_position(
     size_scale_pct: float = 100.0,
     signature_mode: str = "stamp_signature",
     tampon: Tampon | None = None,
+    page_number: int | None = None,
+    signature_mention: str = "",
 ) -> None:
     """
     Signe le PDF en plaçant le bloc tampon+signature à la position donnée
@@ -116,6 +170,11 @@ def signer_pdf_avec_images_position(
 
     if signature_mode not in dict(Document.SIGNATURE_MODES):
         raise ValueError("Mode de signature invalide.")
+    signature_mention = " ".join((signature_mention or "").split())
+    if len(signature_mention) > SIGNATURE_TEXT_MAX_LENGTH:
+        raise ValueError(
+            f"La mention ne peut pas dépasser {SIGNATURE_TEXT_MAX_LENGTH} caractères."
+        )
 
     # Signature utilisateur et tampon
     try:
@@ -134,9 +193,13 @@ def signer_pdf_avec_images_position(
     reader = PdfReader(document.fichier.path)
     writer = PdfWriter()
 
-    last_page = reader.pages[-1]
-    page_width = float(last_page.mediabox.width)
-    page_height = float(last_page.mediabox.height)
+    num_pages = len(reader.pages)
+    selected_page_number = page_number or num_pages
+    if selected_page_number < 1 or selected_page_number > num_pages:
+        raise ValueError("Numéro de page invalide.")
+    selected_page = reader.pages[selected_page_number - 1]
+    page_width = float(selected_page.mediabox.width)
+    page_height = float(selected_page.mediabox.height)
 
     # Buffer overlay
     overlay_buffer = BytesIO()
@@ -148,7 +211,11 @@ def signer_pdf_avec_images_position(
     signature_image = _load_pdf_image(signature_path, rotate_degrees=180)
     tampon_image = _load_pdf_image(tampon_path) if tampon_path else None
 
-    metrics = get_signature_block_metrics(size_scale_pct, signature_mode=signature_mode)
+    metrics = get_signature_block_metrics(
+        size_scale_pct,
+        signature_mode=signature_mode,
+        signature_mention=signature_mention,
+    )
 
     # Conversion % → coordonnées PDF (origine en bas à gauche)
     block_x = page_width * (pos_x_pct / 100.0)
@@ -187,6 +254,25 @@ def signer_pdf_avec_images_position(
         mask="auto",
     )
 
+    if signature_mention:
+        font_size, line_height, lines = _fit_signature_text(
+            signature_mention,
+            metrics["block_width"],
+            metrics["text_area_height"],
+            size_scale_pct,
+        )
+        c.setFillColorRGB(0, 0, 0)
+        c.setFont("Helvetica-Bold", font_size)
+        first_baseline = (
+            block_y
+            + metrics["block_height"]
+            - font_size
+            - _scaled(3, size_scale_pct)
+        )
+        center_x = block_x + (metrics["block_width"] / 2)
+        for index, line in enumerate(lines):
+            c.drawCentredString(center_x, first_baseline - (index * line_height), line)
+
     c.showPage()
     c.save()
     overlay_buffer.seek(0)
@@ -194,11 +280,10 @@ def signer_pdf_avec_images_position(
     overlay_reader = PdfReader(overlay_buffer)
     overlay_page = overlay_reader.pages[0]
 
-    # Fusion sur la dernière page
-    num_pages = len(reader.pages)
+    # Fusion sur la page choisie par l'utilisateur.
     for i in range(num_pages):
         page = reader.pages[i]
-        if i == num_pages - 1:
+        if i == selected_page_number - 1:
             page.merge_page(overlay_page)
         writer.add_page(page)
 
@@ -209,6 +294,7 @@ def signer_pdf_avec_images_position(
 
     filename = f"{document.pk}_signe.pdf"
     document.signature_mode = signature_mode
+    document.signature_mention = signature_mention
     document.tampon = tampon
     document.fichier_signe.save(
         filename,

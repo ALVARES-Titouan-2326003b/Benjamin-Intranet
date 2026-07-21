@@ -111,9 +111,12 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
         {
             "pos_x_pct": "42",
             "pos_y_pct": "58",
+            "page_number": "1",
             "admin_signer_id": str(autre_admin.pk),
             "signature_mode": "stamp_signature",
             "tampon_id": str(tampon_entreprise.pk),
+            "signature_mention_choice": "custom",
+            "signature_mention_custom": "Certifié conforme",
         },
     )
 
@@ -123,6 +126,8 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
     assert demande.size_scale_pct == 100.0
     assert demande.signature_mode == "stamp_signature"
     assert demande.tampon == tampon_entreprise
+    assert demande.page_number == 1
+    assert demande.signature_mention == "Certifié conforme"
     assert len(mail.outbox) == 1
     assert set(mail.outbox[0].to) == {
         "autre-admin@example.com",

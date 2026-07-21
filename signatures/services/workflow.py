@@ -38,6 +38,8 @@ def signer_document_avec_position(
     size_scale_pct: float = 100.0,
     signature_mode: str = "stamp_signature",
     tampon=None,
+    page_number: int | None = None,
+    signature_mention: str = "",
 ):
     """
     Signature avec placement interactif
@@ -58,6 +60,8 @@ def signer_document_avec_position(
             size_scale_pct,
             signature_mode=signature_mode,
             tampon=tampon,
+            page_number=page_number,
+            signature_mention=signature_mention,
         )
     except Exception as e:
         HistoriqueSignature.objects.create(

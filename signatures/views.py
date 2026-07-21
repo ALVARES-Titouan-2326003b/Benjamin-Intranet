@@ -4,8 +4,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from django.http import HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.utils import timezone
+from django.views.decorators.http import require_GET
 
 from .models import (
     Document,
@@ -25,7 +26,9 @@ from .services.workflow import (
     lancer_signature,
     signer_document_avec_position,
 )
-from .services.pdf_signing import get_pdf_last_page_info, get_signature_block_metrics
+from .services.pdf_signing import get_pdf_document_info, get_signature_block_metrics
+from .services.placement_detection import detect_signature_placements
+from .services.pdf_preview import render_pdf_page_preview
 from .services.email import envoyer_demande_signature
 from user_access.user_test_functions import (
     has_administratif_access,
@@ -37,6 +40,18 @@ from user_access.user_test_functions import (
 SIGNATURE_SIGNER_LABEL = "CEO ou pôle administratif"
 DEFAULT_SIGNATURE_SCALE = 100.0
 DEFAULT_SIGNATURE_MODE = "stamp_signature"
+SIGNATURE_MENTION_PRESETS = {
+    "read_approved": "Lu et approuvé",
+    "payment": "Bon pour paiement",
+    "reimbursement": "Bon pour remboursement",
+    "agreement": "Bon pour accord",
+}
+SIGNATURE_MENTION_CHOICES = [
+    ("", "Aucune mention"),
+    *SIGNATURE_MENTION_PRESETS.items(),
+    ("custom", "Texte personnalisé"),
+]
+SIGNATURE_MENTION_MAX_LENGTH = 160
 
 
 def _has_group(user, group_name):
@@ -111,11 +126,45 @@ def _get_selected_signature_options(data):
     return signature_mode, tampon
 
 
-def _signature_preview_context(doc, size_scale_pct=DEFAULT_SIGNATURE_SCALE, signature_mode=DEFAULT_SIGNATURE_MODE):
-    page_info = get_pdf_last_page_info(doc)
-    block_metrics = get_signature_block_metrics(size_scale_pct, signature_mode=signature_mode)
+def _get_signature_mention(data):
+    choice = (data.get("signature_mention_choice") or "").strip()
+    if not choice:
+        return ""
+    if choice in SIGNATURE_MENTION_PRESETS:
+        return SIGNATURE_MENTION_PRESETS[choice]
+    if choice != "custom":
+        raise ValueError("Mention de signature invalide.")
+
+    mention = " ".join((data.get("signature_mention_custom") or "").split())
+    if not mention:
+        raise ValueError("Veuillez saisir le texte personnalisé.")
+    if len(mention) > SIGNATURE_MENTION_MAX_LENGTH:
+        raise ValueError(
+            f"Le texte personnalisé ne peut pas dépasser {SIGNATURE_MENTION_MAX_LENGTH} caractères."
+        )
+    return mention
+
+
+def _signature_preview_context(
+    doc,
+    size_scale_pct=DEFAULT_SIGNATURE_SCALE,
+    signature_mode=DEFAULT_SIGNATURE_MODE,
+    page_number=None,
+    signature_mention="",
+):
+    page_info = get_pdf_document_info(doc, page_number=page_number)
+    block_metrics = get_signature_block_metrics(
+        size_scale_pct,
+        signature_mode=signature_mode,
+        signature_mention=signature_mention,
+    )
     signature_only_metrics = get_signature_block_metrics(size_scale_pct, signature_mode="signature")
     stamp_signature_metrics = get_signature_block_metrics(size_scale_pct, signature_mode="stamp_signature")
+    metrics_with_mention = get_signature_block_metrics(
+        size_scale_pct,
+        signature_mode="signature",
+        signature_mention="Mention",
+    )
     page_width = page_info["page_width"] or 1
     page_height = page_info["page_height"] or 1
 
@@ -128,6 +177,8 @@ def _signature_preview_context(doc, size_scale_pct=DEFAULT_SIGNATURE_SCALE, sign
 
     return {
         "pdf_page_count": page_info["page_count"],
+        "pdf_page_number": page_info["page_number"],
+        "pdf_pages": page_info["pages"],
         "pdf_page_width": page_width,
         "pdf_page_height": page_height,
         "pdf_page_width_css": f"{page_width:.4f}",
@@ -143,8 +194,17 @@ def _signature_preview_context(doc, size_scale_pct=DEFAULT_SIGNATURE_SCALE, sign
         "signature_only_block_height_pct_css": f"{signature_only_height_pct:.4f}",
         "stamp_signature_block_width_pct_css": f"{stamp_signature_width_pct:.4f}",
         "stamp_signature_block_height_pct_css": f"{stamp_signature_height_pct:.4f}",
+        "signature_only_block_width_points": signature_only_metrics["block_width"],
+        "signature_only_block_height_points": signature_only_metrics["block_height"],
+        "stamp_signature_block_width_points": stamp_signature_metrics["block_width"],
+        "stamp_signature_block_height_points": stamp_signature_metrics["block_height"],
+        "signature_mention_area_height_points": (
+            metrics_with_mention["block_height"]
+            - signature_only_metrics["block_height"]
+        ),
         "signature_mode": signature_mode,
         "signature_mode_label": dict(Document.SIGNATURE_MODES).get(signature_mode, signature_mode),
+        "signature_mention": signature_mention,
     }
 
 
@@ -462,6 +522,64 @@ def config_placement(request, pk):
     )
 
 
+@require_GET
+@login_required
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
+def signature_placement_suggestions(request, pk):
+    doc = get_object_or_404(Document, pk=pk)
+    if not _can_user_view_signature_document(request.user, doc):
+        return JsonResponse({"success": False, "message": "Accès refusé."}, status=403)
+
+    signature_mode = (request.GET.get("signature_mode") or DEFAULT_SIGNATURE_MODE).strip()
+    if signature_mode not in dict(Document.SIGNATURE_MODES):
+        return JsonResponse({"success": False, "message": "Mode de signature invalide."}, status=400)
+    try:
+        size_scale = float(request.GET.get("size_scale_pct") or DEFAULT_SIGNATURE_SCALE)
+    except (TypeError, ValueError):
+        return JsonResponse({"success": False, "message": "Échelle invalide."}, status=400)
+    size_scale = min(max(size_scale, 50.0), 150.0)
+    signature_mention = " ".join((request.GET.get("signature_mention") or "").split())
+    if len(signature_mention) > SIGNATURE_MENTION_MAX_LENGTH:
+        return JsonResponse({"success": False, "message": "Mention trop longue."}, status=400)
+
+    try:
+        result = detect_signature_placements(
+            doc,
+            signature_mode=signature_mode,
+            size_scale_pct=size_scale,
+            signature_mention=signature_mention,
+        )
+    except Exception as exc:
+        return JsonResponse(
+            {"success": False, "message": f"Analyse du document impossible : {exc}"},
+            status=500,
+        )
+    return JsonResponse({"success": True, **result})
+
+
+@require_GET
+@login_required
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
+def signature_page_preview(request, pk):
+    doc = get_object_or_404(Document, pk=pk)
+    if not _can_user_view_signature_document(request.user, doc):
+        return HttpResponseForbidden("Vous n'êtes pas autorisé à consulter ce document.")
+    try:
+        page_number = int(request.GET.get("page") or 1)
+        image = render_pdf_page_preview(doc, page_number)
+    except (TypeError, ValueError):
+        return JsonResponse({"success": False, "message": "Page invalide."}, status=400)
+    except Exception as exc:
+        return JsonResponse(
+            {"success": False, "message": f"Aperçu impossible : {exc}"},
+            status=500,
+        )
+
+    response = HttpResponse(image, content_type="image/png")
+    response["Cache-Control"] = "private, max-age=300"
+    return response
+
+
 @login_required
 @user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
 def placer_signature(request, pk):
@@ -502,6 +620,11 @@ def placer_signature(request, pk):
         try:
             pos_x = float(request.POST.get("pos_x_pct"))
             pos_y = float(request.POST.get("pos_y_pct"))
+            page_number = int(
+                request.POST.get("page_number")
+                or get_pdf_document_info(doc)["page_count"]
+            )
+            get_pdf_document_info(doc, page_number=page_number)
             size_scale = float(request.POST.get("size_scale_pct") or DEFAULT_SIGNATURE_SCALE)
         except (TypeError, ValueError):
             messages.error(request, "Position invalide.")
@@ -509,6 +632,7 @@ def placer_signature(request, pk):
 
         try:
             signature_mode, tampon = _get_selected_signature_options(request.POST)
+            signature_mention = _get_signature_mention(request.POST)
         except ValueError as e:
             messages.error(request, str(e))
             return redirect("signatures:placer_signature", pk=doc.pk)
@@ -526,6 +650,8 @@ def placer_signature(request, pk):
                     size_scale_pct=size_scale,
                     signature_mode=signature_mode,
                     tampon=tampon,
+                    page_number=page_number,
+                    signature_mention=signature_mention,
                 )
             except Exception as e:
                 HistoriqueSignature.objects.create(
@@ -581,8 +707,10 @@ def placer_signature(request, pk):
             approver=designated_signer,
             pos_x_pct=pos_x,
             pos_y_pct=pos_y,
+            page_number=page_number,
             size_scale_pct=size_scale,
             signature_mode=signature_mode,
+            signature_mention=signature_mention,
             tampon=tampon,
         )
 
@@ -627,6 +755,8 @@ def placer_signature(request, pk):
         "tampons": tampons,
         "signature_mode_choices": Document.SIGNATURE_MODES,
         "default_signature_mode": DEFAULT_SIGNATURE_MODE,
+        "signature_mention_choices": SIGNATURE_MENTION_CHOICES,
+        "signature_mention_max_length": SIGNATURE_MENTION_MAX_LENGTH,
     }
     context.update(_signature_preview_context(doc))
     return render(request, "signatures/placer_signature.html", context)
@@ -669,6 +799,8 @@ def signature_approval(request, token):
                     size_scale_pct=demande.size_scale_pct,
                     signature_mode=demande.signature_mode,
                     tampon=demande.tampon,
+                    page_number=demande.page_number,
+                    signature_mention=demande.signature_mention,
                 )
             except Exception as e:
                 demande.marquer_refusee(commentaire=f"Erreur technique : {e}")
@@ -712,8 +844,18 @@ def signature_approval(request, token):
         "formatted_date": demande.created_at.strftime("%d/%m/%Y à %H:%M"),
         "signature_mode_label": demande.get_signature_mode_display(),
         "selected_tampon": demande.tampon,
+        "signature_request_page_number": demande.page_number,
+        "signature_mention": demande.signature_mention,
     }
-    context.update(_signature_preview_context(doc, demande.size_scale_pct, demande.signature_mode))
+    context.update(
+        _signature_preview_context(
+            doc,
+            demande.size_scale_pct,
+            demande.signature_mode,
+            page_number=demande.page_number,
+            signature_mention=demande.signature_mention,
+        )
+    )
     return render(request, "signatures/signature_approval.html", context)
 
 

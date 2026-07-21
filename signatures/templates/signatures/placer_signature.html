@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load l10n %}
 
 {% block title %}Placer la signature – {{ doc.titre }}{% endblock %}
 
@@ -23,19 +24,37 @@
         {% endif %}
     </div>
 
+    <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.75rem;">
+        <button type="button" id="previous-page" class="btn btn-secondary" aria-label="Page précédente">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        <span style="font-weight:600;min-width:110px;text-align:center;">
+            Page <span id="current-page-number">{{ pdf_page_number }}</span> / {{ pdf_page_count }}
+        </span>
+        <button type="button" id="next-page" class="btn btn-secondary" aria-label="Page suivante">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+        <button type="button" id="analyze-placement" class="btn btn-secondary" style="margin-left:auto;">
+            <i class="bi bi-stars"></i> Suggérer des emplacements
+        </button>
+    </div>
+    <div id="placement-analysis-status" style="display:none;margin-bottom:.75rem;" class="alert alert-info"></div>
+    <div id="placement-suggestions" style="display:none;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;"></div>
+
     <!-- PDF & Drag Area -->
     <div id="sig-pdf-wrapper"
         style="position: relative; border: 1px solid var(--border-light); background: #525659; padding: 1rem; overflow: auto; max-width: 100%; max-height: 72vh; margin-bottom: 1.5rem;">
         <div id="page"
             style="position: relative; width: min(820px, 100%); aspect-ratio: {{ pdf_page_width_css }} / {{ pdf_page_height_css }}; background: white; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);">
-            <embed id="pdf-preview"
-                src="{{ doc.fichier.url }}#page={{ pdf_page_count }}&zoom=page-fit&toolbar=0&navpanes=0&scrollbar=0"
-                type="application/pdf" width="100%" height="100%"
-                style="display: block; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;">
+            <img id="pdf-preview"
+                src="{% url 'signatures:page_preview' doc.pk %}?page={{ pdf_page_number }}"
+                alt="Aperçu de la page {{ pdf_page_number }} du document"
+                style="display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none;">
 
             <div id="sig-block"
                 tabindex="0"
-                style="position: absolute; width: {{ signature_block_width_pct_css }}%; height: {{ signature_block_height_pct_css }}%; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.08); color: #dc2626; font-weight: bold; cursor: move; user-select: none; touch-action: none; display: flex; align-items: center; justify-content: center; text-align: center; z-index: 2;">
+                style="position: absolute; width: {{ signature_block_width_pct_css }}%; height: {{ signature_block_height_pct_css }}%; border: 2px dashed #dc2626; background: rgba(220, 38, 38, 0.08); color: #dc2626; font-weight: bold; cursor: move; user-select: none; touch-action: none; display: flex; flex-direction: column; gap: .25rem; align-items: center; justify-content: center; text-align: center; z-index: 2;">
+                <span id="signature-mention-preview" style="display:none;color:#111827;font-size:clamp(.65rem,1vw,.82rem);padding:0 .25rem;"></span>
                 <span id="sig-block-label" style="font-size: clamp(0.7rem, 1.2vw, 0.9rem); line-height: 1.2;"><i class="bi bi-arrows-move"></i> Tampon + signature</span>
             </div>
         </div>
@@ -45,6 +64,7 @@
         {% csrf_token %}
         <input type="hidden" name="pos_x_pct" id="pos_x_pct">
         <input type="hidden" name="pos_y_pct" id="pos_y_pct">
+        <input type="hidden" name="page_number" id="page_number" value="{{ pdf_page_number }}">
         <input type="hidden" name="size_scale_pct" id="size_scale_pct" value="{{ signature_scale_pct_css }}">
 
         <label style="display: flex; flex-direction: column; gap: 0.35rem; min-width: 210px; margin-right: auto;">
@@ -55,6 +75,23 @@
                 <option value="{{ value }}" {% if value == default_signature_mode %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
+        </label>
+
+        <label style="display: flex; flex-direction: column; gap: 0.35rem; min-width: 220px;">
+            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);">Mention à insérer</span>
+            <select name="signature_mention_choice" id="signature-mention-choice"
+                style="width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); background: white;">
+                {% for value, label in signature_mention_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label id="signature-mention-custom-wrapper" style="display: none; flex-direction: column; gap: 0.35rem; min-width: 260px;">
+            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);">Texte personnalisé</span>
+            <input type="text" name="signature_mention_custom" id="signature-mention-custom"
+                maxlength="{{ signature_mention_max_length }}" placeholder="Saisir la mention à apposer"
+                style="width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); background: white;">
         </label>
 
         <label id="tampon-select-wrapper" style="display: flex; flex-direction: column; gap: 0.35rem; min-width: 260px;">
@@ -95,26 +132,46 @@
     </form>
 </div>
 
+{{ pdf_pages|json_script:"signature-pdf-pages" }}
 <script>
     (function () {
         const page = document.getElementById("page");
         const block = document.getElementById("sig-block");
         const blockLabel = document.getElementById("sig-block-label");
+        const mentionPreview = document.getElementById("signature-mention-preview");
+        const pdfPreview = document.getElementById("pdf-preview");
         const inputX = document.getElementById("pos_x_pct");
         const inputY = document.getElementById("pos_y_pct");
+        const pageInput = document.getElementById("page_number");
+        const currentPageLabel = document.getElementById("current-page-number");
+        const previousPageButton = document.getElementById("previous-page");
+        const nextPageButton = document.getElementById("next-page");
+        const analyzeButton = document.getElementById("analyze-placement");
+        const analysisStatus = document.getElementById("placement-analysis-status");
+        const suggestionsContainer = document.getElementById("placement-suggestions");
         const modeSelect = document.getElementById("signature-mode");
         const tamponWrapper = document.getElementById("tampon-select-wrapper");
         const tamponSelect = document.getElementById("tampon-select");
+        const mentionSelect = document.getElementById("signature-mention-choice");
+        const customMentionWrapper = document.getElementById("signature-mention-custom-wrapper");
+        const customMentionInput = document.getElementById("signature-mention-custom");
+
+        const pages = JSON.parse(document.getElementById("signature-pdf-pages").textContent);
+        const previewUrl = "{% url 'signatures:page_preview' doc.pk %}";
+        let currentPage = Number(pageInput.value) || pages.length;
+        let displayedPage = currentPage;
+        let placementSuggestions = [];
+        const mentionAreaHeightPoints = {{ signature_mention_area_height_points|unlocalize }};
 
         const blockSizes = {
             signature: {
-                width: "{{ signature_only_block_width_pct_css }}%",
-                height: "{{ signature_only_block_height_pct_css }}%",
+                widthPoints: {{ signature_only_block_width_points|unlocalize }},
+                heightPoints: {{ signature_only_block_height_points|unlocalize }},
                 label: '<i class="bi bi-arrows-move"></i> Signature seule'
             },
             stamp_signature: {
-                width: "{{ stamp_signature_block_width_pct_css }}%",
-                height: "{{ stamp_signature_block_height_pct_css }}%",
+                widthPoints: {{ stamp_signature_block_width_points|unlocalize }},
+                heightPoints: {{ stamp_signature_block_height_points|unlocalize }},
                 label: '<i class="bi bi-arrows-move"></i> Tampon + signature'
             }
         };
@@ -122,6 +179,33 @@
         let offsetX = 0;
         let offsetY = 0;
         let dragging = false;
+
+        function currentPageData() {
+            return pages.find(item => Number(item.number) === currentPage) || pages[pages.length - 1];
+        }
+
+        function currentMentionText() {
+            if (!mentionSelect?.value) return '';
+            if (mentionSelect.value === 'custom') return customMentionInput?.value.trim() || '';
+            return mentionSelect.options[mentionSelect.selectedIndex]?.textContent.trim() || '';
+        }
+
+        function renderSuggestionMarkers() {
+            page.querySelectorAll('.signature-suggestion-marker').forEach(marker => marker.remove());
+            placementSuggestions
+                .filter(item => Number(item.page_number) === currentPage)
+                .forEach((suggestion, index) => {
+                    const marker = document.createElement('button');
+                    marker.type = 'button';
+                    marker.className = 'signature-suggestion-marker';
+                    marker.title = `Suggestion ${index + 1} : ${suggestion.detected_text}`;
+                    marker.style.cssText = `position:absolute;left:${suggestion.x_pct}%;bottom:${suggestion.y_pct}%;width:${block.style.width};height:${block.style.height};border:2px solid #2563eb;background:rgba(37,99,235,.12);z-index:1;cursor:pointer;`;
+                    marker.addEventListener('click', () => {
+                        moveBlockFromPercent(Number(suggestion.x_pct), Number(suggestion.y_pct));
+                    });
+                    page.append(marker);
+                });
+        }
 
         function initPosition() {
             if (!page || !block) return;
@@ -169,18 +253,89 @@
             moveBlock(left, top);
         }
 
+        function showPage(pageNumber) {
+            currentPage = Math.min(Math.max(Number(pageNumber) || 1, 1), pages.length);
+            pageInput.value = currentPage;
+            currentPageLabel.textContent = currentPage;
+            previousPageButton.disabled = currentPage <= 1;
+            nextPageButton.disabled = currentPage >= pages.length;
+            const pageData = currentPageData();
+            page.style.aspectRatio = `${pageData.width} / ${pageData.height}`;
+            if (displayedPage !== currentPage) {
+                pdfPreview.src = `${previewUrl}?page=${currentPage}`;
+                pdfPreview.alt = `Aperçu de la page ${currentPage} du document`;
+                displayedPage = currentPage;
+            }
+            syncSignatureMode();
+            renderSuggestionMarkers();
+        }
+
         function syncSignatureMode() {
             const mode = modeSelect?.value || "stamp_signature";
             const size = blockSizes[mode] || blockSizes.stamp_signature;
-            block.style.width = size.width;
-            block.style.height = size.height;
+            const pageData = currentPageData();
+            const mention = currentMentionText();
+            block.style.width = `${(size.widthPoints / pageData.width) * 100}%`;
+            block.style.height = `${((size.heightPoints + (mention ? mentionAreaHeightPoints : 0)) / pageData.height) * 100}%`;
             if (blockLabel) blockLabel.innerHTML = size.label;
+            if (mentionPreview) {
+                mentionPreview.textContent = mention;
+                mentionPreview.style.display = mention ? 'inline' : 'none';
+            }
             if (tamponWrapper) tamponWrapper.style.display = mode === "stamp_signature" ? "flex" : "none";
             if (tamponSelect) tamponSelect.required = mode === "stamp_signature";
             if (inputX.value && inputY.value) {
                 moveBlockFromPercent(parseFloat(inputX.value), parseFloat(inputY.value));
             } else {
                 initPosition();
+            }
+            renderSuggestionMarkers();
+        }
+
+        function renderSuggestionButtons() {
+            suggestionsContainer.innerHTML = '';
+            suggestionsContainer.style.display = placementSuggestions.length ? 'flex' : 'none';
+            placementSuggestions.forEach((suggestion, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'btn btn-secondary';
+                button.textContent = `Page ${suggestion.page_number} · ${suggestion.detected_text || suggestion.anchor} (${Math.round(suggestion.confidence)} %)`;
+                button.addEventListener('click', () => {
+                    showPage(suggestion.page_number);
+                    setTimeout(() => moveBlockFromPercent(Number(suggestion.x_pct), Number(suggestion.y_pct)), 100);
+                });
+                suggestionsContainer.append(button);
+            });
+            renderSuggestionMarkers();
+        }
+
+        async function analyzePlacement() {
+            analyzeButton.disabled = true;
+            analysisStatus.style.display = 'block';
+            analysisStatus.textContent = 'Analyse du document en cours…';
+            suggestionsContainer.style.display = 'none';
+            try {
+                const params = new URLSearchParams({
+                    signature_mode: modeSelect?.value || 'stamp_signature',
+                    size_scale_pct: document.getElementById('size_scale_pct').value || '100',
+                    signature_mention: currentMentionText()
+                });
+                const response = await fetch(`{% url 'signatures:placement_suggestions' doc.pk %}?${params.toString()}`);
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.message || 'Analyse impossible.');
+                placementSuggestions = data.suggestions || [];
+                if (placementSuggestions.length) {
+                    analysisStatus.textContent = `${placementSuggestions.length} emplacement(s) suggéré(s). Sélectionnez-en un ou placez librement le cadre rouge.`;
+                } else if (!data.ocr_available && data.pages_without_text) {
+                    analysisStatus.textContent = 'Aucune zone détectée. Le document contient des pages scannées mais le moteur OCR local n’est pas disponible ; le placement manuel reste possible.';
+                } else {
+                    analysisStatus.textContent = 'Aucune zone fiable détectée. Placez librement le cadre rouge.';
+                }
+                renderSuggestionButtons();
+            } catch (error) {
+                analysisStatus.textContent = error.message || 'Analyse impossible. Le placement manuel reste disponible.';
+            } finally {
+                analyzeButton.disabled = false;
             }
         }
 
@@ -239,10 +394,20 @@
         });
 
         modeSelect?.addEventListener("change", syncSignatureMode);
+        mentionSelect?.addEventListener("change", function () {
+            const custom = mentionSelect.value === 'custom';
+            if (customMentionWrapper) customMentionWrapper.style.display = custom ? 'flex' : 'none';
+            if (customMentionInput) customMentionInput.required = custom;
+            syncSignatureMode();
+        });
+        customMentionInput?.addEventListener("input", syncSignatureMode);
+        previousPageButton?.addEventListener("click", () => showPage(currentPage - 1));
+        nextPageButton?.addEventListener("click", () => showPage(currentPage + 1));
+        analyzeButton?.addEventListener("click", analyzePlacement);
 
         // Initialize after a short delay to allow PDF embed to render layout
         window.addEventListener("load", function () {
-            setTimeout(syncSignatureMode, 500);
+            setTimeout(() => showPage(currentPage), 500);
         });
         window.addEventListener("resize", function () {
             const xPct = parseFloat(inputX.value);

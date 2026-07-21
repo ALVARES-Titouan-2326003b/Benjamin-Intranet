@@ -11,6 +11,8 @@ urlpatterns = [
     path("ma-signature/", views.ma_signature, name="ma_signature"),
     path("tampon/", views.tampon_edit, name="tampon_edit"),
     path("<int:pk>/placer/", views.placer_signature, name="placer_signature"),
+    path("<int:pk>/suggestions-placement/", views.signature_placement_suggestions, name="placement_suggestions"),
+    path("<int:pk>/apercu-page/", views.signature_page_preview, name="page_preview"),
     path("<int:pk>/placement/", views.config_placement, name="config_placement"),
     path(
         "approbation/<str:token>/",

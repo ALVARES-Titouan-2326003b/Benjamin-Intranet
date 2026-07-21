@@ -96,6 +96,7 @@ class Document(models.Model):
         choices=SIGNATURE_MODES,
         default="stamp_signature",
     )
+    signature_mention = models.CharField(max_length=160, blank=True)
     tampon = models.ForeignKey(
         Tampon,
         on_delete=models.SET_NULL,
@@ -196,12 +197,14 @@ class SignatureRequest(models.Model):
     # position choisie par le collaborateur (en %)
     pos_x_pct = models.FloatField()
     pos_y_pct = models.FloatField()
+    page_number = models.PositiveIntegerField(default=1)
     size_scale_pct = models.FloatField(default=100.0)
     signature_mode = models.CharField(
         max_length=30,
         choices=SIGNATURE_MODES,
         default="stamp_signature",
     )
+    signature_mention = models.CharField(max_length=160, blank=True)
     tampon = models.ForeignKey(
         Tampon,
         on_delete=models.SET_NULL,

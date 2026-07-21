@@ -102,6 +102,58 @@ class TestSignerPdfAvecImagesPosition:
         reader = PdfReader(document_pdf_multi.fichier_signe.path)
         assert len(reader.pages) == 3
 
+    def test_signature_pdf_sur_page_selectionnee(
+        self,
+        document_pdf_multi,
+        signature_user_ceo,
+        tampon_entreprise,
+    ):
+        """La fusion doit modifier uniquement la page choisie par l'utilisateur."""
+        from signatures.services.pdf_signing import signer_pdf_avec_images_position
+
+        original = PdfReader(document_pdf_multi.fichier.path)
+        original_streams = [page.get_contents().get_data() for page in original.pages]
+
+        signer_pdf_avec_images_position(
+            document=document_pdf_multi,
+            user=signature_user_ceo.user,
+            pos_x_pct=25.0,
+            pos_y_pct=20.0,
+            signature_mode="signature",
+            page_number=2,
+        )
+
+        document_pdf_multi.refresh_from_db()
+        signed = PdfReader(document_pdf_multi.fichier_signe.path)
+        signed_streams = [page.get_contents().get_data() for page in signed.pages]
+
+        assert signed_streams[0] == original_streams[0]
+        assert signed_streams[1] != original_streams[1]
+        assert signed_streams[2] == original_streams[2]
+
+    def test_signature_avec_mention_personnalisee(
+        self,
+        document_pdf_simple,
+        signature_user_ceo,
+        tampon_entreprise,
+    ):
+        from signatures.services.pdf_signing import signer_pdf_avec_images_position
+
+        signer_pdf_avec_images_position(
+            document=document_pdf_simple,
+            user=signature_user_ceo.user,
+            pos_x_pct=20.0,
+            pos_y_pct=15.0,
+            signature_mode="signature",
+            signature_mention="Bon pour remboursement",
+        )
+
+        document_pdf_simple.refresh_from_db()
+        signed = PdfReader(document_pdf_simple.fichier_signe.path)
+
+        assert "Bon pour remboursement" in signed.pages[0].extract_text()
+        assert document_pdf_simple.signature_mention == "Bon pour remboursement"
+
 
     def test_erreur_signature_user_inexistant(
         self,
