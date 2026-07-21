@@ -611,6 +611,12 @@ class GmailConversationEvent(models.Model):
         ("note", "Note"),
         ("error", "Erreur"),
     ]
+    REMINDER_SOURCE_CHOICES = [
+        ("", "Non applicable"),
+        ("manual", "Manuelle"),
+        ("automatic", "Automatique"),
+        ("legacy", "Historique existant"),
+    ]
 
     conversation = models.ForeignKey(
         GmailConversation,
@@ -628,6 +634,14 @@ class GmailConversationEvent(models.Model):
     old_status = models.CharField(max_length=20, blank=True, default="")
     new_status = models.CharField(max_length=20, blank=True, default="")
     note = models.TextField(blank=True, default="")
+    reminder_source = models.CharField(
+        max_length=20,
+        choices=REMINDER_SOURCE_CHOICES,
+        blank=True,
+        default="",
+    )
+    reminder_subject = models.CharField(max_length=500, blank=True, default="")
+    reminder_recipient = models.EmailField(blank=True, default="")
     external_message_id = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -1525,7 +1525,18 @@ def administratif_view(request):
     """
     user = request.user
 
-    conversations = GmailConversation.objects.filter(owner=user).prefetch_related("events")
+    conversations = GmailConversation.objects.filter(owner=user).prefetch_related(
+        Prefetch(
+            "events",
+            queryset=GmailConversationEvent.objects.exclude(event_type="reminder_sent").select_related("user"),
+            to_attr="other_events",
+        ),
+        Prefetch(
+            "events",
+            queryset=GmailConversationEvent.objects.filter(event_type="reminder_sent").select_related("user"),
+            to_attr="relance_history",
+        ),
+    )
     journal_status = (request.GET.get("journal_status") or "").strip()
     journal_q = (request.GET.get("journal_q") or "").strip()
     if journal_status:
@@ -1535,8 +1546,9 @@ def administratif_view(request):
             Q(subject__icontains=journal_q)
             | Q(recipient__icontains=journal_q)
             | Q(preview__icontains=journal_q)
+            | Q(events__event_type="reminder_sent", events__note__icontains=journal_q)
         )
-    conversations = conversations[:100]
+    conversations = conversations.distinct()[:100]
 
     dossiers = TechnicalProject.objects.filter(archived_at__isnull=True).order_by("reference")
     societes = Societe.objects.all().order_by("nom")
@@ -1811,6 +1823,7 @@ def send_reply_view(request):
             conversation=conversation,
             user=request.user,
             body=message_text,
+            source="manual",
         )
 
         return JsonResponse(result, status=200 if result.get("success") else 400)

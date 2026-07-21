@@ -7,7 +7,7 @@ from django.contrib.auth.models import Group
 from django.urls import reverse
 from django.utils import timezone
 
-from management.gmail_service import sync_conversation_journal
+from management.gmail_service import send_conversation_reminder, sync_conversation_journal
 from invoices.models import ActeurExterne, Contact
 from management.models import (
     EmailClient,
@@ -125,6 +125,54 @@ def test_journal_status_and_notes_endpoints(client, admin_gmail_user):
 
 
 @pytest.mark.django_db
+def test_manual_reminder_keeps_complete_email_history(client, admin_gmail_user):
+    conversation = GmailConversation.objects.create(
+        owner=admin_gmail_user,
+        thread_id="thread-history",
+        initial_message_id="initial-history",
+        last_message_id="last-history",
+        subject="Documents compromis",
+        recipient="notaire@example.com",
+        status="open",
+        sent_at=timezone.now() - timedelta(days=3),
+    )
+
+    with patch(
+        "management.gmail_service.reply_to_message",
+        return_value={
+            "success": True,
+            "message": "E-mail envoyé.",
+            "message_id": "reminder-history-1",
+            "thread_id": "thread-history",
+        },
+    ):
+        send_conversation_reminder(
+            conversation=conversation,
+            user=admin_gmail_user,
+            body="Merci de transmettre les pièces manquantes.",
+            source="manual",
+        )
+
+    event = GmailConversationEvent.objects.get(
+        conversation=conversation,
+        event_type="reminder_sent",
+    )
+    assert event.reminder_source == "manual"
+    assert event.reminder_subject == "Documents compromis"
+    assert event.reminder_recipient == "notaire@example.com"
+    assert event.note == "Merci de transmettre les pièces manquantes."
+    assert event.external_message_id == "reminder-history-1"
+
+    client.force_login(admin_gmail_user)
+    response = client.get(reverse("admin_view"))
+    content = response.content.decode()
+    assert response.status_code == 200
+    assert "Historique des relances e-mail" in content
+    assert "Merci de transmettre les pièces manquantes." in content
+    assert "notaire@example.com" in content
+
+
+@pytest.mark.django_db
 def test_celery_journal_sends_only_open_conversations(admin_gmail_user):
     open_conversation = GmailConversation.objects.create(
         owner=admin_gmail_user,
@@ -169,3 +217,4 @@ def test_celery_journal_sends_only_open_conversations(admin_gmail_user):
     assert result["success"] is True
     assert send.call_count == 1
     assert send.call_args.kwargs["conversation"] == open_conversation
+    assert send.call_args.kwargs["source"] == "automatic"

@@ -256,11 +256,13 @@ def sync_conversation_journal(user, limit=100):
     return {"synced": synced, "replied": replied}
 
 
-def send_conversation_reminder(conversation, user, body):
+def send_conversation_reminder(conversation, user, body, source="manual"):
     if conversation.status == "replied":
         raise ValueError(
             "Cette conversation contient déjà une réponse Gmail et ne peut plus être relancée."
         )
+    if source not in {"manual", "automatic"}:
+        raise ValueError("Origine de relance invalide.")
     result = reply_to_message(
         user=user,
         message_id=conversation.last_message_id or conversation.initial_message_id,
@@ -287,6 +289,9 @@ def send_conversation_reminder(conversation, user, body):
         old_status=old_status,
         new_status="reminded",
         note=body,
+        reminder_source=source,
+        reminder_subject=conversation.subject,
+        reminder_recipient=conversation.recipient,
         external_message_id=result.get("message_id", ""),
     )
     return result

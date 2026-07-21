@@ -112,10 +112,10 @@
       </div>
    </div>
 
-   <!-- Journal des relances Gmail -->
+   <!-- Historique des relances e-mail -->
    <div class="card" style="height: 100%; display: flex; flex-direction: column;">
       <div class="card-title">
-         <span><i class="bi bi-google"></i> Journal des relances Gmail</span>
+         <span><i class="bi bi-envelope-check"></i> Historique des relances e-mail</span>
          <button type="button" id="sync-gmail-journal-btn" class="btn btn-secondary" style="white-space:nowrap;">
             <i class="bi bi-arrow-repeat"></i> Synchroniser
          </button>
@@ -131,7 +131,7 @@
 
       <form method="get" style="display:grid;grid-template-columns:1fr minmax(130px,.45fr) auto;gap:.5rem;margin-bottom:1rem;">
          <input type="search" name="journal_q" value="{{ journal_q }}" class="form-control"
-                placeholder="Sujet, destinataire, aperçu">
+                placeholder="Sujet, destinataire ou contenu relancé">
          <select name="journal_status" class="form-control">
             <option value="">Tous les statuts</option>
             {% for value, label in journal_status_choices %}
@@ -205,6 +205,35 @@
             <div class="email-from">À : {{ conversation.recipient|default:"Destinataire inconnu" }}</div>
             <div class="email-preview">{{ conversation.preview|default:"Aucun aperçu"|truncatewords:24 }}</div>
 
+            {% if conversation.relance_history %}
+            <details style="margin-top:.7rem;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">
+               <summary style="cursor:pointer;padding:.6rem .7rem;font-weight:600;color:#334155;">
+                  <i class="bi bi-clock-history"></i>
+                  {{ conversation.relance_history|length }} relance{{ conversation.relance_history|length|pluralize }} envoyée{{ conversation.relance_history|length|pluralize }}
+               </summary>
+               <div style="display:grid;gap:.6rem;padding:0 .7rem .7rem;">
+                  {% for relance in conversation.relance_history %}
+                  <div style="border-left:3px solid #2563eb;padding:.55rem .65rem;background:#fff;border-radius:4px;">
+                     <div style="display:flex;justify-content:space-between;gap:.75rem;flex-wrap:wrap;font-size:.78rem;color:var(--text-secondary);">
+                        <span>
+                           {{ relance.created_at|date:"d/m/Y H:i" }} · {{ relance.get_reminder_source_display }}
+                           {% if relance.user %} par {{ relance.user.get_full_name|default:relance.user.username }}{% endif %}
+                        </span>
+                        <span>À : {{ relance.reminder_recipient|default:conversation.recipient }}</span>
+                     </div>
+                     <strong style="display:block;margin-top:.3rem;">{{ relance.reminder_subject|default:conversation.subject|default:"(Sans objet)" }}</strong>
+                     <details style="margin-top:.35rem;">
+                        <summary style="cursor:pointer;color:#2563eb;">Afficher le message envoyé</summary>
+                        <div style="white-space:pre-wrap;margin-top:.4rem;color:#334155;">{{ relance.note }}</div>
+                     </details>
+                  </div>
+                  {% endfor %}
+               </div>
+            </details>
+            {% else %}
+            <div style="margin-top:.6rem;font-size:.8rem;color:var(--text-secondary);">Aucune relance envoyée dans cette conversation.</div>
+            {% endif %}
+
             <div style="display:flex;gap:.4rem;margin-top:.65rem;">
                <input type="text" class="form-control gmail-note-input"
                       data-conversation-id="{{ conversation.pk }}" placeholder="Ajouter une note horodatée">
@@ -212,7 +241,7 @@
                        data-conversation-id="{{ conversation.pk }}">Note</button>
             </div>
             <div class="gmail-events" style="margin-top:.5rem;font-size:.78rem;color:var(--text-secondary);">
-               {% for event in conversation.events.all|slice:":4" %}
+               {% for event in conversation.other_events|slice:":4" %}
                <div>
                   {{ event.created_at|date:"d/m/Y H:i" }} · {{ event.get_event_type_display }}
                   {% if event.note %} — {{ event.note|truncatewords:14 }}{% endif %}

@@ -87,9 +87,9 @@ class GmailConversationAdmin(admin.ModelAdmin):
 
 @admin.register(GmailConversationEvent)
 class GmailConversationEventAdmin(admin.ModelAdmin):
-    list_display = ("conversation", "event_type", "user", "created_at")
-    list_filter = ("event_type", "created_at")
-    search_fields = ("conversation__subject", "note", "external_message_id")
+    list_display = ("conversation", "event_type", "reminder_source", "reminder_recipient", "user", "created_at")
+    list_filter = ("event_type", "reminder_source", "created_at")
+    search_fields = ("conversation__subject", "reminder_subject", "reminder_recipient", "note", "external_message_id")
     readonly_fields = (
         "conversation",
         "event_type",
@@ -97,6 +97,9 @@ class GmailConversationEventAdmin(admin.ModelAdmin):
         "old_status",
         "new_status",
         "note",
+        "reminder_source",
+        "reminder_subject",
+        "reminder_recipient",
         "external_message_id",
         "created_at",
     )

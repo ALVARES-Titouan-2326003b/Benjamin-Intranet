@@ -158,6 +158,7 @@ def check_and_send_auto_relances():
                             conversation=conversation,
                             user=user,
                             body=message_relance,
+                            source="automatic",
                         )
 
                         if result['success']:
