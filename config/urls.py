@@ -67,7 +67,6 @@ urlpatterns = [
     path('parametres/', include('user_preferences.urls')),
     path('finance/', include('invoices.urls')),
     path('auth/', include('authentication.urls')),
-    path('administratif/recrutement/', include('recrutement.urls')),
     path('pole-technique/', include('technique.urls')),
 
     path('signatures/', include('signatures.urls')),

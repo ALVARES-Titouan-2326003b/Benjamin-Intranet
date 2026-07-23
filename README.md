@@ -1,7 +1,7 @@
 # Benjamin-Intranet
 
 Ce projet est une **application web intranet** développée en **Python avec Django** et **PostegreSQL** pour gérer plusieurs
-modules internes d’une organisation (authentification, gestion des employés, factures, recrutement, chatbot, signatures, etc.).
+modules internes d’une organisation (authentification, gestion des employés, factures, chatbot, signatures, etc.).
 
 ---
 
@@ -36,7 +36,6 @@ Le projet est construit avec Django et suit une **architecture modulaire** pour 
 | **Home**               | Tableau de bord ou page d’accueil de l’intranet           |
 | **Invoices**           | Gestion des factures                                      |
 | **Management**         | Administration interne des utilisateurs/ressources        |
-| **Recrutement**        | Module de suivi des recrutements                          |
 | **Signatures**         | Gestion des signatures électroniques                      |
 | **Technique**          | Gestion des documents techniques (contrats, permis, etc.) |
 | **Static & Templates** | Ressources CSS/JS et templates HTML                       |
@@ -59,7 +58,6 @@ Benjamin-Intranet/
 │   ├── documents_tech/
 │   ├── signatures/
 │   └── tampons/
-├── recrutement/
 ├── signatures/
 ├── static/
 ├── technique/

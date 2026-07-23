@@ -3,7 +3,6 @@ from django.contrib import admin
 
 from .models import (
     Activite,
-    AdministrativeProject,
     CategorieDossierAdministratif,
     ChampPersonnaliseDossier,
     HistoriqueRappelActivite,
@@ -35,13 +34,6 @@ class ValeurChampPersonnaliseDossierAdmin(admin.ModelAdmin):
     list_display = ("dossier", "field", "value", "updated_at")
     list_filter = ("field",)
     search_fields = ("dossier__reference", "dossier__affaire", "field__label", "value")
-
-
-@admin.register(AdministrativeProject)
-class AdministrativeProjectAdmin(admin.ModelAdmin):
-    list_display = ("reference", "affaire", "type_dossier", "activite_metier", "etat", "categorie", "prix")
-    list_filter = ("type_dossier", "activite_metier", "etat", "categorie", "created_at")
-    search_fields = ("reference", "affaire", "name", "adresse_bien", "vendeur", "beneficiaire", "locataire")
 
 
 @admin.register(Activite)

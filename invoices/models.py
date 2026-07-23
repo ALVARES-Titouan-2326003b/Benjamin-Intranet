@@ -56,15 +56,6 @@ class Client(models.Model):
         return str(self.id_id)
 
 
-class ClientDossier(models.Model):
-    client = models.ForeignKey("invoices.Client", on_delete=models.CASCADE)
-    dossier = models.ForeignKey("technique.TechnicalProject", on_delete=models.CASCADE)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["client", "dossier"], name="uniq_client_dossier")
-        ]
-
 class Entreprise(models.Model):
     id = models.OneToOneField(Client, on_delete=models.CASCADE, db_column='id', primary_key=True)
     nom = models.TextField(blank=True, null=True)
@@ -95,15 +86,6 @@ class EmailFournisseur(models.Model):
 
     class Meta:
         db_table = 'email_fournisseur'
-
-
-class TelFournisseur(models.Model):
-    pk = models.CompositePrimaryKey('contact', 'tel')
-    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, db_column='contact')
-    tel = models.TextField()
-
-    class Meta:
-        db_table = 'tel_fournisseur'
 
 
 class Fournisseur(models.Model):
