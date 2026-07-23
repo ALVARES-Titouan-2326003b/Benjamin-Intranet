@@ -4,7 +4,6 @@ from django.contrib.auth.decorators import login_required
 
 from invoices.models import Facture
 from signatures.models import Document
-from recrutement.models import Candidat
 from technique.models import TechnicalProject, DocumentTechnique
 from user_access.user_test_functions import (has_administratif_access,
                                              has_finance_access,
@@ -68,23 +67,17 @@ def global_search(request):
                 titre__icontains=query
             )[:10]
 
-            # 3. Candidats (Nom, Email)
-            candidats = Candidat.objects.filter(
-                Q(nom__icontains=query) |
-                Q(email__icontains=query)
-            )[:10]
         else:
             documents = []
-            candidats = []
 
         if has_technique_access(request.user):
-            # 4. Projets Techniques (Nom, Reference)
+            # 3. Projets Techniques (Nom, Reference)
             projets = TechnicalProject.objects.filter(
                 Q(name__icontains=query) |
                 Q(reference__icontains=query)
             )[:10]
 
-            # 5. Documents Techniques (Titre, Projet)
+            # 4. Documents Techniques (Titre, Projet)
             docs_tech = DocumentTechnique.objects.filter(
                  Q(titre__icontains=query) |
                  Q(project__reference__icontains=query) |
@@ -97,10 +90,9 @@ def global_search(request):
         context.update({
             'factures': factures,
             'documents': documents,
-            'candidats': candidats,
             'projets': projets,
             'docs_tech': docs_tech,
-            'results_count': len(factures) + len(documents) + len(candidats) + len(projets) + len(docs_tech)
+            'results_count': len(factures) + len(documents) + len(projets) + len(docs_tech)
         })
 
     return render(request, 'home/search_results.html', context)
