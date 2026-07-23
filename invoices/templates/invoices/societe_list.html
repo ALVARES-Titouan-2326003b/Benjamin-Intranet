@@ -2,78 +2,204 @@
 
 {% block title %}Sociétés{% endblock %}
 
+{% block extra_css %}
+{% include "invoices/_societe_list_styles.html" %}
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-between align-center mb-4" style="margin-bottom:1.5rem;">
-    <div>
-        <h2>Référentiel des sociétés</h2>
-        <p style="color:var(--text-secondary);margin-top:.5rem;">
-            Sociétés disponibles pour les factures, tampons, dossiers et activités.
-        </p>
-    </div>
-    <a href="{% url 'invoices:list' %}" class="btn btn-secondary">Retour aux factures</a>
-</div>
-
-<div style="display:grid;grid-template-columns:minmax(280px,.7fr) minmax(520px,1.6fr);gap:1.5rem;align-items:start;">
-    <section class="card">
-        <div class="card-title">
-            {% if editing_company %}Modifier la société{% else %}Pré-enregistrer une société{% endif %}
+<div class="companies-page">
+    <header class="companies-header">
+        <div>
+            <div class="companies-eyebrow">Finance</div>
+            <h1>Référentiel des sociétés</h1>
+            <p>Gérez les sociétés utilisées dans les factures, dossiers et activités.</p>
         </div>
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <div style="display:flex;justify-content:flex-end;gap:.75rem;">
-                {% if editing_company %}
-                <a href="{% url 'invoices:societes' %}" class="btn btn-ghost">Annuler</a>
-                {% endif %}
-                <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <a href="{% url 'invoices:list' %}" class="btn btn-secondary companies-back-link">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+            Retour aux factures
+        </a>
+    </header>
+
+    <div class="companies-layout">
+        <aside class="company-form-card">
+            <div class="company-form-icon" aria-hidden="true">
+                <i class="bi {% if editing_company %}bi-pencil-square{% else %}bi-building-add{% endif %}"></i>
             </div>
-        </form>
-    </section>
+            <div class="company-form-heading">
+                <h2>{% if editing_company %}Modifier la société{% else %}Ajouter une société{% endif %}</h2>
+                <p>
+                    {% if editing_company %}
+                    Mettez à jour les informations de {{ editing_company.nom }}.
+                    {% else %}
+                    Elle sera ensuite disponible dans tous les modules concernés.
+                    {% endif %}
+                </p>
+            </div>
 
-    <section class="card">
-        <div class="card-title">Sociétés enregistrées</div>
-        <div class="table-responsive">
-            <table class="table dashboard-table">
-                <thead>
-                    <tr>
-                        <th>Société</th>
-                        <th>État</th>
-                        <th>Factures</th>
-                        <th>Dossiers</th>
-                        <th>Activités</th>
-                        <th>Total</th>
-                        <th>Payé</th>
-                        <th>En retard</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for company in companies %}
-                    <tr>
-                        <td><strong>{{ company.nom }}</strong></td>
-                        <td>
-                            {% if company.is_active %}
-                            <span class="badge success-soft">Active</span>
-                            {% else %}
-                            <span class="badge neutral-soft">Inactive</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ company.invoice_count }}</td>
-                        <td>{{ company.dossiers.count }}</td>
-                        <td>{{ company.activites.count }}</td>
-                        <td>{{ company.total_amount|default:0|floatformat:2 }} €</td>
-                        <td>{{ company.paid_amount|default:0|floatformat:2 }} €</td>
-                        <td>{{ company.overdue_count }}</td>
-                        <td>
-                            <a href="{% url 'invoices:societe_update' company.pk %}" class="btn btn-sm btn-secondary">Modifier</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="9">Aucune société enregistrée.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </section>
+            <form method="post" class="company-form">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                <div class="company-form-errors" role="alert">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="company-field">
+                    <label for="{{ form.nom.id_for_label }}">Nom de la société</label>
+                    <input
+                        type="text"
+                        name="{{ form.nom.html_name }}"
+                        id="{{ form.nom.id_for_label }}"
+                        value="{{ form.nom.value|default_if_none:'' }}"
+                        maxlength="255"
+                        placeholder="Ex. Benjamin Immobilier"
+                        autocomplete="organization"
+                        {% if form.nom.field.required %}required{% endif %}
+                        {% if form.nom.errors %}aria-invalid="true" aria-describedby="company-name-errors"{% endif %}
+                    >
+                    {% if form.nom.errors %}
+                    <div class="company-field-errors" id="company-name-errors">{{ form.nom.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <label class="company-toggle" for="{{ form.is_active.id_for_label }}">
+                    <input
+                        type="checkbox"
+                        name="{{ form.is_active.html_name }}"
+                        id="{{ form.is_active.id_for_label }}"
+                        {% if form.is_active.value %}checked{% endif %}
+                    >
+                    <span class="company-toggle-track" aria-hidden="true"></span>
+                    <span>
+                        <strong>Société active</strong>
+                        <small>Visible dans les listes de sélection</small>
+                    </span>
+                </label>
+                {% if form.is_active.errors %}
+                <div class="company-field-errors">{{ form.is_active.errors }}</div>
+                {% endif %}
+
+                <div class="company-form-actions">
+                    {% if editing_company %}
+                    <a href="{% url 'invoices:societes' %}" class="btn btn-ghost">Annuler</a>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check2" aria-hidden="true"></i>
+                        {% if editing_company %}Enregistrer les modifications{% else %}Ajouter la société{% endif %}
+                    </button>
+                </div>
+            </form>
+        </aside>
+
+        <section class="companies-card">
+            <div class="companies-card-header">
+                <div>
+                    <div class="companies-title-line">
+                        <h2>Sociétés enregistrées</h2>
+                        <span class="companies-count">{{ companies|length }}</span>
+                    </div>
+                    <p>Vue d’ensemble de leur utilisation et de leur situation financière.</p>
+                </div>
+                <label class="companies-search">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <span class="sr-only">Rechercher une société</span>
+                    <input type="search" id="company-search" placeholder="Rechercher une société…" autocomplete="off">
+                </label>
+            </div>
+
+            <div class="companies-table-wrap">
+                <table class="companies-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="company-identity-column">Société</th>
+                            <th scope="col" class="company-number-column">Factures</th>
+                            <th scope="col" class="company-number-column">Dossiers</th>
+                            <th scope="col" class="company-number-column">Activités</th>
+                            <th scope="col" class="company-money-column">Montant total</th>
+                            <th scope="col" class="company-money-column">Payé</th>
+                            <th scope="col" class="company-number-column">Retard</th>
+                            <th scope="col" class="company-action-column"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="companies-table-body">
+                        {% for company in companies %}
+                        <tr data-company-row data-company-name="{{ company.nom|lower }}">
+                            <td data-label="Société">
+                                <div class="company-identity">
+                                    <span class="company-monogram" aria-hidden="true">{{ company.nom|first|upper }}</span>
+                                    <span class="company-name-block">
+                                        <a href="{% url 'invoices:societe_detail' company.pk %}" class="company-name-link">{{ company.nom }}</a>
+                                        {% if company.is_active %}
+                                        <span class="company-status company-status-active"><i></i> Active</span>
+                                        {% else %}
+                                        <span class="company-status company-status-inactive"><i></i> Inactive</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </td>
+                            <td data-label="Factures" class="company-number">{{ company.invoice_count }}</td>
+                            <td data-label="Dossiers" class="company-number">{{ company.dossiers.count }}</td>
+                            <td data-label="Activités" class="company-number">{{ company.activites.count }}</td>
+                            <td data-label="Montant total" class="company-money">{{ company.total_amount|default:0|floatformat:2 }} €</td>
+                            <td data-label="Payé" class="company-money company-paid">{{ company.paid_amount|default:0|floatformat:2 }} €</td>
+                            <td data-label="En retard" class="company-number">
+                                {% if company.overdue_count %}
+                                <span class="company-overdue"><i class="bi bi-exclamation-circle" aria-hidden="true"></i>{{ company.overdue_count }}</span>
+                                {% else %}
+                                <span class="company-no-overdue">0</span>
+                                {% endif %}
+                            </td>
+                            <td class="company-action">
+                                <a href="{% url 'invoices:societe_detail' company.pk %}" class="company-edit-link company-view-link" aria-label="Consulter {{ company.nom }}">
+                                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                                    <span>Voir</span>
+                                </a>
+                                <a href="{% url 'invoices:societe_update' company.pk %}" class="company-edit-link company-edit-icon" aria-label="Modifier {{ company.nom }}" title="Modifier">
+                                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="companies-empty">
+                                <i class="bi bi-buildings" aria-hidden="true"></i>
+                                <strong>Aucune société enregistrée</strong>
+                                <span>Ajoutez votre première société à l’aide du formulaire.</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="companies-empty companies-search-empty" id="companies-search-empty" hidden>
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <strong>Aucun résultat</strong>
+                    <span>Essayez avec un autre nom de société.</span>
+                </div>
+            </div>
+        </section>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (() => {
+        const search = document.getElementById('company-search');
+        const rows = document.querySelectorAll('[data-company-row]');
+        const emptyState = document.getElementById('companies-search-empty');
+
+        if (!search || !rows.length) return;
+
+        search.addEventListener('input', () => {
+            const query = search.value.trim().toLocaleLowerCase('fr');
+            let visibleRows = 0;
+
+            rows.forEach((row) => {
+                const isVisible = row.dataset.companyName.includes(query);
+                row.hidden = !isVisible;
+                if (isVisible) visibleRows += 1;
+            });
+
+            emptyState.hidden = visibleRows !== 0;
+        });
+    })();
+</script>
 {% endblock %}

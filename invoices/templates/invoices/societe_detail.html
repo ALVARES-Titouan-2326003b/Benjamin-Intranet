@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}{{ company.nom }} · Sociétés{% endblock %}
+
+{% block extra_css %}
+{% include "invoices/_societe_detail_styles.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="company-detail-page">
+    <nav class="company-breadcrumb" aria-label="Fil d’Ariane">
+        <a href="{% url 'invoices:societes' %}">Sociétés</a>
+        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        <span>{{ company.nom }}</span>
+    </nav>
+
+    <header class="company-profile-header">
+        <div class="company-profile-main">
+            <span class="company-profile-monogram" aria-hidden="true">{{ company.nom|first|upper }}</span>
+            <div>
+                <div class="company-profile-status-row">
+                    {% if company.is_active %}
+                    <span class="detail-status detail-status-active"><i></i> Société active</span>
+                    {% else %}
+                    <span class="detail-status detail-status-inactive"><i></i> Société inactive</span>
+                    {% endif %}
+                </div>
+                <h1>{{ company.nom }}</h1>
+                <p>Fiche consolidée de la société et de ses éléments associés.</p>
+            </div>
+        </div>
+        <div class="company-profile-actions">
+            <a href="{% url 'invoices:societes' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i> Retour
+            </a>
+            <a href="{% url 'invoices:societe_update' company.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil" aria-hidden="true"></i> Modifier
+            </a>
+        </div>
+    </header>
+
+    <section class="company-metrics" aria-label="Résumé de la société">
+        <article class="company-metric">
+            <span class="company-metric-icon metric-blue"><i class="bi bi-receipt" aria-hidden="true"></i></span>
+            <div><strong>{{ invoices|length }}</strong><span>Facture{{ invoices|length|pluralize }}</span></div>
+        </article>
+        <article class="company-metric">
+            <span class="company-metric-icon metric-purple"><i class="bi bi-folder2-open" aria-hidden="true"></i></span>
+            <div><strong>{{ dossiers|length }}</strong><span>Dossier{{ dossiers|length|pluralize }}</span></div>
+        </article>
+        <article class="company-metric">
+            <span class="company-metric-icon metric-cyan"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
+            <div><strong>{{ documents|length }}</strong><span>Document{{ documents|length|pluralize }}</span></div>
+        </article>
+        <article class="company-metric">
+            <span class="company-metric-icon metric-green"><i class="bi bi-currency-euro" aria-hidden="true"></i></span>
+            <div><strong>{{ total_amount|floatformat:2 }} €</strong><span>Montant facturé</span></div>
+        </article>
+        <article class="company-metric">
+            <span class="company-metric-icon metric-emerald"><i class="bi bi-check2-circle" aria-hidden="true"></i></span>
+            <div><strong>{{ paid_amount|floatformat:2 }} €</strong><span>Montant payé</span></div>
+        </article>
+        <article class="company-metric {% if overdue_count %}metric-alert{% endif %}">
+            <span class="company-metric-icon metric-red"><i class="bi bi-exclamation-circle" aria-hidden="true"></i></span>
+            <div><strong>{{ overdue_count }}</strong><span>En retard</span></div>
+        </article>
+    </section>
+
+    <section class="company-content-card">
+        <div class="company-tabs" role="tablist" aria-label="Contenu de la société">
+            <button type="button" class="company-tab is-active" role="tab" aria-selected="true" aria-controls="panel-invoices" data-company-tab="invoices">
+                Factures <span>{{ invoices|length }}</span>
+            </button>
+            <button type="button" class="company-tab" role="tab" aria-selected="false" aria-controls="panel-dossiers" data-company-tab="dossiers">
+                Dossiers <span>{{ dossiers|length }}</span>
+            </button>
+            <button type="button" class="company-tab" role="tab" aria-selected="false" aria-controls="panel-documents" data-company-tab="documents">
+                Documents <span>{{ documents|length }}</span>
+            </button>
+        </div>
+
+        <div class="company-panel is-active" id="panel-invoices" role="tabpanel" data-company-panel="invoices">
+            <div class="company-panel-heading">
+                <div><h2>Factures liées</h2><p>Suivi financier des factures attribuées à {{ company.nom }}.</p></div>
+                <a href="{% url 'invoices:list' %}?societe={{ company.pk }}" class="detail-text-link">Voir dans les factures <i class="bi bi-arrow-up-right"></i></a>
+            </div>
+            {% if invoices %}
+            <div class="detail-table-wrap">
+                <table class="detail-table">
+                    <thead><tr><th>Facture</th><th>Fournisseur</th><th>Dossier</th><th>Date</th><th>Statut</th><th class="align-right">Montant</th><th></th></tr></thead>
+                    <tbody>
+                        {% for invoice in invoices %}
+                        <tr>
+                            <td data-label="Facture"><a class="detail-primary-link" href="{% url 'invoices:detail' invoice.pk %}">{{ invoice.numero_facture|default:invoice.id }}</a>{% if invoice.piecejointe_set.all %}<small><i class="bi bi-paperclip"></i> {{ invoice.piecejointe_set.all|length }} pièce{{ invoice.piecejointe_set.all|length|pluralize }}</small>{% endif %}</td>
+                            <td data-label="Fournisseur">{{ invoice.fournisseur|default:"—" }}</td>
+                            <td data-label="Dossier">{% if invoice.dossier %}{{ invoice.dossier.reference }}{% elif invoice.affaire %}{{ invoice.affaire }}{% else %}—{% endif %}</td>
+                            <td data-label="Date">{{ invoice.date_facture|date:"d/m/Y"|default:"—" }}</td>
+                            <td data-label="Statut">
+                                <span class="invoice-status status-{{ invoice.statut }} {% if invoice.is_overdue %}status-overdue{% endif %}">
+                                    {% if invoice.is_overdue %}En retard{% else %}{{ invoice.get_statut_display }}{% endif %}
+                                </span>
+                            </td>
+                            <td data-label="Montant" class="detail-amount">{{ invoice.montant|default:0|floatformat:2 }} €</td>
+                            <td class="detail-row-action"><a href="{% url 'invoices:detail' invoice.pk %}" aria-label="Voir la facture {{ invoice.numero_facture|default:invoice.id }}"><i class="bi bi-chevron-right"></i></a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="detail-empty"><i class="bi bi-receipt"></i><strong>Aucune facture liée</strong><span>Les factures attribuées à cette société apparaîtront ici.</span><a href="{% url 'invoices:create' %}" class="btn btn-primary">Créer une facture</a></div>
+            {% endif %}
+        </div>
+
+        <div class="company-panel" id="panel-dossiers" role="tabpanel" data-company-panel="dossiers" hidden>
+            <div class="company-panel-heading"><div><h2>Dossiers liés</h2><p>Dossiers immobiliers portés par cette société.</p></div></div>
+            {% if dossiers %}
+            <div class="dossier-grid">
+                {% for dossier in dossiers %}
+                <article class="dossier-card">
+                    <div class="dossier-card-top">
+                        <span class="dossier-icon"><i class="bi bi-folder2-open"></i></span>
+                        {% if dossier.archived_at %}<span class="dossier-state state-archived">Archivé</span>{% else %}<span class="dossier-state">{{ dossier.get_status_display }}</span>{% endif %}
+                    </div>
+                    <span class="dossier-reference">{{ dossier.reference }}</span>
+                    <h3>{{ dossier.name }}</h3>
+                    <p>{% if dossier.adresse_bien %}{{ dossier.adresse_bien|truncatechars:95 }}{% elif dossier.affaire %}{{ dossier.affaire }}{% else %}Aucune adresse renseignée{% endif %}</p>
+                    <div class="dossier-meta"><span><i class="bi bi-file-earmark-text"></i> {{ dossier.document_count }} document{{ dossier.document_count|pluralize }}</span><span><i class="bi bi-receipt"></i> {{ dossier.related_invoice_count }} facture{{ dossier.related_invoice_count|pluralize }}</span></div>
+                    <div class="dossier-card-footer"><span>{{ dossier.engaged_amount|floatformat:2 }} € engagés</span><a href="{% url 'technique:dossier_detail' dossier.pk %}">Ouvrir <i class="bi bi-arrow-right"></i></a></div>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="detail-empty"><i class="bi bi-folder2-open"></i><strong>Aucun dossier lié</strong><span>Associez la société depuis la fiche d’un dossier.</span></div>
+            {% endif %}
+        </div>
+
+        <div class="company-panel" id="panel-documents" role="tabpanel" data-company-panel="documents" hidden>
+            <div class="company-panel-heading"><div><h2>Documents des dossiers</h2><p>Documents techniques présents dans les dossiers de {{ company.nom }}.</p></div></div>
+            {% if documents %}
+            <div class="document-list">
+                {% for document in documents %}
+                <article class="document-row">
+                    <span class="document-icon"><i class="bi bi-file-earmark-text"></i></span>
+                    <div class="document-main"><a href="{% url 'technique:documents_detail' document.pk %}">{{ document.titre }}</a><span>Dossier {{ document.project.reference }} · Ajouté le {{ document.created_at|date:"d/m/Y" }}</span></div>
+                    {% if document.resume %}<p>{{ document.resume|striptags|truncatechars:140 }}</p>{% endif %}
+                    <a class="document-open" href="{% url 'technique:documents_detail' document.pk %}" aria-label="Ouvrir {{ document.titre }}"><i class="bi bi-arrow-up-right"></i></a>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="detail-empty"><i class="bi bi-file-earmark-text"></i><strong>Aucun document disponible</strong><span>Les documents ajoutés aux dossiers liés apparaîtront ici.</span></div>
+            {% endif %}
+        </div>
+    </section>
+
+    <footer class="company-record-meta">Société créée le {{ company.created_at|date:"d/m/Y" }} · Dernière modification le {{ company.updated_at|date:"d/m/Y à H:i" }} · {{ activities_count }} activité{{ activities_count|pluralize }} liée{{ activities_count|pluralize }}</footer>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+    const tabs = document.querySelectorAll('[data-company-tab]');
+    const panels = document.querySelectorAll('[data-company-panel]');
+    tabs.forEach((tab) => tab.addEventListener('click', () => {
+        tabs.forEach((item) => {
+            const active = item === tab;
+            item.classList.toggle('is-active', active);
+            item.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        panels.forEach((panel) => {
+            const active = panel.dataset.companyPanel === tab.dataset.companyTab;
+            panel.classList.toggle('is-active', active);
+            panel.hidden = !active;
+        });
+    }));
+})();
+</script>
+{% endblock %}

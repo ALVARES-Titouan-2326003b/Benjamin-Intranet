@@ -4,7 +4,7 @@ from .views import (
     FactureCreateView, FactureUpdateView, ManualInvoiceRemindersView,
     BulkDeleteInvoicesView, InvoiceAnomaliesView,
     InvoiceReminderSettingsView,
-    societe_list_create, societe_update,
+    societe_detail, societe_list_create, societe_update,
 )
 
 from .views_dashboard import DashboardView
@@ -22,5 +22,6 @@ urlpatterns = [
     path('bulk-delete/', BulkDeleteInvoicesView.as_view(), name='bulk_delete'),
     path('anomalies/', InvoiceAnomaliesView.as_view(), name='anomalies'),
     path('societes/', societe_list_create, name='societes'),
+    path('societes/<int:pk>/details/', societe_detail, name='societe_detail'),
     path('societes/<int:pk>/', societe_update, name='societe_update'),
 ]

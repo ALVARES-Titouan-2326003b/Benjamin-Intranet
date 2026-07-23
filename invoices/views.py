@@ -553,6 +553,69 @@ def societe_list_create(request):
 
 @login_required
 @user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)
+def societe_detail(request, pk):
+    company = get_object_or_404(Societe, pk=pk)
+    now = timezone.now()
+
+    invoices = list(
+        company.factures
+        .select_related("fournisseur", "dossier")
+        .prefetch_related("piecejointe_set")
+        .order_by("-date_facture", "-date_soumission", "-id")
+    )
+    for invoice in invoices:
+        invoice.is_overdue = bool(
+            invoice.echeance
+            and invoice.echeance < now
+            and invoice.statut in {"ongoing", "received"}
+        )
+
+    dossiers = list(
+        company.dossiers
+        .annotate(
+            document_count=Count("documents", distinct=True),
+            related_invoice_count=Count("facture", distinct=True),
+        )
+        .order_by("-updated_at", "name")
+    )
+    from technique.models import DocumentTechnique
+    documents = list(
+        DocumentTechnique.objects
+        .filter(project__societe=company)
+        .select_related("project", "created_by")
+        .order_by("-created_at")
+    )
+
+    invoice_stats = company.factures.aggregate(
+        total_amount=Sum("montant"),
+        paid_amount=Sum("montant", filter=Q(statut="paid")),
+        overdue_count=Count(
+            "pk",
+            filter=Q(
+                statut__in=["ongoing", "received"],
+                echeance__lt=now,
+            ),
+        ),
+    )
+
+    return render(
+        request,
+        "invoices/societe_detail.html",
+        {
+            "company": company,
+            "invoices": invoices,
+            "dossiers": dossiers,
+            "documents": documents,
+            "activities_count": company.activites.count(),
+            "total_amount": invoice_stats["total_amount"] or 0,
+            "paid_amount": invoice_stats["paid_amount"] or 0,
+            "overdue_count": invoice_stats["overdue_count"],
+        },
+    )
+
+
+@login_required
+@user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)
 def societe_update(request, pk):
     company = get_object_or_404(Societe, pk=pk)
     if request.method == "POST":

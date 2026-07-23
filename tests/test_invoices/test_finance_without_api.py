@@ -24,7 +24,7 @@ from management.models import OAuthToken
 from invoices.services.quality import get_invoice_anomalies
 from invoices.tasks import check_and_send_invoice_reminders
 from invoices.views_dashboard import DashboardView
-from technique.models import TechnicalProject
+from technique.models import DocumentTechnique, TechnicalProject
 from user_access.user_test_functions import can_change_facture_status
 
 
@@ -340,6 +340,29 @@ def test_finance_can_pre_register_company(client, finance_user):
     company = Societe.objects.get(nom="Nouvelle Foncière")
     assert company.is_active is True
     assert company in FactureForm().fields["societe"].queryset
+
+
+@pytest.mark.django_db
+def test_finance_can_view_company_related_content(client, finance_user, invoice, societe, project):
+    project.societe = societe
+    project.save(update_fields=["societe"])
+    document = DocumentTechnique.objects.create(
+        project=project,
+        titre="Promesse de vente",
+        fichier="documents_tech/promesse.pdf",
+    )
+    client.force_login(finance_user)
+
+    response = client.get(f"/finance/societes/{societe.pk}/details/")
+
+    assert response.status_code == 200
+    assert list(response.context["invoices"]) == [invoice]
+    assert list(response.context["dossiers"]) == [project]
+    assert list(response.context["documents"]) == [document]
+    content = response.content.decode()
+    assert "FA-2026-001" in content
+    assert "TECH-001" in content
+    assert "Promesse de vente" in content
 
 
 @pytest.mark.django_db
