@@ -37,13 +37,13 @@
                 suspendu.
             </p>
 
-            {% if cooloff_time %}
+            {% if cooloff_time_str %}
             <div class="cooloff-timer">
                 {% if remaining_seconds %}
                 Veuillez réessayer dans <span id="countdown-timer"
                     data-seconds="{{ remaining_seconds|unlocalize }}">...</span>.
                 {% else %}
-                Veuillez réessayer dans {{ cooloff_time|cut:"PT"|cut:"H" }} heure(s).
+                Veuillez réessayer dans {{ cooloff_time_str }}.
                 {% endif %}
             </div>
 
@@ -54,9 +54,10 @@
                     let totalSeconds = parseInt(timerElement.dataset.seconds, 10);
                     const loginUrl = "{% url 'two_factor:login' %}";
 
-                    console.log("Timer started with seconds:", totalSeconds);
-
                     if (!isNaN(totalSeconds) && totalSeconds > 0) {
+                        const withPlural = (value, singular, plural) =>
+                            `${value} ${value > 1 ? plural : singular}`;
+
                         const updateTimer = function () {
                             if (totalSeconds <= 0) {
                                 window.location.href = loginUrl;
@@ -67,17 +68,16 @@
                             const minutes = Math.floor((totalSeconds % 3600) / 60);
                             const seconds = totalSeconds % 60;
 
-                            let text = "";
+                            const parts = [];
                             if (hours > 0) {
-                                text += hours + " heure(s) ";
+                                parts.push(withPlural(hours, "heure", "heures"));
                             }
-                            // afficher le timeur si supérieur à 0
                             if (minutes > 0 || hours > 0) {
-                                text += minutes + " minute(s) ";
+                                parts.push(withPlural(minutes, "minute", "minutes"));
                             }
-                            text += seconds + " seconde(s)";
+                            parts.push(withPlural(seconds, "seconde", "secondes"));
 
-                            timerElement.innerText = text;
+                            timerElement.innerText = parts.join(" ");
                             totalSeconds--;
                         };
                         updateTimer();

@@ -1,9 +1,25 @@
 from django.shortcuts import render
 from django.utils import timezone
 from axes.models import AccessAttempt
-from axes.helpers import get_client_ip_address
-from django.conf import settings
-import datetime
+from axes.helpers import get_client_ip_address, get_cool_off
+import math
+
+
+def _format_duration(total_seconds):
+    """Retourne une durée lisible en français."""
+    total_seconds = max(0, int(round(total_seconds)))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    parts = []
+
+    if hours:
+        parts.append(f"{hours} heure" + ("s" if hours > 1 else ""))
+    if minutes:
+        parts.append(f"{minutes} minute" + ("s" if minutes > 1 else ""))
+    if seconds and not hours:
+        parts.append(f"{seconds} seconde" + ("s" if seconds > 1 else ""))
+
+    return " ".join(parts) or "quelques secondes"
 
 def custom_lockout_response(request, response=None, credentials=None):
     """
@@ -32,30 +48,26 @@ def custom_lockout_response(request, response=None, credentials=None):
          
     if attempt:
         # Calcule le temps restant
-        cooloff_hours = getattr(settings, 'AXES_COOLOFF_TIME', 0)
-        if cooloff_hours:
+        cooloff_delta = get_cool_off(request)
+        if cooloff_delta:
             lockout_time = attempt.attempt_time
-            cooloff_delta = datetime.timedelta(hours=cooloff_hours)
             unlock_time = lockout_time + cooloff_delta
             remaining = unlock_time - timezone.now()
             
             if remaining.total_seconds() > 0:
-                total_seconds = int(remaining.total_seconds())
+                total_seconds = max(1, math.ceil(remaining.total_seconds()))
                 hours = total_seconds // 3600
                 minutes = (total_seconds % 3600) // 60
                 
                 context['remaining_minutes'] = minutes
-                context['remaining_seconds'] = int(remaining.total_seconds()) # nombre de s
+                context['remaining_seconds'] = total_seconds
                 context['remaining_hours'] = hours
-                
-                # on le représente en string
-                time_str = ""
-                if hours > 0:
-                    time_str += f"{hours} heure(s) "
-                time_str += f"{minutes} minute(s)"
-                context['remaining_time_str'] = time_str
-                
-    context['cooloff_time'] = getattr(settings, 'AXES_COOLOFF_TIME', None)
+
+    cooloff_delta = get_cool_off(request)
+    if cooloff_delta:
+        context['cooloff_time_str'] = _format_duration(
+            cooloff_delta.total_seconds()
+        )
 
     return render(request, 'locked_out.html', context)
 

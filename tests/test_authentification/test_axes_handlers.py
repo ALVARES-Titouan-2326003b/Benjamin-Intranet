@@ -10,6 +10,7 @@ from unittest.mock import Mock
 
 
 from authentication.axes_handlers import (
+    _format_duration,
     get_axes_username,
 )
 
@@ -117,3 +118,19 @@ class TestGetAxesUsername:
         result = get_axes_username(None, None)
 
         assert result is None
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected"),
+    [
+        (1, "1 seconde"),
+        (45, "45 secondes"),
+        (60, "1 minute"),
+        (600, "10 minutes"),
+        (3600, "1 heure"),
+        (3660, "1 heure 1 minute"),
+        (7200, "2 heures"),
+    ],
+)
+def test_format_duration(seconds, expected):
+    assert _format_duration(seconds) == expected
