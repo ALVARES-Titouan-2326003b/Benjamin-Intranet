@@ -570,15 +570,13 @@ L’export CSV est retiré du périmètre.
 
 Le système de candidature ne fait plus partie du périmètre du pôle administratif.
 
-Travail à réaliser :
+Travail réalisé :
 
 - retirer les liens de menu liés aux candidatures ;
 - retirer les pages candidature du tableau de bord administratif ;
-- masquer ou désactiver les routes concernées ;
+- retirer les routes concernées ;
 - retirer les permissions inutiles ;
-- conserver les données existantes tant qu’aucune suppression définitive n’a été validée.
-
-La suppression technique définitive des tables ou modèles liés aux candidatures devra être validée avant intervention.
+- supprimer les modèles et les tables après validation définitive.
 
 ### 13.2 Éléments hors périmètre immédiat
 

@@ -10,9 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 from django.utils.encoding import force_str
 import os
+import sys
 import environ
 
 
@@ -49,7 +51,6 @@ INSTALLED_APPS = [
     'chatbot',
     'management',
     'tests',
-    'recrutement',
     'technique',
     'signatures',
     'django_celery_results',
@@ -99,7 +100,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates', 'invoices/templates', 'management/templates', 'chatbot/templates', 'recrutement/templates', "technique/templates", "signatures/templates"]
+        'DIRS': [BASE_DIR / 'templates', 'invoices/templates', 'management/templates', 'chatbot/templates', "technique/templates", "signatures/templates"]
         ,
         'APP_DIRS': True,
         'OPTIONS': {
@@ -236,8 +237,8 @@ X_FRAME_OPTIONS = "SAMEORIGIN"
 # Nombre d'échecs autorisés avant blocage
 AXES_FAILURE_LIMIT = 5
 
-# Durée du blocage en heures(10 minutes)
-AXES_COOLOFF_TIME = 0.167
+# Durée du blocage
+AXES_COOLOFF_TIME = timedelta(minutes=10)
 
 # Réinitialise le compteur si la connexion réussit
 AXES_RESET_ON_SUCCESS = True
@@ -323,6 +324,12 @@ if os.getenv('DJANGO_ENV') == 'production':
     # Permet de sécuriser les Hosts
     ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'benjamin-intranet.fr').split(',')
     
-    print("\n🔒 MODE PRODUCTION ACTIVÉ : HTTPS forcé, Cookies sécurisés, Debug OFF.\n")
+    print(
+        "\n[PRODUCTION] HTTPS forcé, cookies sécurisés, debug désactivé.\n",
+        file=sys.stderr,
+    )
 else:
-    print("\n⚠️ MODE DÉVELOPPEMENT : HTTPS désactivé, Debug ON.\n")
+    print(
+        "\n[DÉVELOPPEMENT] HTTPS désactivé, debug activé.\n",
+        file=sys.stderr,
+    )
