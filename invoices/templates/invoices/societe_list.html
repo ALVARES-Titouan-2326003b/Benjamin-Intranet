@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load l10n %}
 
 {% block title %}Sociétés{% endblock %}
 
@@ -14,28 +15,31 @@
             <h1>Référentiel des sociétés</h1>
             <p>Gérez les sociétés utilisées dans les factures, dossiers et activités.</p>
         </div>
-        <a href="{% url 'invoices:list' %}" class="btn btn-secondary companies-back-link">
-            <i class="bi bi-arrow-left" aria-hidden="true"></i>
-            Retour aux factures
-        </a>
+        <div class="companies-header-actions">
+            <a href="{% url 'invoices:list' %}" class="btn btn-secondary companies-back-link">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                Retour aux factures
+            </a>
+            <button type="button" class="btn btn-primary" id="company-form-toggle" aria-controls="company-form-panel">
+                <i class="bi {% if editing_company %}bi-pencil{% else %}bi-plus-lg{% endif %}" aria-hidden="true"></i>
+                {% if editing_company %}Modifier la société{% else %}Nouvelle société{% endif %}
+            </button>
+        </div>
     </header>
 
-    <div class="companies-layout">
-        <aside class="company-form-card">
-            <div class="company-form-icon" aria-hidden="true">
+    <details class="company-form-card" id="company-form-panel" {% if editing_company or form.errors %}open{% endif %}>
+        <summary>
+            <span class="company-form-icon" aria-hidden="true">
                 <i class="bi {% if editing_company %}bi-pencil-square{% else %}bi-building-add{% endif %}"></i>
-            </div>
-            <div class="company-form-heading">
-                <h2>{% if editing_company %}Modifier la société{% else %}Ajouter une société{% endif %}</h2>
-                <p>
-                    {% if editing_company %}
-                    Mettez à jour les informations de {{ editing_company.nom }}.
-                    {% else %}
-                    Elle sera ensuite disponible dans tous les modules concernés.
-                    {% endif %}
-                </p>
-            </div>
+            </span>
+            <span class="company-form-heading">
+                <strong>{% if editing_company %}Modifier {{ editing_company.nom }}{% else %}Ajouter une société{% endif %}</strong>
+                <small>{% if editing_company %}Mettez à jour son nom ou sa disponibilité.{% else %}Créez une société disponible dans les modules de l’intranet.{% endif %}</small>
+            </span>
+            <i class="bi bi-chevron-down company-form-chevron" aria-hidden="true"></i>
+        </summary>
 
+        <div class="company-form-content">
             <form method="post" class="company-form">
                 {% csrf_token %}
                 {% if form.non_field_errors %}
@@ -87,41 +91,79 @@
                     </button>
                 </div>
             </form>
-        </aside>
+        </div>
+    </details>
 
-        <section class="companies-card">
-            <div class="companies-card-header">
-                <div>
-                    <div class="companies-title-line">
-                        <h2>Sociétés enregistrées</h2>
-                        <span class="companies-count">{{ companies|length }}</span>
-                    </div>
-                    <p>Vue d’ensemble de leur utilisation et de leur situation financière.</p>
+    <section class="companies-card">
+        <div class="companies-card-header">
+            <div>
+                <div class="companies-title-line">
+                    <h2>Sociétés enregistrées</h2>
+                    <span class="companies-count">{{ companies|length }}</span>
                 </div>
+                <p>Vue d’ensemble de leur utilisation et de leur situation financière.</p>
+            </div>
+            <div class="companies-quick-stats" aria-label="Résumé des sociétés">
+                <span><i class="companies-stat-dot companies-stat-active"></i><strong id="active-company-count">{{ company_stats.active }}</strong> actives</span>
+                <span><i class="companies-stat-dot companies-stat-inactive"></i><strong id="inactive-company-count">{{ company_stats.inactive }}</strong> inactives</span>
+                <span><i class="bi bi-exclamation-circle companies-stat-alert" aria-hidden="true"></i><strong id="overdue-company-count">{{ company_stats.overdue }}</strong> avec retard</span>
+            </div>
+        </div>
+
+        <div class="companies-toolbar">
+            <div class="companies-filter-group">
                 <label class="companies-search">
                     <i class="bi bi-search" aria-hidden="true"></i>
                     <span class="sr-only">Rechercher une société</span>
                     <input type="search" id="company-search" placeholder="Rechercher une société…" autocomplete="off">
                 </label>
+                <div class="companies-status-filter" role="group" aria-label="Filtrer par état">
+                    <button type="button" class="is-active" data-status-filter="all" aria-pressed="true">Toutes</button>
+                    <button type="button" data-status-filter="active" aria-pressed="false">Actives</button>
+                    <button type="button" data-status-filter="inactive" aria-pressed="false">Inactives</button>
+                    <button type="button" data-status-filter="overdue" aria-pressed="false">En retard</button>
+                </div>
             </div>
+            <label class="companies-page-size">
+                <span>Afficher</span>
+                <select id="companies-page-size">
+                    <option value="10">10</option>
+                    <option value="20" selected>20</option>
+                    <option value="40">40</option>
+                </select>
+                <span>par page</span>
+            </label>
+        </div>
 
-            <div class="companies-table-wrap">
+        <div class="companies-table-wrap">
                 <table class="companies-table">
                     <thead>
                         <tr>
-                            <th scope="col" class="company-identity-column">Société</th>
-                            <th scope="col" class="company-number-column">Factures</th>
-                            <th scope="col" class="company-number-column">Dossiers</th>
-                            <th scope="col" class="company-number-column">Activités</th>
-                            <th scope="col" class="company-money-column">Montant total</th>
-                            <th scope="col" class="company-money-column">Payé</th>
-                            <th scope="col" class="company-number-column">Retard</th>
+                            <th scope="col" class="company-identity-column" aria-sort="ascending">
+                                <button type="button" class="company-sort" data-sort="name">Société <i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+                            </th>
+                            <th scope="col" class="company-number-column"><button type="button" class="company-sort" data-sort="invoices">Factures <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                            <th scope="col" class="company-number-column"><button type="button" class="company-sort" data-sort="projects">Dossiers <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                            <th scope="col" class="company-number-column"><button type="button" class="company-sort" data-sort="activities">Activités <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                            <th scope="col" class="company-money-column"><button type="button" class="company-sort" data-sort="total">Montant total <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                            <th scope="col" class="company-money-column"><button type="button" class="company-sort" data-sort="paid">Payé <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                            <th scope="col" class="company-number-column"><button type="button" class="company-sort" data-sort="overdue">Retard <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
                             <th scope="col" class="company-action-column"><span class="sr-only">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody id="companies-table-body">
                         {% for company in companies %}
-                        <tr data-company-row data-company-name="{{ company.nom|lower }}">
+                        <tr
+                            data-company-row
+                            data-name="{{ company.nom|lower }}"
+                            data-status="{% if company.is_active %}active{% else %}inactive{% endif %}"
+                            data-invoices="{{ company.invoice_count }}"
+                            data-projects="{{ company.dossiers.count }}"
+                            data-activities="{{ company.activites.count }}"
+                            data-total="{{ company.total_amount|default:0|unlocalize }}"
+                            data-paid="{{ company.paid_amount|default:0|unlocalize }}"
+                            data-overdue="{{ company.overdue_count }}"
+                        >
                             <td data-label="Société">
                                 <div class="company-identity">
                                     <span class="company-monogram" aria-hidden="true">{{ company.nom|first|upper }}</span>
@@ -171,11 +213,19 @@
                 <div class="companies-empty companies-search-empty" id="companies-search-empty" hidden>
                     <i class="bi bi-search" aria-hidden="true"></i>
                     <strong>Aucun résultat</strong>
-                    <span>Essayez avec un autre nom de société.</span>
+                    <span>Modifiez votre recherche ou vos filtres.</span>
                 </div>
-            </div>
-        </section>
-    </div>
+        </div>
+
+        <footer class="companies-pagination" id="companies-pagination" hidden>
+            <p id="companies-results-summary" aria-live="polite"></p>
+            <nav aria-label="Pagination des sociétés">
+                <button type="button" id="companies-previous-page" aria-label="Page précédente"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                <span id="companies-page-indicator"></span>
+                <button type="button" id="companies-next-page" aria-label="Page suivante"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+            </nav>
+        </footer>
+    </section>
 </div>
 {% endblock %}
 
@@ -183,23 +233,139 @@
 <script>
     (() => {
         const search = document.getElementById('company-search');
-        const rows = document.querySelectorAll('[data-company-row]');
+        const tableBody = document.getElementById('companies-table-body');
+        const rows = Array.from(document.querySelectorAll('[data-company-row]'));
         const emptyState = document.getElementById('companies-search-empty');
+        const statusButtons = document.querySelectorAll('[data-status-filter]');
+        const sortButtons = document.querySelectorAll('[data-sort]');
+        const pageSizeSelect = document.getElementById('companies-page-size');
+        const pagination = document.getElementById('companies-pagination');
+        const summary = document.getElementById('companies-results-summary');
+        const pageIndicator = document.getElementById('companies-page-indicator');
+        const previousButton = document.getElementById('companies-previous-page');
+        const nextButton = document.getElementById('companies-next-page');
+        const formPanel = document.getElementById('company-form-panel');
+        const formToggle = document.getElementById('company-form-toggle');
+
+        if (formToggle && formPanel) {
+            formToggle.addEventListener('click', () => {
+                formPanel.open = true;
+                formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                window.setTimeout(() => formPanel.querySelector('input[type="text"]')?.focus(), 350);
+            });
+        }
 
         if (!search || !rows.length) return;
 
-        search.addEventListener('input', () => {
-            const query = search.value.trim().toLocaleLowerCase('fr');
-            let visibleRows = 0;
+        let currentStatus = 'all';
+        let currentPage = 1;
+        let currentSort = 'name';
+        let sortDirection = 'asc';
 
-            rows.forEach((row) => {
-                const isVisible = row.dataset.companyName.includes(query);
-                row.hidden = !isVisible;
-                if (isVisible) visibleRows += 1;
+        const numericSorts = new Set(['invoices', 'projects', 'activities', 'total', 'paid', 'overdue']);
+
+        const updateQuickStats = () => {
+            document.getElementById('active-company-count').textContent = rows.filter((row) => row.dataset.status === 'active').length;
+            document.getElementById('inactive-company-count').textContent = rows.filter((row) => row.dataset.status === 'inactive').length;
+            document.getElementById('overdue-company-count').textContent = rows.filter((row) => Number(row.dataset.overdue) > 0).length;
+        };
+
+        const normalizeText = (value) => value
+            .toLocaleLowerCase('fr')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+
+        const render = () => {
+            const query = normalizeText(search.value.trim());
+            const pageSize = Number(pageSizeSelect.value);
+            const filteredRows = rows.filter((row) => {
+                const matchesSearch = normalizeText(row.dataset.name).includes(query);
+                const matchesStatus = currentStatus === 'all'
+                    || row.dataset.status === currentStatus
+                    || (currentStatus === 'overdue' && Number(row.dataset.overdue) > 0);
+                return matchesSearch && matchesStatus;
             });
 
-            emptyState.hidden = visibleRows !== 0;
+            filteredRows.sort((first, second) => {
+                const firstValue = numericSorts.has(currentSort) ? Number(first.dataset[currentSort]) : first.dataset[currentSort];
+                const secondValue = numericSorts.has(currentSort) ? Number(second.dataset[currentSort]) : second.dataset[currentSort];
+                const comparison = numericSorts.has(currentSort)
+                    ? firstValue - secondValue
+                    : firstValue.localeCompare(secondValue, 'fr', { sensitivity: 'base' });
+                return sortDirection === 'asc' ? comparison : -comparison;
+            });
+
+            const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+            currentPage = Math.min(currentPage, totalPages);
+            const start = (currentPage - 1) * pageSize;
+            const pageRows = new Set(filteredRows.slice(start, start + pageSize));
+
+            filteredRows.forEach((row) => tableBody.appendChild(row));
+            rows.forEach((row) => {
+                row.hidden = !pageRows.has(row);
+            });
+
+            emptyState.hidden = filteredRows.length !== 0;
+            pagination.hidden = filteredRows.length === 0;
+            summary.textContent = filteredRows.length === 1
+                ? '1 société'
+                : `${filteredRows.length} sociétés · ${start + 1}–${Math.min(start + pageSize, filteredRows.length)} affichées`;
+            pageIndicator.textContent = `${currentPage} / ${totalPages}`;
+            previousButton.disabled = currentPage === 1;
+            nextButton.disabled = currentPage === totalPages;
+        };
+
+        search.addEventListener('input', () => {
+            currentPage = 1;
+            render();
         });
+
+        statusButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                currentStatus = button.dataset.statusFilter;
+                currentPage = 1;
+                statusButtons.forEach((item) => {
+                    const active = item === button;
+                    item.classList.toggle('is-active', active);
+                    item.setAttribute('aria-pressed', String(active));
+                });
+                render();
+            });
+        });
+
+        sortButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const requestedSort = button.dataset.sort;
+                sortDirection = currentSort === requestedSort && sortDirection === 'asc' ? 'desc' : 'asc';
+                currentSort = requestedSort;
+                currentPage = 1;
+                sortButtons.forEach((item) => {
+                    const header = item.closest('th');
+                    const icon = item.querySelector('i');
+                    const active = item === button;
+                    header.removeAttribute('aria-sort');
+                    icon.className = `bi ${active ? (sortDirection === 'asc' ? 'bi-arrow-up' : 'bi-arrow-down') : 'bi-arrow-down-up'}`;
+                    if (active) header.setAttribute('aria-sort', sortDirection === 'asc' ? 'ascending' : 'descending');
+                });
+                render();
+            });
+        });
+
+        pageSizeSelect.addEventListener('change', () => {
+            currentPage = 1;
+            render();
+        });
+        previousButton.addEventListener('click', () => {
+            currentPage -= 1;
+            render();
+        });
+        nextButton.addEventListener('click', () => {
+            currentPage += 1;
+            render();
+        });
+
+        updateQuickStats();
+        render();
     })();
 </script>
 {% endblock %}

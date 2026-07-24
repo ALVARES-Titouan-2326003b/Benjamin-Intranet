@@ -531,23 +531,32 @@ def societe_list_create(request):
     else:
         form = SocieteForm()
 
-    companies = Societe.objects.annotate(
-        invoice_count=Count("factures", distinct=True),
-        total_amount=Sum("factures__montant"),
-        paid_amount=Sum("factures__montant", filter=Q(factures__statut="paid")),
-        overdue_count=Count(
-            "factures",
-            filter=Q(
-                factures__statut__in=["ongoing", "received"],
-                factures__echeance__lt=timezone.now(),
+    companies = list(
+        Societe.objects.annotate(
+            invoice_count=Count("factures", distinct=True),
+            total_amount=Sum("factures__montant"),
+            paid_amount=Sum("factures__montant", filter=Q(factures__statut="paid")),
+            overdue_count=Count(
+                "factures",
+                filter=Q(
+                    factures__statut__in=["ongoing", "received"],
+                    factures__echeance__lt=timezone.now(),
+                ),
+                distinct=True,
             ),
-            distinct=True,
-        ),
-    ).order_by("nom")
+        )
+        .prefetch_related("dossiers", "activites")
+        .order_by("nom")
+    )
+    company_stats = {
+        "active": sum(company.is_active for company in companies),
+        "inactive": sum(not company.is_active for company in companies),
+        "overdue": sum(company.overdue_count > 0 for company in companies),
+    }
     return render(
         request,
         "invoices/societe_list.html",
-        {"companies": companies, "form": form},
+        {"companies": companies, "company_stats": company_stats, "form": form},
     )
 
 
@@ -626,21 +635,35 @@ def societe_update(request, pk):
             return redirect("invoices:societes")
     else:
         form = SocieteForm(instance=company)
-    companies = Societe.objects.annotate(
-        invoice_count=Count("factures", distinct=True),
-        total_amount=Sum("factures__montant"),
-        paid_amount=Sum("factures__montant", filter=Q(factures__statut="paid")),
-        overdue_count=Count(
-            "factures",
-            filter=Q(
-                factures__statut__in=["ongoing", "received"],
-                factures__echeance__lt=timezone.now(),
+    companies = list(
+        Societe.objects.annotate(
+            invoice_count=Count("factures", distinct=True),
+            total_amount=Sum("factures__montant"),
+            paid_amount=Sum("factures__montant", filter=Q(factures__statut="paid")),
+            overdue_count=Count(
+                "factures",
+                filter=Q(
+                    factures__statut__in=["ongoing", "received"],
+                    factures__echeance__lt=timezone.now(),
+                ),
+                distinct=True,
             ),
-            distinct=True,
-        ),
-    ).order_by("nom")
+        )
+        .prefetch_related("dossiers", "activites")
+        .order_by("nom")
+    )
+    company_stats = {
+        "active": sum(item.is_active for item in companies),
+        "inactive": sum(not item.is_active for item in companies),
+        "overdue": sum(item.overdue_count > 0 for item in companies),
+    }
     return render(
         request,
         "invoices/societe_list.html",
-        {"companies": companies, "form": form, "editing_company": company},
+        {
+            "companies": companies,
+            "company_stats": company_stats,
+            "form": form,
+            "editing_company": company,
+        },
     )
