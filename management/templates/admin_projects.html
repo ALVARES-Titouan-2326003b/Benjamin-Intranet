@@ -385,9 +385,11 @@
             <button type="submit" class="btn btn-primary" style="flex:1;">
                <i class="bi bi-check-lg"></i> Enregistrer
             </button>
+            {% if can_archive_dossiers %}
             <button type="button" id="delete-project-btn" class="btn btn-danger" style="flex:0 0 auto;display:none;">
                <i class="bi bi-archive"></i> Archiver
             </button>
+            {% endif %}
             <button type="button" id="cancel-project-btn" class="btn btn-secondary" style="flex:0 0 auto;">
                Annuler
             </button>

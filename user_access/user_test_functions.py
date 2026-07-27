@@ -23,13 +23,21 @@ def has_administratif_access(user):
 
 def has_technique_access(user):
     """
-    Renvoie vrai si un utilisateur peut accéder au pôle technique
+    Renvoie vrai si un utilisateur peut administrer le pôle technique.
+
+    Le statut Django ``is_staff`` ne suffit pas : certains membres du pôle
+    administratif en ont besoin pour le back-office, sans devoir obtenir les
+    droits de modification des dossiers techniques.
 
     Args:
         user (User) :  L'utilisateur
     """
     user = User.objects.get(username=user.username)
-    return user.is_superuser or user.is_staff or user.groups.filter(name="POLE_TECHNIQUE").exists()
+    return (
+        user.is_superuser
+        or user.groups.filter(name="POLE_TECHNIQUE").exists()
+        or user.groups.filter(name="CEO").exists()
+    )
 
 
 def can_view_technical_dossiers(user):

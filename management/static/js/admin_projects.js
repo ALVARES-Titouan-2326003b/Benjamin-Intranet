@@ -422,7 +422,9 @@
         fields.title.innerHTML = project
             ? '<i class="bi bi-pencil-square"></i> Modifier le dossier'
             : '<i class="bi bi-folder-plus"></i> Nouveau dossier';
-        deleteBtn.style.display = project ? 'inline-flex' : 'none';
+        if (deleteBtn) {
+            deleteBtn.style.display = project ? 'inline-flex' : 'none';
+        }
         modal.style.display = 'flex';
         fields.reference.focus();
     }

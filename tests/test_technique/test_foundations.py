@@ -44,7 +44,11 @@ def other_technique_user(user_factory, technique_group):
 @pytest.fixture
 def administrative_user(user_factory, db):
     group, _ = Group.objects.get_or_create(name="POLE_ADMINISTRATIF")
-    user = user_factory(username="admin_pole", email="admin-pole@example.com")
+    user = user_factory(
+        username="admin_pole",
+        email="admin-pole@example.com",
+        is_staff=True,
+    )
     user.groups.add(group)
     return user
 
@@ -445,6 +449,14 @@ def test_administrative_pole_has_read_only_technical_project_access(
     )
     assert denied_action.status_code == 302
     assert not TechnicalProjectAction.objects.filter(title="Action interdite").exists()
+
+    denied_archive = client.post(
+        reverse("technique:dossiers_bulk_archive"),
+        {"project_ids": [project.pk], "archive_comment": "Archivage interdit"},
+    )
+    assert denied_archive.status_code == 302
+    project.refresh_from_db()
+    assert not project.is_archived
 
     assert client.get(reverse("technique:documents_list")).status_code == 302
     assert client.get(reverse("technique:dossier_budget_pdf", args=[project.pk])).status_code == 200

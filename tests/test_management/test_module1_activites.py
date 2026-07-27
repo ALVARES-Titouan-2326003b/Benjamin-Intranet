@@ -36,11 +36,14 @@ def admin_user(db):
 
 @pytest.fixture
 def responsable(db):
-    return User.objects.create_user(
+    user = User.objects.create_user(
         username="responsable_module1",
         email="responsable_module1@example.com",
         password="testpass123",
     )
+    pole_admin, _ = Group.objects.get_or_create(name="POLE_ADMINISTRATIF")
+    user.groups.add(pole_admin)
+    return user
 
 
 @pytest.fixture
@@ -136,6 +139,73 @@ def test_pole_administratif_sees_admin_calendar_toggle(client, admin_user):
 
 
 @pytest.mark.django_db
+def test_superadmin_calendar_includes_activities_assigned_to_other_users(
+    client,
+    admin_user,
+    responsable,
+    dossier,
+    type_activite,
+):
+    client.force_login(admin_user)
+    activity = Activite.objects.create(
+        id="calendar-other-user",
+        titre="Activité d'un collaborateur",
+        dossier=dossier,
+        type=type_activite,
+        date=timezone.datetime(2026, 7, 25, 9, 30, tzinfo=dt_timezone.utc),
+        responsable=responsable,
+        created_by=admin_user,
+    )
+
+    response = client.get("/api/calendar-activities/?month=7&year=2026")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["calendar_scope"] == "all"
+    assert data["calendar_owner_id"] is None
+    assert [item["id"] for item in data["activites"]] == [activity.pk]
+
+
+@pytest.mark.django_db
+def test_regular_user_calendar_remains_limited_to_assigned_activities(
+    client,
+    admin_user,
+    responsable,
+    dossier,
+    type_activite,
+):
+    pole_admin, _ = Group.objects.get_or_create(name="POLE_ADMINISTRATIF")
+    responsable.groups.add(pole_admin)
+    client.force_login(responsable)
+    own_activity = Activite.objects.create(
+        id="calendar-own-user",
+        titre="Mon activité",
+        dossier=dossier,
+        type=type_activite,
+        date=timezone.datetime(2026, 7, 25, 9, 30, tzinfo=dt_timezone.utc),
+        responsable=responsable,
+        created_by=responsable,
+    )
+    Activite.objects.create(
+        id="calendar-admin-user",
+        titre="Activité administrateur",
+        dossier=dossier,
+        type=type_activite,
+        date=timezone.datetime(2026, 7, 26, 9, 30, tzinfo=dt_timezone.utc),
+        responsable=admin_user,
+        created_by=admin_user,
+    )
+
+    response = client.get("/api/calendar-activities/?month=7&year=2026")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["calendar_scope"] == "mine"
+    assert data["calendar_owner_id"] == responsable.pk
+    assert [item["id"] for item in data["activites"]] == [own_activity.pk]
+
+
+@pytest.mark.django_db
 def test_activity_create_update_delete_with_outlook(client, admin_user, responsable, dossier, type_activite):
     client.force_login(admin_user)
     date_value = (timezone.now() + timedelta(days=8)).replace(second=0, microsecond=0)
@@ -226,6 +296,69 @@ def test_activity_rejects_invalid_duration(client, admin_user, dossier, type_act
 
     assert response.status_code == 400
     assert "Durée de créneau invalide" in response.json()["message"]
+
+
+@pytest.mark.django_db
+def test_activity_rejects_responsible_outside_administrative_department(
+    client,
+    admin_user,
+    dossier,
+    type_activite,
+):
+    outside_user = User.objects.create_user(
+        username="hors_pole_administratif",
+        email="hors-pole@example.com",
+        password="testpass123",
+    )
+    client.force_login(admin_user)
+
+    response = _post_json(
+        client,
+        "/api/create-activity/",
+        {
+            "titre": "Affectation invalide",
+            "dossier": dossier.reference,
+            "type": type_activite.type,
+            "date": (timezone.now() + timedelta(days=3)).isoformat(),
+            "responsable": str(outside_user.pk),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == (
+        "Le responsable doit être un membre actif du pôle administratif ou le CEO."
+    )
+    assert not Activite.objects.filter(titre="Affectation invalide").exists()
+
+
+@pytest.mark.django_db
+def test_activity_form_only_lists_administrative_department_and_ceo(
+    client,
+    admin_user,
+    responsable,
+):
+    ceo_group, _ = Group.objects.get_or_create(name="CEO")
+    ceo = User.objects.create_user(
+        username="direction_generale_test",
+        email="direction-generale@example.com",
+        password="testpass123",
+    )
+    ceo.groups.add(ceo_group)
+    outside_user = User.objects.create_user(
+        username="hors_pole_formulaire",
+        email="hors-pole-formulaire@example.com",
+        password="testpass123",
+    )
+    client.force_login(admin_user)
+
+    response = client.get("/administratif/")
+
+    assert response.status_code == 200
+    users = list(response.context["users"])
+    assert admin_user in users
+    assert responsable in users
+    assert ceo in users
+    assert outside_user not in users
 
 
 @pytest.mark.django_db
@@ -610,6 +743,34 @@ def test_admin_dossier_archive_preserves_technical_links(client, admin_user, cat
     document.refresh_from_db()
     assert project.is_archived
     assert document.project == project
+
+
+@pytest.mark.django_db
+def test_administrative_department_cannot_archive_unified_dossier(
+    client,
+    dossier,
+):
+    pole_admin, _ = Group.objects.get_or_create(name="POLE_ADMINISTRATIF")
+    administrative_user = User.objects.create_user(
+        username="admin_staff_sans_droit_archive",
+        email="admin-staff@example.com",
+        password="testpass123",
+        is_staff=True,
+    )
+    administrative_user.groups.add(pole_admin)
+    client.force_login(administrative_user)
+
+    page_response = client.get("/administratif/dossiers/")
+    archive_response = client.post(f"/api/admin-projects/{dossier.pk}/delete/")
+
+    assert page_response.status_code == 200
+    assert b'id="delete-project-btn"' not in page_response.content
+    assert archive_response.status_code == 403
+    assert archive_response.json()["message"] == (
+        "L’archivage d’un dossier unifié est réservé au CEO."
+    )
+    dossier.refresh_from_db()
+    assert not dossier.is_archived
 
 
 @pytest.mark.django_db

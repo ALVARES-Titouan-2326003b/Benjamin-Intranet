@@ -579,6 +579,16 @@ def _is_ceo_user(user):
     return bool(user and user.is_superuser)
 
 
+def _can_archive_admin_dossier(user):
+    return bool(
+        user
+        and (
+            user.is_superuser
+            or user.groups.filter(name="CEO").exists()
+        )
+    )
+
+
 def _get_ceo_calendar_user():
     return (
         Utilisateur.objects.filter(is_superuser=True, is_active=True)
@@ -588,7 +598,23 @@ def _get_ceo_calendar_user():
     )
 
 
+def _administrative_activity_assignees():
+    return (
+        Utilisateur.objects.filter(is_active=True)
+        .filter(
+            Q(is_superuser=True)
+            | Q(groups__name="POLE_ADMINISTRATIF")
+            | Q(groups__name="CEO")
+        )
+        .distinct()
+        .order_by("last_name", "first_name", "username")
+    )
+
+
 def _calendar_scope(request):
+    if _is_ceo_user(request.user):
+        return "all", None
+
     scope = (request.GET.get("calendar_scope") or "mine").strip()
     if scope == "ceo":
         ceo_user = _get_ceo_calendar_user()
@@ -599,6 +625,8 @@ def _calendar_scope(request):
 
 def _apply_calendar_scope(queryset, request):
     scope, owner = _calendar_scope(request)
+    if scope == "all":
+        return queryset, scope, owner
     return queryset.filter(responsable=owner), scope, owner
 
 
@@ -1419,9 +1447,11 @@ def _activity_form_data(data, current_dossier=None, current_societe=None):
     responsable_id = (data.get("responsable") or "").strip()
     responsable = None
     if responsable_id:
-        responsable = Utilisateur.objects.filter(pk=responsable_id, is_active=True).first()
+        responsable = _administrative_activity_assignees().filter(pk=responsable_id).first()
         if not responsable:
-            raise ValueError("Responsable introuvable")
+            raise ValueError(
+                "Le responsable doit être un membre actif du pôle administratif ou le CEO."
+            )
 
     statut = (data.get("statut") or "todo").strip()
     priorite = (data.get("priorite") or "normal").strip()
@@ -1553,11 +1583,7 @@ def administratif_view(request):
     dossiers = TechnicalProject.objects.filter(archived_at__isnull=True).order_by("reference")
     societes = Societe.objects.all().order_by("nom")
     types = TypeActivite.objects.all().order_by("type")
-    users = Utilisateur.objects.filter(is_active=True).order_by(
-        "last_name",
-        "first_name",
-        "username",
-    )
+    users = _administrative_activity_assignees()
     notifications = list(
         NotificationInterne.objects.filter(user=user, is_read=False)
         .select_related("activite")
@@ -1683,6 +1709,7 @@ def admin_dossiers_view(request):
             "societes": Societe.objects.all().order_by("nom"),
             "custom_fields": [_serialize_custom_field(field) for field in custom_fields],
             "search_query": q,
+            "can_archive_dossiers": _can_archive_admin_dossier(request.user),
         },
     )
 
@@ -2424,6 +2451,12 @@ def update_custom_field_view(request, field_id):
 @user_passes_test(has_administratif_access, login_url="/", redirect_field_name=None)
 def delete_project_view(request, project_id):
     try:
+        if not _can_archive_admin_dossier(request.user):
+            return _json_error(
+                "L’archivage d’un dossier unifié est réservé au CEO.",
+                status=403,
+            )
+
         project = TechnicalProject.objects.filter(pk=project_id).first()
         if not project:
             return _json_error("Dossier introuvable", status=404)
