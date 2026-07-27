@@ -43,11 +43,11 @@ def chatbot_history(request):
 # Factures
 
 INVOICE_STATUS_MAP = {
-    'payee': 'Payee', 'payée': 'Payee', 'payé': 'Payee', 'paid': 'Payee',
-    'recu': 'Recue', 'reçue': 'Recue',
-    'en cours': 'En cours', 'progress': 'En cours',
-    'refusee': 'Refusee', 'refusée': 'Refusee', 'rejected': 'Refusee',
-    'archivee': 'Archivee', 'archivée': 'Archivee', 'archive': 'Archivee',
+    'payee': 'paid', 'payée': 'paid', 'payé': 'paid', 'paid': 'paid',
+    'recu': 'received', 'reçue': 'received', 'received': 'received',
+    'en cours': 'ongoing', 'progress': 'ongoing', 'ongoing': 'ongoing',
+    'refusee': 'denied', 'refusée': 'denied', 'rejected': 'denied', 'denied': 'denied',
+    'archivee': 'archived', 'archivée': 'archived', 'archive': 'archived', 'archived': 'archived',
 }
 
 # Résumé ou liste
@@ -138,7 +138,8 @@ def _build_rag_context(question: str, max_docs: int = 4, max_chars_per_doc: int 
 
     Stratégie simple (pas de vecteurs) :
       1. On extrait les mots significatifs de la question (> 3 caractères).
-      2. On filtre les documents qui matchent au moins un mot dans titre/projet/resume.
+      2. On filtre les documents qui matchent au moins un mot dans le titre,
+         le contenu ou le dossier associé.
       3. On tronque le texte_brut pour rester dans les limites du contexte.
     """
     try:
@@ -158,9 +159,19 @@ def _build_rag_context(question: str, max_docs: int = 4, max_chars_per_doc: int 
     from django.db.models import Q
     q_filter = Q()
     for w in words[:6]:          # On limite à 6 mots pour ne pas surcharger la requête
-        q_filter |= Q(resume__icontains=w) | Q(titre__icontains=w) | Q(projet__icontains=w)
+        q_filter |= (
+            Q(resume__icontains=w)
+            | Q(texte_brut__icontains=w)
+            | Q(titre__icontains=w)
+            | Q(project__reference__icontains=w)
+            | Q(project__name__icontains=w)
+        )
 
-    docs = DocumentTechnique.objects.filter(q_filter).order_by("-created_at")[:max_docs]
+    docs = (
+        DocumentTechnique.objects.select_related("project")
+        .filter(q_filter)
+        .order_by("-created_at")[:max_docs]
+    )
 
     if not docs:
         return ""
@@ -187,8 +198,7 @@ def _build_rag_context(question: str, max_docs: int = 4, max_chars_per_doc: int 
         full = f"{content}\n{extra_text}".strip()[:max_chars_per_doc]
 
         blocks.append(
-            f"--- Document : {doc.titre} | Projet : {doc.projet or '—'} | "
-            f"Type : {doc.get_type_document_display()} ---\n{full}"
+            f"--- Document : {doc.titre} | Dossier : {doc.project or '—'} ---\n{full}"
         )
 
     if not blocks:
@@ -329,18 +339,18 @@ def chatbot_query(request):
 
 
 INVOICE_STATUS_MAP = {
-    'payee': 'Payee', 'payée': 'Payee', 'payé': 'Payee', 'paid': 'Payee',
-    'recu': 'Recue', 'reçue': 'Recue',
-    'en cours': 'En cours', 'progress': 'En cours',
-    'refusee': 'Refusee', 'refusée': 'Refusee', 'rejected': 'Refusee',
-    'archivee': 'Archivee', 'archivée': 'Archivee', 'archive': 'Archivee',
+    'payee': 'paid', 'payée': 'paid', 'payé': 'paid', 'paid': 'paid',
+    'recu': 'received', 'reçue': 'received', 'received': 'received',
+    'en cours': 'ongoing', 'progress': 'ongoing', 'ongoing': 'ongoing',
+    'refusee': 'denied', 'refusée': 'denied', 'rejected': 'denied', 'denied': 'denied',
+    'archivee': 'archived', 'archivée': 'archived', 'archive': 'archived', 'archived': 'archived',
 }
 SUMMARY_KEYWORDS = {'stats', 'résumé', 'resume', 'total', 'synthèse', 'synthese'}
 LIST_KEYWORDS    = {'liste', 'toutes', 'all'}
 
 
 def _user_queryset(user):
-    return Facture.objects.select_related('client')
+    return Facture.objects.select_related('client', 'fournisseur', 'dossier')
 
 
 def _invoice_by_id(invoice_id: str, user) -> str:
@@ -348,9 +358,9 @@ def _invoice_by_id(invoice_id: str, user) -> str:
         inv = _user_queryset(user).get(id=invoice_id)
         return (
             f"Facture #{inv.id}\n"
-            f"• État : {inv.statut}\n"
+            f"• État : {inv.get_statut_display()}\n"
             f"• Fournisseur : {inv.fournisseur}\n"
-            f"• Client : {inv.client.nom if inv.client else '—'}\n"
+            f"• Client : {inv.client or '—'}\n"
             f"• Montant : {inv.montant}€\n"
             f"• Dossier : {inv.dossier or '—'}\n"
             f"• Échéance : {inv.echeance.strftime('%d/%m/%Y') if inv.echeance else '—'}\n"
@@ -363,8 +373,8 @@ def _invoice_by_id(invoice_id: str, user) -> str:
 def _invoices_by_status(status: str, user) -> str:
     qs = _user_queryset(user).filter(statut=status).order_by('-echeance')[:5]
     if not qs:
-        return f"Aucune facture avec le statut {status}."
-    lines = [f"Factures '{status}' :"]
+        return f"Aucune facture avec le statut {dict(Facture.STATUS).get(status, status)}."
+    lines = [f"Factures « {dict(Facture.STATUS).get(status, status)} » :"]
     for inv in qs:
         deadline = inv.echeance.strftime('%d/%m') if inv.echeance else '—'
         lines.append(f"• #{inv.id} — {inv.fournisseur} — {inv.montant}€ — {deadline}")
@@ -372,7 +382,7 @@ def _invoices_by_status(status: str, user) -> str:
 
 
 def _invoices_by_supplier(supplier: str, user) -> str:
-    qs = _user_queryset(user).filter(fournisseur__icontains=supplier).order_by('-echeance')[:5]
+    qs = _user_queryset(user).filter(fournisseur__nom__icontains=supplier).order_by('-echeance')[:5]
     if not qs:
         return f"Aucune facture pour « {supplier} »"
     lines = [f"Factures — {supplier} :"]
@@ -514,7 +524,7 @@ def _handle_legal_query(message: str) -> str:
         return f"Erreur inattendue : {e}"
 
 def _user_queryset(user):
-    return Facture.objects.select_related('client')
+    return Facture.objects.select_related('client', 'fournisseur', 'dossier')
 
 
 def _invoice_by_id(invoice_id: str, user) -> str:
@@ -522,9 +532,9 @@ def _invoice_by_id(invoice_id: str, user) -> str:
         inv = _user_queryset(user).get(id=invoice_id)
         return (
             f" Facture #{inv.id}\n"
-            f"• État : {inv.statut}\n"
+            f"• État : {inv.get_statut_display()}\n"
             f"• Fournisseur : {inv.fournisseur}\n"
-            f"• Client : {inv.client.nom if inv.client else '—'}\n"
+            f"• Client : {inv.client or '—'}\n"
             f"• Montant : {inv.montant}€\n"
             f"• Dossier : {inv.dossier or '—'}\n"
             f"• Échéance : {inv.echeance.strftime('%d/%m/%Y') if inv.echeance else '—'}\n"
@@ -537,9 +547,9 @@ def _invoice_by_id(invoice_id: str, user) -> str:
 def _invoices_by_status(status: str, user) -> str:
     qs = _user_queryset(user).filter(statut=status).order_by('-echeance')[:5]
     if not qs:
-        return f"Aucune facture avec le statut {status}."
+        return f"Aucune facture avec le statut {dict(Facture.STATUS).get(status, status)}."
 
-    lines = [f" Factures '{status}' :"]
+    lines = [f"Factures « {dict(Facture.STATUS).get(status, status)} » :"]
     for inv in qs:
         deadline = inv.echeance.strftime('%d/%m') if inv.echeance else '—'
         lines.append(f"• #{inv.id} — {inv.fournisseur} — {inv.montant}€ — {deadline}")
@@ -547,7 +557,7 @@ def _invoices_by_status(status: str, user) -> str:
 
 
 def _invoices_by_supplier(supplier: str, user) -> str:
-    qs = _user_queryset(user).filter(fournisseur__icontains=supplier).order_by('-echeance')[:5]
+    qs = _user_queryset(user).filter(fournisseur__nom__icontains=supplier).order_by('-echeance')[:5]
     if not qs:
         return f" Aucune facture pour « {supplier} »"
 
