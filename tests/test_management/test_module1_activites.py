@@ -116,7 +116,7 @@ def test_superadmin_does_not_see_admin_calendar_toggle(client, admin_user):
     response = client.get("/administratif/")
 
     assert response.status_code == 200
-    assert b'data-calendar-scope="ceo"' not in response.content
+    assert b'data-calendar-scope="admin"' not in response.content
     assert b"Calendrier administrateur" not in response.content
 
 
@@ -134,7 +134,7 @@ def test_pole_administratif_sees_admin_calendar_toggle(client, admin_user):
     response = client.get("/administratif/")
 
     assert response.status_code == 200
-    assert b'data-calendar-scope="ceo"' in response.content
+    assert b'data-calendar-scope="admin"' in response.content
     assert "Calendrier administrateur".encode() in response.content
 
 
@@ -203,6 +203,36 @@ def test_regular_user_calendar_remains_limited_to_assigned_activities(
     assert data["calendar_scope"] == "mine"
     assert data["calendar_owner_id"] == responsable.pk
     assert [item["id"] for item in data["activites"]] == [own_activity.pk]
+
+    admin_response = client.get(
+        "/api/calendar-activities/",
+        {"month": 7, "year": 2026, "calendar_scope": "admin"},
+    )
+
+    assert admin_response.status_code == 200
+    admin_data = admin_response.json()
+    assert admin_data["calendar_scope"] == "admin"
+    assert admin_data["calendar_owner_id"] is None
+    assert admin_data["read_only"] is True
+    assert [item["id"] for item in admin_data["activites"]] == [
+        own_activity.pk,
+        "calendar-admin-user",
+    ]
+
+    week_response = client.get(
+        "/api/calendar-activities-week/",
+        {"date": "2026-07-25", "calendar_scope": "admin"},
+    )
+
+    assert week_response.status_code == 200
+    week_data = week_response.json()
+    assert week_data["calendar_scope"] == "admin"
+    assert week_data["calendar_owner_id"] is None
+    assert week_data["read_only"] is True
+    assert [item["id"] for item in week_data["activites"]] == [
+        own_activity.pk,
+        "calendar-admin-user",
+    ]
 
 
 @pytest.mark.django_db

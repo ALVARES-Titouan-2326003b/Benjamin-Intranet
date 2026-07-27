@@ -589,15 +589,6 @@ def _can_archive_admin_dossier(user):
     )
 
 
-def _get_ceo_calendar_user():
-    return (
-        Utilisateur.objects.filter(is_superuser=True, is_active=True)
-        .distinct()
-        .order_by("last_name", "first_name", "username")
-        .first()
-    )
-
-
 def _administrative_activity_assignees():
     return (
         Utilisateur.objects.filter(is_active=True)
@@ -616,18 +607,23 @@ def _calendar_scope(request):
         return "all", None
 
     scope = (request.GET.get("calendar_scope") or "mine").strip()
-    if scope == "ceo":
-        ceo_user = _get_ceo_calendar_user()
-        if ceo_user:
-            return scope, ceo_user
+    if scope in {"admin", "ceo"}:
+        # ``ceo`` reste accepté pour les anciens liens, mais le calendrier
+        # administrateur correspond désormais à la même vue globale que celle
+        # du superadmin.
+        return "admin", None
     return "mine", request.user
 
 
 def _apply_calendar_scope(queryset, request):
     scope, owner = _calendar_scope(request)
-    if scope == "all":
+    if scope in {"all", "admin"}:
         return queryset, scope, owner
     return queryset.filter(responsable=owner), scope, owner
+
+
+def _calendar_is_read_only(scope, user):
+    return scope == "admin" and not _is_ceo_user(user)
 
 
 def _can_mutate_calendar_activity(user, activity):
@@ -1597,7 +1593,6 @@ def administratif_view(request):
         .first()
     )
 
-    ceo_calendar_user = _get_ceo_calendar_user()
     context = {
         "pole_name": "Administratif",
         "conversations": conversations,
@@ -1609,10 +1604,7 @@ def administratif_view(request):
         "societes": societes,
         "types": types,
         "users": users,
-        "ceo_calendar_user": ceo_calendar_user,
-        "show_ceo_calendar_toggle": bool(
-            ceo_calendar_user and not _is_ceo_user(user) and ceo_calendar_user.pk != user.pk
-        ),
+        "show_admin_calendar_toggle": not _is_ceo_user(user),
         "current_calendar_user": user,
         "notifications": notifications,
         "notification_count": len(notifications),
@@ -2013,7 +2005,7 @@ def get_calendar_activities(request):
                 "year": year,
                 "calendar_scope": scope,
                 "calendar_owner_id": owner.pk if owner else None,
-                "read_only": scope == "ceo" and not _is_ceo_user(request.user),
+                "read_only": _calendar_is_read_only(scope, request.user),
             }
         )
 
@@ -2067,7 +2059,7 @@ def get_calendar_activities_week(request):
                 "week_end": sunday.isoformat(),
                 "calendar_scope": scope,
                 "calendar_owner_id": owner.pk if owner else None,
-                "read_only": scope == "ceo" and not _is_ceo_user(request.user),
+                "read_only": _calendar_is_read_only(scope, request.user),
             }
         )
 

@@ -55,15 +55,14 @@
 
       <div id="admin-calendar-config"
            data-current-user-id="{{ current_calendar_user.pk }}"
-           data-ceo-user-id="{% if ceo_calendar_user %}{{ ceo_calendar_user.pk }}{% endif %}"
            data-default-scope="mine"></div>
 
-      {% if show_ceo_calendar_toggle %}
+      {% if show_admin_calendar_toggle %}
       <div class="cal-view-toggle" style="justify-content:flex-start;margin:.25rem 0 .75rem;">
          <button type="button" class="cal-view-btn active" data-calendar-scope="mine">
             <i class="bi bi-person"></i> Mon calendrier
          </button>
-         <button type="button" class="cal-view-btn" data-calendar-scope="ceo">
+         <button type="button" class="cal-view-btn" data-calendar-scope="admin">
             <i class="bi bi-eye"></i> Calendrier administrateur
          </button>
       </div>
