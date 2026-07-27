@@ -206,6 +206,11 @@ class FactureListView(FilterView):
 
     def get_context_data( self, *, object_list = ..., **kwargs):
         context = super().get_context_data(**kwargs)
+        query_params = self.request.GET.copy()
+        query_params.pop("page", None)
+        query_params.pop("export", None)
+        context["invoice_query_params"] = query_params.urlencode()
+
         can_manage_finance = has_finance_access(self.request.user) or has_ceo_access(self.request.user)
         context['access_finance'] = can_manage_finance
         context['can_create_invoice'] = can_create_facture(self.request.user)

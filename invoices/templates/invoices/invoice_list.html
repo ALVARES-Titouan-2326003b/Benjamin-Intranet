@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'invoices/css/invoice_list.css' %}">
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-between align-center mb-4"
     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -22,10 +26,10 @@
         </a>
         {% endif %}
         {% if can_export_invoices %}
-        <a class="btn btn-outline-primary" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}export=xlsx">
+        <a class="btn btn-outline-primary" href="?{% if invoice_query_params %}{{ invoice_query_params }}&amp;{% endif %}export=xlsx">
             <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
         </a>
-        <a class="btn btn-outline-primary" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}export=pdf">
+        <a class="btn btn-outline-primary" href="?{% if invoice_query_params %}{{ invoice_query_params }}&amp;{% endif %}export=pdf">
             <i class="bi bi-file-earmark-pdf"></i> Export PDF
         </a>
         {% endif %}
@@ -269,25 +273,62 @@
 </form>
 {% endif %}
 
-{% if page_obj.has_previous or page_obj.has_next %}
-<div class="d-flex justify-center"
-    style="display: flex; justify-content: flex-end; align-items: center; gap: 1rem; margin-top: 1rem;">
-    {% if page_obj.has_previous %}
-    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}"
-        class="btn btn-secondary">
-        Precedent
-    </a>
-    {% endif %}
+{% if page_obj.paginator.count %}
+<footer class="invoice-pagination">
+    <p class="invoice-pagination__summary">
+        Factures {{ page_obj.start_index }} à {{ page_obj.end_index }} sur {{ page_obj.paginator.count }}
+    </p>
 
-    <span style="font-size: 0.9rem; color: var(--text-secondary);">Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_other_pages %}
+    <nav class="invoice-pagination__nav" aria-label="Pagination des factures">
+        {% if page_obj.has_previous %}
+        <a class="invoice-pagination__link"
+            href="?{% if invoice_query_params %}{{ invoice_query_params }}&amp;{% endif %}page=1"
+            aria-label="Première page"
+            title="Première page">
+            <i class="bi bi-chevron-double-left" aria-hidden="true"></i>
+        </a>
+        <a class="invoice-pagination__link"
+            href="?{% if invoice_query_params %}{{ invoice_query_params }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+            aria-label="Page précédente">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+        </a>
+        {% else %}
+        <span class="invoice-pagination__link is-disabled" aria-hidden="true">
+            <i class="bi bi-chevron-double-left"></i>
+        </span>
+        <span class="invoice-pagination__link is-disabled" aria-hidden="true">
+            <i class="bi bi-chevron-left"></i>
+        </span>
+        {% endif %}
 
-    {% if page_obj.has_next %}
-    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}"
-        class="btn btn-secondary">
-        Suivant
-    </a>
+        <span class="invoice-pagination__position" aria-current="page">
+            Page <strong>{{ page_obj.number }}</strong> sur {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+        <a class="invoice-pagination__link"
+            href="?{% if invoice_query_params %}{{ invoice_query_params }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+            aria-label="Page suivante">
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </a>
+        <a class="invoice-pagination__link"
+            href="?{% if invoice_query_params %}{{ invoice_query_params }}&amp;{% endif %}page={{ page_obj.paginator.num_pages }}"
+            aria-label="Dernière page"
+            title="Dernière page">
+            <i class="bi bi-chevron-double-right" aria-hidden="true"></i>
+        </a>
+        {% else %}
+        <span class="invoice-pagination__link is-disabled" aria-hidden="true">
+            <i class="bi bi-chevron-right"></i>
+        </span>
+        <span class="invoice-pagination__link is-disabled" aria-hidden="true">
+            <i class="bi bi-chevron-double-right"></i>
+        </span>
+        {% endif %}
+    </nav>
     {% endif %}
-</div>
+</footer>
 {% endif %}
 
 <script>

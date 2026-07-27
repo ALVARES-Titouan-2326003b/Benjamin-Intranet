@@ -379,6 +379,47 @@ def test_invoice_company_filter_uses_registered_companies(client, finance_user, 
 
 
 @pytest.mark.django_db
+def test_invoice_list_is_paginated_and_preserves_filters(
+    client,
+    finance_user,
+    supplier,
+    client_entity,
+):
+    Facture.objects.bulk_create(
+        [
+            Facture(
+                id=f"FAC-PAGE-{index:02d}",
+                numero_facture=f"PAGE-{index:02d}",
+                fournisseur=supplier,
+                client=client_entity,
+                montant=index,
+            )
+            for index in range(45)
+        ]
+    )
+    client.force_login(finance_user)
+
+    response = client.get(
+        "/finance/",
+        {"numero_facture": "PAGE", "page": 2},
+    )
+
+    assert response.status_code == 200
+    assert response.context["page_obj"].number == 2
+    assert response.context["page_obj"].paginator.count == 45
+    assert len(response.context["object_list"]) == 20
+    assert response.context["invoice_query_params"] == "numero_facture=PAGE"
+
+    content = response.content.decode()
+    assert "Factures 21 à 40 sur 45" in content
+    assert "Page <strong>2</strong> sur 3" in content
+    assert 'aria-label="Première page"' in content
+    assert 'aria-label="Dernière page"' in content
+    assert "?numero_facture=PAGE&amp;page=1" in content
+    assert "page=2&amp;page=" not in content
+
+
+@pytest.mark.django_db
 def test_non_finance_user_cannot_manage_companies(client):
     group, _ = Group.objects.get_or_create(name="POLE_TECHNIQUE")
     user = User.objects.create_user(username="company-denied")
