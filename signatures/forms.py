@@ -32,9 +32,11 @@ class TamponForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        queryset = Societe.objects.filter(is_active=True)
+        queryset = Societe.objects.filter(is_active=True, tampon__isnull=True)
         if self.instance.societe_id:
-            queryset = Societe.objects.filter(Q(is_active=True) | Q(pk=self.instance.societe_id))
+            queryset = Societe.objects.filter(
+                Q(is_active=True, tampon__isnull=True) | Q(pk=self.instance.societe_id)
+            )
         self.fields["societe"].queryset = queryset.order_by("nom")
 
 

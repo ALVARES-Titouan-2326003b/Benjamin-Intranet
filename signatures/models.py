@@ -38,10 +38,10 @@ class Tampon(models.Model):
     Attributes:
         image (ImageFieldFile): Fichier image du tampon
     """
-    societe = models.ForeignKey(
+    societe = models.OneToOneField(
         "invoices.Societe",
         on_delete=models.PROTECT,
-        related_name="tampons",
+        related_name="tampon",
         verbose_name="Société",
     )
     image = models.ImageField(upload_to="tampons/")
@@ -52,7 +52,7 @@ class Tampon(models.Model):
         ordering = ["societe__nom"]
 
     def __str__(self):
-        return self.societe
+        return str(self.societe)
 
 
 class Document(models.Model):

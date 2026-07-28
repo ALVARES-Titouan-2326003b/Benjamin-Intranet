@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.utils import timezone
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from .models import (
     Document,
@@ -462,7 +462,14 @@ def ma_signature(request):
     else:
         form = SignatureUserForm(instance=instance)
 
-    return render(request, "signatures/ma_signature.html", {"form": form})
+    return render(
+        request,
+        "signatures/ma_signature.html",
+        {
+            "form": form,
+            "signature_user": instance,
+        },
+    )
 
 
 @login_required
@@ -493,6 +500,27 @@ def tampon_edit(request):
             "tampons": Tampon.objects.select_related("societe").order_by("societe__nom"),
         },
     )
+
+
+@login_required
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
+@user_passes_test(_can_manage_signature_assets, login_url="/signatures", redirect_field_name=None)
+@require_POST
+def tampon_delete(request, pk):
+    """
+    Supprime un tampon et libère sa société pour un nouveau tampon.
+    """
+    tampon = get_object_or_404(Tampon, pk=pk)
+    company_name = tampon.societe.nom
+    image_name = tampon.image.name
+    image_storage = tampon.image.storage
+
+    tampon.delete()
+    if image_name:
+        image_storage.delete(image_name)
+
+    messages.success(request, f"Le tampon de {company_name} a été supprimé.")
+    return redirect("signatures:tampon_edit")
 
 
 @login_required

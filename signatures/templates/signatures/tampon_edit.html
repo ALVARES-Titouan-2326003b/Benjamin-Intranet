@@ -102,7 +102,13 @@
                         <img src="{{ item.image.url }}" alt="Tampon {{ item.societe }}" style="max-width:100%; max-height:120px;">
                     </div>
                     {% endif %}
-                    <div style="display:flex; justify-content:flex-end;">
+                    <div style="display:flex; justify-content:flex-end; gap:.5rem;">
+                        <form method="post" action="{% url 'signatures:tampon_delete' item.pk %}" onsubmit="return confirm('Supprimer définitivement le tampon de {{ item.societe|escapejs }} ?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Supprimer
+                            </button>
+                        </form>
                         <a href="{% url 'signatures:tampon_edit' %}?tampon_id={{ item.pk }}" class="btn btn-secondary">
                             <i class="bi bi-pencil-square"></i> Modifier
                         </a>
