@@ -16,6 +16,16 @@ document.addEventListener('DOMContentLoaded', () => {
     input?.addEventListener('input', showReplyForm);
     input?.addEventListener('change', showReplyForm);
 
+    document.querySelectorAll('.journal-conversation').forEach(button => {
+        button.addEventListener('click', () => activateConversation(button));
+    });
+    document.querySelectorAll('.journal-remind-btn').forEach(button => {
+        button.addEventListener('click', () => openConversationComposer(button));
+    });
+    document
+        .querySelector('.journal-composer__close')
+        ?.addEventListener('click', closeReplyForm);
+
     document.querySelectorAll('.gmail-status-select').forEach(select => {
         select.dataset.previous = select.value;
         select.addEventListener('change', updateConversationStatus);
@@ -28,6 +38,45 @@ document.addEventListener('DOMContentLoaded', () => {
         .getElementById('sync-gmail-journal-btn')
         ?.addEventListener('click', syncGmailJournal);
 });
+
+function activateConversation(button) {
+    const targetId = button?.dataset.conversationTarget;
+    if (!targetId) return;
+
+    document.querySelectorAll('.journal-conversation').forEach(item => {
+        const isActive = item === button;
+        item.classList.toggle('is-active', isActive);
+        item.setAttribute('aria-selected', String(isActive));
+    });
+    document.querySelectorAll('.journal-detail-panel').forEach(panel => {
+        const isActive = panel.id === targetId;
+        panel.hidden = !isActive;
+        panel.classList.toggle('is-active', isActive);
+    });
+    closeReplyForm();
+}
+
+function openConversationComposer(button) {
+    const pickerValue = button?.dataset.pickerValue || '';
+    const input = document.getElementById('email-select');
+    if (!input || !pickerValue) return;
+
+    input.value = pickerValue;
+    showReplyForm();
+    document.getElementById('reply-form')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+    });
+}
+
+function closeReplyForm() {
+    const form = document.getElementById('reply-form');
+    const input = document.getElementById('email-select');
+    const error = document.getElementById('email-error');
+    if (form) form.style.display = 'none';
+    if (input) input.value = '';
+    if (error) error.style.display = 'none';
+}
 
 function selectedConversation() {
     const value = document.getElementById('email-select')?.value.trim();
@@ -148,6 +197,19 @@ async function updateConversationStatus(event) {
         return;
     }
     select.dataset.previous = select.value;
+    updateConversationStatusUi(select);
+}
+
+function updateConversationStatusUi(select) {
+    const conversationButton = document.querySelector(
+        `.journal-conversation[data-conversation-id="${select.dataset.conversationId}"]`,
+    );
+    const status = conversationButton?.querySelector('.journal-status');
+    if (!status) return;
+
+    status.className = `journal-status journal-status--${select.value}`;
+    const dot = status.querySelector('i')?.outerHTML || '<i aria-hidden="true"></i>';
+    status.innerHTML = `${dot}${escapeHtml(select.options[select.selectedIndex]?.text || '')}`;
 }
 
 async function addConversationNote(event) {
@@ -172,10 +234,11 @@ async function addConversationNote(event) {
             alert(data.message || 'La note n’a pas pu être ajoutée.');
             return;
         }
-        const events = button.closest('.email-item').querySelector('.gmail-events');
+        const events = button.closest('.journal-detail-panel')?.querySelector('.gmail-events');
+        if (!events) return;
         events.insertAdjacentHTML(
             'afterbegin',
-            `<div>${escapeHtml(data.created_at)} · Note — ${escapeHtml(data.note)}</div>`,
+            `<div><i class="bi bi-dot" aria-hidden="true"></i><span>${escapeHtml(data.created_at)} · Note</span><p>${escapeHtml(data.note)}</p></div>`,
         );
         input.value = '';
     } finally {

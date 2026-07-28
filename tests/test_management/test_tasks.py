@@ -173,6 +173,38 @@ def test_manual_reminder_keeps_complete_email_history(client, admin_gmail_user):
 
 
 @pytest.mark.django_db
+def test_reminder_journal_uses_master_detail_layout(client, admin_gmail_user):
+    open_conversation = GmailConversation.objects.create(
+        owner=admin_gmail_user,
+        thread_id="thread-open-layout",
+        subject="Pièces à transmettre",
+        recipient="notaire@example.com",
+        status="open",
+        sent_at=timezone.now() - timedelta(days=2),
+    )
+    replied_conversation = GmailConversation.objects.create(
+        owner=admin_gmail_user,
+        thread_id="thread-replied-layout",
+        subject="Dossier régularisé",
+        recipient="client@example.com",
+        status="replied",
+        sent_at=timezone.now() - timedelta(days=1),
+    )
+    client.force_login(admin_gmail_user)
+
+    response = client.get(reverse("admin_view"))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "reminder-journal__workspace" in content
+    assert f'data-conversation-target="journal-conversation-{replied_conversation.pk}"' in content
+    assert f'id="journal-conversation-{open_conversation.pk}"' in content
+    assert 'id="reply-form"' in content
+    assert content.count("Relancer cette conversation") == 1
+    assert "Une réponse a été détectée" in content
+
+
+@pytest.mark.django_db
 def test_celery_journal_sends_only_open_conversations(admin_gmail_user):
     open_conversation = GmailConversation.objects.create(
         owner=admin_gmail_user,
