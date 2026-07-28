@@ -2,7 +2,7 @@ import io
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -79,7 +79,11 @@ class FactureListView(FilterView):
             super()
             .get_queryset()
             .select_related('collaborateur', 'demandeur', 'dossier', 'societe')
-            .order_by('-date_soumission', '-id')
+            .order_by(
+                F('date_facture').desc(nulls_last=True),
+                '-date_soumission',
+                '-id',
+            )
         )
         user = self.request.user
         

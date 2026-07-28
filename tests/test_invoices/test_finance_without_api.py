@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth.models import Group, User
@@ -376,6 +376,42 @@ def test_invoice_company_filter_uses_registered_companies(client, finance_user, 
     assert '<select name="societe"' in content
     assert f'value="{societe.pk}" selected' in content
     assert list(response.context["filter"].qs) == [invoice]
+
+
+@pytest.mark.django_db
+def test_invoice_list_is_ordered_by_most_recent_invoice_date(
+    client,
+    finance_user,
+    supplier,
+    client_entity,
+):
+    invoices = [
+        Facture.objects.create(
+            id=invoice_id,
+            numero_facture=invoice_id,
+            fournisseur=supplier,
+            client=client_entity,
+            montant=100,
+            date_facture=invoice_date,
+        )
+        for invoice_id, invoice_date in (
+            ("FAC-OLDER", date(2026, 1, 15)),
+            ("FAC-NEWEST", date(2026, 3, 20)),
+            ("FAC-MIDDLE", date(2026, 2, 10)),
+            ("FAC-WITHOUT-DATE", None),
+        )
+    ]
+    client.force_login(finance_user)
+
+    response = client.get("/finance/")
+
+    assert response.status_code == 200
+    assert list(response.context["object_list"]) == [
+        invoices[1],
+        invoices[2],
+        invoices[0],
+        invoices[3],
+    ]
 
 
 @pytest.mark.django_db

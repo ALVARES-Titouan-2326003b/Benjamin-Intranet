@@ -10,6 +10,7 @@ urlpatterns = [
     path("<int:pk>/envoyer/", views.envoyer_signature, name="envoyer_signature"),
     path("ma-signature/", views.ma_signature, name="ma_signature"),
     path("tampon/", views.tampon_edit, name="tampon_edit"),
+    path("tampon/<int:pk>/supprimer/", views.tampon_delete, name="tampon_delete"),
     path("<int:pk>/placer/", views.placer_signature, name="placer_signature"),
     path("<int:pk>/suggestions-placement/", views.signature_placement_suggestions, name="placement_suggestions"),
     path("<int:pk>/apercu-page/", views.signature_page_preview, name="page_preview"),
