@@ -248,22 +248,22 @@ class TestSignerPdfAvecImagesPosition:
 
         assert image_reader.getSize() == (20, 10)
 
-    def test_image_signature_rotation_pdf_corrigee(self, tmp_path):
+    def test_image_signature_conserve_son_orientation(self, tmp_path):
         """
-        Test: La rotation forcée de la signature est appliquée avant insertion PDF.
+        Test: L'insertion PDF ne retourne pas une signature déjà bien orientée.
         """
         from PIL import Image
         from signatures.services.pdf_signing import _normalize_pdf_image
 
-        image_path = tmp_path / "signature_retournee.png"
+        image_path = tmp_path / "signature_orientee.png"
         image = Image.new("RGB", (2, 1), "white")
         image.putpixel((0, 0), (0, 0, 0))
         image.save(image_path, format="PNG")
 
-        rotated = _normalize_pdf_image(image_path, rotate_degrees=180)
+        normalized = _normalize_pdf_image(image_path)
 
-        assert rotated.getpixel((0, 0)) == (255, 255, 255)
-        assert rotated.getpixel((1, 0)) == (0, 0, 0)
+        assert normalized.getpixel((0, 0)) == (0, 0, 0)
+        assert normalized.getpixel((1, 0)) == (255, 255, 255)
 
 
     def test_positions_limites(

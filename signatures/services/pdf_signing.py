@@ -40,21 +40,19 @@ def _fit_signature_text(text, width, area_height, scale_pct):
     return minimum_font_size, minimum_font_size * 1.2, lines
 
 
-def _normalize_pdf_image(path, rotate_degrees=0):
+def _normalize_pdf_image(path):
     """
     Prépare une image en appliquant l'orientation EXIF avant insertion PDF.
     ReportLab ne corrige pas toujours cette orientation tout seul.
     """
     with Image.open(path) as image:
         image = ImageOps.exif_transpose(image)
-        if rotate_degrees:
-            image = image.rotate(rotate_degrees, expand=True)
         has_alpha = "A" in image.getbands() or "transparency" in image.info
         return image.convert("RGBA" if has_alpha else "RGB")
 
 
-def _load_pdf_image(path, rotate_degrees=0):
-    image = _normalize_pdf_image(path, rotate_degrees=rotate_degrees)
+def _load_pdf_image(path):
+    image = _normalize_pdf_image(path)
 
     buffer = BytesIO()
     image.save(buffer, format="PNG")
@@ -207,8 +205,7 @@ def signer_pdf_avec_images_position(
 
     signature_path = signature_user.image.path
     tampon_path = tampon.image.path if tampon else None
-    # Les signatures scannées arrivent inversées dans le PDF malgré l'aperçu web.
-    signature_image = _load_pdf_image(signature_path, rotate_degrees=180)
+    signature_image = _load_pdf_image(signature_path)
     tampon_image = _load_pdf_image(tampon_path) if tampon_path else None
 
     metrics = get_signature_block_metrics(
