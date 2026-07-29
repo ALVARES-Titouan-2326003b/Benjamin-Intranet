@@ -81,11 +81,18 @@
       {% endif %}
       {% endif %}
 
-      {% if nav_can_signatures %}
+      {% if nav_can_signatures or nav_can_invoices and not nav_can_finance %}
       <div class="nav-section-label">OUTILS</div>
+      {% if nav_can_invoices and not nav_can_finance %}
+      <a href="{% url 'invoices:list' %}" class="nav-item {% if '/finance/' in p %}active{% endif %}">
+        <i class="bi bi-receipt"></i> Factures
+      </a>
+      {% endif %}
+      {% if nav_can_signatures %}
       <a href="{% url 'signatures:document_list' %}" class="nav-item {% if '/signatures/' in p %}active{% endif %}">
         <i class="bi bi-pen"></i> Signatures
       </a>
+      {% endif %}
       {% endif %}
 
       {% endwith %}

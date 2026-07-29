@@ -20,7 +20,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from user_access.user_test_functions import (
     has_finance_access,
     has_ceo_access,
-    has_all_poles_access,
     can_read_facture,
     can_create_facture,
     can_edit_facture,
@@ -28,7 +27,12 @@ from user_access.user_test_functions import (
     has_collaborateur_access,
 )
 from .filters import FactureFilter
-from .forms import FactureForm, PieceJointeForm, SocieteForm
+from .forms import (
+    FactureForm,
+    InvoiceReminderSettingsForm,
+    PieceJointeForm,
+    SocieteForm,
+)
 from .models import (
     Facture,
     PieceJointe,
@@ -50,6 +54,14 @@ USER_GROUP_TO_INVOICE_SERVICE = {
 }
 
 
+def visible_invoices_for(user, queryset=None):
+    """Applique la portée de consultation des factures de manière centralisée."""
+    queryset = queryset if queryset is not None else Facture.objects.all()
+    if has_finance_access(user):
+        return queryset
+    return queryset.filter(created_by=user)
+
+
 def get_invoice_service_for_user(user):
     group_names = set(user.groups.values_list("name", flat=True))
     for group_name, service in USER_GROUP_TO_INVOICE_SERVICE.items():
@@ -66,8 +78,8 @@ class FactureListView(FilterView):
     Vue affichant la liste des factures avec filtres.
 
     Permissions:
-        - Finance/CEO : Voir toutes les factures
-        - Collaborateur : Voir uniquement ses factures assignées
+        - Superadmin/Finance : voir toutes les factures
+        - Autres utilisateurs : voir uniquement les factures qu'ils ont créées
     """
     model = Facture
     paginate_by = 20
@@ -87,12 +99,7 @@ class FactureListView(FilterView):
         )
         user = self.request.user
         
-        # Tous les pôles ont une vue d'ensemble des factures.
-        if has_all_poles_access(user):
-            return qs
-            
-        # Sinon -> Voir seulement ses factures
-        return qs.filter(Q(collaborateur=user) | Q(created_by=user) | Q(demandeur=user))
+        return visible_invoices_for(user, qs)
 
     def get(self, request, *args, **kwargs):
         # Vérifier si c'est une demande d'export
@@ -225,21 +232,14 @@ class FactureListView(FilterView):
         context['can_view_exports'] = can_manage_finance
         context['can_view_anomalies'] = can_manage_finance
         if can_manage_finance:
-            from django.contrib.auth import get_user_model
-
-            user_model = get_user_model()
-            context["gmail_senders"] = (
-                user_model.objects.filter(
-                    is_active=True,
-                    oauth_token__provider="google",
-                )
-                .distinct()
-                .order_by("last_name", "first_name", "username")
-            )
-            context["reminder_settings"] = (
+            reminder_settings = (
                 InvoiceReminderSettings.objects.select_related("sender")
                 .filter(pk=1)
                 .first()
+            )
+            context["reminder_settings"] = reminder_settings
+            context["reminder_settings_form"] = InvoiceReminderSettingsForm(
+                instance=reminder_settings or InvoiceReminderSettings()
             )
         return context
 
@@ -249,8 +249,8 @@ class FactureDetailView(DetailView):
     Vue pour afficher les détails d'une facture
 
     Permissions:
-        - Finance/CEO : Voir toutes les factures
-        - Collaborateur : Voir uniquement ses factures assignées
+        - Superadmin/Finance : voir toutes les factures
+        - Autres utilisateurs : voir uniquement les factures qu'ils ont créées
     """
     model = Facture
     template_name = 'invoices/invoice_detail.html'
@@ -259,12 +259,7 @@ class FactureDetailView(DetailView):
         qs = super().get_queryset().select_related('collaborateur', 'demandeur', 'dossier', 'societe')
         user = self.request.user
         
-        # Tous les pôles ont une vue d'ensemble des factures.
-        if has_all_poles_access(user):
-            return qs
-            
-        # Sinon -> Voir seulement ses factures
-        return qs.filter(Q(collaborateur=user) | Q(created_by=user) | Q(demandeur=user))
+        return visible_invoices_for(user, qs)
 
     def get_context_data(self, *, object_list=..., **kwargs):
         context = super().get_context_data(**kwargs)
@@ -370,15 +365,9 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
     template_name = 'invoices/invoice_form.html'
 
     def get_queryset(self):
-        # Hors finance/CEO, les utilisateurs ne peuvent éditer que leurs propres factures.
+        # Hors superadmin/finance, seule la personne ayant créé la facture peut l'éditer.
         queryset = super().get_queryset()
-        if not can_change_facture_status(self.request.user):
-            return queryset.filter(
-                Q(collaborateur=self.request.user)
-                | Q(created_by=self.request.user)
-                | Q(demandeur=self.request.user)
-            )
-        return queryset
+        return visible_invoices_for(self.request.user, queryset)
 
     def get_form_class(self):
         # Seul le pôle finance garde le champ statut en édition.
@@ -420,43 +409,42 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
 class ManualInvoiceRemindersView(View):
     """
     Vue pour déclencher manuellement les relances de factures.
-    Récupère le délai de relance depuis le formulaire et le passe
-    à la fonction tasks.check_and_send_invoice_reminders()
+    Utilise la configuration centralisée et déclenche immédiatement
+    la vérification des factures échues.
     """
 
     def post(self, request, *args, **kwargs):
-        # Récupérer le délai de relance depuis le formulaire
-        try:
-            delai_relance = int(request.POST.get('delai_relance', 1))
-
-            # Validation : minimum 1 jour
-            if delai_relance < 1:
-                messages.error(request, "Le délai de relance doit être au minimum de 1 jour.")
-                return redirect('invoices:list')
-
-        except (ValueError, TypeError):
-            messages.error(request, "Délai de relance invalide.")
-            return redirect('invoices:list')
-
-        # Importer la tâche et l'exécuter avec le délai
         from .tasks import check_and_send_invoice_reminders
 
-        result = check_and_send_invoice_reminders(delai_relance=delai_relance)
+        result = check_and_send_invoice_reminders()
 
-        # Préparer le message de feedback
-        if result.get('success'):
+        if result.get("disabled"):
+            messages.warning(
+                request,
+                "Les relances sont désactivées. Enregistrez et activez d’abord leur configuration.",
+            )
+        elif result.get('success'):
             if result.get('relances_envoyees', 0) > 0:
                 messages.success(
                     request,
-                    f"Relance manuelle terminée avec délai de {delai_relance} jour{['','s'][delai_relance>1]} ! "
-                    f"{result['relances_envoyees']} email{['','s'][result['relances_envoyees']>1]} envoyé{['','s'][result['relances_envoyees']>1]} sur "
-                    f"{result['factures_traitees']} facture{['','s'][result['factures_traitees']>1]} traitée{['','s'][result['factures_traitees']>1]}."
+                    f"Relance terminée : {result['relances_envoyees']} e-mail"
+                    f"{['','s'][result['relances_envoyees'] > 1]} envoyé"
+                    f"{['','s'][result['relances_envoyees'] > 1]} sur "
+                    f"{result['factures_traitees']} facture"
+                    f"{['','s'][result['factures_traitees'] > 1]} vérifiée"
+                    f"{['','s'][result['factures_traitees'] > 1]}."
                 )
             else:
+                missing = result.get("factures_sans_destinataire", 0)
+                missing_detail = (
+                    f" {missing} facture{['','s'][missing > 1]} sans adresse de relance."
+                    if missing
+                    else ""
+                )
                 messages.info(
                     request,
-                    f"Aucune relance à envoyer pour le moment (délai : {delai_relance} jour{['','s'][delai_relance>1]}). "
-                    f"{result['factures_traitees']} facture{['','s'][result['factures_traitees']>1]} vérifiée{['','s'][result['factures_traitees']>1]}."
+                    "Aucune relance à envoyer pour le moment."
+                    f"{missing_detail}"
                 )
         else:
             messages.error(
@@ -499,22 +487,23 @@ class BulkDeleteInvoicesView(View):
 @method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name="dispatch")
 class InvoiceReminderSettingsView(View):
     def post(self, request, *args, **kwargs):
-        sender_id = request.POST.get("sender_id")
-        from django.contrib.auth import get_user_model
-
-        sender = (
-            get_user_model()
-            .objects.filter(pk=sender_id, is_active=True, oauth_token__provider="google")
-            .first()
-        )
-        if not sender:
-            messages.error(request, "Sélectionnez un utilisateur actif ayant synchronisé Gmail.")
+        settings_obj, _ = InvoiceReminderSettings.objects.get_or_create(pk=1)
+        form = InvoiceReminderSettingsForm(request.POST, instance=settings_obj)
+        if not form.is_valid():
+            error_messages = [
+                str(error)
+                for errors in form.errors.values()
+                for error in errors
+            ]
+            messages.error(
+                request,
+                "Configuration non enregistrée : " + " ".join(error_messages),
+            )
             return redirect("invoices:list")
 
-        settings_obj, _ = InvoiceReminderSettings.objects.get_or_create(pk=1)
-        settings_obj.sender = sender
-        settings_obj.save(update_fields=["sender", "updated_at"])
-        messages.success(request, f"{sender.email} est désormais l'expéditeur des relances.")
+        settings_obj = form.save()
+        status = "activées" if settings_obj.is_enabled else "désactivées"
+        messages.success(request, f"Configuration enregistrée. Les relances sont {status}.")
         return redirect("invoices:list")
 
 

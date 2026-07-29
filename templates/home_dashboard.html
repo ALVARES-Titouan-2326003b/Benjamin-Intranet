@@ -40,7 +40,7 @@
             </div>
             <h2 class="pole-title">Mes Factures</h2>
             <p class="pole-desc">
-                Consultez les factures qui vous ont été assignées.
+                Consultez les factures que vous avez ajoutées.
             </p>
             <span class="pole-link">Voir mes factures <i class="bi bi-arrow-right"></i></span>
         </a>
@@ -86,6 +86,19 @@
         </a>
         {% endif %}
 
+        {% if access_signatures %}
+        <!-- SIGNATURES -->
+        <a href="{% url 'signatures:document_list' %}" class="pole-card">
+            <div class="pole-icon" style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);">
+                <i class="bi bi-pen"></i>
+            </div>
+            <h2 class="pole-title">Signatures</h2>
+            <p class="pole-desc">
+                Déposez et suivez les documents à signer.
+            </p>
+        </a>
+        {% endif %}
+
         {% if request.user.is_superuser %}
         <!-- GESTION DES COMPTES (SuperUser) -->
         <a href="{% url 'authentication:user_management' %}" class="pole-card" style="border-color: var(--primary);">
@@ -109,7 +122,7 @@
             Bienvenue {{ user.first_name|default:user.username }}
         </h1>
         <p style="font-size: 1.1rem; color: var(--text-secondary);">
-            Accédez à vos factures assignées
+            Accédez aux factures que vous avez ajoutées
         </p>
     </div>
 
@@ -121,7 +134,7 @@
             </div>
             <h2 class="pole-title">Mes Factures</h2>
             <p class="pole-desc">
-                Consultez les factures qui vous ont été assignées.
+                Consultez les factures que vous avez ajoutées.
             </p>
             <span class="pole-link">Voir mes factures <i class="bi bi-arrow-right"></i></span>
         </a>

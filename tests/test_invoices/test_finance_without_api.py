@@ -10,14 +10,11 @@ from invoices.forms import FactureForm
 from invoices.models import (
     ActeurExterne,
     Client,
-    Contact,
-    EmailFournisseur,
     Entreprise,
     Facture,
     FactureHistorique,
     Fournisseur,
     InvoiceReminderSettings,
-    RelanceFournisseur,
     Societe,
 )
 from management.models import OAuthToken
@@ -82,7 +79,13 @@ def configure_gmail_sender(user):
         refresh_token="refresh",
         token_expiry=timezone.now() + timedelta(hours=1),
     )
-    InvoiceReminderSettings.objects.create(sender=user)
+    InvoiceReminderSettings.objects.create(
+        sender=user,
+        is_enabled=True,
+        delay_days=3,
+        subject_template="Relance {numero_facture}",
+        message_template="Facture {facture_id}",
+    )
 
 
 def invoice_payload(project, societe, **overrides):
@@ -96,6 +99,7 @@ def invoice_payload(project, societe, **overrides):
         "service": "promotion",
         "priorite": "normal",
         "titre": "Facture formulaire",
+        "reminder_email": "relance@example.com",
     }
     payload.update(overrides)
     return payload
@@ -131,16 +135,15 @@ def test_invoice_anomalies_detect_missing_amount_and_overdue(invoice):
 
     assert "missing_amount" in kinds
     assert "overdue_open" in kinds
+    assert "missing_reminder_email" in kinds
 
 
 @pytest.mark.django_db
 def test_invoice_reminder_sends_once_per_day(invoice, supplier, finance_user):
     configure_gmail_sender(finance_user)
     invoice.echeance = timezone.now() - timedelta(days=4)
-    invoice.save(update_fields=["echeance"])
-    RelanceFournisseur.objects.create(id="default", message="Facture {facture_id}", temps=3)
-    contact = Contact.objects.create(id="CONTACT-1", acteur=supplier.id, nom="Contact")
-    EmailFournisseur.objects.create(contact=contact, email="supplier@example.com")
+    invoice.reminder_email = "supplier@example.com"
+    invoice.save(update_fields=["echeance", "reminder_email"])
 
     with patch(
         "invoices.tasks.send_message",
@@ -155,16 +158,47 @@ def test_invoice_reminder_sends_once_per_day(invoice, supplier, finance_user):
 
 
 @pytest.mark.django_db
-def test_invoice_reminder_records_missing_supplier_email(invoice, finance_user):
+def test_invoice_reminder_reports_missing_invoice_email(invoice, finance_user):
     configure_gmail_sender(finance_user)
     invoice.echeance = timezone.now() - timedelta(days=4)
     invoice.save(update_fields=["echeance"])
-    RelanceFournisseur.objects.create(id="default", message="Facture {facture_id}", temps=3)
 
     result = check_and_send_invoice_reminders()
 
     assert result["relances_envoyees"] == 0
-    assert FactureHistorique.objects.filter(facture=invoice, action="reminder_skipped").exists()
+    assert result["factures_sans_destinataire"] == 1
+    assert not FactureHistorique.objects.filter(facture=invoice).exists()
+
+
+@pytest.mark.django_db
+def test_finance_user_can_configure_invoice_reminders(client, finance_user):
+    OAuthToken.objects.create(
+        user=finance_user,
+        provider="google",
+        email=finance_user.email,
+        access_token="access",
+        refresh_token="refresh",
+        token_expiry=timezone.now() + timedelta(hours=1),
+    )
+    client.force_login(finance_user)
+
+    response = client.post(
+        "/finance/reminder-settings/",
+        {
+            "is_enabled": "on",
+            "sender": finance_user.pk,
+            "delay_days": 5,
+            "subject_template": "Relance {numero_facture}",
+            "message_template": "Retard de {jours_retard} jours pour {fournisseur}.",
+        },
+    )
+
+    assert response.status_code == 302
+    settings = InvoiceReminderSettings.objects.get(pk=1)
+    assert settings.is_enabled is True
+    assert settings.sender == finance_user
+    assert settings.delay_days == 5
+    assert settings.subject_template == "Relance {numero_facture}"
 
 
 @pytest.mark.django_db
@@ -546,6 +580,8 @@ def test_administratif_user_can_view_invoice_overview(client, invoice):
     group, _ = Group.objects.get_or_create(name="POLE_ADMINISTRATIF")
     user = User.objects.create_user(username="admin-invoices", email="admin-invoices@example.com")
     user.groups.add(group)
+    invoice.created_by = user
+    invoice.save(update_fields=["created_by"])
     client.force_login(user)
 
     response = client.get("/finance/")
@@ -560,6 +596,8 @@ def test_technique_user_can_view_invoice_overview(client, invoice):
     group, _ = Group.objects.get_or_create(name="POLE_TECHNIQUE")
     user = User.objects.create_user(username="technique-invoices", email="technique-invoices@example.com")
     user.groups.add(group)
+    invoice.created_by = user
+    invoice.save(update_fields=["created_by"])
     client.force_login(user)
 
     response = client.get("/finance/")
@@ -567,6 +605,66 @@ def test_technique_user_can_view_invoice_overview(client, invoice):
     assert response.status_code == 200
     assert b"FA-2026-001" in response.content
     assert b"Nouvelle facture" in response.content
+
+
+@pytest.mark.django_db
+def test_non_finance_user_cannot_view_an_invoice_they_did_not_create(client, invoice):
+    group, _ = Group.objects.get_or_create(name="POLE_DEVELOPPEMENT")
+    user = User.objects.create_user(username="invoice-scope", email="invoice-scope@example.com")
+    user.groups.add(group)
+    invoice.demandeur = user
+    invoice.collaborateur = user
+    invoice.save(update_fields=["demandeur", "collaborateur"])
+    client.force_login(user)
+
+    list_response = client.get("/finance/")
+    detail_response = client.get(f"/finance/facture/{invoice.pk}/")
+    edit_response = client.get(f"/finance/facture/{invoice.pk}/edit/")
+
+    assert list_response.status_code == 200
+    assert b"FA-2026-001" not in list_response.content
+    assert detail_response.status_code == 404
+    assert edit_response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_global_search_uses_the_same_invoice_creator_scope(client, invoice):
+    group, _ = Group.objects.get_or_create(name="POLE_DEVELOPPEMENT")
+    user = User.objects.create_user(username="invoice-search-scope")
+    user.groups.add(group)
+    invoice.demandeur = user
+    invoice.collaborateur = user
+    invoice.save(update_fields=["demandeur", "collaborateur"])
+    client.force_login(user)
+
+    unrelated_response = client.get("/recherche/", {"q": invoice.numero_facture})
+    invoice.created_by = user
+    invoice.save(update_fields=["created_by"])
+    owned_response = client.get("/recherche/", {"q": invoice.numero_facture})
+
+    assert unrelated_response.status_code == 200
+    assert list(unrelated_response.context["factures"]) == []
+    assert owned_response.status_code == 200
+    assert list(owned_response.context["factures"]) == [invoice]
+
+
+@pytest.mark.django_db
+def test_finance_and_superadmin_can_view_all_invoices(client, finance_user, invoice):
+    client.force_login(finance_user)
+    finance_response = client.get("/finance/")
+
+    superadmin = User.objects.create_superuser(
+        username="invoice-superadmin",
+        email="invoice-superadmin@example.com",
+        password="testpass123",
+    )
+    client.force_login(superadmin)
+    superadmin_response = client.get("/finance/")
+
+    assert finance_response.status_code == 200
+    assert superadmin_response.status_code == 200
+    assert b"FA-2026-001" in finance_response.content
+    assert b"FA-2026-001" in superadmin_response.content
 
 
 @pytest.mark.django_db

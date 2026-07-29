@@ -72,3 +72,28 @@ def test_multi_department_navigation_keeps_single_signature_entry(client):
     assert navigation.count("TECHNIQUE") == 1
     assert navigation.count("Signatures") == 1
     assert "Dossiers techniques" not in navigation
+
+
+@pytest.mark.django_db
+def test_development_staff_only_sees_invoices_and_signatures(client):
+    development_group, _ = Group.objects.get_or_create(name="POLE_DEVELOPPEMENT")
+    collaborator_group, _ = Group.objects.get_or_create(name="COLLABORATEUR")
+    user = User.objects.create_user(
+        username="commercial-dev",
+        email="commercial-dev@example.com",
+        is_staff=True,
+    )
+    user.groups.add(development_group, collaborator_group)
+    client.force_login(user)
+
+    dashboard = client.get("/")
+    administrative = client.get("/administratif/")
+
+    assert dashboard.status_code == 200
+    content = dashboard.content.decode()
+    assert 'href="/finance/"' in content
+    assert 'href="/signatures/"' in content
+    assert 'href="/administratif/"' not in content
+    assert 'href="/pole-technique/dossiers/"' not in content
+    assert administrative.status_code == 302
+    assert administrative.url == "/"

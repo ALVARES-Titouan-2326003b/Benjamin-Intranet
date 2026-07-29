@@ -9,7 +9,8 @@ from user_access.user_test_functions import (has_administratif_access,
                                              has_finance_access,
                                              has_technique_access,
                                              has_collaborateur_access,
-                                             can_create_facture)
+                                             can_create_facture,
+                                             has_all_poles_access)
 
 def is_only_collaborator(user):
     """
@@ -39,6 +40,7 @@ def dashboard_view(request):
         'access_administratif': has_administratif_access(request.user),
         'access_collaborator': has_collaborateur_access(request.user),
         'can_create_invoice': can_create_facture(request.user),
+        'access_signatures': has_all_poles_access(request.user),
         'is_only_collaborator': is_only_collaborator(request.user)
     })
 
@@ -51,14 +53,20 @@ def global_search(request):
     context = {'query': query}
 
     if query:
-        if has_finance_access(request.user):
+        if can_create_facture(request.user):
             # 1. Factures (ID, Titre, Client, Fournisseur)
             factures = Facture.objects.filter(
                 Q(id__icontains=query) |
+                Q(numero_facture__icontains=query) |
                 Q(titre__icontains=query) |
-                Q(fournisseur__icontains=query) |
-                Q(client__nom__icontains=query)
-            )[:10]
+                Q(fournisseur__nom__icontains=query) |
+                Q(client__entreprise__nom__icontains=query) |
+                Q(client__particulier__nom__icontains=query) |
+                Q(client__particulier__prenom__icontains=query)
+            )
+            if not has_finance_access(request.user):
+                factures = factures.filter(created_by=request.user)
+            factures = factures[:10]
         else:
             factures = []
         if has_finance_access(request.user):
