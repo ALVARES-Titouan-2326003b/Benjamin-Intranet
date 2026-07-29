@@ -17,7 +17,6 @@ from management.models import (
     HistoriqueRappelActivite,
     RappelActivite,
     RegleRappelActivite,
-    TypeActivite,
     ValeurChampPersonnaliseDossier,
 )
 from management.tasks import check_and_send_activite_reminders
@@ -62,11 +61,6 @@ def dossier(db, categorie):
         affaire="Dossier administratif",
         categorie=categorie,
     )
-
-
-@pytest.fixture
-def type_activite(db):
-    return TypeActivite.objects.create(type="Relance")
 
 
 def _post_json(client, url, payload):
@@ -118,6 +112,33 @@ def test_superadmin_does_not_see_admin_calendar_toggle(client, admin_user):
     assert response.status_code == 200
     assert b'data-calendar-scope="admin"' not in response.content
     assert b"Calendrier administrateur" not in response.content
+    assert b'activity-type' not in response.content
+    assert "Type d’activité".encode() not in response.content
+
+
+@pytest.mark.django_db
+def test_activity_type_is_removed_from_model_and_api(
+    client,
+    admin_user,
+    dossier,
+):
+    client.force_login(admin_user)
+
+    response = _post_json(
+        client,
+        "/api/create-activity/",
+        {
+            "titre": "Préparer le dossier",
+            "dossier": dossier.reference,
+            "date": (timezone.now() + timedelta(days=2)).isoformat(),
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    activity = Activite.objects.get(pk=data["activity_id"])
+    assert not hasattr(activity, "type")
+    assert "type" not in data["activity"]
 
 
 @pytest.mark.django_db
@@ -144,14 +165,12 @@ def test_superadmin_calendar_includes_activities_assigned_to_other_users(
     admin_user,
     responsable,
     dossier,
-    type_activite,
 ):
     client.force_login(admin_user)
     activity = Activite.objects.create(
         id="calendar-other-user",
         titre="Activité d'un collaborateur",
         dossier=dossier,
-        type=type_activite,
         date=timezone.datetime(2026, 7, 25, 9, 30, tzinfo=dt_timezone.utc),
         responsable=responsable,
         created_by=admin_user,
@@ -172,7 +191,6 @@ def test_regular_user_calendar_remains_limited_to_assigned_activities(
     admin_user,
     responsable,
     dossier,
-    type_activite,
 ):
     pole_admin, _ = Group.objects.get_or_create(name="POLE_ADMINISTRATIF")
     responsable.groups.add(pole_admin)
@@ -181,7 +199,6 @@ def test_regular_user_calendar_remains_limited_to_assigned_activities(
         id="calendar-own-user",
         titre="Mon activité",
         dossier=dossier,
-        type=type_activite,
         date=timezone.datetime(2026, 7, 25, 9, 30, tzinfo=dt_timezone.utc),
         responsable=responsable,
         created_by=responsable,
@@ -190,7 +207,6 @@ def test_regular_user_calendar_remains_limited_to_assigned_activities(
         id="calendar-admin-user",
         titre="Activité administrateur",
         dossier=dossier,
-        type=type_activite,
         date=timezone.datetime(2026, 7, 26, 9, 30, tzinfo=dt_timezone.utc),
         responsable=admin_user,
         created_by=admin_user,
@@ -236,14 +252,13 @@ def test_regular_user_calendar_remains_limited_to_assigned_activities(
 
 
 @pytest.mark.django_db
-def test_activity_create_update_delete_with_outlook(client, admin_user, responsable, dossier, type_activite):
+def test_activity_create_update_delete_with_outlook(client, admin_user, responsable, dossier):
     client.force_login(admin_user)
     date_value = (timezone.now() + timedelta(days=8)).replace(second=0, microsecond=0)
 
     payload = {
         "titre": "Relance notaire",
         "dossier": dossier.reference,
-        "type": type_activite.type,
         "date": date_value.isoformat(),
         "responsable": str(responsable.pk),
         "statut": "todo",
@@ -308,7 +323,7 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
 
 
 @pytest.mark.django_db
-def test_activity_rejects_invalid_duration(client, admin_user, dossier, type_activite):
+def test_activity_rejects_invalid_duration(client, admin_user, dossier):
     client.force_login(admin_user)
     date_value = (timezone.now() + timedelta(days=3)).replace(second=0, microsecond=0)
 
@@ -318,7 +333,6 @@ def test_activity_rejects_invalid_duration(client, admin_user, dossier, type_act
         {
             "titre": "Créneau invalide",
             "dossier": dossier.reference,
-            "type": type_activite.type,
             "date": date_value.isoformat(),
             "duree_minutes": 45,
         },
@@ -333,7 +347,6 @@ def test_activity_rejects_responsible_outside_administrative_department(
     client,
     admin_user,
     dossier,
-    type_activite,
 ):
     outside_user = User.objects.create_user(
         username="hors_pole_administratif",
@@ -348,7 +361,6 @@ def test_activity_rejects_responsible_outside_administrative_department(
         {
             "titre": "Affectation invalide",
             "dossier": dossier.reference,
-            "type": type_activite.type,
             "date": (timezone.now() + timedelta(days=3)).isoformat(),
             "responsable": str(outside_user.pk),
         },
@@ -392,7 +404,7 @@ def test_activity_form_only_lists_administrative_department_and_ceo(
 
 
 @pytest.mark.django_db
-def test_activity_can_be_created_without_dossier(client, admin_user, type_activite):
+def test_activity_can_be_created_without_dossier(client, admin_user):
     client.force_login(admin_user)
     date_value = (timezone.now() + timedelta(days=2)).replace(second=0, microsecond=0)
 
@@ -402,7 +414,6 @@ def test_activity_can_be_created_without_dossier(client, admin_user, type_activi
         {
             "titre": "Rappel interne",
             "dossier": "",
-            "type": type_activite.type,
             "date": date_value.isoformat(),
             "duree_minutes": 60,
             "statut": "todo",
@@ -420,7 +431,7 @@ def test_activity_can_be_created_without_dossier(client, admin_user, type_activi
 
 
 @pytest.mark.django_db
-def test_activity_cannot_be_attached_to_archived_project(client, admin_user, dossier, type_activite):
+def test_activity_cannot_be_attached_to_archived_project(client, admin_user, dossier):
     dossier.archived_at = timezone.now()
     dossier.archived_by = admin_user
     dossier.save(update_fields=["archived_at", "archived_by"])
@@ -432,7 +443,6 @@ def test_activity_cannot_be_attached_to_archived_project(client, admin_user, dos
         {
             "titre": "Activité refusée",
             "dossier": dossier.reference,
-            "type": type_activite.type,
             "date": (timezone.now() + timedelta(days=1)).isoformat(),
         },
     )
@@ -444,13 +454,12 @@ def test_activity_cannot_be_attached_to_archived_project(client, admin_user, dos
 
 
 @pytest.mark.django_db
-def test_activity_can_use_company_without_project_and_inherits_project_company(client, admin_user, dossier, type_activite):
+def test_activity_can_use_company_without_project_and_inherits_project_company(client, admin_user, dossier):
     company = Societe.objects.create(nom="Société Activités")
     dossier.societe = company
     dossier.save(update_fields=["societe"])
     client.force_login(admin_user)
     base_payload = {
-        "type": type_activite.type,
         "date": (timezone.now() + timedelta(days=1)).isoformat(),
     }
 
@@ -464,13 +473,12 @@ def test_activity_can_use_company_without_project_and_inherits_project_company(c
 
 
 @pytest.mark.django_db
-def test_activity_outlook_payload_uses_duration(dossier, type_activite):
+def test_activity_outlook_payload_uses_duration(dossier):
     start = timezone.make_aware(timezone.datetime(2026, 7, 1, 9, 30))
     activity = Activite.objects.create(
         id="duration-outlook",
         titre="Rendez-vous notaire",
         dossier=dossier,
-        type=type_activite,
         date=start,
         duree_minutes=90,
         date_type="date",
@@ -486,13 +494,12 @@ def test_activity_outlook_payload_uses_duration(dossier, type_activite):
 
 
 @pytest.mark.django_db
-def test_calendar_export_ics_uses_activity_duration(client, admin_user, dossier, type_activite, responsable):
+def test_calendar_export_ics_uses_activity_duration(client, admin_user, dossier, responsable):
     client.force_login(admin_user)
     Activite.objects.create(
         id="ics-export",
         titre="Signature promesse",
         dossier=dossier,
-        type=type_activite,
         date=timezone.datetime(2026, 7, 1, 9, 30, tzinfo=dt_timezone.utc),
         duree_minutes=90,
         date_type="date",
@@ -506,7 +513,6 @@ def test_calendar_export_ics_uses_activity_duration(client, admin_user, dossier,
         id="ics-other-month",
         titre="Hors mois",
         dossier=dossier,
-        type=type_activite,
         date=timezone.datetime(2026, 8, 1, 9, 30, tzinfo=dt_timezone.utc),
         duree_minutes=60,
         date_type="date",
@@ -559,7 +565,6 @@ END:VCALENDAR
     assert response.status_code == 302
     activity = Activite.objects.get(titre="Signature promesse importée")
     assert activity.dossier is None
-    assert activity.type_id == "Import calendrier"
     assert activity.responsable == admin_user
     assert activity.duree_minutes == 90
     assert "Prévoir les annexes" in activity.commentaire
@@ -578,7 +583,7 @@ END:VCALENDAR
 
 
 @pytest.mark.django_db
-def test_calendar_import_ics_can_create_activity_without_dossier(client, admin_user, type_activite):
+def test_calendar_import_ics_can_create_activity_without_dossier(client, admin_user):
     client.force_login(admin_user)
     content = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -601,13 +606,12 @@ END:VCALENDAR
     assert response.status_code == 302
     activity = Activite.objects.get(titre="Rendez-vous externe importé")
     assert activity.dossier is None
-    assert activity.type_id == "Import calendrier"
     assert activity.responsable == admin_user
     assert "UID calendrier : external-calendar-1@example.com" in activity.commentaire
 
 
 @pytest.mark.django_db
-def test_admin_dossier_create_update_and_archive_with_related_data(client, admin_user, type_activite, categorie):
+def test_admin_dossier_create_update_and_archive_with_related_data(client, admin_user, categorie):
     client.force_login(admin_user)
 
     response = _post_json(
@@ -678,7 +682,6 @@ def test_admin_dossier_create_update_and_archive_with_related_data(client, admin
         id="project-blocked",
         titre="Activité liée",
         dossier=project,
-        type=type_activite,
         date=timezone.now() + timedelta(days=2),
         date_type="date",
         statut="todo",
@@ -1188,14 +1191,12 @@ def test_activity_reminder_is_sent_once(
     settings,
     responsable,
     dossier,
-    type_activite,
 ):
     settings.EMAIL_HOST_USER = "fallback@example.com"
     activity = Activite.objects.create(
         id="1001",
         titre="Échéance J-7",
         dossier=dossier,
-        type=type_activite,
         date=timezone.now() + timedelta(days=7),
         date_type="date",
         statut="todo",
@@ -1222,13 +1223,12 @@ def test_activity_reminder_is_sent_once(
 
 
 @pytest.mark.django_db
-def test_finished_activity_does_not_generate_reminder(settings, responsable, dossier, type_activite):
+def test_finished_activity_does_not_generate_reminder(settings, responsable, dossier):
     settings.EMAIL_HOST_USER = "fallback@example.com"
     Activite.objects.create(
         id="1002",
         titre="Activité terminée",
         dossier=dossier,
-        type=type_activite,
         date=timezone.now() + timedelta(days=7),
         date_type="date",
         statut="done",
@@ -1247,14 +1247,13 @@ def test_finished_activity_does_not_generate_reminder(settings, responsable, dos
 
 
 @pytest.mark.django_db
-def test_global_rule_does_not_apply_without_individual_reminder(settings, responsable, dossier, type_activite):
+def test_global_rule_does_not_apply_without_individual_reminder(settings, responsable, dossier):
     settings.EMAIL_HOST_USER = "fallback@example.com"
     RegleRappelActivite.objects.get_or_create(timing="before", days=7, defaults={"is_active": True})
     Activite.objects.create(
         id="1004",
         titre="Activité sans rappel individuel",
         dossier=dossier,
-        type=type_activite,
         date=timezone.now() + timedelta(days=7),
         date_type="date",
         statut="todo",
@@ -1272,13 +1271,12 @@ def test_global_rule_does_not_apply_without_individual_reminder(settings, respon
 
 
 @pytest.mark.django_db
-def test_activity_reminder_after_due_date_uses_configured_rule(settings, responsable, dossier, type_activite):
+def test_activity_reminder_after_due_date_uses_configured_rule(settings, responsable, dossier):
     settings.EMAIL_HOST_USER = "fallback@example.com"
     activity = Activite.objects.create(
         id="1003",
         titre="Échéance dépassée",
         dossier=dossier,
-        type=type_activite,
         date=timezone.now() - timedelta(days=1),
         date_type="date",
         statut="todo",

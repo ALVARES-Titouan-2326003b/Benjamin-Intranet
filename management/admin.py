@@ -38,8 +38,8 @@ class ValeurChampPersonnaliseDossierAdmin(admin.ModelAdmin):
 
 @admin.register(Activite)
 class ActiviteAdmin(admin.ModelAdmin):
-    list_display = ("titre", "dossier", "type", "date", "duree_minutes", "statut", "priorite", "responsable")
-    list_filter = ("statut", "priorite", "type")
+    list_display = ("titre", "dossier", "date", "duree_minutes", "statut", "priorite", "responsable")
+    list_filter = ("statut", "priorite")
     search_fields = ("titre", "dossier__reference")
 
 

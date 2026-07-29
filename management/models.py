@@ -72,13 +72,6 @@ class TempsRelance(models.Model):
         db_table = 'temps_relance'
 
 
-class TypeActivite(models.Model):
-    type = models.TextField(primary_key=True)
-
-    class Meta:
-        db_table = 'type_activite'
-
-
 class CategorieDossierAdministratif(models.Model):
     CATEGORIES_OFFICIELLES = [
         "En cours d’acquisition",
@@ -224,7 +217,6 @@ class Activite(models.Model):
         related_name="activites",
         verbose_name="Société",
     )
-    type = models.ForeignKey(TypeActivite, on_delete=models.CASCADE, db_column='type')
     date = models.DateTimeField(blank=True, null=True)
     duree_minutes = models.PositiveSmallIntegerField("Durée du créneau", choices=DUREES_CRENEAU, default=60)
     date_type = models.TextField(choices=TYPES, default="echeance")
@@ -264,7 +256,7 @@ class Activite(models.Model):
     def __str__(self):
         date_label = self.date.strftime('%Y-%m-%d') if self.date else "sans date"
         dossier_label = self.dossier or "sans dossier"
-        return f"{self.titre or self.type} - {dossier_label} ({date_label})"
+        return f"{self.titre or 'Activité'} - {dossier_label} ({date_label})"
 
 
 class RappelActivite(models.Model):

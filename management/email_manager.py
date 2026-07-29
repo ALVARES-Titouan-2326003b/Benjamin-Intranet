@@ -244,11 +244,10 @@ def _activity_event_payload(activite):
         start = timezone.make_aware(start, timezone.get_current_timezone())
 
     end = start + timedelta(minutes=activite.duree_minutes or 60)
-    subject = activite.titre or f"{activite.type} - {activite.dossier}"
+    subject = activite.titre or f"Activité - {activite.dossier}"
 
     details = [
         f"Dossier : {activite.dossier}",
-        f"Type : {activite.type}",
         f"Statut : {activite.get_statut_display()}",
         f"Priorité : {activite.get_priorite_display()}",
         f"Durée : {activite.get_duree_minutes_display()}",

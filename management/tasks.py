@@ -223,7 +223,6 @@ def check_and_send_activite_reminders():
         .select_related(
             "activite",
             "activite__dossier",
-            "activite__type",
             "activite__responsable",
             "activite__created_by",
         )
@@ -259,7 +258,6 @@ def check_and_send_activite_reminders():
 
             logger.info(f"\n Activité #{activite.id}")
             logger.info(f"   Dossier: {activite.dossier}")
-            logger.info(f"   Type: {activite.type}")
             logger.info(f"   Date: {date_activite}")
             logger.info(f"   Jours restants: {jours_restants}")
 
@@ -310,9 +308,8 @@ def check_and_send_activite_reminders():
 
 Ceci est un rappel automatique concernant l'activité suivante :
 
-- Titre : {activite.titre or activite.type}
+- Titre : {activite.titre or 'Activité'}
 - Dossier : {activite.dossier}
-- Type : {activite.type}
 - Statut : {activite.get_statut_display()}
 - Priorité : {activite.get_priorite_display()}
 - Date prévue : {date_activite.strftime('%d/%m/%Y')} à {timezone.localtime(activite.date).strftime('%H:%M')}

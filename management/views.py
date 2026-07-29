@@ -42,7 +42,6 @@ from .models import (
     NotificationInterne,
     RappelActivite,
     RegleRappelActivite,
-    TypeActivite,
     GmailConversation,
     GmailConversationEvent,
     ValeurChampPersonnaliseDossier,
@@ -655,7 +654,6 @@ def _serialize_activity(activity, include_datetime=False):
         "dossier_nom": dossier_nom,
         "societe_id": activity.societe_id or "",
         "societe_nom": getattr(activity.societe, "nom", "") or "",
-        "type": getattr(activity.type, "type", "") or "",
         "date": date_value.strftime("%Y-%m-%d") if date_value else "",
         "commentaire": activity.commentaire or "",
         "statut": activity.statut,
@@ -1077,7 +1075,6 @@ def _active_activity_reminder_rules():
 
 
 def _apply_calendar_filters(queryset, params):
-    type_label = (params.get("type") or "").strip()
     dossier_ref = (params.get("dossier") or "").strip()
     responsable = (params.get("responsable") or "").strip()
     statut = (params.get("statut") or "").strip()
@@ -1087,8 +1084,6 @@ def _apply_calendar_filters(queryset, params):
     date_from = (params.get("date_from") or "").strip()
     date_to = (params.get("date_to") or "").strip()
 
-    if type_label:
-        queryset = queryset.filter(type__type__iexact=type_label)
     if dossier_ref:
         queryset = queryset.filter(dossier__reference=dossier_ref)
     if responsable:
@@ -1279,21 +1274,14 @@ def _parse_calendar_ics_events(uploaded_file):
     return parsed_events
 
 
-def _get_calendar_import_type():
-    type_activite, _ = TypeActivite.objects.get_or_create(type="Import calendrier")
-    return type_activite
-
-
 def _import_calendar_ics(uploaded_file, user):
     events = _parse_calendar_ics_events(uploaded_file)
-    type_activite = _get_calendar_import_type()
     created = 0
     skipped = 0
 
     for event in events:
         duplicate = Activite.objects.filter(
             dossier__isnull=True,
-            type=type_activite,
             titre=event["titre"],
             date=event["date"],
             responsable=user,
@@ -1312,7 +1300,6 @@ def _import_calendar_ics(uploaded_file, user):
             id=_next_activity_id(),
             titre=event["titre"],
             dossier=None,
-            type=type_activite,
             date=event["date"],
             duree_minutes=event["duree_minutes"],
             date_type="date",
@@ -1331,7 +1318,7 @@ def _import_calendar_ics(uploaded_file, user):
 def _calendar_export_queryset_from_request(request):
     queryset = (
         Activite.objects.filter(date__isnull=False)
-        .select_related("dossier", "type", "responsable")
+        .select_related("dossier", "responsable")
         .order_by("date", "id")
     )
 
@@ -1375,10 +1362,9 @@ def _build_calendar_ics(activities):
         end = start + timedelta(minutes=duration)
         dossier_label = getattr(activity.dossier, "affaire", "") or getattr(activity.dossier, "name", "") or ""
         dossier_reference = getattr(activity.dossier, "reference", "") or "Sans dossier"
-        summary = activity.titre or f"{activity.type} - {dossier_reference}"
+        summary = activity.titre or f"Activité - {dossier_reference}"
         description_parts = [
             f"Dossier : {dossier_reference} {dossier_label}".strip(),
-            f"Type : {activity.type}",
             f"Statut : {activity.get_statut_display()}",
             f"Priorité : {activity.get_priorite_display()}",
             f"Créneau : {activity.get_duree_minutes_display()}",
@@ -1406,10 +1392,9 @@ def _build_calendar_ics(activities):
 
 def _activity_form_data(data, current_dossier=None, current_societe=None):
     dossier_ref = (data.get("dossier") or "").strip()
-    type_label = (data.get("type") or "").strip()
     date_str = (data.get("date") or "").strip()
 
-    if not type_label or not date_str:
+    if not date_str:
         raise ValueError("Champs obligatoires manquants")
 
     dossier_obj = None
@@ -1432,13 +1417,6 @@ def _activity_form_data(data, current_dossier=None, current_societe=None):
             raise ValueError("Société invalide ou inactive")
     elif dossier_obj:
         societe = dossier_obj.societe
-
-    type_obj = TypeActivite.objects.filter(type__iexact=type_label).first()
-    if not type_obj:
-        types_disponibles = ", ".join(
-            TypeActivite.objects.order_by("type").values_list("type", flat=True)
-        )
-        raise ValueError(f'Type invalide. Types autorisés : {types_disponibles}')
 
     responsable_id = (data.get("responsable") or "").strip()
     responsable = None
@@ -1467,7 +1445,6 @@ def _activity_form_data(data, current_dossier=None, current_societe=None):
         "titre": (data.get("titre") or "").strip(),
         "dossier": dossier_obj,
         "societe": societe,
-        "type": type_obj,
         "date": _parse_iso_datetime(date_str),
         "duree_minutes": duree_minutes,
         "date_type": "date",
@@ -1578,7 +1555,6 @@ def administratif_view(request):
 
     dossiers = TechnicalProject.objects.filter(archived_at__isnull=True).order_by("reference")
     societes = Societe.objects.all().order_by("nom")
-    types = TypeActivite.objects.all().order_by("type")
     users = _administrative_activity_assignees()
     notifications = list(
         NotificationInterne.objects.filter(user=user, is_read=False)
@@ -1602,7 +1578,6 @@ def administratif_view(request):
         "last_journal_sync": last_journal_sync,
         "dossiers": dossiers,
         "societes": societes,
-        "types": types,
         "users": users,
         "show_admin_calendar_toggle": not _is_ceo_user(user),
         "current_calendar_user": user,
@@ -1792,7 +1767,7 @@ def admin_dossier_detail_view(request, dossier_id):
     )
     activites = (
         Activite.objects.filter(dossier=dossier)
-        .select_related("type", "responsable")
+        .select_related("responsable")
         .order_by("date", "id")
     )
     return render(
@@ -1988,7 +1963,7 @@ def get_calendar_activities(request):
                 date__gte=start_date,
                 date__lt=end_date,
             )
-            .select_related("dossier", "societe", "type", "responsable")
+            .select_related("dossier", "societe", "responsable")
             .prefetch_related("rappels_planifies", "rappels")
             .order_by("date", "id")
         )
@@ -2042,7 +2017,7 @@ def get_calendar_activities_week(request):
                 date__gte=start_dt,
                 date__lte=end_dt,
             )
-            .select_related("dossier", "societe", "type", "responsable")
+            .select_related("dossier", "societe", "responsable")
             .prefetch_related("rappels_planifies", "rappels")
             .order_by("date", "id")
         )
@@ -2126,10 +2101,11 @@ def create_activity_view(request):
         if not activity_data["responsable"]:
             activity_data["responsable"] = request.user
         if not activity_data["titre"]:
-            if activity_data["dossier"]:
-                activity_data["titre"] = f"{activity_data['type'].type} - {activity_data['dossier'].reference}"
-            else:
-                activity_data["titre"] = str(activity_data["type"].type)
+            activity_data["titre"] = (
+                f"Activité - {activity_data['dossier'].reference}"
+                if activity_data["dossier"]
+                else "Activité"
+            )
 
         with transaction.atomic():
             nouvelle_activite = Activite.objects.create(
@@ -2176,7 +2152,7 @@ def update_activity_view(request, activity_id):
     try:
         data = _parse_request_json(request)
         activity = (
-            Activite.objects.select_related("dossier", "type", "responsable")
+            Activite.objects.select_related("dossier", "responsable")
             .filter(pk=activity_id)
             .first()
         )
@@ -2194,10 +2170,11 @@ def update_activity_view(request, activity_id):
         if not activity_data["responsable"]:
             activity_data["responsable"] = request.user
         if not activity_data["titre"]:
-            if activity_data["dossier"]:
-                activity_data["titre"] = f"{activity_data['type'].type} - {activity_data['dossier'].reference}"
-            else:
-                activity_data["titre"] = str(activity_data["type"].type)
+            activity_data["titre"] = (
+                f"Activité - {activity_data['dossier'].reference}"
+                if activity_data["dossier"]
+                else "Activité"
+            )
 
         with transaction.atomic():
             for field, value in activity_data.items():
@@ -2266,60 +2243,7 @@ def delete_activity_view(request):
                 }
             )
 
-        dossier_ref = (data.get("dossier") or "").strip()
-        type_label = (data.get("type") or "").strip()
-        date_str = (data.get("date") or "").strip()
-
-        if not type_label or not date_str:
-            return _json_error("Champs obligatoires manquants")
-
-        dossier_obj = None
-        if dossier_ref:
-            dossier_obj = TechnicalProject.objects.filter(reference=dossier_ref).first()
-            if not dossier_obj:
-                return _json_error(f'Dossier introuvable : "{dossier_ref}"', status=404)
-
-        type_obj = TypeActivite.objects.filter(type__iexact=type_label).first()
-        if not type_obj:
-            return _json_error(f'Type introuvable : "{type_label}"', status=404)
-
-        date_activite = _parse_iso_datetime(date_str)
-        date_debut = date_activite.replace(second=0, microsecond=0)
-        date_fin = date_debut + timedelta(minutes=1)
-
-        queryset = Activite.objects.filter(
-            type=type_obj,
-            date__gte=date_debut,
-            date__lt=date_fin,
-        )
-        queryset = queryset.filter(dossier=dossier_obj) if dossier_obj else queryset.filter(dossier__isnull=True)
-        if not _is_ceo_user(request.user):
-            queryset = queryset.exclude(responsable__is_superuser=True)
-
-        count_before = queryset.count()
-        if count_before == 0:
-            return _json_error(
-                "Aucune activité ne correspond à ces critères",
-                status=404,
-            )
-
-        warning = ""
-        for activity in queryset:
-            if activity.outlook_event_id:
-                result = delete_outlook_event(request.user, activity.outlook_event_id)
-                if not result.get("success") and not warning:
-                    warning = result.get("message") or "Un événement Outlook n'a pas pu être supprimé."
-
-        deleted_count, _ = queryset.delete()
-
-        return JsonResponse(
-            {
-                "success": True,
-                "message": f"{deleted_count} activité(s) supprimée(s) avec succès",
-                "warning": warning,
-                "deleted_count": deleted_count,
-            }
-        )
+        return _json_error("Identifiant d’activité manquant")
 
     except ValueError as e:
         return _json_error(f"Format de date invalide : {str(e)}")

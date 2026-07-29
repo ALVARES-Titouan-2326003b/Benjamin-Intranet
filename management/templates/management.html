@@ -377,17 +377,6 @@
             </select>
          </div>
 
-         <!-- Type -->
-         <div class="form-group">
-            <label class="form-label">Type d'activité *</label>
-            <select id="activity-type" name="type" class="form-control" required>
-               <option value="">-- Sélectionner un type --</option>
-               {% for type in types %}
-               <option value="{{ type.type }}">{{ type.type }}</option>
-               {% endfor %}
-            </select>
-         </div>
-
          <!-- Date & heure -->
          <div class="form-group">
             <label class="form-label">Date et heure *</label>
@@ -539,8 +528,8 @@ async function loadUpcomingActivities() {
       }
 
       container.innerHTML = upcoming.map(act => {
-         const color   = COLORS[(act.type || 'autre').toLowerCase()] || COLORS['autre'];
-         const typeStr = act.type ? (act.type.charAt(0).toUpperCase() + act.type.slice(1)) : 'Activité';
+         const color   = act.priority_color || COLORS['autre'];
+         const titleStr = act.titre || 'Activité';
          const [y, m, d] = act.date.split('-');
          const timeStr  = act.time ? ` ${act.time}` : '';
          const dureeStr = act.duree_label ? ` · ${act.duree_label}` : '';
@@ -557,7 +546,7 @@ async function loadUpcomingActivities() {
          return `
             <div class="upcoming-activity-row" style="border-left:3px solid ${color};">
                <div class="upcoming-left">
-                  <span class="upcoming-type" style="color:${color};">${typeStr}</span>
+                  <span class="upcoming-title" style="color:${color};">${titleStr}</span>
                   <span class="upcoming-dossier" title="${act.dossier}">
                      <i class="bi bi-folder2"></i> ${nomStr}
                   </span>

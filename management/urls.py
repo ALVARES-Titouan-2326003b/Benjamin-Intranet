@@ -27,6 +27,13 @@ from .views import (
     update_gmail_conversation_status,
     add_gmail_conversation_note,
 )
+from .company_views import (
+    company_delete,
+    company_detail,
+    company_list_create,
+    company_restore,
+    company_update,
+)
 
 app_name = 'management'
 
@@ -38,6 +45,11 @@ urlpatterns = [
     path('administratif/dossiers/import/', admin_dossiers_import_view, name='admin_dossiers_import'),
     path('administratif/dossiers/<int:dossier_id>/', admin_dossier_detail_view, name='admin_dossier_detail'),
     path('administratif/projets/', admin_projects_view, name='admin_projects'),
+    path('administratif/societes/', company_list_create, name='admin_societes'),
+    path('administratif/societes/<int:pk>/details/', company_detail, name='admin_societe_detail'),
+    path('administratif/societes/<int:pk>/modifier/', company_update, name='admin_societe_update'),
+    path('administratif/societes/<int:pk>/supprimer/', company_delete, name='admin_societe_delete'),
+    path('administratif/societes/<int:pk>/reactiver/', company_restore, name='admin_societe_restore'),
 
     path('api/send-reply/', send_reply_view, name='send_reply'),
     path('api/generate-message/', generate_auto_message_view, name='generate_message'),

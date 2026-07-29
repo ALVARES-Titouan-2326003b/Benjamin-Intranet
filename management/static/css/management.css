@@ -589,7 +589,7 @@ header .current-date {
     color: #8a9cc0;
 }
 
-/* Badge résumé (ex: "3/6 types · 5/12 dossiers") */
+/* Badge résumant les filtres actifs */
 .filter-summary-badge {
     display: inline-flex;
     align-items: center;
@@ -681,7 +681,7 @@ header .current-date {
     gap: 9px;
 }
 
-/* Un panel (types ou dossiers) */
+/* Un groupe de filtres */
 .filter-panel {
     display: flex;
     align-items: flex-start;
@@ -927,7 +927,7 @@ header .current-date {
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
-.activity-tooltip-type-label {
+.activity-tooltip-title {
     font-weight: 600;
     font-size: 0.9rem;
     color: #333;
@@ -945,31 +945,6 @@ header .current-date {
     margin-top: 6px;
     font-style: italic;
     margin-left: 20px;
-}
-
-/* Style spécifique pour chaque type d'activité */
-.activity-tooltip-item[data-type="vente"] {
-    border-left-color: #27ae60;
-}
-
-.activity-tooltip-item[data-type="location"] {
-    border-left-color: #3498db;
-}
-
-.activity-tooltip-item[data-type="compromis"] {
-    border-left-color: #e74c3c;
-}
-
-.activity-tooltip-item[data-type="visite"] {
-    border-left-color: #f39c12;
-}
-
-.activity-tooltip-item[data-type="relance"] {
-    border-left-color: #9b59b6;
-}
-
-.activity-tooltip-item[data-type="autre"] {
-    border-left-color: #95a5a6;
 }
 
 /* ========================================================================
@@ -1438,7 +1413,7 @@ header .current-date {
     min-width: 0;
 }
 
-.upcoming-type {
+.upcoming-title {
     font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;

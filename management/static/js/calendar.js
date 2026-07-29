@@ -5,15 +5,6 @@
 (function() {
 
 
-    const TYPES_CONFIG = {
-        'vente': { nom: 'Vente', couleur: '#27ae60' },
-        'location': { nom: 'Location', couleur: '#3498db' },
-        'compromis': { nom: 'Compromis', couleur: '#e74c3c' },
-        'visite': { nom: 'Visite', couleur: '#f39c12' },
-        'relance': { nom: 'Relance', couleur: '#9b59b6' },
-        'autre': { nom: 'Autre', couleur: '#95a5a6' }
-    };
-
     const STATUTS_CONFIG = {
         'todo': { nom: 'À faire', couleur: '#64748b' },
         'in_progress': { nom: 'En cours', couleur: '#2563eb' },
@@ -46,13 +37,10 @@
         currMonth: new Date().getMonth(),
         selectedDate: null,
         activites: [],
-        filtresTypes: {},
         filtresDossiers: {},
         filtresStatuts: {},
         filtresPriorites: {},
         filtresResponsables: {},
-        filtreClient: '',
-        filtreContact: '',
         filtersCollapsed: true,
         calendarScope: 'mine',
         calendarReadOnly: false
@@ -103,16 +91,14 @@
         html += `</div>`;
 
         activites.forEach(act => {
-            const typeKey   = (act.type || 'autre').toLowerCase();
-            const config    = TYPES_CONFIG[typeKey] || TYPES_CONFIG['autre'];
             const nomDossier = act.dossier_nom || act.dossier;
-            const titre = act.titre || config.nom;
+            const titre = act.titre || 'Activité';
             const priorityColor = act.priority_color || PRIORITES_CONFIG[act.priorite || 'normal'].couleur;
 
-            html += `<div class="activity-tooltip-item" data-type="${typeKey}">`;
+            html += `<div class="activity-tooltip-item">`;
             html += `  <div class="activity-tooltip-type">`;
             html += `    <span class="activity-tooltip-color" style="background:${priorityColor}"></span>`;
-            html += `    <span class="activity-tooltip-type-label">${escapeHtml(titre)}</span>`;
+            html += `    <span class="activity-tooltip-title">${escapeHtml(titre)}</span>`;
             html += `  </div>`;
             html += `  <div class="activity-tooltip-dossier">📁 ${escapeHtml(nomDossier)}</div>`;
             if (act.time || act.duree_label) {
@@ -211,23 +197,16 @@
 
 
     function initFilters() {
-        const typesUniques    = [...new Set(state.activites.map(a => a.type))];
         const dossiersUniques = [...new Set(state.activites.map(a => a.dossier))];
         const statutsUniques  = [...new Set(state.activites.map(a => a.statut || 'todo'))];
         const prioritesUniques = [...new Set(state.activites.map(a => a.priorite || 'normal'))];
         const responsablesUniques = [...new Set(state.activites.map(a => a.responsable_id || '').filter(Boolean))];
 
         // Préserver l'état existant, ne mettre true que pour les nouvelles entrées
-        const prevTypes    = state.filtresTypes    || {};
         const prevDossiers = state.filtresDossiers || {};
         const prevStatuts  = state.filtresStatuts  || {};
         const prevPriorites = state.filtresPriorites || {};
         const prevResponsables = state.filtresResponsables || {};
-
-        state.filtresTypes = {};
-        typesUniques.forEach(type => {
-            state.filtresTypes[type] = (type in prevTypes) ? prevTypes[type] : true;
-        });
 
         state.filtresDossiers = {};
         dossiersUniques.forEach(dossier => {
@@ -249,13 +228,11 @@
             state.filtresResponsables[responsable] = (responsable in prevResponsables) ? prevResponsables[responsable] : true;
         });
 
-        renderFilters(typesUniques, dossiersUniques, statutsUniques, prioritesUniques, responsablesUniques);
+        renderFilters(dossiersUniques, statutsUniques, prioritesUniques, responsablesUniques);
     }
 
     /* ── Construit le texte du badge résumé ── */
     function buildFilterSummary() {
-        const totalTypes    = Object.keys(state.filtresTypes).length;
-        const activeTypes   = Object.values(state.filtresTypes).filter(Boolean).length;
         const totalDoss     = Object.keys(state.filtresDossiers).length;
         const activeDoss    = Object.values(state.filtresDossiers).filter(Boolean).length;
         const totalStatuts  = Object.keys(state.filtresStatuts).length;
@@ -263,24 +240,19 @@
         const totalPriorites = Object.keys(state.filtresPriorites).length;
         const activePriorites = Object.values(state.filtresPriorites).filter(Boolean).length;
 
-        if (totalTypes === 0 && totalDoss === 0 && totalStatuts === 0 && totalPriorites === 0) return '';
+        if (totalDoss === 0 && totalStatuts === 0 && totalPriorites === 0) return '';
 
-        if (activeTypes === totalTypes && activeDoss === totalDoss
-            && activeStatuts === totalStatuts && activePriorites === totalPriorites
-            && !state.filtreClient && !state.filtreContact) {
+        if (activeDoss === totalDoss && activeStatuts === totalStatuts && activePriorites === totalPriorites) {
             return 'Tout activé';
         }
-        if (activeTypes === 0 && activeDoss === 0 && activeStatuts === 0 && activePriorites === 0) {
+        if (activeDoss === 0 && activeStatuts === 0 && activePriorites === 0) {
             return 'Aucun filtre actif';
         }
 
         const parts = [];
-        if (totalTypes > 0)  parts.push(`${activeTypes}/${totalTypes} types`);
         if (totalDoss  > 0)  parts.push(`${activeDoss}/${totalDoss} dossiers`);
         if (totalStatuts > 0) parts.push(`${activeStatuts}/${totalStatuts} statuts`);
         if (totalPriorites > 0) parts.push(`${activePriorites}/${totalPriorites} priorités`);
-        if (state.filtreClient) parts.push('client');
-        if (state.filtreContact) parts.push('contact');
         return parts.join(' · ');
     }
 
@@ -292,8 +264,6 @@
         const text = buildFilterSummary();
         badge.textContent = text;
 
-        const totalTypes  = Object.keys(state.filtresTypes).length;
-        const activeTypes = Object.values(state.filtresTypes).filter(Boolean).length;
         const totalDoss   = Object.keys(state.filtresDossiers).length;
         const activeDoss  = Object.values(state.filtresDossiers).filter(Boolean).length;
         const totalStatuts = Object.keys(state.filtresStatuts).length;
@@ -302,11 +272,9 @@
         const activePriorites = Object.values(state.filtresPriorites).filter(Boolean).length;
 
         badge.className = 'filter-summary-badge';
-        if (activeTypes === totalTypes && activeDoss === totalDoss
-            && activeStatuts === totalStatuts && activePriorites === totalPriorites
-            && !state.filtreClient && !state.filtreContact) {
+        if (activeDoss === totalDoss && activeStatuts === totalStatuts && activePriorites === totalPriorites) {
             badge.classList.add('all-active');
-        } else if (activeTypes === 0 && activeDoss === 0 && activeStatuts === 0 && activePriorites === 0) {
+        } else if (activeDoss === 0 && activeStatuts === 0 && activePriorites === 0) {
             badge.classList.add('none-active');
         }
     }
@@ -374,7 +342,7 @@
         });
     }
 
-    function renderFilters(types, dossiers, statuts = [], priorites = [], responsables = []) {
+    function renderFilters(dossiers, statuts = [], priorites = [], responsables = []) {
         const filtersContainer = document.querySelector('.calendar-filters');
 
         if (!filtersContainer) {
@@ -383,8 +351,6 @@
         }
 
         const summaryText = buildFilterSummary();
-        const totalTypes  = Object.keys(state.filtresTypes).length;
-        const activeTypes = Object.values(state.filtresTypes).filter(Boolean).length;
         const totalDoss   = Object.keys(state.filtresDossiers).length;
         const activeDoss  = Object.values(state.filtresDossiers).filter(Boolean).length;
         const totalStatuts = Object.keys(state.filtresStatuts).length;
@@ -392,19 +358,8 @@
         const totalPriorites = Object.keys(state.filtresPriorites).length;
         const activePriorites = Object.values(state.filtresPriorites).filter(Boolean).length;
         let badgeClass = 'filter-summary-badge';
-        if (activeTypes === totalTypes && activeDoss === totalDoss
-            && activeStatuts === totalStatuts && activePriorites === totalPriorites
-            && !state.filtreClient && !state.filtreContact) badgeClass += ' all-active';
-        else if (activeTypes === 0 && activeDoss === 0 && activeStatuts === 0 && activePriorites === 0) badgeClass += ' none-active';
-
-        let typeOptions = '';
-        types.forEach(type => {
-            const typeKey = (type || 'autre').toLowerCase();
-            const config  = TYPES_CONFIG[typeKey] || TYPES_CONFIG.autre;
-            const count   = state.activites.filter(a => (a.type || '').toLowerCase() === typeKey).length;
-            const sel     = state.filtresTypes[type] ? 'selected' : '';
-            typeOptions += `<option value="${escapeHtml(type)}" ${sel}>${config.nom} (${count})</option>`;
-        });
+        if (activeDoss === totalDoss && activeStatuts === totalStatuts && activePriorites === totalPriorites) badgeClass += ' all-active';
+        else if (activeDoss === 0 && activeStatuts === 0 && activePriorites === 0) badgeClass += ' none-active';
 
         let dossierOptions = '';
         dossiers.forEach((dossier, idx) => {
@@ -439,7 +394,6 @@
             responsableOptions += `<option value="${escapeHtml(responsable)}" ${sel}>${escapeHtml(label)} (${count})</option>`;
         });
 
-        const typesSize    = Math.min(Math.max(types.length, 2), 5);
         const dossiersSize = Math.min(Math.max(dossiers.length, 2), 6);
         const statutsSize  = Math.min(Math.max(statuts.length, 2), 4);
         const prioritesSize = Math.min(Math.max(priorites.length, 2), 4);
@@ -464,21 +418,6 @@
 
                 <div class="calendar-filters-body">
                     <div class="calendar-filters-grid">
-
-                        <div class="filter-panel">
-                            <label class="filter-panel-title" for="filter-select-types">
-                                <i class="bi bi-tags"></i>
-                                <span>Types</span>
-                            </label>
-                            <div class="filter-select-wrapper">
-                                <select id="filter-select-types" class="filter-select"
-                                        multiple size="${typesSize}"
-                                        data-filter-type="type">
-                                    ${typeOptions}
-                                </select>
-                                <div class="filter-select-hint">Ctrl+clic pour multi-selection</div>
-                            </div>
-                        </div>
 
                         <div class="filter-panel">
                             <label class="filter-panel-title" for="filter-select-dossiers">
@@ -538,24 +477,6 @@
                             </div>
                         </div>
 
-                        <div class="filter-panel">
-                            <label class="filter-panel-title" for="filter-client">
-                                <i class="bi bi-building"></i>
-                                <span>Client</span>
-                            </label>
-                            <input id="filter-client" class="form-control" type="search"
-                                   value="${escapeHtml(state.filtreClient)}" placeholder="Filtrer par client">
-                        </div>
-
-                        <div class="filter-panel">
-                            <label class="filter-panel-title" for="filter-contact">
-                                <i class="bi bi-person-lines-fill"></i>
-                                <span>Contact</span>
-                            </label>
-                            <input id="filter-contact" class="form-control" type="search"
-                                   value="${escapeHtml(state.filtreContact)}" placeholder="Filtrer par contact">
-                        </div>
-
                     </div>
                 </div>
             </div>
@@ -576,9 +497,7 @@
                 const options    = Array.from(this.options);
 
                 options.forEach(opt => {
-                    if (filterType === 'type') {
-                        state.filtresTypes[opt.value] = opt.selected;
-                    } else if (filterType === 'dossier') {
+                    if (filterType === 'dossier') {
                         state.filtresDossiers[opt.value] = opt.selected;
                     } else if (filterType === 'statut') {
                         state.filtresStatuts[opt.value] = opt.selected;
@@ -594,18 +513,6 @@
             });
         });
 
-        const clientInput = document.getElementById('filter-client');
-        const contactInput = document.getElementById('filter-contact');
-        const bindSearch = (input, key) => {
-            if (!input) return;
-            input.addEventListener('input', function () {
-                state[key] = this.value.trim().toLowerCase();
-                updateFilterSummary();
-                renderCalendar();
-            });
-        };
-        bindSearch(clientInput, 'filtreClient');
-        bindSearch(contactInput, 'filtreContact');
     }
 
     function attachFilterActionEvents() {
@@ -614,13 +521,11 @@
 
         if (checkAllBtn) {
             checkAllBtn.addEventListener('click', () => {
-                Object.keys(state.filtresTypes).forEach(k => { state.filtresTypes[k] = true; });
                 Object.keys(state.filtresDossiers).forEach(k => { state.filtresDossiers[k] = true; });
                 Object.keys(state.filtresStatuts).forEach(k => { state.filtresStatuts[k] = true; });
                 Object.keys(state.filtresPriorites).forEach(k => { state.filtresPriorites[k] = true; });
                 Object.keys(state.filtresResponsables).forEach(k => { state.filtresResponsables[k] = true; });
                 renderFilters(
-                    Object.keys(state.filtresTypes),
                     Object.keys(state.filtresDossiers),
                     Object.keys(state.filtresStatuts),
                     Object.keys(state.filtresPriorites),
@@ -632,13 +537,11 @@
 
         if (uncheckAllBtn) {
             uncheckAllBtn.addEventListener('click', () => {
-                Object.keys(state.filtresTypes).forEach(k => { state.filtresTypes[k] = false; });
                 Object.keys(state.filtresDossiers).forEach(k => { state.filtresDossiers[k] = false; });
                 Object.keys(state.filtresStatuts).forEach(k => { state.filtresStatuts[k] = false; });
                 Object.keys(state.filtresPriorites).forEach(k => { state.filtresPriorites[k] = false; });
                 Object.keys(state.filtresResponsables).forEach(k => { state.filtresResponsables[k] = false; });
                 renderFilters(
-                    Object.keys(state.filtresTypes),
                     Object.keys(state.filtresDossiers),
                     Object.keys(state.filtresStatuts),
                     Object.keys(state.filtresPriorites),
@@ -653,7 +556,6 @@
     function getActivitiesForDate(dateStr) {
         return state.activites.filter(act => {
             if (act.date !== dateStr) return false;
-            if (!state.filtresTypes[act.type]) return false;
             if (!state.filtresDossiers[act.dossier || '']) return false;
             if (!state.filtresStatuts[act.statut || 'todo']) return false;
             if (!state.filtresPriorites[act.priorite || 'normal']) return false;
@@ -786,14 +688,11 @@
         const dossierSelect    = document.getElementById('activity-dossier');
         const societeSelect    = document.getElementById('activity-societe');
         const titleInput       = document.getElementById('activity-title');
-        const typeSelect       = document.getElementById('activity-type');
         const dateInput        = document.getElementById('activity-date');
         const dureeSelect      = document.getElementById('activity-duree-minutes');
         const responsableSelect = document.getElementById('activity-responsable');
         const statutSelect     = document.getElementById('activity-statut');
         const prioriteSelect   = document.getElementById('activity-priorite');
-        const clientInput      = document.getElementById('activity-client');
-        const contactInput     = document.getElementById('activity-contact-externe');
         const syncInput        = document.getElementById('activity-sync-outlook');
         const commentInput     = document.getElementById('activity-commentaire');
         const deleteBtn        = document.getElementById('delete-activity-btn');
@@ -812,7 +711,6 @@
         }
         if (titleInput) titleInput.value = act.titre || '';
         if (societeSelect) societeSelect.value = act.societe_id || '';
-        if (typeSelect)    typeSelect.value    = act.type       || '';
         if (dateInput)     dateInput.value     = fullDateStr;
         if (dureeSelect)   dureeSelect.value   = String(act.duree_minutes || 60);
         if (responsableSelect) responsableSelect.value = act.responsable_id || '';
@@ -868,11 +766,9 @@
         list.innerHTML = '';
 
         activites.forEach(act => {
-            const typeKey    = (act.type || 'autre').toLowerCase();
-            const config     = TYPES_CONFIG[typeKey] || TYPES_CONFIG['autre'];
             const nomDossier = act.dossier_nom || act.dossier;
-            const title = act.titre || config.nom;
-            const borderColor = act.is_overdue ? '#dc2626' : (act.priority_color || config.couleur);
+            const title = act.titre || 'Activité';
+            const borderColor = act.is_overdue ? '#dc2626' : (act.priority_color || '#0ea5e9');
 
             const btn = document.createElement('button');
             btn.style.cssText = `
@@ -1135,18 +1031,17 @@
             activity_id: deleteBtn.dataset.activityId || form.dataset.activityId || '',
             dossier:     document.getElementById('activity-dossier').value.trim(),
             societe:     document.getElementById('activity-societe').value,
-            type:        document.getElementById('activity-type').value,
             date:        document.getElementById('activity-date').value,
             commentaire: document.getElementById('activity-commentaire').value.trim()
         };
 
-        if (!formData.type || !formData.date) {
-            showStatus('Veuillez remplir tous les champs obligatoires pour supprimer', 'error');
+        if (!formData.activity_id) {
+            showStatus('Cette activité ne peut pas être identifiée.', 'error');
             return;
         }
 
         const dossierLabel = formData.dossier || 'Sans dossier';
-        if (!confirm(`Êtes-vous sûr de vouloir supprimer l'activité correspondant à ces critères ?\n\nDossier: ${dossierLabel}\nType: ${formData.type}\nDate: ${formData.date}`)) {
+        if (!confirm(`Êtes-vous sûr de vouloir supprimer cette activité ?\n\nDossier : ${dossierLabel}\nDate : ${formData.date}`)) {
             return;
         }
 
@@ -1189,7 +1084,6 @@
             titre:       document.getElementById('activity-title').value.trim(),
             dossier:     document.getElementById('activity-dossier').value.trim(),
             societe:     document.getElementById('activity-societe').value,
-            type:        document.getElementById('activity-type').value,
             date:        document.getElementById('activity-date').value,
             duree_minutes: document.getElementById('activity-duree-minutes').value,
             responsable: document.getElementById('activity-responsable').value,
@@ -1200,7 +1094,7 @@
             sync_outlook: document.getElementById('activity-sync-outlook')?.checked || false
         };
 
-        if (!formData.type || !formData.date) {
+        if (!formData.date) {
             showStatus('Veuillez remplir tous les champs obligatoires', 'error');
             return;
         }
@@ -1435,9 +1329,8 @@
         const durationMinutes = Number(act.duree_minutes || 60);
         const heightPx = Math.max(22, (durationMinutes / 60) * HOUR_PX);
 
-        const typeKey    = (act.type || 'autre').toLowerCase();
-        const color      = act.is_overdue ? '#dc2626' : (act.priority_color || COLORS[typeKey] || COLORS['autre']);
-        const label      = act.titre || (act.type ? (act.type.charAt(0).toUpperCase() + act.type.slice(1)) : 'Activité');
+        const color      = act.is_overdue ? '#dc2626' : (act.priority_color || COLORS['autre']);
+        const label      = act.titre || 'Activité';
         const timeStr    = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
         const nomDossier = act.dossier_nom || act.dossier;
 
