@@ -13,6 +13,13 @@ from management.views import administratif_view, send_reply_view, generate_auto_
     admin_dossiers_export_pdf_view, admin_dossiers_import_view, create_custom_field_view, \
     update_custom_field_view
 from management.views import sync_gmail_journal_view, update_gmail_conversation_status, add_gmail_conversation_note
+from management.company_views import (
+    company_delete,
+    company_detail,
+    company_list_create,
+    company_restore,
+    company_update,
+)
 from technique import views as technique_views
 from home.views import dashboard_view, global_search
 
@@ -28,6 +35,11 @@ urlpatterns = [
     path('administratif/dossiers/import/', admin_dossiers_import_view, name='admin_dossiers_import'),
     path('administratif/dossiers/<int:dossier_id>/', admin_dossier_detail_view, name='admin_dossier_detail'),
     path('administratif/projets/', admin_projects_view, name='admin_projects'),
+    path('administratif/societes/', company_list_create, name='admin_societes'),
+    path('administratif/societes/<int:pk>/details/', company_detail, name='admin_societe_detail'),
+    path('administratif/societes/<int:pk>/modifier/', company_update, name='admin_societe_update'),
+    path('administratif/societes/<int:pk>/supprimer/', company_delete, name='admin_societe_delete'),
+    path('administratif/societes/<int:pk>/reactiver/', company_restore, name='admin_societe_restore'),
     path('api/calendar-activities-week/', get_calendar_activities_week, name='calendar_activities_week'),
     
     # On met ceci AVANT les autres pour être sûr que les URLs de login sont prioritaires

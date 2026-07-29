@@ -255,6 +255,20 @@
     padding-inline: 1rem;
 }
 
+.company-management-note {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    color: var(--text-secondary);
+    font-size: .78rem;
+    line-height: 1.4;
+}
+
+.company-management-note i {
+    flex: 0 0 auto;
+    color: var(--accent);
+}
+
 .company-field-errors,
 .company-form-errors {
     margin-top: .45rem;
@@ -568,6 +582,23 @@
 
 .company-edit-icon {
     padding-inline: .55rem;
+}
+
+.company-inline-action {
+    display: inline-flex;
+    margin: 0;
+}
+
+.company-inline-action button {
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.company-delete-action:hover {
+    border-color: rgba(220, 38, 38, .25);
+    background: rgba(220, 38, 38, .08);
+    color: #dc2626;
 }
 
 .companies-empty {

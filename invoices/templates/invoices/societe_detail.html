@@ -9,7 +9,7 @@
 {% block content %}
 <div class="company-detail-page">
     <nav class="company-breadcrumb" aria-label="Fil d’Ariane">
-        <a href="{% url 'invoices:societes' %}">Sociétés</a>
+        <a href="{% url 'admin_societes' %}">Sociétés</a>
         <i class="bi bi-chevron-right" aria-hidden="true"></i>
         <span>{{ company.nom }}</span>
     </nav>
@@ -30,10 +30,10 @@
             </div>
         </div>
         <div class="company-profile-actions">
-            <a href="{% url 'invoices:societes' %}" class="btn btn-secondary">
+            <a href="{% url 'admin_societes' %}" class="btn btn-secondary">
                 <i class="bi bi-arrow-left" aria-hidden="true"></i> Retour
             </a>
-            <a href="{% url 'invoices:societe_update' company.pk %}" class="btn btn-primary">
+            <a href="{% url 'admin_societe_update' company.pk %}" class="btn btn-primary">
                 <i class="bi bi-pencil" aria-hidden="true"></i> Modifier
             </a>
         </div>

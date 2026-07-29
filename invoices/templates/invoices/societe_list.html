@@ -11,14 +11,14 @@
 <div class="companies-page">
     <header class="companies-header">
         <div>
-            <div class="companies-eyebrow">Finance</div>
+            <div class="companies-eyebrow">Administratif</div>
             <h1>Référentiel des sociétés</h1>
-            <p>Gérez les sociétés utilisées dans les factures, dossiers et activités.</p>
+            <p>Gérez le référentiel partagé utilisé dans les dossiers, factures, activités et tampons.</p>
         </div>
         <div class="companies-header-actions">
-            <a href="{% url 'invoices:list' %}" class="btn btn-secondary companies-back-link">
+            <a href="{% url 'admin_dossiers' %}" class="btn btn-secondary companies-back-link">
                 <i class="bi bi-arrow-left" aria-hidden="true"></i>
-                Retour aux factures
+                Retour aux dossiers
             </a>
             <button type="button" class="btn btn-primary" id="company-form-toggle" aria-controls="company-form-panel">
                 <i class="bi {% if editing_company %}bi-pencil{% else %}bi-plus-lg{% endif %}" aria-hidden="true"></i>
@@ -34,7 +34,7 @@
             </span>
             <span class="company-form-heading">
                 <strong>{% if editing_company %}Modifier {{ editing_company.nom }}{% else %}Ajouter une société{% endif %}</strong>
-                <small>{% if editing_company %}Mettez à jour son nom ou sa disponibilité.{% else %}Créez une société disponible dans les modules de l’intranet.{% endif %}</small>
+                <small>{% if editing_company %}Mettez à jour le nom utilisé dans tout l’intranet.{% else %}Créez une société disponible dans les modules de l’intranet.{% endif %}</small>
             </span>
             <i class="bi bi-chevron-down company-form-chevron" aria-hidden="true"></i>
         </summary>
@@ -64,26 +64,14 @@
                     {% endif %}
                 </div>
 
-                <label class="company-toggle" for="{{ form.is_active.id_for_label }}">
-                    <input
-                        type="checkbox"
-                        name="{{ form.is_active.html_name }}"
-                        id="{{ form.is_active.id_for_label }}"
-                        {% if form.is_active.value %}checked{% endif %}
-                    >
-                    <span class="company-toggle-track" aria-hidden="true"></span>
-                    <span>
-                        <strong>Société active</strong>
-                        <small>Visible dans les listes de sélection</small>
-                    </span>
-                </label>
-                {% if form.is_active.errors %}
-                <div class="company-field-errors">{{ form.is_active.errors }}</div>
-                {% endif %}
+                <div class="company-management-note">
+                    <i class="bi bi-info-circle" aria-hidden="true"></i>
+                    <span>La suppression est définitive uniquement si la société n’est liée à aucune donnée.</span>
+                </div>
 
                 <div class="company-form-actions">
                     {% if editing_company %}
-                    <a href="{% url 'invoices:societes' %}" class="btn btn-ghost">Annuler</a>
+                    <a href="{% url 'admin_societes' %}" class="btn btn-ghost">Annuler</a>
                     {% endif %}
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-check2" aria-hidden="true"></i>
@@ -101,7 +89,7 @@
                     <h2>Sociétés enregistrées</h2>
                     <span class="companies-count">{{ companies|length }}</span>
                 </div>
-                <p>Vue d’ensemble de leur utilisation et de leur situation financière.</p>
+                <p>Vue d’ensemble de leur utilisation dans l’intranet.</p>
             </div>
             <div class="companies-quick-stats" aria-label="Résumé des sociétés">
                 <span><i class="companies-stat-dot companies-stat-active"></i><strong id="active-company-count">{{ company_stats.active }}</strong> actives</span>
@@ -158,8 +146,8 @@
                             data-name="{{ company.nom|lower }}"
                             data-status="{% if company.is_active %}active{% else %}inactive{% endif %}"
                             data-invoices="{{ company.invoice_count }}"
-                            data-projects="{{ company.dossiers.count }}"
-                            data-activities="{{ company.activites.count }}"
+                            data-projects="{{ company.project_count }}"
+                            data-activities="{{ company.activity_count }}"
                             data-total="{{ company.total_amount|default:0|unlocalize }}"
                             data-paid="{{ company.paid_amount|default:0|unlocalize }}"
                             data-overdue="{{ company.overdue_count }}"
@@ -168,7 +156,7 @@
                                 <div class="company-identity">
                                     <span class="company-monogram" aria-hidden="true">{{ company.nom|first|upper }}</span>
                                     <span class="company-name-block">
-                                        <a href="{% url 'invoices:societe_detail' company.pk %}" class="company-name-link">{{ company.nom }}</a>
+                                        <a href="{% url 'admin_societe_detail' company.pk %}" class="company-name-link">{{ company.nom }}</a>
                                         {% if company.is_active %}
                                         <span class="company-status company-status-active"><i></i> Active</span>
                                         {% else %}
@@ -178,8 +166,8 @@
                                 </div>
                             </td>
                             <td data-label="Factures" class="company-number">{{ company.invoice_count }}</td>
-                            <td data-label="Dossiers" class="company-number">{{ company.dossiers.count }}</td>
-                            <td data-label="Activités" class="company-number">{{ company.activites.count }}</td>
+                            <td data-label="Dossiers" class="company-number">{{ company.project_count }}</td>
+                            <td data-label="Activités" class="company-number">{{ company.activity_count }}</td>
                             <td data-label="Montant total" class="company-money">{{ company.total_amount|default:0|floatformat:2 }} €</td>
                             <td data-label="Payé" class="company-money company-paid">{{ company.paid_amount|default:0|floatformat:2 }} €</td>
                             <td data-label="En retard" class="company-number">
@@ -190,13 +178,28 @@
                                 {% endif %}
                             </td>
                             <td class="company-action">
-                                <a href="{% url 'invoices:societe_detail' company.pk %}" class="company-edit-link company-view-link" aria-label="Consulter {{ company.nom }}">
+                                <a href="{% url 'admin_societe_detail' company.pk %}" class="company-edit-link company-view-link" aria-label="Consulter {{ company.nom }}">
                                     <i class="bi bi-arrow-right" aria-hidden="true"></i>
                                     <span>Voir</span>
                                 </a>
-                                <a href="{% url 'invoices:societe_update' company.pk %}" class="company-edit-link company-edit-icon" aria-label="Modifier {{ company.nom }}" title="Modifier">
+                                <a href="{% url 'admin_societe_update' company.pk %}" class="company-edit-link company-edit-icon" aria-label="Modifier {{ company.nom }}" title="Modifier">
                                     <i class="bi bi-pencil" aria-hidden="true"></i>
                                 </a>
+                                {% if company.is_active %}
+                                <form method="post" action="{% url 'admin_societe_delete' company.pk %}" class="company-inline-action" onsubmit="return confirm('Supprimer ou retirer {{ company.nom|escapejs }} des sélections ?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="company-edit-link company-edit-icon company-delete-action" aria-label="Supprimer ou retirer {{ company.nom }}" title="Supprimer ou retirer">
+                                        <i class="bi bi-trash3" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                                {% else %}
+                                <form method="post" action="{% url 'admin_societe_restore' company.pk %}" class="company-inline-action">
+                                    {% csrf_token %}
+                                    <button type="submit" class="company-edit-link company-edit-icon" aria-label="Réactiver {{ company.nom }}" title="Réactiver">
+                                        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}
