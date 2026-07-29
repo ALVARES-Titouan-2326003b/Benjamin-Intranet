@@ -2,7 +2,6 @@ import io
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.db.models import Count, F, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -27,18 +26,11 @@ from user_access.user_test_functions import (
     has_collaborateur_access,
 )
 from .filters import FactureFilter
-from .forms import (
-    FactureForm,
-    InvoiceReminderSettingsForm,
-    PieceJointeForm,
-    SocieteForm,
-)
+from .forms import FactureForm, PieceJointeForm
 from .models import (
     Facture,
     PieceJointe,
     FactureHistorique,
-    InvoiceReminderSettings,
-    Societe,
 )
 from .services.email import send_invoice_submission_email
 from .services.quality import get_invoice_anomalies
@@ -92,7 +84,6 @@ class FactureListView(FilterView):
             .get_queryset()
             .select_related('collaborateur', 'demandeur', 'dossier', 'societe')
             .order_by(
-                F('date_facture').desc(nulls_last=True),
                 '-date_soumission',
                 '-id',
             )
@@ -227,20 +218,9 @@ class FactureListView(FilterView):
         context['can_create_invoice'] = can_create_facture(self.request.user)
         context['can_export_invoices'] = can_manage_finance
         context['can_manage_bulk_delete'] = can_manage_finance
-        context['can_manage_manual_reminders'] = can_manage_finance
         context['can_view_dashboard'] = can_manage_finance
         context['can_view_exports'] = can_manage_finance
         context['can_view_anomalies'] = can_manage_finance
-        if can_manage_finance:
-            reminder_settings = (
-                InvoiceReminderSettings.objects.select_related("sender")
-                .filter(pk=1)
-                .first()
-            )
-            context["reminder_settings"] = reminder_settings
-            context["reminder_settings_form"] = InvoiceReminderSettingsForm(
-                instance=reminder_settings or InvoiceReminderSettings()
-            )
         return context
 
 @method_decorator([login_required, user_passes_test(can_read_facture, login_url="/", redirect_field_name=None)], name="dispatch")
@@ -403,57 +383,6 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
         context["can_change_invoice_status"] = can_change_facture_status(self.request.user)
         return context
 
-# ================== Relance Manuelle ==================
-
-@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
-class ManualInvoiceRemindersView(View):
-    """
-    Vue pour déclencher manuellement les relances de factures.
-    Utilise la configuration centralisée et déclenche immédiatement
-    la vérification des factures échues.
-    """
-
-    def post(self, request, *args, **kwargs):
-        from .tasks import check_and_send_invoice_reminders
-
-        result = check_and_send_invoice_reminders()
-
-        if result.get("disabled"):
-            messages.warning(
-                request,
-                "Les relances sont désactivées. Enregistrez et activez d’abord leur configuration.",
-            )
-        elif result.get('success'):
-            if result.get('relances_envoyees', 0) > 0:
-                messages.success(
-                    request,
-                    f"Relance terminée : {result['relances_envoyees']} e-mail"
-                    f"{['','s'][result['relances_envoyees'] > 1]} envoyé"
-                    f"{['','s'][result['relances_envoyees'] > 1]} sur "
-                    f"{result['factures_traitees']} facture"
-                    f"{['','s'][result['factures_traitees'] > 1]} vérifiée"
-                    f"{['','s'][result['factures_traitees'] > 1]}."
-                )
-            else:
-                missing = result.get("factures_sans_destinataire", 0)
-                missing_detail = (
-                    f" {missing} facture{['','s'][missing > 1]} sans adresse de relance."
-                    if missing
-                    else ""
-                )
-                messages.info(
-                    request,
-                    "Aucune relance à envoyer pour le moment."
-                    f"{missing_detail}"
-                )
-        else:
-            messages.error(
-                request,
-                f"Erreur lors de la relance : {result.get('message', 'Erreur inconnue')}"
-            )
-
-        return redirect('invoices:list')
-
 # ================== Suppression en masse ==================
 
 @method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
@@ -484,29 +413,6 @@ class BulkDeleteInvoicesView(View):
         return redirect('invoices:list')
 
 
-@method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name="dispatch")
-class InvoiceReminderSettingsView(View):
-    def post(self, request, *args, **kwargs):
-        settings_obj, _ = InvoiceReminderSettings.objects.get_or_create(pk=1)
-        form = InvoiceReminderSettingsForm(request.POST, instance=settings_obj)
-        if not form.is_valid():
-            error_messages = [
-                str(error)
-                for errors in form.errors.values()
-                for error in errors
-            ]
-            messages.error(
-                request,
-                "Configuration non enregistrée : " + " ".join(error_messages),
-            )
-            return redirect("invoices:list")
-
-        settings_obj = form.save()
-        status = "activées" if settings_obj.is_enabled else "désactivées"
-        messages.success(request, f"Configuration enregistrée. Les relances sont {status}.")
-        return redirect("invoices:list")
-
-
 @method_decorator([login_required, user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)], name='dispatch')
 class InvoiceAnomaliesView(TemplateView):
     template_name = 'invoices/anomalies.html'
@@ -515,153 +421,3 @@ class InvoiceAnomaliesView(TemplateView):
         context = super().get_context_data(**kwargs)
         context['anomalies'] = get_invoice_anomalies()
         return context
-
-
-@login_required
-@user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)
-def societe_list_create(request):
-    if request.method == "POST":
-        form = SocieteForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Société pré-enregistrée.")
-            return redirect("invoices:societes")
-    else:
-        form = SocieteForm()
-
-    companies = list(
-        Societe.objects.annotate(
-            invoice_count=Count("factures", distinct=True),
-            total_amount=Sum("factures__montant"),
-            paid_amount=Sum("factures__montant", filter=Q(factures__statut="paid")),
-            overdue_count=Count(
-                "factures",
-                filter=Q(
-                    factures__statut__in=["ongoing", "received"],
-                    factures__echeance__lt=timezone.now(),
-                ),
-                distinct=True,
-            ),
-        )
-        .prefetch_related("dossiers", "activites")
-        .order_by("nom")
-    )
-    company_stats = {
-        "active": sum(company.is_active for company in companies),
-        "inactive": sum(not company.is_active for company in companies),
-        "overdue": sum(company.overdue_count > 0 for company in companies),
-    }
-    return render(
-        request,
-        "invoices/societe_list.html",
-        {"companies": companies, "company_stats": company_stats, "form": form},
-    )
-
-
-@login_required
-@user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)
-def societe_detail(request, pk):
-    company = get_object_or_404(Societe, pk=pk)
-    now = timezone.now()
-
-    invoices = list(
-        company.factures
-        .select_related("fournisseur", "dossier")
-        .prefetch_related("piecejointe_set")
-        .order_by("-date_facture", "-date_soumission", "-id")
-    )
-    for invoice in invoices:
-        invoice.is_overdue = bool(
-            invoice.echeance
-            and invoice.echeance < now
-            and invoice.statut in {"ongoing", "received"}
-        )
-
-    dossiers = list(
-        company.dossiers
-        .annotate(
-            document_count=Count("documents", distinct=True),
-            related_invoice_count=Count("facture", distinct=True),
-        )
-        .order_by("-updated_at", "name")
-    )
-    from technique.models import DocumentTechnique
-    documents = list(
-        DocumentTechnique.objects
-        .filter(project__societe=company)
-        .select_related("project", "created_by")
-        .order_by("-created_at")
-    )
-
-    invoice_stats = company.factures.aggregate(
-        total_amount=Sum("montant"),
-        paid_amount=Sum("montant", filter=Q(statut="paid")),
-        overdue_count=Count(
-            "pk",
-            filter=Q(
-                statut__in=["ongoing", "received"],
-                echeance__lt=now,
-            ),
-        ),
-    )
-
-    return render(
-        request,
-        "invoices/societe_detail.html",
-        {
-            "company": company,
-            "invoices": invoices,
-            "dossiers": dossiers,
-            "documents": documents,
-            "activities_count": company.activites.count(),
-            "total_amount": invoice_stats["total_amount"] or 0,
-            "paid_amount": invoice_stats["paid_amount"] or 0,
-            "overdue_count": invoice_stats["overdue_count"],
-        },
-    )
-
-
-@login_required
-@user_passes_test(can_change_facture_status, login_url="/", redirect_field_name=None)
-def societe_update(request, pk):
-    company = get_object_or_404(Societe, pk=pk)
-    if request.method == "POST":
-        form = SocieteForm(request.POST, instance=company)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Société mise à jour.")
-            return redirect("invoices:societes")
-    else:
-        form = SocieteForm(instance=company)
-    companies = list(
-        Societe.objects.annotate(
-            invoice_count=Count("factures", distinct=True),
-            total_amount=Sum("factures__montant"),
-            paid_amount=Sum("factures__montant", filter=Q(factures__statut="paid")),
-            overdue_count=Count(
-                "factures",
-                filter=Q(
-                    factures__statut__in=["ongoing", "received"],
-                    factures__echeance__lt=timezone.now(),
-                ),
-                distinct=True,
-            ),
-        )
-        .prefetch_related("dossiers", "activites")
-        .order_by("nom")
-    )
-    company_stats = {
-        "active": sum(item.is_active for item in companies),
-        "inactive": sum(not item.is_active for item in companies),
-        "overdue": sum(item.overdue_count > 0 for item in companies),
-    }
-    return render(
-        request,
-        "invoices/societe_list.html",
-        {
-            "companies": companies,
-            "company_stats": company_stats,
-            "form": form,
-            "editing_company": company,
-        },
-    )

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Facture, PieceJointe, Entreprise, InvoiceReminderSettings, Societe
+from .models import Facture, PieceJointe, Entreprise, Societe
 
 @admin.register(Facture)
 class FactureAdmin(admin.ModelAdmin):
@@ -22,8 +22,3 @@ class SocieteAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
     search_fields = ("nom",)
 
-
-@admin.register(InvoiceReminderSettings)
-class InvoiceReminderSettingsAdmin(admin.ModelAdmin):
-    list_display = ("sender", "updated_at")
-    readonly_fields = ("updated_at",)

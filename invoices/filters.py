@@ -15,10 +15,7 @@ class FactureFilter(django_filters.FilterSet):
         empty_label='Toutes',
         widget=forms.Select(attrs={'class': 'form-control'}),
     )
-    affaire = django_filters.CharFilter(
-        field_name='affaire',
-        lookup_expr='icontains'
-    )
+    affaire = django_filters.CharFilter(method='filter_affaire')
     fournisseur = django_filters.CharFilter(method='filter_fournisseur')
     dossier = django_filters.CharFilter(method='filter_dossier')
     statut = django_filters.CharFilter(
@@ -38,6 +35,13 @@ class FactureFilter(django_filters.FilterSet):
         return queryset.filter(
             Q(fournisseur__nom__icontains=value)
             | Q(fournisseur_id__icontains=value)
+        )
+
+    def filter_affaire(self, queryset, name, value):
+        return queryset.filter(
+            Q(affaire__icontains=value)
+            | Q(dossier__reference__icontains=value)
+            | Q(dossier__name__icontains=value)
         )
 
     def filter_dossier(self, queryset, name, value):

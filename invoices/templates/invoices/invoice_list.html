@@ -36,57 +36,13 @@
     </div>
 </div>
 
-{% if can_manage_manual_reminders %}
-<div class="card" style="margin-bottom: 1.5rem;">
-    <div class="card-title">Relances Gmail après échéance</div>
-    <form method="post" action="{% url 'invoices:reminder_settings' %}"
-        style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1rem;">
-        {% csrf_token %}
-        <div class="form-group" style="margin:0;min-width:280px;flex:1;">
-            <label class="form-label">Compte Gmail expéditeur</label>
-            <select name="sender_id" class="form-control" required>
-                <option value="">-- Sélectionner --</option>
-                {% for sender in gmail_senders %}
-                <option value="{{ sender.pk }}" {% if reminder_settings.sender_id == sender.pk %}selected{% endif %}>
-                    {{ sender.get_full_name|default:sender.username }} — {{ sender.email }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        <button type="submit" class="btn btn-secondary">Enregistrer l'expéditeur</button>
-    </form>
-    <form method="post" action="{% url 'invoices:manual_reminders' %}"
-        style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-        {% csrf_token %}
-
-        <div class="form-group" style="margin: 0; flex: 0 0 200px;">
-            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 0.5rem;">
-                Intervalle après échéance (jours)
-            </label>
-            <input type="number" name="delai_relance" value="1" min="1" class="form-control" style="font-weight: 600;"
-                required>
-        </div>
-
-        <button type="submit" class="btn btn-warning"
-            style="font-weight: 600; padding: 0.75rem 1.5rem; flex: 1; min-width: 200px;"
-            onclick="return confirm('Cette action va lancer la relance manuelle.\n\nVoulez-vous continuer ?');">
-            Lancer la relance manuelle
-        </button>
-    </form>
-
-    <small style="display: block; margin-top: 0.5rem; color: var(--text-secondary); font-style: italic;">
-        Première relance à J+X, puis tous les X jours. L'envoi utilise le compte Gmail désigné.
-    </small>
-</div>
-{% endif %}
-
 {% if not is_only_collaborator %}
 <div class="card">
     <div class="card-title">
         <span><i class="bi bi-funnel"></i> Filtres</span>
         <a href="{% url 'invoices:list' %}" class="btn btn-sm btn-secondary"
             style="font-size: 0.8rem; padding: 0.25rem 0.75rem;">
-            Reinitialiser
+            Réinitialiser
         </a>
     </div>
 
@@ -132,10 +88,10 @@
             <select name="statut" class="form-control">
                 <option value="">Tous</option>
                 <option value="ongoing" {% if request.GET.statut == 'ongoing' %}selected{% endif %}>En cours</option>
-                <option value="received" {% if request.GET.statut == 'received' %}selected{% endif %}>Recue</option>
-                <option value="paid" {% if request.GET.statut == 'paid' %}selected{% endif %}>Payee</option>
-                <option value="denied" {% if request.GET.statut == 'denied' %}selected{% endif %}>Refusee</option>
-                <option value="archived" {% if request.GET.statut == 'archived' %}selected{% endif %}>Archivee</option>
+                <option value="received" {% if request.GET.statut == 'received' %}selected{% endif %}>Reçue</option>
+                <option value="paid" {% if request.GET.statut == 'paid' %}selected{% endif %}>Payée</option>
+                <option value="denied" {% if request.GET.statut == 'denied' %}selected{% endif %}>Refusée</option>
+                <option value="archived" {% if request.GET.statut == 'archived' %}selected{% endif %}>Archivée</option>
             </select>
         </div>
 
@@ -164,7 +120,7 @@
         </div>
 
         <div class="form-group" style="margin: 0; grid-column: span 2;">
-            <label class="form-label" style="font-size: 0.8rem;">Echeance (Periode)</label>
+            <label class="form-label" style="font-size: 0.8rem;">Échéance (période)</label>
             <div style="display: flex; gap: 0.5rem;">
                 <input type="date" name="echeance_min" value="{{ request.GET.echeance_min }}" class="form-control">
                 <input type="date" name="echeance_max" value="{{ request.GET.echeance_max }}" class="form-control">
@@ -184,8 +140,8 @@
 <form method="post" action="{% url 'invoices:bulk_delete' %}" id="bulkDeleteForm" style="margin-bottom: 1rem;">
     {% csrf_token %}
     <button type="submit" class="btn btn-danger" id="deleteSelectedBtn" style="display: none;"
-        onclick="return confirm('Etes-vous sur de vouloir supprimer les factures selectionnees ? Cette action est irreversible.');">
-        <i class="bi bi-trash"></i> Supprimer la selection (<span id="selectedCount">0</span>)
+        onclick="return confirm('Êtes-vous sûr de vouloir supprimer les factures sélectionnées ? Cette action est irréversible.');">
+        <i class="bi bi-trash"></i> Supprimer la sélection (<span id="selectedCount">0</span>)
     </button>
 {% endif %}
 
@@ -195,18 +151,18 @@
             <thead style="background: var(--bg-table)">
                 <tr>
                     {% if can_manage_bulk_delete %}
-                    <th style="padding-left: 1.5rem; width: 40px;"><input type="checkbox" id="selectAll" title="Tout selectionner"></th>
+                    <th style="padding-left: 1.5rem; width: 40px;"><input type="checkbox" id="selectAll" title="Tout sélectionner"></th>
                     {% endif %}
                     <th>ID</th>
                     <th>N° facture</th>
                     <th>Société</th>
                     <th>Dossier / affaire</th>
-                    <th>Dossier</th>
                     <th>Service</th>
                     <th>Fournisseur</th>
                     <th>Montant</th>
                     <th>Statut</th>
-                    <th>Echeance</th>
+                    <th>Créée le</th>
+                    <th>Échéance</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -223,8 +179,7 @@
                     </td>
                     <td>{{ invoice.numero_facture|default:"-" }}</td>
                     <td>{{ invoice.societe|default:"-" }}</td>
-                    <td>{{ invoice.affaire|default:"-" }}</td>
-                    <td>{{ invoice.dossier|default:"-" }}</td>
+                    <td>{{ invoice.dossier|default:invoice.affaire|default:"-" }}</td>
                     <td>{% if invoice.service %}{{ invoice.get_service_display }}{% else %}-{% endif %}</td>
                     <td>{{ invoice.fournisseur|default:"-" }}</td>
                     <td style="font-family: monospace; font-size: 0.95rem;">
@@ -234,6 +189,7 @@
                         <span style="color: #ccc;">-</span>
                         {% endif %}
                     </td>
+                    <td>{{ invoice.date_soumission|date:"d/m/Y H:i" }}</td>
                     <td>
                         {% if invoice.statut %}
                         {% if invoice.statut == 'paid' %}<span class="badge badge-success">{{ invoice.get_statut_display }}</span>
@@ -261,7 +217,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="{% if can_manage_bulk_delete %}12{% else %}11{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucune facture trouvee.</td>
+                    <td colspan="{% if can_manage_bulk_delete %}12{% else %}11{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Aucune facture trouvée.</td>
                 </tr>
                 {% endfor %}
             </tbody>

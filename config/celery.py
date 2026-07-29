@@ -31,10 +31,6 @@ app.conf.beat_schedule = {
         'task': 'management.tasks.check_and_send_activite_reminders',
         'schedule': crontab(minute='*/30'),
     },
-    'check-and-send-invoice-reminders': {
-        'task': 'invoices.tasks.check_and_send_invoice_reminders',
-        'schedule': crontab(minute='*/30'),
-    },
 }
 app.conf.timezone = 'Europe/Paris'
 

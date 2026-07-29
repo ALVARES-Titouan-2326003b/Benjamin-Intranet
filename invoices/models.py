@@ -5,15 +5,6 @@ from django.contrib.auth import get_user_model
 Utilisateur = get_user_model()
 
 
-class RelanceFournisseur(models.Model):
-    id = models.TextField(primary_key=True)
-    message = models.TextField()
-    temps = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        db_table = 'relance_fournisseur'
-
-
 class ActeurExterne(models.Model):
     id = models.TextField(primary_key=True)
 
@@ -211,37 +202,6 @@ class FactureHistorique(models.Model):
 
     def __str__(self):
         return f"Historique {self.facture_id} [{self.get_action_display()}] {self.created_at:%d/%m/%Y %H:%M}"
-
-
-class InvoiceReminderSettings(models.Model):
-    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
-    sender = models.ForeignKey(
-        Utilisateur,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="invoice_reminder_settings",
-    )
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "invoice_reminder_settings"
-        verbose_name = "Configuration des relances de factures"
-        verbose_name_plural = "Configuration des relances de factures"
-
-    def save(self, *args, **kwargs):
-        self.pk = 1
-        if self._state.adding and type(self).objects.filter(pk=1).exists():
-            type(self).objects.filter(pk=1).update(
-                sender=self.sender,
-                updated_at=timezone.now(),
-            )
-            self._state.adding = False
-            return
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"Expéditeur Gmail : {self.sender or 'non configuré'}"
 
 
 class PieceJointe(models.Model):
