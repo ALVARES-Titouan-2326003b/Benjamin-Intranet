@@ -134,7 +134,7 @@
                             <th scope="col" class="company-number-column"><button type="button" class="company-sort" data-sort="projects">Dossiers <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
                             <th scope="col" class="company-number-column"><button type="button" class="company-sort" data-sort="activities">Activités <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
                             <th scope="col" class="company-money-column"><button type="button" class="company-sort" data-sort="total">Montant total <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
-                            <th scope="col" class="company-money-column"><button type="button" class="company-sort" data-sort="paid">Payé <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                            <th scope="col" class="company-money-column"><button type="button" class="company-sort" data-sort="pending">En attente <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
                             <th scope="col" class="company-number-column"><button type="button" class="company-sort" data-sort="overdue">Retard <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
                             <th scope="col" class="company-action-column"><span class="sr-only">Actions</span></th>
                         </tr>
@@ -149,7 +149,7 @@
                             data-projects="{{ company.project_count }}"
                             data-activities="{{ company.activity_count }}"
                             data-total="{{ company.total_amount|default:0|unlocalize }}"
-                            data-paid="{{ company.paid_amount|default:0|unlocalize }}"
+                            data-pending="{{ company.pending_amount|default:0|unlocalize }}"
                             data-overdue="{{ company.overdue_count }}"
                         >
                             <td data-label="Société">
@@ -169,7 +169,7 @@
                             <td data-label="Dossiers" class="company-number">{{ company.project_count }}</td>
                             <td data-label="Activités" class="company-number">{{ company.activity_count }}</td>
                             <td data-label="Montant total" class="company-money">{{ company.total_amount|default:0|floatformat:2 }} €</td>
-                            <td data-label="Payé" class="company-money company-paid">{{ company.paid_amount|default:0|floatformat:2 }} €</td>
+                            <td data-label="En attente" class="company-money company-pending">{{ company.pending_amount|default:0|floatformat:2 }} €</td>
                             <td data-label="En retard" class="company-number">
                                 {% if company.overdue_count %}
                                 <span class="company-overdue"><i class="bi bi-exclamation-circle" aria-hidden="true"></i>{{ company.overdue_count }}</span>
@@ -265,7 +265,7 @@
         let currentSort = 'name';
         let sortDirection = 'asc';
 
-        const numericSorts = new Set(['invoices', 'projects', 'activities', 'total', 'paid', 'overdue']);
+        const numericSorts = new Set(['invoices', 'projects', 'activities', 'total', 'pending', 'overdue']);
 
         const updateQuickStats = () => {
             document.getElementById('active-company-count').textContent = rows.filter((row) => row.dataset.status === 'active').length;

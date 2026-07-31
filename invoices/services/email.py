@@ -56,7 +56,7 @@ def _invoice_details(facture):
         f"Fournisseur : {facture.fournisseur or '-'}\n"
         f"Numéro de facture : {facture.numero_facture or '-'}\n"
         f"Société : {facture.societe or '-'}\n"
-        f"Dossier / affaire : {facture.affaire or '-'}\n"
+        f"Dossier / affaire : {facture.dossier or facture.affaire or '-'}\n"
         f"Montant TTC : {facture.montant if facture.montant is not None else '-'} €\n"
         f"Échéance : {facture.echeance.strftime('%d/%m/%Y') if facture.echeance else '-'}\n"
         f"Demandeur : {demandeur}\n"
@@ -105,11 +105,14 @@ def send_invoice_status_email(facture, old_status, new_status):
     Notifie le pôle financier et les CEO lors du changement de statut.
     """
     subject = f"Mise à jour facture {facture.numero_facture or facture.id} : statut modifié"
+    from invoices.models import Facture
+
+    status_labels = dict(Facture.STATUS)
     body = (
         "Bonjour,\n\n"
         f"Le statut de la facture {facture.numero_facture or facture.id} a changé.\n\n"
-        f"Ancien statut : {old_status}\n"
-        f"Nouveau statut : {new_status}\n\n"
+        f"Ancien statut : {status_labels.get(old_status, old_status)}\n"
+        f"Nouveau statut : {status_labels.get(new_status, new_status)}\n\n"
         f"{_invoice_details(facture)}\n\n"
         "Cordialement,\n"
         "L'intranet Benjamin Immobilier"

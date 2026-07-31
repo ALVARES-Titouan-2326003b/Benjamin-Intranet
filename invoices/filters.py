@@ -18,9 +18,11 @@ class FactureFilter(django_filters.FilterSet):
     affaire = django_filters.CharFilter(method='filter_affaire')
     fournisseur = django_filters.CharFilter(method='filter_fournisseur')
     dossier = django_filters.CharFilter(method='filter_dossier')
-    statut = django_filters.CharFilter(
+    statut = django_filters.ChoiceFilter(
         field_name='statut',
-        lookup_expr='exact'
+        choices=Facture.STATUS,
+        empty_label="Tous",
+        widget=forms.Select(attrs={'class': 'form-control'}),
     )
     service = django_filters.CharFilter(
         field_name='service',

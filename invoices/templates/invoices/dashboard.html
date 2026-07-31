@@ -72,9 +72,9 @@
             <small>{{ kpi.total_count }} factures</small>
         </div>
         <div class="card kpi-card kpi-success">
-            <span>Payé</span>
-            <strong>{{ kpi.paid_amount|floatformat:2 }} €</strong>
-            <small>{{ kpi.paid_percent|floatformat:0 }}% du total</small>
+            <span>Reçues</span>
+            <strong>{{ kpi.received_amount|floatformat:2 }} €</strong>
+            <small>{{ kpi.received_percent|floatformat:0 }}% du total</small>
         </div>
         <div class="card kpi-card kpi-warning">
             <span>En attente</span>
@@ -87,15 +87,15 @@
             <small>{{ kpi.overdue_count }} factures échues</small>
         </div>
         <div class="card kpi-card kpi-accent">
-            <span>Traitement moyen</span>
+            <span>Attente moyenne</span>
             <strong>
-                {% if kpi.avg_processing_days is not None %}
-                {{ kpi.avg_processing_days|floatformat:1 }} jours
+                {% if kpi.avg_pending_days is not None %}
+                {{ kpi.avg_pending_days|floatformat:1 }} jours
                 {% else %}
                 -
                 {% endif %}
             </strong>
-            <small>Factures payées</small>
+            <small>Factures en attente</small>
         </div>
         <div class="card kpi-card kpi-muted">
             <span>Anomalies</span>

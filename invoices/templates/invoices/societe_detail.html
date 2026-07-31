@@ -4,6 +4,11 @@
 
 {% block extra_css %}
 {% include "invoices/_societe_detail_styles.html" %}
+<style>
+.status-received{background:#eff6ff;color:#1d4ed8}
+.status-pending{background:#fef3c7;color:#92400e}
+[data-theme="dark"] .status-pending{background:rgba(245,158,11,.18);color:#fcd34d}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -58,7 +63,7 @@
         </article>
         <article class="company-metric">
             <span class="company-metric-icon metric-emerald"><i class="bi bi-check2-circle" aria-hidden="true"></i></span>
-            <div><strong>{{ paid_amount|floatformat:2 }} €</strong><span>Montant payé</span></div>
+            <div><strong>{{ pending_amount|floatformat:2 }} €</strong><span>Montant en attente</span></div>
         </article>
         <article class="company-metric {% if overdue_count %}metric-alert{% endif %}">
             <span class="company-metric-icon metric-red"><i class="bi bi-exclamation-circle" aria-hidden="true"></i></span>
@@ -96,8 +101,8 @@
                             <td data-label="Dossier">{% if invoice.dossier %}{{ invoice.dossier.reference }}{% elif invoice.affaire %}{{ invoice.affaire }}{% else %}—{% endif %}</td>
                             <td data-label="Date">{{ invoice.date_facture|date:"d/m/Y"|default:"—" }}</td>
                             <td data-label="Statut">
-                                <span class="invoice-status status-{{ invoice.statut }} {% if invoice.is_overdue %}status-overdue{% endif %}">
-                                    {% if invoice.is_overdue %}En retard{% else %}{{ invoice.get_statut_display }}{% endif %}
+                                <span class="invoice-status status-{{ invoice.statut }}">
+                                    {{ invoice.get_statut_display }}
                                 </span>
                             </td>
                             <td data-label="Montant" class="detail-amount">{{ invoice.montant|default:0|floatformat:2 }} €</td>

@@ -22,7 +22,7 @@
 
   <!-- Main Info Card -->
   <div class="card">
-    <div class="card-title">Informations Générales</div>
+    <div class="card-title">Informations générales</div>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
       <div>
@@ -42,7 +42,7 @@
 
       <div>
         <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Dossier / affaire concerné</label>
-        <div style="font-weight: 500;">{{ object.affaire|default:"—" }}</div>
+        <div style="font-weight: 500;">{{ object.dossier|default:object.affaire|default:"—" }}</div>
       </div>
 
       <div>
@@ -56,11 +56,8 @@
         <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Statut</label>
         <div>
           {% if object.statut %}
-          {% if object.statut == 'paid' %}<span class="badge badge-success">{{ object.get_statut_display }}</span>
-          {% elif object.statut == 'ongoing' %}<span class="badge badge-info text-dark">{{ object.get_statut_display }}</span>
-          {% elif object.statut == 'denied' %}<span class="badge badge-danger">{{ object.get_statut_display }}</span>
-          {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ object.get_statut_display }}</span>
-          {% endif %}
+          {% if object.statut == 'received' %}<span class="badge badge-info text-dark">{{ object.get_statut_display }}</span>
+          {% else %}<span class="badge" style="background:#fef3c7;color:#92400e;">{{ object.get_statut_display }}</span>{% endif %}
           {% else %}
           —
           {% endif %}
@@ -100,7 +97,7 @@
       </div>
 
       <div>
-        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Date de soumission</label>
+        <label class="form-label" style="color: var(--text-secondary); font-size: 0.85rem;">Date de création</label>
         <div>{{ object.date_soumission|date:"d F Y H:i" }}</div>
       </div>
 
@@ -123,7 +120,7 @@
 
   <!-- Attachments Card -->
   <div class="card">
-    <div class="card-title">Pièces Jointes</div>
+    <div class="card-title">Pièces jointes</div>
 
     {% with pieces=object.piecejointe_set.all %}
     {% if pieces %}

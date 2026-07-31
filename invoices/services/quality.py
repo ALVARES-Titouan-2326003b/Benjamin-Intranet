@@ -6,7 +6,7 @@ from django.utils import timezone
 from invoices.models import Facture
 
 
-OPEN_STATUSES = ["received", "ongoing"]
+OPEN_STATUSES = ["received", "pending"]
 
 
 def get_invoice_anomalies(queryset=None):
@@ -26,7 +26,7 @@ def get_invoice_anomalies(queryset=None):
         )
 
     duplicate_keys = (
-        qs.values("societe", "affaire", "montant", "numero_facture")
+        qs.values("societe", "dossier", "affaire", "montant", "numero_facture")
         .exclude(societe__isnull=True)
         .exclude(affaire="")
         .exclude(numero_facture="")
@@ -35,7 +35,12 @@ def get_invoice_anomalies(queryset=None):
         .filter(count__gt=1)
     )
     duplicate_lookup = {
-        (row["societe"], row["affaire"], row["montant"], row["numero_facture"])
+        (
+            row["societe"],
+            row["dossier"] or row["affaire"],
+            row["montant"],
+            row["numero_facture"],
+        )
         for row in duplicate_keys
     }
 
@@ -47,11 +52,11 @@ def get_invoice_anomalies(queryset=None):
         if not facture.fournisseur_id:
             add(facture, "missing_supplier", "error", "Fournisseur absent")
         if facture.statut in OPEN_STATUSES and facture.echeance and facture.echeance < now:
-            add(facture, "overdue_open", "warning", "Facture échue non payée")
+            add(facture, "overdue_open", "warning", "Facture échue")
 
         duplicate_key = (
             facture.societe_id,
-            facture.affaire,
+            facture.dossier_id or facture.affaire,
             facture.montant,
             facture.numero_facture,
         )

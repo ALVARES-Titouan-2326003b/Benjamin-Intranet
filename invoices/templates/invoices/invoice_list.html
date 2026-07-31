@@ -87,11 +87,8 @@
             <label class="form-label" style="font-size: 0.8rem;">Statut</label>
             <select name="statut" class="form-control">
                 <option value="">Tous</option>
-                <option value="ongoing" {% if request.GET.statut == 'ongoing' %}selected{% endif %}>En cours</option>
                 <option value="received" {% if request.GET.statut == 'received' %}selected{% endif %}>Reçue</option>
-                <option value="paid" {% if request.GET.statut == 'paid' %}selected{% endif %}>Payée</option>
-                <option value="denied" {% if request.GET.statut == 'denied' %}selected{% endif %}>Refusée</option>
-                <option value="archived" {% if request.GET.statut == 'archived' %}selected{% endif %}>Archivée</option>
+                <option value="pending" {% if request.GET.statut == 'pending' %}selected{% endif %}>En attente</option>
             </select>
         </div>
 
@@ -189,18 +186,15 @@
                         <span style="color: #ccc;">-</span>
                         {% endif %}
                     </td>
-                    <td>{{ invoice.date_soumission|date:"d/m/Y H:i" }}</td>
                     <td>
                         {% if invoice.statut %}
-                        {% if invoice.statut == 'paid' %}<span class="badge badge-success">{{ invoice.get_statut_display }}</span>
-                        {% elif invoice.statut == 'ongoing' %}<span class="badge badge-info text-dark">{{ invoice.get_statut_display }}</span>
-                        {% elif invoice.statut == 'denied' %}<span class="badge badge-danger">{{ invoice.get_statut_display }}</span>
-                        {% else %}<span class="badge" style="background: #e2e8f0; color: #475569;">{{ invoice.get_statut_display }}</span>
-                        {% endif %}
+                        {% if invoice.statut == 'received' %}<span class="badge badge-info text-dark">{{ invoice.get_statut_display }}</span>
+                        {% else %}<span class="badge" style="background:#fef3c7;color:#92400e;">{{ invoice.get_statut_display }}</span>{% endif %}
                         {% else %}
                         -
                         {% endif %}
                     </td>
+                    <td>{{ invoice.date_soumission|date:"d/m/Y H:i" }}</td>
                     <td>
                         {% if invoice.echeance %}
                         {{ invoice.echeance|date:"d M Y" }}

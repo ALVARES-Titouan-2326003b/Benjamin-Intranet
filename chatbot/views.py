@@ -43,11 +43,8 @@ def chatbot_history(request):
 # Factures
 
 INVOICE_STATUS_MAP = {
-    'payee': 'paid', 'payée': 'paid', 'payé': 'paid', 'paid': 'paid',
-    'recu': 'received', 'reçue': 'received', 'received': 'received',
-    'en cours': 'ongoing', 'progress': 'ongoing', 'ongoing': 'ongoing',
-    'refusee': 'denied', 'refusée': 'denied', 'rejected': 'denied', 'denied': 'denied',
-    'archivee': 'archived', 'archivée': 'archived', 'archive': 'archived', 'archived': 'archived',
+    'recu': 'received', 'reçue': 'received', 'reçues': 'received', 'received': 'received',
+    'en attente': 'pending', 'attente': 'pending', 'pending': 'pending',
 }
 
 # Résumé ou liste
@@ -339,11 +336,8 @@ def chatbot_query(request):
 
 
 INVOICE_STATUS_MAP = {
-    'payee': 'paid', 'payée': 'paid', 'payé': 'paid', 'paid': 'paid',
-    'recu': 'received', 'reçue': 'received', 'received': 'received',
-    'en cours': 'ongoing', 'progress': 'ongoing', 'ongoing': 'ongoing',
-    'refusee': 'denied', 'refusée': 'denied', 'rejected': 'denied', 'denied': 'denied',
-    'archivee': 'archived', 'archivée': 'archived', 'archive': 'archived', 'archived': 'archived',
+    'recu': 'received', 'reçue': 'received', 'reçues': 'received', 'received': 'received',
+    'en attente': 'pending', 'attente': 'pending', 'pending': 'pending',
 }
 SUMMARY_KEYWORDS = {'stats', 'résumé', 'resume', 'total', 'synthèse', 'synthese'}
 LIST_KEYWORDS    = {'liste', 'toutes', 'all'}
