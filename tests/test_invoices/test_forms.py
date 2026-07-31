@@ -2,7 +2,7 @@ import pytest
 from django.utils import timezone
 
 from invoices.forms import FactureForm, best_match, build_choices, normalize_label
-from invoices.models import Client, InvoiceReminderSettings, Societe
+from invoices.models import Client, Facture, Societe
 from technique.models import TechnicalProject
 
 
@@ -32,6 +32,15 @@ def test_facture_form_keeps_service_assignment_outside_user_input():
     assert "service" not in form.fields
 
 
+def test_invoice_statuses_are_limited_to_received_and_pending():
+    assert Facture.STATUS == [
+        ("received", "Reçue"),
+        ("pending", "En attente"),
+    ]
+    assert Facture().statut == "received"
+    assert list(FactureForm().fields["statut"].choices) == Facture.STATUS
+
+
 @pytest.mark.django_db
 def test_facture_form_keeps_requester_assignment_outside_user_input():
     form = FactureForm()
@@ -40,11 +49,14 @@ def test_facture_form_keeps_requester_assignment_outside_user_input():
 
 
 @pytest.mark.django_db
-def test_facture_form_excludes_archived_projects():
-    active = TechnicalProject.objects.create(reference="DOS-ACTIF", name="Dossier actif")
+def test_facture_form_excludes_archived_projects(societe):
+    active = TechnicalProject.objects.create(
+        reference="DOS-ACTIF", name="Dossier actif", societe=societe
+    )
     archived = TechnicalProject.objects.create(
         reference="DOS-ARCHIVE",
         name="Dossier archivé",
+        societe=societe,
         archived_at=timezone.now(),
     )
 
@@ -55,9 +67,11 @@ def test_facture_form_excludes_archived_projects():
 
 
 @pytest.mark.django_db
-def test_facture_form_assigns_default_internal_client():
-    project = TechnicalProject.objects.create(reference="DOS-001", name="Dossier Test")
-    company = Societe.objects.create(nom="Benjamin Immobilier")
+def test_facture_form_assigns_default_internal_client(societe):
+    project = TechnicalProject.objects.create(
+        reference="DOS-001", name="Dossier Test", societe=societe
+    )
+    company = societe
     form = FactureForm(
         data={
             "fournisseur_input": "Fournisseur Test",
@@ -66,7 +80,7 @@ def test_facture_form_assigns_default_internal_client():
             "affaire": "Dossier Test",
             "dossier": project.pk,
             "montant": "120.50",
-            "statut": "ongoing",
+            "statut": "received",
             "service": "financier",
             "priorite": "normal",
             "titre": "Facture test",
@@ -81,12 +95,61 @@ def test_facture_form_assigns_default_internal_client():
 
 
 @pytest.mark.django_db
-def test_invoice_reminder_settings_is_a_singleton(user_factory):
-    first = InvoiceReminderSettings.objects.create(sender=user_factory(username="finance-1"))
-    second = InvoiceReminderSettings(sender=user_factory(username="finance-2"))
-    second.save()
+def test_facture_form_rejects_project_from_another_company(societe):
+    project = TechnicalProject.objects.create(
+        reference="DOS-SOCIETE",
+        name="Dossier société",
+        societe=societe,
+    )
+    other_company = Societe.objects.create(nom="Société erronée")
+    form = FactureForm(
+        data={
+            "fournisseur_input": "Fournisseur Test",
+            "numero_facture": "FA-SOCIETE",
+            "societe": other_company.pk,
+            "dossier": project.pk,
+            "montant": "120.50",
+            "statut": "received",
+            "priorite": "normal",
+        }
+    )
 
-    assert first.pk == 1
-    assert second.pk == 1
-    assert InvoiceReminderSettings.objects.count() == 1
-    assert InvoiceReminderSettings.objects.get().sender.username == "finance-2"
+    assert not form.is_valid()
+    assert "Ce dossier n’est pas rattaché à la société sélectionnée." in form.errors["dossier"]
+
+
+@pytest.mark.django_db
+def test_facture_form_rejects_project_without_selected_company(societe):
+    project = TechnicalProject.objects.create(
+        reference="DOS-SANS-SOCIETE",
+        name="Dossier sans sélection préalable",
+        societe=societe,
+    )
+    form = FactureForm(
+        data={
+            "fournisseur_input": "Fournisseur Test",
+            "numero_facture": "FA-SANS-SOCIETE",
+            "societe": "",
+            "dossier": project.pk,
+            "montant": "120.50",
+            "statut": "received",
+            "priorite": "normal",
+        }
+    )
+
+    assert not form.is_valid()
+    assert "Sélectionnez une société avant de choisir un dossier." in form.errors["societe"]
+
+
+@pytest.mark.django_db
+def test_invoice_project_options_expose_their_company_for_dynamic_filtering(societe):
+    project = TechnicalProject.objects.create(
+        reference="DOS-FILTRE",
+        name="Dossier filtrable",
+        societe=societe,
+    )
+
+    html = str(FactureForm()["dossier"])
+
+    assert f'value="{project.pk}"' in html
+    assert f'data-societe-id="{societe.pk}"' in html
