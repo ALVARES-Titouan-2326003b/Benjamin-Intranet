@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 
 
@@ -93,6 +94,8 @@
       <div class="form-group">
         <label class="form-label">{{ form.societe.label }}</label>
         {{ form.societe }}
+        {% if form.societe.help_text %}<small id="invoice-company-help" style="display:block;color:var(--text-secondary);margin-top:.25rem;">{{ form.societe.help_text }}</small>{% endif %}
+        {{ form.societe.errors }}
       </div>
 
       <div class="form-group">
@@ -224,4 +227,30 @@
 
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/company_project_filter.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const dossier = document.getElementById('id_dossier');
+  const societe = document.getElementById('id_societe');
+  const help = document.getElementById('invoice-company-help');
+  if (!dossier || !societe) return;
+  window.bindCompanyProjectFilter(societe, dossier, {
+    allowEmptyProject: true,
+    emptyWhenCompany: '--------- (facture diverse)'
+  });
+
+  function updateHelp() {
+    if (help) help.textContent = dossier.value
+      ? 'Société imposée par le dossier sélectionné.'
+      : 'Obligatoire pour une facture sans dossier (« divers »).';
+  }
+
+  societe.addEventListener('change', updateHelp);
+  dossier.addEventListener('change', updateHelp);
+  updateHelp();
+});
+</script>
 {% endblock %}

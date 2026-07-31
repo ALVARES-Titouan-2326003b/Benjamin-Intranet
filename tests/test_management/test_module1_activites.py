@@ -54,12 +54,13 @@ def categorie(db):
 
 
 @pytest.fixture
-def dossier(db, categorie):
+def dossier(db, categorie, societe):
     return TechnicalProject.objects.create(
         reference="ADM-001",
         name="Dossier administratif",
         affaire="Dossier administratif",
         categorie=categorie,
+        societe=societe,
     )
 
 
@@ -130,6 +131,7 @@ def test_activity_type_is_removed_from_model_and_api(
         {
             "titre": "Préparer le dossier",
             "dossier": dossier.reference,
+            "societe": dossier.societe_id,
             "date": (timezone.now() + timedelta(days=2)).isoformat(),
         },
     )
@@ -259,6 +261,7 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
     payload = {
         "titre": "Relance notaire",
         "dossier": dossier.reference,
+        "societe": dossier.societe_id,
         "date": date_value.isoformat(),
         "responsable": str(responsable.pk),
         "statut": "todo",
@@ -333,6 +336,7 @@ def test_activity_rejects_invalid_duration(client, admin_user, dossier):
         {
             "titre": "Créneau invalide",
             "dossier": dossier.reference,
+            "societe": dossier.societe_id,
             "date": date_value.isoformat(),
             "duree_minutes": 45,
         },
@@ -361,6 +365,7 @@ def test_activity_rejects_responsible_outside_administrative_department(
         {
             "titre": "Affectation invalide",
             "dossier": dossier.reference,
+            "societe": dossier.societe_id,
             "date": (timezone.now() + timedelta(days=3)).isoformat(),
             "responsable": str(outside_user.pk),
         },
@@ -454,7 +459,9 @@ def test_activity_cannot_be_attached_to_archived_project(client, admin_user, dos
 
 
 @pytest.mark.django_db
-def test_activity_can_use_company_without_project_and_inherits_project_company(client, admin_user, dossier):
+def test_activity_can_use_company_without_project_and_accepts_matching_project_company(
+    client, admin_user, dossier
+):
     company = Societe.objects.create(nom="Société Activités")
     dossier.societe = company
     dossier.save(update_fields=["societe"])
@@ -464,12 +471,46 @@ def test_activity_can_use_company_without_project_and_inherits_project_company(c
     }
 
     direct = _post_json(client, "/api/create-activity/", {**base_payload, "titre": "Sans dossier", "societe": company.pk})
-    inherited = _post_json(client, "/api/create-activity/", {**base_payload, "titre": "Avec dossier", "dossier": dossier.reference})
+    inherited = _post_json(
+        client,
+        "/api/create-activity/",
+        {
+            **base_payload,
+            "titre": "Avec dossier",
+            "societe": company.pk,
+            "dossier": dossier.reference,
+        },
+    )
 
     assert direct.status_code == 200
     assert inherited.status_code == 200
     assert Activite.objects.get(titre="Sans dossier").societe == company
     assert Activite.objects.get(titre="Avec dossier").societe == company
+
+
+@pytest.mark.django_db
+def test_activity_rejects_project_without_company_or_from_another_company(
+    client, admin_user, dossier
+):
+    other_company = Societe.objects.create(nom="Autre société")
+    client.force_login(admin_user)
+    base_payload = {
+        "titre": "Dossier incohérent",
+        "dossier": dossier.reference,
+        "date": (timezone.now() + timedelta(days=1)).isoformat(),
+    }
+
+    missing = _post_json(client, "/api/create-activity/", base_payload)
+    mismatch = _post_json(
+        client,
+        "/api/create-activity/",
+        {**base_payload, "societe": other_company.pk},
+    )
+
+    assert missing.status_code == 400
+    assert "Sélectionnez une société" in missing.json()["message"]
+    assert mismatch.status_code == 400
+    assert "n’est pas rattaché" in mismatch.json()["message"]
 
 
 @pytest.mark.django_db
@@ -611,7 +652,7 @@ END:VCALENDAR
 
 
 @pytest.mark.django_db
-def test_admin_dossier_create_update_and_archive_with_related_data(client, admin_user, categorie):
+def test_admin_dossier_create_update_and_archive_with_related_data(client, admin_user, categorie, societe):
     client.force_login(admin_user)
 
     response = _post_json(
@@ -620,6 +661,7 @@ def test_admin_dossier_create_update_and_archive_with_related_data(client, admin
         {
             "reference": "adm-new",
             "affaire": "Dossier administratif",
+            "societe_id": societe.pk,
             "lot_etage": "Lot 4 / 2e",
             "adresse_bien": "10 rue de la Paix",
             "vendeur": "Vendeur Test",
@@ -700,7 +742,7 @@ def test_admin_dossier_create_update_and_archive_with_related_data(client, admin
 
 
 @pytest.mark.django_db
-def test_admin_dossier_accepts_promotion_immobiliere_fields(client, admin_user, categorie):
+def test_admin_dossier_accepts_promotion_immobiliere_fields(client, admin_user, categorie, societe):
     client.force_login(admin_user)
 
     response = _post_json(
@@ -709,6 +751,7 @@ def test_admin_dossier_accepts_promotion_immobiliere_fields(client, admin_user, 
         {
             "reference": "adm-promo",
             "affaire": "Promotion immobilière",
+            "societe_id": societe.pk,
             "type_dossier": "acquisition",
             "activite_metier": "promotion_immobiliere",
             "etat": "promesse",
@@ -753,13 +796,14 @@ def test_admin_dossier_accepts_promotion_immobiliere_fields(client, admin_user, 
 
 
 @pytest.mark.django_db
-def test_admin_dossier_archive_preserves_technical_links(client, admin_user, categorie):
+def test_admin_dossier_archive_preserves_technical_links(client, admin_user, categorie, societe):
     client.force_login(admin_user)
     project = TechnicalProject.objects.create(
         reference="ADM-TECH-LINK",
         name="Dossier avec document technique",
         affaire="Dossier avec document technique",
         categorie=categorie,
+        societe=societe,
     )
     document = DocumentTechnique.objects.create(
         project=project,
@@ -837,6 +881,7 @@ def test_admin_dossiers_export_xlsx(client, admin_user, dossier):
         affaire="Dossier promotion",
         activite_metier="promotion_immobiliere",
         categorie=dossier.categorie,
+        societe=dossier.societe,
     )
 
     response = client.get("/administratif/dossiers/export/")
@@ -868,12 +913,12 @@ def test_admin_dossiers_export_pdf(client, admin_user, dossier):
 
 
 @pytest.mark.django_db
-def test_admin_dossiers_import_xlsx_create_and_update(client, admin_user, categorie):
+def test_admin_dossiers_import_xlsx_create_and_update(client, admin_user, categorie, societe):
     client.force_login(admin_user)
     uploaded = _xlsx_upload(
         [
-            ["Référence", "Affaire", "Type de dossier", "Activité métier", "État", "Catégorie", "Prix", "Date de promesse"],
-            ["ADM-IMPORT", "Dossier importé", "Vente", "Marchands de bien", "En cours de promesse", categorie.nom, "125000,50", "01/07/2026"],
+            ["Référence", "Affaire", "Société", "Type de dossier", "Activité métier", "État", "Catégorie", "Prix", "Date de promesse"],
+            ["ADM-IMPORT", "Dossier importé", societe.nom, "Vente", "Marchands de bien", "En cours de promesse", categorie.nom, "125000,50", "01/07/2026"],
         ]
     )
 
@@ -908,22 +953,22 @@ def test_admin_dossiers_import_xlsx_create_and_update(client, admin_user, catego
 
 
 @pytest.mark.django_db
-def test_admin_dossiers_import_xlsx_uses_sheet_to_separate_activity(client, admin_user, categorie):
+def test_admin_dossiers_import_xlsx_uses_sheet_to_separate_activity(client, admin_user, categorie, societe):
     client.force_login(admin_user)
     uploaded = _xlsx_upload_sheets(
         [
             (
                 "Promotion immobilière",
                 [
-                    ["Référence", "Affaire", "Type de dossier", "État", "Catégorie"],
-                    ["ADM-PROMO-SHEET", "Dossier promotion", "Acquisition", "En cours de promesse", categorie.nom],
+                    ["Référence", "Affaire", "Société", "Type de dossier", "État", "Catégorie"],
+                    ["ADM-PROMO-SHEET", "Dossier promotion", societe.nom, "Acquisition", "En cours de promesse", categorie.nom],
                 ],
             ),
             (
                 "Autres dossiers",
                 [
-                    ["Référence", "Affaire", "Type de dossier", "État", "Catégorie"],
-                    ["ADM-OTHER-SHEET", "Dossier autre", "Vente", "En cours de promesse", categorie.nom],
+                    ["Référence", "Affaire", "Société", "Type de dossier", "État", "Catégorie"],
+                    ["ADM-OTHER-SHEET", "Dossier autre", societe.nom, "Vente", "En cours de promesse", categorie.nom],
                 ],
             ),
         ]
@@ -952,11 +997,12 @@ def test_admin_dossiers_import_rejects_csv(client, admin_user):
 
 
 @pytest.mark.django_db
-def test_admin_dossier_rejects_invalid_choices_and_negative_amounts(client, admin_user, categorie):
+def test_admin_dossier_rejects_invalid_choices_and_negative_amounts(client, admin_user, categorie, societe):
     client.force_login(admin_user)
     base_payload = {
         "reference": "ADM-INVALID",
         "affaire": "Dossier invalide",
+        "societe_id": societe.pk,
         "type_dossier": "vente",
         "activite_metier": "marchand_biens",
         "etat": "promesse",
@@ -982,7 +1028,7 @@ def test_admin_dossier_rejects_invalid_choices_and_negative_amounts(client, admi
 
 
 @pytest.mark.django_db
-def test_custom_admin_field_definition_and_project_values_are_preserved(client, admin_user, categorie):
+def test_custom_admin_field_definition_and_project_values_are_preserved(client, admin_user, categorie, societe):
     client.force_login(admin_user)
 
     response = _post_json(
@@ -1007,6 +1053,7 @@ def test_custom_admin_field_definition_and_project_values_are_preserved(client, 
         {
             "reference": "ADM-CUSTOM",
             "affaire": "Dossier avec champ personnalisé",
+            "societe_id": societe.pk,
             "type_dossier": "vente",
             "activite_metier": "marchand_biens",
             "etat": "promesse",
@@ -1041,7 +1088,7 @@ def test_custom_admin_field_definition_and_project_values_are_preserved(client, 
 
 
 @pytest.mark.django_db
-def test_custom_admin_field_validates_choice_values(client, admin_user, categorie):
+def test_custom_admin_field_validates_choice_values(client, admin_user, categorie, societe):
     client.force_login(admin_user)
     field = ChampPersonnaliseDossier.objects.create(
         label="Risque dossier",
@@ -1057,6 +1104,7 @@ def test_custom_admin_field_validates_choice_values(client, admin_user, categori
         {
             "reference": "ADM-CUSTOM-CHOICE",
             "affaire": "Dossier choix invalide",
+            "societe_id": societe.pk,
             "type_dossier": "vente",
             "activite_metier": "marchand_biens",
             "etat": "promesse",
@@ -1071,7 +1119,7 @@ def test_custom_admin_field_validates_choice_values(client, admin_user, categori
 
 
 @pytest.mark.django_db
-def test_custom_admin_field_is_scoped_by_activity(client, admin_user, categorie):
+def test_custom_admin_field_is_scoped_by_activity(client, admin_user, categorie, societe):
     client.force_login(admin_user)
 
     response = _post_json(
@@ -1098,6 +1146,7 @@ def test_custom_admin_field_is_scoped_by_activity(client, admin_user, categorie)
         {
             "reference": "ADM-CUSTOM-MARCHAND",
             "affaire": "Dossier marchand",
+            "societe_id": societe.pk,
             "type_dossier": "vente",
             "activite_metier": "marchand_biens",
             "etat": "promesse",
@@ -1112,6 +1161,7 @@ def test_custom_admin_field_is_scoped_by_activity(client, admin_user, categorie)
         {
             "reference": "ADM-CUSTOM-PROMO",
             "affaire": "Dossier promotion",
+            "societe_id": societe.pk,
             "type_dossier": "acquisition",
             "activite_metier": "promotion_immobiliere",
             "etat": "promesse",
@@ -1130,7 +1180,7 @@ def test_custom_admin_field_is_scoped_by_activity(client, admin_user, categorie)
 
 
 @pytest.mark.django_db
-def test_custom_admin_field_export_and_import_xlsx(client, admin_user, categorie):
+def test_custom_admin_field_export_and_import_xlsx(client, admin_user, categorie, societe):
     client.force_login(admin_user)
     field = ChampPersonnaliseDossier.objects.create(
         label="Notaire référent",
@@ -1142,6 +1192,7 @@ def test_custom_admin_field_export_and_import_xlsx(client, admin_user, categorie
         name="Dossier export personnalisé",
         affaire="Dossier export personnalisé",
         categorie=categorie,
+        societe=societe,
     )
     ValeurChampPersonnaliseDossier.objects.create(
         dossier=project,
@@ -1160,8 +1211,8 @@ def test_custom_admin_field_export_and_import_xlsx(client, admin_user, categorie
 
     uploaded = _xlsx_upload(
         [
-            ["Référence", "Affaire", "Type de dossier", "État", "Catégorie", "Notaire référent"],
-            ["ADM-CUSTOM-IMPORT", "Dossier import personnalisé", "Vente", "En cours de promesse", categorie.nom, "Me Petit"],
+            ["Référence", "Affaire", "Société", "Type de dossier", "État", "Catégorie", "Notaire référent"],
+            ["ADM-CUSTOM-IMPORT", "Dossier import personnalisé", societe.nom, "Vente", "En cours de promesse", categorie.nom, "Me Petit"],
         ]
     )
     response = client.post("/administratif/dossiers/import/", {"file": uploaded})

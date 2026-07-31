@@ -108,11 +108,8 @@ class Societe(models.Model):
 
 class Facture(models.Model):
     STATUS = [
-        ("ongoing", "En cours"),
         ("received", "Reçue"),
-        ("denied", "Refusée"),
-        ("paid", "Payée"),
-        ("archived", "Archivée"),
+        ("pending", "En attente"),
     ]
     SERVICE_CHOICES = [
         ("developpement", "Développement"),
@@ -150,7 +147,7 @@ class Facture(models.Model):
     fournisseur = models.ForeignKey(Fournisseur, on_delete=models.DO_NOTHING, db_column='fournisseur')
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING, db_column='client')
     montant = models.FloatField("Montant TTC (€)", null=True)
-    statut = models.TextField(choices=STATUS, default="ongoing")
+    statut = models.TextField(choices=STATUS, default="received")
     service = models.CharField(max_length=100, choices=SERVICE_CHOICES, blank=True, default="")
     date_facture = models.DateField("Date de facture", null=True, blank=True)
     date_soumission = models.DateTimeField("Date de soumission", default=timezone.now)
@@ -168,8 +165,20 @@ class Facture(models.Model):
     def __str__(self):
         return f"{self.fournisseur} — {self.montant}€ — {self.statut}"
 
+    def save(self, *args, **kwargs):
+        if self.dossier_id:
+            self.societe_id = self.dossier.societe_id
+            self.affaire = str(self.dossier)
+        super().save(*args, **kwargs)
+
     class Meta:
         db_table = 'facture'
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(statut__in=["received", "pending"]),
+                name="facture_valid_status",
+            ),
+        ]
 
 
 class FactureHistorique(models.Model):

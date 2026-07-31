@@ -258,6 +258,11 @@ class Activite(models.Model):
         dossier_label = self.dossier or "sans dossier"
         return f"{self.titre or 'Activité'} - {dossier_label} ({date_label})"
 
+    def save(self, *args, **kwargs):
+        if self.dossier_id:
+            self.societe_id = self.dossier.societe_id
+        super().save(*args, **kwargs)
+
 
 class RappelActivite(models.Model):
     """Rappel configuré individuellement pour une activité."""

@@ -16,7 +16,7 @@ from reportlab.pdfbase import pdfmetrics
 from openpyxl import Workbook
 from .services.documents import extract_text_from_file
 from .services.ai_summary import summarize_document
-from invoices.models import Facture
+from invoices.models import Facture, Societe
 from .models import (
     DocumentTechnique,
     TechnicalProject,
@@ -183,8 +183,13 @@ def documents_list(request):
     qs = DocumentTechnique.objects.select_related("project")
 
     q = (request.GET.get("q") or "").strip()
+    company_id = (request.GET.get("company") or "").strip()
     project_id = (request.GET.get("project") or "").strip()
     sort = (request.GET.get("sort") or "").strip()
+    if company_id and not company_id.isdigit():
+        company_id = ""
+    if project_id and not project_id.isdigit():
+        project_id = ""
 
     if q:
         qs = qs.filter(
@@ -200,8 +205,16 @@ def documents_list(request):
             | Q(clauses_importantes__icontains=q)
         )
 
-    if project_id:
-        qs = qs.filter(project_id=project_id)
+    if company_id:
+        qs = qs.filter(project__societe_id=company_id)
+    if project_id and company_id:
+        project = TechnicalProject.objects.filter(pk=project_id, societe_id=company_id).first()
+        if project:
+            qs = qs.filter(project=project)
+        else:
+            project_id = ""
+    elif project_id:
+        project_id = ""
 
     if sort == "oldest":
         qs = qs.order_by("created_at")
@@ -219,8 +232,10 @@ def documents_list(request):
             "documents": page_obj,
             "page_obj": page_obj,
             "q": q,
+            "company_id": company_id,
             "project_id": project_id,
-            "projects": TechnicalProject.objects.order_by("reference"),
+            "companies": Societe.objects.filter(is_active=True).order_by("nom"),
+            "projects": TechnicalProject.objects.select_related("societe").order_by("reference"),
             "sort": sort,
         },
     )
@@ -461,18 +476,21 @@ def financial_overview(request):
     Affiche la liste des dossiers techniques
     avec recherche et filtres.
     """
-    projects = TechnicalProject.objects.all()
+    projects = TechnicalProject.objects.select_related("societe")
 
     q = (request.GET.get("q") or "").strip()
     reference = (request.GET.get("reference") or "").strip()
     project_type = (request.GET.get("type") or "").strip()
     project_status = (request.GET.get("status") or "").strip()
+    company_id = (request.GET.get("societe") or "").strip()
     archive_filter = (request.GET.get("archive") or "active").strip()
     sort = (request.GET.get("sort") or "").strip()
 
     if q:
         projects = projects.filter(
-            Q(name__icontains=q) | Q(reference__icontains=q)
+            Q(name__icontains=q)
+            | Q(reference__icontains=q)
+            | Q(societe__nom__icontains=q)
         )
 
     if reference:
@@ -483,6 +501,9 @@ def financial_overview(request):
 
     if project_status:
         projects = projects.filter(status=project_status)
+
+    if company_id:
+        projects = projects.filter(societe_id=company_id)
 
     if archive_filter == "archived":
         projects = projects.filter(archived_at__isnull=False)
@@ -546,6 +567,8 @@ def financial_overview(request):
             "reference": reference,
             "selected_type": project_type,
             "selected_status": project_status,
+            "selected_company": company_id,
+            "companies": Societe.objects.filter(is_active=True).order_by("nom"),
             "archive_filter": archive_filter,
             "sort": sort,
             "type_choices": TechnicalProject.DOSSIER_TYPES,
@@ -1177,8 +1200,13 @@ def email_list(request):
 
     q = (request.GET.get("q") or "").strip()
     status = (request.GET.get("status") or "").strip()
+    company_id = (request.GET.get("company") or "").strip()
     project_id = (request.GET.get("project") or "").strip()
     has_attachments = (request.GET.get("has_attachments") or "").strip()
+    if company_id and not company_id.isdigit():
+        company_id = ""
+    if project_id and not project_id.isdigit():
+        project_id = ""
 
     if q:
         emails = emails.filter(
@@ -1192,8 +1220,16 @@ def email_list(request):
     if status:
         emails = emails.filter(status=status)
 
-    if project_id:
-        emails = emails.filter(project_id=project_id)
+    if company_id:
+        emails = emails.filter(project__societe_id=company_id)
+    if project_id and company_id:
+        project = TechnicalProject.objects.filter(pk=project_id, societe_id=company_id).first()
+        if project:
+            emails = emails.filter(project=project)
+        else:
+            project_id = ""
+    elif project_id:
+        project_id = ""
 
     if has_attachments == "yes":
         emails = emails.filter(has_attachments=True)
@@ -1212,10 +1248,12 @@ def email_list(request):
             "page_obj": page_obj,
             "q": q,
             "selected_status": status,
+            "selected_company": company_id,
             "selected_project": project_id,
             "selected_has_attachments": has_attachments,
             "status_choices": TechnicalEmail.STATUS_CHOICES,
-            "projects": TechnicalProject.objects.order_by("name"),
+            "companies": Societe.objects.filter(is_active=True).order_by("nom"),
+            "projects": TechnicalProject.objects.select_related("societe").order_by("name"),
         },
     )
 
@@ -1227,10 +1265,17 @@ def mail_assign_project(request, pk):
     email = get_object_or_404(TechnicalEmail, pk=pk, imported_by=request.user)
 
     if request.method == "POST":
-        project_id = request.POST.get("project_id")
+        project_id = (request.POST.get("project_id") or "").strip()
+        company_id = (request.POST.get("company_id") or "").strip()
         if project_id:
+            if not project_id.isdigit() or not company_id.isdigit():
+                messages.error(request, "Sélectionnez une société puis un dossier valide.")
+                return redirect("technique:mail_detail", pk=email.pk)
             project = get_object_or_404(
-                TechnicalProject, pk=project_id, archived_at__isnull=True
+                TechnicalProject,
+                pk=project_id,
+                societe_id=company_id,
+                archived_at__isnull=True,
             )
             email.project = project
             email.status = "classified"
@@ -1330,8 +1375,9 @@ def email_detail(request, pk):
         "technique/email_detail.html",
         {
             "email": email,
+            "companies": Societe.objects.filter(is_active=True).order_by("nom"),
             # Liste des dossiers pour le sélecteur de rattachement
-            "projects": TechnicalProject.objects.filter(
+            "projects": TechnicalProject.objects.select_related("societe").filter(
                 archived_at__isnull=True
             ).order_by("reference"),
         },

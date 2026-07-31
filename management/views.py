@@ -70,6 +70,7 @@ PRIORITY_COLORS = {
 ADMIN_PROJECT_EXPORT_COLUMNS = [
     ("Référence", "reference"),
     ("Affaire", "affaire"),
+    ("Société", "societe_nom"),
     ("Lot / étage", "lot_etage"),
     ("Adresse du bien", "adresse_bien"),
     ("Vendeur", "vendeur"),
@@ -113,6 +114,10 @@ ADMIN_PROJECT_IMPORT_ALIASES = {
     "affaires": "affaire",
     "nom du dossier": "affaire",
     "dossier": "affaire",
+    "societe": "societe",
+    "société": "societe",
+    "nom de la societe": "societe",
+    "nom de la société": "societe",
     "lots etage": "lot_etage",
     "lot etage": "lot_etage",
     "lot / etage": "lot_etage",
@@ -270,13 +275,18 @@ def _import_amount_value(value):
 
 
 def _admin_project_queryset_from_request(request):
-    queryset = TechnicalProject.objects.filter(archived_at__isnull=True).select_related("categorie").order_by("reference")
+    queryset = (
+        TechnicalProject.objects.filter(archived_at__isnull=True)
+        .select_related("categorie", "societe")
+        .order_by("reference")
+    )
     q = (request.GET.get("q") or "").strip()
     if q:
         queryset = queryset.filter(
             Q(reference__icontains=q)
             | Q(affaire__icontains=q)
             | Q(name__icontains=q)
+            | Q(societe__nom__icontains=q)
             | Q(adresse_bien__icontains=q)
             | Q(vendeur__icontains=q)
             | Q(beneficiaire__icontains=q)
@@ -417,6 +427,19 @@ def _import_category_id(value):
     return str(category.pk)
 
 
+def _import_company_id(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if raw.isdigit():
+        company = Societe.objects.filter(pk=raw, is_active=True).first()
+    else:
+        company = Societe.objects.filter(nom__iexact=raw, is_active=True).first()
+    if not company:
+        raise ValueError(f"Société active introuvable : {raw}")
+    return str(company.pk)
+
+
 def _default_activity_from_sheet(title):
     normalized = _normalize_header(title)
     if "promotion" in normalized:
@@ -452,6 +475,8 @@ def _admin_project_payload_from_import(row, row_number, default_activite_metier=
             payload[field] = _choice_value(value, TechnicalProject.ETATS, "État")
         elif field == "categorie":
             payload["categorie_id"] = _import_category_id(value)
+        elif field == "societe":
+            payload["societe_id"] = _import_company_id(value)
         else:
             payload[field] = str(value or "").strip()
 
@@ -995,6 +1020,10 @@ def _project_form_data(data, existing_project=None):
             societe = existing_project.societe
         if not societe:
             raise ValueError("Société invalide ou inactive.")
+    elif existing_project and existing_project.societe_id:
+        societe = existing_project.societe
+    else:
+        raise ValueError("La société du dossier est obligatoire.")
 
     frais = _parse_non_negative_decimal(data.get("frais"), "Frais")
     prix = _parse_non_negative_decimal(data.get("prix") or data.get("total_estimated"), "Prix")
@@ -1408,15 +1437,19 @@ def _activity_form_data(data, current_dossier=None, current_societe=None):
 
     societe_id = str(data.get("societe") or data.get("societe_id") or "").strip()
     societe = None
-    if societe_id:
+    if dossier_obj:
+        if not societe_id:
+            raise ValueError("Sélectionnez une société avant de choisir un dossier.")
+        if str(dossier_obj.societe_id) != societe_id:
+            raise ValueError("Ce dossier n’est pas rattaché à la société sélectionnée.")
+        societe = dossier_obj.societe
+    elif societe_id:
         available_companies = Societe.objects.filter(is_active=True)
         societe = available_companies.filter(pk=societe_id).first()
         if not societe and current_societe and str(current_societe.pk) == societe_id:
             societe = current_societe
         if not societe:
             raise ValueError("Société invalide ou inactive")
-    elif dossier_obj:
-        societe = dossier_obj.societe
 
     responsable_id = (data.get("responsable") or "").strip()
     responsable = None

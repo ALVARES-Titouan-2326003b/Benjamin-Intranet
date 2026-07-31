@@ -35,9 +35,9 @@ class TechnicalProjectKeyDateInline(admin.TabularInline):
 
 @admin.register(TechnicalProject)
 class TechnicalProjectAdmin(admin.ModelAdmin):
-    list_display = ("id", "reference", "name", "type", "engaged_amount", "paid_amount", "total_estimated")
-    list_filter = ("type",)
-    search_fields = ("reference", "name")
+    list_display = ("id", "reference", "name", "societe", "type", "engaged_amount", "paid_amount", "total_estimated")
+    list_filter = ("societe", "type")
+    search_fields = ("reference", "name", "societe__nom")
     inlines = [ProjectExpenseInline, TechnicalProjectActionInline, TechnicalProjectKeyDateInline]
 
 

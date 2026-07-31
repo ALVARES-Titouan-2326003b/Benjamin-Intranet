@@ -45,7 +45,7 @@
     <div class="card-title">Filtres</div>
 
     <form method="get"
-          style="display: grid; grid-template-columns: 2fr repeat(5, 1.1fr); gap: 1rem; align-items: end;">
+          style="display: grid; grid-template-columns: 2fr repeat(6, 1.1fr); gap: 1rem; align-items: end;">
         <div>
             <label style="display:block; margin-bottom: .4rem; font-weight:500;">Recherche</label>
             <input type="text" name="q" class="form-control" placeholder="Nom ou référence du dossier..." value="{{ q }}">
@@ -54,6 +54,16 @@
         <div>
             <label style="display:block; margin-bottom: .4rem; font-weight:500;">Référence</label>
             <input type="text" name="reference" class="form-control" placeholder="Ex. PRJ-001" value="{{ reference }}">
+        </div>
+
+        <div>
+            <label style="display:block; margin-bottom: .4rem; font-weight:500;">Société</label>
+            <select name="societe" class="form-control">
+                <option value="">Toutes</option>
+                {% for company in companies %}
+                <option value="{{ company.pk }}" {% if selected_company == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.nom }}</option>
+                {% endfor %}
+            </select>
         </div>
 
         <div>
@@ -155,6 +165,7 @@
                         {% endif %}
                         <th>Référence</th>
                         <th>Nom</th>
+                        <th>Société</th>
                         <th>Statut</th>
                         <th>Type</th>
                         <th>Total estimé</th>
@@ -169,6 +180,7 @@
                         {% endif %}
                         <td><span style="font-weight: 600; color: var(--text-main);">{{ p.reference }}</span></td>
                         <td>{{ p.name }}</td>
+                        <td>{{ p.societe.nom }}</td>
                         <td>
                             {% if p.is_archived %}
                             <span class="badge" style="background:#fef3c7; color:#92400e;">Archivé</span>
@@ -208,11 +220,11 @@
 {% if page_obj.paginator.num_pages > 1 %}
     <div style="display:flex; justify-content:center; align-items:center; gap:.5rem; margin-top:1.5rem; flex-wrap:wrap;">
         {% if page_obj.has_previous %}
-            <a href="?page=1{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page=1{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_company %}&societe={{ selected_company }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 « Première
             </a>
-            <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_company %}&societe={{ selected_company }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 Précédente
             </a>
@@ -223,11 +235,11 @@
         </span>
 
         {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_company %}&societe={{ selected_company }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 Suivante
             </a>
-            <a href="?page={{ page_obj.paginator.num_pages }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if q %}&q={{ q }}{% endif %}{% if reference %}&reference={{ reference }}{% endif %}{% if selected_company %}&societe={{ selected_company }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}&archive={{ archive_filter }}{% if sort %}&sort={{ sort }}{% endif %}"
                class="btn btn-secondary">
                 Dernière »
             </a>

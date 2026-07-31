@@ -10,7 +10,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from invoices.models import ActeurExterne, Client, Facture, Fournisseur, Societe
-from technique.forms import TechnicalProjectActionForm
+from management.models import Activite
+from technique.forms import (
+    DocumentTechniqueUploadForm,
+    DocumentTechniqueUpdateForm,
+    TechnicalProjectActionForm,
+)
 from technique.models import (
     DocumentTechnique,
     ProjectExpense,
@@ -54,13 +59,52 @@ def administrative_user(user_factory, db):
 
 
 @pytest.fixture
-def project(db):
+def project(db, societe):
     return TechnicalProject.objects.create(
         reference="TECH-001",
         name="Projet Technique",
+        societe=societe,
         type="marchands_de_bien",
         total_estimated=Decimal("1000.00"),
     )
+
+
+@pytest.mark.django_db
+def test_document_forms_require_company_before_project(project):
+    other_company = Societe.objects.create(nom="Autre société document")
+    upload = SimpleUploadedFile("contrat.pdf", b"%PDF-test", content_type="application/pdf")
+
+    missing_company = DocumentTechniqueUploadForm(
+        data={"societe": "", "project": project.pk, "titre": "Contrat"},
+        files={"fichier": upload},
+    )
+    mismatch = DocumentTechniqueUploadForm(
+        data={"societe": other_company.pk, "project": project.pk, "titre": "Contrat"},
+        files={
+            "fichier": SimpleUploadedFile(
+                "contrat-2.pdf", b"%PDF-test", content_type="application/pdf"
+            )
+        },
+    )
+
+    assert not missing_company.is_valid()
+    assert "Sélectionnez une société" in missing_company.errors["societe"]
+    assert not mismatch.is_valid()
+    assert "n’est pas rattaché" in mismatch.errors["project"]
+
+
+@pytest.mark.django_db
+def test_document_project_options_expose_company(project):
+    upload_html = str(DocumentTechniqueUploadForm()["project"])
+    document = DocumentTechnique(
+        project=project,
+        titre="Document",
+        fichier="documents_tech/document.pdf",
+    )
+    update_html = str(DocumentTechniqueUpdateForm(instance=document)["project"])
+
+    assert f'data-company-id="{project.societe_id}"' in upload_html
+    assert f'data-company-id="{project.societe_id}"' in update_html
 
 
 @pytest.fixture
@@ -73,7 +117,7 @@ def actors(db):
     }
 
 
-def create_invoice(project, actors, invoice_id, supplier_name="Alpha BTP", status="ongoing", due=None):
+def create_invoice(project, actors, invoice_id, supplier_name="Alpha BTP", status="received", due=None):
     supplier = actors["supplier"]
     if supplier_name != supplier.nom:
         supplier_actor = ActeurExterne.objects.create(id=f"FOUR-{invoice_id}")
@@ -100,11 +144,12 @@ def create_invoice(project, actors, invoice_id, supplier_name="Alpha BTP", statu
         ("patrimoine", "Patrimoine"),
     ],
 )
-def test_project_accepts_new_activity_types(activity_type, label):
+def test_project_accepts_new_activity_types(activity_type, label, societe):
     project = TechnicalProject(
         reference=f"TYPE-{activity_type}",
         name="Projet typé",
         type=activity_type,
+        societe=societe,
     )
 
     project.full_clean()
@@ -113,14 +158,42 @@ def test_project_accepts_new_activity_types(activity_type, label):
 
 
 @pytest.mark.django_db
-def test_project_defaults_to_marchands_de_bien_and_rejects_old_type():
-    project = TechnicalProject(reference="TYPE-DEFAULT", name="Projet par défaut")
+def test_project_defaults_to_marchands_de_bien_and_rejects_old_type(societe):
+    project = TechnicalProject(reference="TYPE-DEFAULT", name="Projet par défaut", societe=societe)
     assert project.type == "marchands_de_bien"
     assert project.status == "etude"
 
     project.type = "client"
     with pytest.raises(ValidationError):
         project.full_clean()
+
+
+@pytest.mark.django_db
+def test_project_requires_company():
+    project = TechnicalProject(reference="NO-COMPANY", name="Dossier sans société")
+
+    with pytest.raises(ValidationError, match="Chaque dossier doit être rattaché"):
+        project.full_clean()
+
+
+@pytest.mark.django_db
+def test_project_company_change_synchronizes_linked_records(project, actors):
+    invoice = create_invoice(project, actors, "FAC-COMPANY-SYNC")
+    activity = Activite.objects.create(
+        id="activity-company-sync",
+        titre="Activité synchronisée",
+        dossier=project,
+        date=timezone.now(),
+    )
+    new_company = Societe.objects.create(nom="Nouvelle société du dossier")
+
+    project.societe = new_company
+    project.save(update_fields=["societe"])
+    invoice.refresh_from_db()
+    activity.refresh_from_db()
+
+    assert invoice.societe == new_company
+    assert activity.societe == new_company
 
 
 @pytest.mark.django_db
@@ -132,11 +205,12 @@ def test_project_defaults_to_marchands_de_bien_and_rejects_old_type():
         ("acquis", "Acquis"),
     ],
 )
-def test_project_accepts_technical_statuses(status, label):
+def test_project_accepts_technical_statuses(status, label, societe):
     project = TechnicalProject(
         reference=f"STATUS-{status}",
         name="Dossier statué",
         status=status,
+        societe=societe,
     )
 
     project.full_clean()
@@ -186,6 +260,34 @@ def test_email_actions_are_limited_to_importing_user(client, technique_user, oth
 
     assert classify_response.status_code == 404
     classify_mock.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_email_assignment_requires_matching_company(client, technique_user, project):
+    email = TechnicalEmail.objects.create(
+        subject="Email à rattacher",
+        sender="sender@example.com",
+        body="Contenu",
+        received_at=timezone.now(),
+        imported_by=technique_user,
+    )
+    other_company = Societe.objects.create(nom="Société email erronée")
+    client.force_login(technique_user)
+
+    missing_company = client.post(
+        reverse("technique:mail_assign_project", args=[email.pk]),
+        {"project_id": project.pk, "company_id": ""},
+    )
+    mismatch = client.post(
+        reverse("technique:mail_assign_project", args=[email.pk]),
+        {"project_id": project.pk, "company_id": other_company.pk},
+    )
+
+    assert missing_company.status_code == 302
+    assert mismatch.status_code == 404
+    email.refresh_from_db()
+    assert email.project is None
+    assert email.status == "unassigned"
 
 
 @pytest.mark.django_db
@@ -241,9 +343,10 @@ def test_financial_history_is_created_for_project_budget_and_expense_changes(
     response = client.post(
         overview_url,
         {
-            "name": "Nouveau Projet",
-            "reference": "TECH-NEW",
-            "type": "promotion",
+                "name": "Nouveau Projet",
+                "reference": "TECH-NEW",
+                "societe": project.societe_id,
+                "type": "promotion",
             "status": "promesse_signee",
             "total_estimated": "500.00",
         },
@@ -533,8 +636,10 @@ def test_project_key_dates_can_link_documents_and_actions(client, technique_user
 
 
 @pytest.mark.django_db
-def test_project_can_be_archived_and_restored_with_history(client, technique_user):
-    project = TechnicalProject.objects.create(reference="ARC-001", name="Projet à archiver")
+def test_project_can_be_archived_and_restored_with_history(client, technique_user, societe):
+    project = TechnicalProject.objects.create(
+        reference="ARC-001", name="Projet à archiver", societe=societe
+    )
 
     client.force_login(technique_user)
     response = client.post(
@@ -569,10 +674,11 @@ def test_project_can_be_archived_and_restored_with_history(client, technique_use
 
 
 @pytest.mark.django_db
-def test_archived_project_is_read_only_and_hidden_from_active_list(client, technique_user):
+def test_archived_project_is_read_only_and_hidden_from_active_list(client, technique_user, societe):
     project = TechnicalProject.objects.create(
         reference="ARC-READONLY",
         name="Dossier archivé",
+        societe=societe,
         archived_at=timezone.now(),
         archived_by=technique_user,
     )
@@ -592,7 +698,7 @@ def test_archived_project_is_read_only_and_hidden_from_active_list(client, techn
 
 
 @pytest.mark.django_db
-def test_technical_project_can_optionally_use_registered_company(client, technique_user):
+def test_technical_project_requires_registered_company(client, technique_user):
     company = Societe.objects.create(nom="Société Dossier")
     client.force_login(technique_user)
 
@@ -606,10 +712,11 @@ def test_technical_project_can_optionally_use_registered_company(client, techniq
 
 
 @pytest.mark.django_db
-def test_project_deletion_with_related_data_requires_explicit_confirmation(client, admin_user):
+def test_project_deletion_with_related_data_requires_explicit_confirmation(client, admin_user, societe):
     project = TechnicalProject.objects.create(
         reference="DEL-LINK",
         name="Dossier avec liens",
+        societe=societe,
         archived_at=timezone.now(),
         archived_by=admin_user,
     )
@@ -649,7 +756,7 @@ def test_invoice_filters_on_financial_project_detail(client, technique_user, pro
         actors,
         "FAC-LINK",
         supplier_name="Alpha BTP",
-        status="paid",
+        status="pending",
         due=timezone.datetime(2026, 5, 10, tzinfo=timezone.get_current_timezone()),
     )
     unlinked_invoice = create_invoice(
@@ -657,7 +764,7 @@ def test_invoice_filters_on_financial_project_detail(client, technique_user, pro
         actors,
         "FAC-FILTER",
         supplier_name="Beta Travaux",
-        status="ongoing",
+        status="received",
         due=timezone.datetime(2026, 6, 10, tzinfo=timezone.get_current_timezone()),
     )
     ProjectExpense.objects.create(
@@ -674,7 +781,7 @@ def test_invoice_filters_on_financial_project_detail(client, technique_user, pro
         reverse("technique:dossier_detail", args=[project.pk]),
         {
             "invoice_supplier": "Beta",
-            "invoice_status": "ongoing",
+            "invoice_status": "received",
             "invoice_due_from": "2026-06-01",
             "invoice_due_to": "2026-06-30",
             "invoice_association": "unlinked",

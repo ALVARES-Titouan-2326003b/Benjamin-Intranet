@@ -23,10 +23,11 @@ def finance_user(db):
 
 
 @pytest.fixture
-def project(db):
+def project(db, societe):
     return TechnicalProject.objects.create(
         reference="SOC-ADMIN-001",
         name="Dossier lié à une société",
+        societe=societe,
     )
 
 

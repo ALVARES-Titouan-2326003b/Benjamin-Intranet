@@ -356,24 +356,25 @@
                    placeholder="Ex. Relance compromis, échéance notaire…">
          </div>
 
-         <!-- Dossier administratif avec recherche -->
-         <div class="form-group">
-            <label class="form-label">Dossier administratif</label>
-            <select id="activity-dossier" name="dossier" class="form-control">
-               <option value="">-- Aucun dossier --</option>
-               {% for dossier in dossiers %}
-               <option value="{{ dossier.reference }}" data-nom="{{ dossier.affaire|default:dossier.name }}" data-societe="{{ dossier.societe_id|default:'' }}">
-                  {{ dossier.reference }} — {{ dossier.affaire|default:dossier.name }}
-               </option>
-               {% endfor %}
-            </select>
-         </div>
-
          <div class="form-group">
             <label class="form-label">Société</label>
             <select id="activity-societe" name="societe" class="form-control">
                <option value="">-- Aucune société --</option>
                {% for societe in societes %}<option value="{{ societe.pk }}" {% if not societe.is_active %}disabled{% endif %}>{{ societe.nom }}{% if not societe.is_active %} (inactive){% endif %}</option>{% endfor %}
+            </select>
+         </div>
+
+         <!-- Dossier administratif avec recherche -->
+         <div class="form-group">
+            <label class="form-label">Dossier administratif</label>
+            <select id="activity-dossier" name="dossier" class="form-control">
+               <option value="">-- Sélectionnez d’abord une société --</option>
+               {% for dossier in dossiers %}
+               <option value="{{ dossier.reference }}" data-nom="{{ dossier.affaire|default:dossier.name }}"
+                       data-company-id="{{ dossier.societe_id }}" data-societe="{{ dossier.societe_id }}">
+                  {{ dossier.reference }} — {{ dossier.affaire|default:dossier.name }}
+               </option>
+               {% endfor %}
             </select>
          </div>
 
@@ -598,6 +599,16 @@ document.addEventListener('click', async function(event) {
 
 {% block extra_js %}
 <script src="{% static '/js/mails.js' %}?v=6"></script>
-<script src="{% static '/js/calendar.js' %}?v=8"></script>
+<script src="{% static 'js/company_project_filter.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+   window.activityCompanyProjectFilter = window.bindCompanyProjectFilter(
+      document.getElementById('activity-societe'),
+      document.getElementById('activity-dossier'),
+      { allowEmptyProject: true, emptyWhenCompany: '-- Aucun dossier --' }
+   );
+});
+</script>
+<script src="{% static '/js/calendar.js' %}?v=9"></script>
 <script src="{% static '/js/oauth_status.js' %}?v=4"></script>
 {% endblock %}

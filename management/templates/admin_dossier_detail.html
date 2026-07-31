@@ -18,6 +18,7 @@
 
    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">
       <div><strong>Type</strong><br>{{ dossier.get_type_dossier_display }}</div>
+      <div><strong>Société</strong><br>{{ dossier.societe.nom }}</div>
       <div><strong>Activité métier</strong><br>{{ dossier.get_activite_metier_display }}</div>
       <div><strong>État</strong><br>{{ dossier.get_etat_display }}</div>
       <div><strong>Catégorie</strong><br>{{ dossier.categorie.nom|default:"Non classé" }}</div>

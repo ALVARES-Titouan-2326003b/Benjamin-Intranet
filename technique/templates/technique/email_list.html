@@ -37,7 +37,7 @@
 <div class="card" style="margin-bottom:1.5rem;">
   <div class="card-title">Filtres</div>
   <form method="get"
-        style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr auto; gap:1rem; align-items:end;">
+        style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr auto; gap:1rem; align-items:end;">
     <div>
       <label for="q" style="display:block; margin-bottom:0.35rem;">Recherche</label>
       <input type="text" id="q" name="q" value="{{ q }}"
@@ -53,11 +53,22 @@
       </select>
     </div>
     <div>
+      <label for="company" style="display:block; margin-bottom:0.35rem;">Société</label>
+      <select id="company" name="company" class="form-control">
+        <option value="">Toutes</option>
+        {% for company in companies %}
+          <option value="{{ company.id }}" {% if selected_company == company.id|stringformat:"s" %}selected{% endif %}>
+            {{ company.nom }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
       <label for="project" style="display:block; margin-bottom:0.35rem;">Dossier</label>
       <select id="project" name="project" class="form-control">
         <option value="">Tous</option>
         {% for project in projects %}
-          <option value="{{ project.id }}"
+          <option value="{{ project.id }}" data-company-id="{{ project.societe_id }}"
                   {% if selected_project == project.id|stringformat:"s" %}selected{% endif %}>
             {{ project.reference }} - {{ project.name }}
           </option>
@@ -144,7 +155,7 @@
   <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.25rem;">
     {% if page_obj.has_previous %}
       <a class="btn btn-secondary"
-         href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ selected_status }}&project={{ selected_project }}&has_attachments={{ selected_has_attachments }}">
+         href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ selected_status }}&company={{ selected_company }}&project={{ selected_project }}&has_attachments={{ selected_has_attachments }}">
         Précédent
       </a>
     {% endif %}
@@ -153,7 +164,7 @@
     </span>
     {% if page_obj.has_next %}
       <a class="btn btn-secondary"
-         href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ selected_status }}&project={{ selected_project }}&has_attachments={{ selected_has_attachments }}">
+         href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ selected_status }}&company={{ selected_company }}&project={{ selected_project }}&has_attachments={{ selected_has_attachments }}">
         Suivant
       </a>
     {% endif %}
@@ -321,5 +332,15 @@ async function classifyBulk() {
 
 // Chargement initial du statut OAuth dès que la page est prête
 document.addEventListener('DOMContentLoaded', loadOAuthStatus);
+</script>
+<script src="{% static 'js/company_project_filter.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  window.bindCompanyProjectFilter(
+    document.getElementById('company'),
+    document.getElementById('project'),
+    { allowEmptyProject: true, emptyWhenCompany: 'Tous les dossiers' }
+  );
+});
 </script>
 {% endblock %}

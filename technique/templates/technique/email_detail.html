@@ -208,11 +208,23 @@
       <form method="post" action="{% url 'technique:mail_assign_project' email.pk %}">
         {% csrf_token %}
         <div style="margin-bottom:0.75rem;">
+          <label for="company_id" style="display:block; margin-bottom:0.35rem; font-size:0.9rem;">Société</label>
+          <select id="company_id" name="company_id" class="form-control" required>
+            <option value="">-- Sélectionner une société --</option>
+            {% for company in companies %}
+              <option value="{{ company.id }}"
+                {% if email.project and email.project.societe_id == company.id %}selected{% endif %}>
+                {{ company.nom }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="margin-bottom:0.75rem;">
           <label for="project_id" style="display:block; margin-bottom:0.35rem; font-size:0.9rem;">Dossier</label>
           <select id="project_id" name="project_id" class="form-control">
             <option value="">-- Sélectionner un dossier --</option>
             {% for project in projects %}
-              <option value="{{ project.id }}"
+              <option value="{{ project.id }}" data-company-id="{{ project.societe_id }}"
                 {% if email.project and email.project.id == project.id %}selected{% endif %}>
                 {{ project.reference }} – {{ project.name }}
               </option>
@@ -388,6 +400,15 @@ function refreshStatusBadge(status) {
     badge.innerHTML         = badges[status];
   }
 }
+</script>
+<script src="{% static 'js/company_project_filter.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  window.bindCompanyProjectFilter(
+    document.getElementById('company_id'),
+    document.getElementById('project_id')
+  );
+});
 </script>
 
 {% endblock %}

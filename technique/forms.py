@@ -9,22 +9,48 @@ from .models import (
     TechnicalProjectAction,
     TechnicalProjectKeyDate,
 )
+from .widgets import CompanyProjectSelect
 
 User = get_user_model()
 
 
 class DocumentTechniqueUploadForm(forms.ModelForm):
+    societe = forms.ModelChoiceField(
+        queryset=Societe.objects.none(),
+        required=False,
+        label="Société",
+        empty_label="-- Sélectionner une société --",
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["societe"].queryset = Societe.objects.filter(is_active=True).order_by("nom")
         self.fields["project"].queryset = TechnicalProject.objects.filter(
             archived_at__isnull=True
         ).order_by("reference")
+        self.fields["project"].required = False
+        initial_project_id = self.initial.get("project")
+        if initial_project_id and not self.initial.get("societe"):
+            initial_project = self.fields["project"].queryset.filter(pk=initial_project_id).first()
+            if initial_project:
+                self.fields["societe"].initial = initial_project.societe_id
+
+    def clean(self):
+        cleaned_data = super().clean()
+        societe = cleaned_data.get("societe")
+        project = cleaned_data.get("project")
+        if project and not societe:
+            self.add_error("societe", "Sélectionnez une société avant de choisir un dossier.")
+        elif project and project.societe_id != societe.pk:
+            self.add_error("project", "Ce dossier n’est pas rattaché à la société sélectionnée.")
+        return cleaned_data
 
     class Meta:
         model = DocumentTechnique
-        fields = ["project", "titre", "fichier"]
+        fields = ["societe", "project", "titre", "fichier"]
         widgets = {
-            "project": forms.Select(attrs={"class": "form-control"}),
+            "project": CompanyProjectSelect(attrs={"class": "form-control"}),
             "titre": forms.TextInput(attrs={"class": "form-control"}),
             "fichier": forms.ClearableFileInput(
                 attrs={"accept": ".pdf,.doc,.docx,.txt", "class": "form-control"}
@@ -36,8 +62,8 @@ class TechnicalProjectCreateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["societe"].queryset = Societe.objects.filter(is_active=True).order_by("nom")
-        self.fields["societe"].required = False
-        self.fields["societe"].empty_label = "-- Aucune société --"
+        self.fields["societe"].required = True
+        self.fields["societe"].empty_label = "-- Sélectionner une société --"
 
     class Meta:
         model = TechnicalProject
@@ -76,20 +102,46 @@ class TechnicalProjectStatusForm(forms.ModelForm):
 
 
 class DocumentTechniqueUpdateForm(forms.ModelForm):
+    societe = forms.ModelChoiceField(
+        queryset=Societe.objects.none(),
+        required=False,
+        label="Société",
+        empty_label="-- Sélectionner une société --",
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        companies = Societe.objects.filter(is_active=True)
+        if self.instance.project_id:
+            companies = Societe.objects.filter(
+                models.Q(is_active=True) | models.Q(pk=self.instance.project.societe_id)
+            )
+            self.fields["societe"].initial = self.instance.project.societe_id
+        self.fields["societe"].queryset = companies.order_by("nom")
         projects = TechnicalProject.objects.filter(archived_at__isnull=True)
         if self.instance.project_id:
             projects = TechnicalProject.objects.filter(
                 models.Q(archived_at__isnull=True) | models.Q(pk=self.instance.project_id)
             )
         self.fields["project"].queryset = projects.order_by("reference")
+        self.fields["project"].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        societe = cleaned_data.get("societe")
+        project = cleaned_data.get("project")
+        if project and not societe:
+            self.add_error("societe", "Sélectionnez une société avant de choisir un dossier.")
+        elif project and project.societe_id != societe.pk:
+            self.add_error("project", "Ce dossier n’est pas rattaché à la société sélectionnée.")
+        return cleaned_data
 
     class Meta:
         model = DocumentTechnique
-        fields = ["project", "titre"]
+        fields = ["societe", "project", "titre"]
         widgets = {
-            "project": forms.Select(attrs={"class": "form-control"}),
+            "project": CompanyProjectSelect(attrs={"class": "form-control"}),
             "titre": forms.TextInput(attrs={"class": "form-control"}),
         }
 

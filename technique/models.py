@@ -1,4 +1,6 @@
 from decimal import Decimal
+from django.apps import apps
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -120,8 +122,6 @@ class TechnicalProject(models.Model):
     societe = models.ForeignKey(
         "invoices.Societe",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="dossiers",
         verbose_name="Société",
     )
@@ -183,6 +183,27 @@ class TechnicalProject(models.Model):
 
     def __str__(self):
         return f"{self.reference} - {self.name}"
+
+    def clean(self):
+        super().clean()
+        if not self.societe_id:
+            raise ValidationError({"societe": "Chaque dossier doit être rattaché à une société."})
+
+    def save(self, *args, **kwargs):
+        previous_company_id = None
+        if self.pk:
+            previous_company_id = (
+                type(self).objects.filter(pk=self.pk).values_list("societe_id", flat=True).first()
+            )
+        super().save(*args, **kwargs)
+        if previous_company_id != self.societe_id:
+            apps.get_model("invoices", "Facture").objects.filter(dossier_id=self.pk).update(
+                societe_id=self.societe_id,
+                affaire=str(self),
+            )
+            apps.get_model("management", "Activite").objects.filter(dossier_id=self.pk).update(
+                societe_id=self.societe_id,
+            )
 
     @property
     def is_archived(self):

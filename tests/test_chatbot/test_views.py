@@ -99,29 +99,30 @@ def test_invoice_query_searches_supplier_foreign_key_by_name():
 @pytest.mark.django_db
 def test_invoice_query_uses_current_status_values():
     user = User.objects.create_user(username="accounting", password="pass123")
-    supplier_actor = ActeurExterne.objects.create(id="CHATBOT-PAID-SUPPLIER")
-    supplier = Fournisseur.objects.create(id=supplier_actor, nom="Entreprise Payée")
-    client_actor = ActeurExterne.objects.create(id="CHATBOT-PAID-CLIENT")
+    supplier_actor = ActeurExterne.objects.create(id="CHATBOT-PENDING-SUPPLIER")
+    supplier = Fournisseur.objects.create(id=supplier_actor, nom="Entreprise en attente")
+    client_actor = ActeurExterne.objects.create(id="CHATBOT-PENDING-CLIENT")
     invoice_client = Client.objects.create(id=client_actor)
     Facture.objects.create(
-        id="FAC-CHATBOT-PAID",
+        id="FAC-CHATBOT-PENDING",
         fournisseur=supplier,
         client=invoice_client,
         montant=800,
-        statut="paid",
+        statut="pending",
     )
 
-    response = _handle_invoice_query("factures payées", user)
+    response = _handle_invoice_query("factures en attente", user)
 
-    assert "FAC-CHATBOT-PAID" in response
-    assert "Payée" in response
+    assert "FAC-CHATBOT-PENDING" in response
+    assert "En attente" in response
 
 
 @pytest.mark.django_db
-def test_rag_context_searches_current_document_project_fields():
+def test_rag_context_searches_current_document_project_fields(societe):
     project = TechnicalProject.objects.create(
         reference="RAG-001",
         name="Résidence des Acacias",
+        societe=societe,
     )
     DocumentTechnique.objects.create(
         project=project,

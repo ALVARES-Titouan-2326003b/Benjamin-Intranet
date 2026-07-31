@@ -21,18 +21,31 @@
   </div>
 
   <form method="get"
-        style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr; gap: 1rem; margin-bottom: 1.5rem; align-items: end; background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr; gap: 1rem; margin-bottom: 1.5rem; align-items: end; background: #f8fafc; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
     <div>
       <label style="display:block; margin-bottom:.4rem; font-weight:500;">Recherche</label>
       <input type="text" name="q" class="form-control" placeholder="Titre, dossier, résumé, clause..." value="{{ q }}">
     </div>
 
     <div>
+      <label style="display:block; margin-bottom:.4rem; font-weight:500;">Société</label>
+      <select id="company-filter" name="company" class="form-control">
+        <option value="">Toutes</option>
+        {% for company in companies %}
+          <option value="{{ company.pk }}" {% if company_id == company.pk|stringformat:"s" %}selected{% endif %}>
+            {{ company.nom }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
       <label style="display:block; margin-bottom:.4rem; font-weight:500;">Dossier</label>
-      <select name="project" class="form-control">
+      <select id="project-filter" name="project" class="form-control">
         <option value="">Tous</option>
         {% for project in projects %}
-          <option value="{{ project.pk }}" {% if project_id == project.pk|stringformat:"s" %}selected{% endif %}>
+          <option value="{{ project.pk }}" data-company-id="{{ project.societe_id }}"
+                  {% if project_id == project.pk|stringformat:"s" %}selected{% endif %}>
             {{ project.reference }} - {{ project.name }}
           </option>
         {% endfor %}
@@ -118,11 +131,11 @@
 
     {% if page_obj.has_previous %}
         <a class="btn btn-secondary"
-           href="?page=1&q={{ q }}&project={{ project_id }}&sort={{ sort }}">
+           href="?page=1&q={{ q }}&company={{ company_id }}&project={{ project_id }}&sort={{ sort }}">
             « Première
         </a>
         <a class="btn btn-secondary"
-           href="?page={{ page_obj.previous_page_number }}&q={{ q }}&project={{ project_id }}&sort={{ sort }}">
+           href="?page={{ page_obj.previous_page_number }}&q={{ q }}&company={{ company_id }}&project={{ project_id }}&sort={{ sort }}">
             ‹ Précédente
         </a>
     {% endif %}
@@ -133,11 +146,11 @@
 
     {% if page_obj.has_next %}
         <a class="btn btn-secondary"
-           href="?page={{ page_obj.next_page_number }}&q={{ q }}&project={{ project_id }}&sort={{ sort }}">
+           href="?page={{ page_obj.next_page_number }}&q={{ q }}&company={{ company_id }}&project={{ project_id }}&sort={{ sort }}">
             Suivante ›
         </a>
         <a class="btn btn-secondary"
-           href="?page={{ page_obj.paginator.num_pages }}&q={{ q }}&project={{ project_id }}&sort={{ sort }}">
+           href="?page={{ page_obj.paginator.num_pages }}&q={{ q }}&company={{ company_id }}&project={{ project_id }}&sort={{ sort }}">
             Dernière »
         </a>
     {% endif %}
@@ -145,5 +158,15 @@
 {% endif %}
 
 <script src="{% static 'technique/js/documents_list.js' %}"> </script>
+<script src="{% static 'js/company_project_filter.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  window.bindCompanyProjectFilter(
+    document.getElementById('company-filter'),
+    document.getElementById('project-filter'),
+    { allowEmptyProject: true, emptyWhenCompany: 'Tous les dossiers' }
+  );
+});
+</script>
 
 {% endblock %}

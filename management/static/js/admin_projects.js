@@ -12,6 +12,7 @@
     const activiteFilter = document.getElementById('project-activite-filter');
     const etatFilter = document.getElementById('project-etat-filter');
     const categorieFilter = document.getElementById('project-categorie-filter');
+    const societeFilter = document.getElementById('project-societe-filter');
     const minPriceFilter = document.getElementById('project-min-price-filter');
     const maxPriceFilter = document.getElementById('project-max-price-filter');
     const promiseFromFilter = document.getElementById('project-promise-from-filter');
@@ -165,6 +166,7 @@
         tableHead.innerHTML = `
             <th>Référence</th>
             <th>Affaire</th>
+            <th>Société</th>
             <th>Type</th>
             <th>Activité</th>
             <th>État</th>
@@ -270,6 +272,7 @@
         const selectedActivite = activiteFilter?.value || '';
         const selectedEtat = etatFilter?.value || '';
         const selectedCategorie = categorieFilter?.value || '';
+        const selectedSociete = societeFilter?.value || '';
         const minPrice = Number(minPriceFilter?.value || 0);
         const maxPrice = Number(maxPriceFilter?.value || 0);
         const promiseFrom = promiseFromFilter?.value || '';
@@ -279,6 +282,7 @@
             const matchesQuery = !q
                 || (project.reference || '').toLowerCase().includes(q)
                 || (project.affaire || project.name || '').toLowerCase().includes(q)
+                || (project.societe_nom || '').toLowerCase().includes(q)
                 || (project.adresse_bien || '').toLowerCase().includes(q)
                 || (project.vendeur || '').toLowerCase().includes(q)
                 || (project.beneficiaire || '').toLowerCase().includes(q)
@@ -292,6 +296,7 @@
             const matchesActivite = !selectedActivite || project.activite_metier === selectedActivite;
             const matchesEtat = !selectedEtat || project.etat === selectedEtat;
             const matchesCategorie = !selectedCategorie || String(project.categorie_id || '') === selectedCategorie;
+            const matchesSociete = !selectedSociete || String(project.societe_id || '') === selectedSociete;
             const price = Number(project.prix || project.total_estimated || 0);
             const matchesMinPrice = !minPrice || price >= minPrice;
             const matchesMaxPrice = !maxPrice || price <= maxPrice;
@@ -307,6 +312,7 @@
                 && matchesActivite
                 && matchesEtat
                 && matchesCategorie
+                && matchesSociete
                 && matchesMinPrice
                 && matchesMaxPrice
                 && matchesPromiseFrom
@@ -322,6 +328,7 @@
             <tr>
                 <td><strong>${escapeHtml(project.reference)}</strong></td>
                 <td>${escapeHtml(project.affaire || project.name)}</td>
+                <td>${escapeHtml(project.societe_nom)}</td>
                 <td><span class="status-badge">${escapeHtml(project.type_dossier_label || project.type_label)}</span></td>
                 <td>${escapeHtml(project.activite_metier_label)}</td>
                 <td>${escapeHtml(project.etat_label)}</td>
@@ -353,6 +360,7 @@
             activiteFilter,
             etatFilter,
             categorieFilter,
+            societeFilter,
             minPriceFilter,
             maxPriceFilter,
             promiseFromFilter,

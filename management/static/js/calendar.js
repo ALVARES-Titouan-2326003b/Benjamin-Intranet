@@ -701,6 +701,10 @@
         const timeStr = act.time || (act.datetime ? act.datetime.slice(11, 16) : '00:00');
         const fullDateStr = `${dateStr}T${timeStr}`;
 
+        if (societeSelect) {
+            societeSelect.value = act.societe_id || '';
+            window.activityCompanyProjectFilter?.refresh(act.dossier || '');
+        }
         if (dossierSelect) {
             dossierSelect.value = act.dossier || '';
             const selectedOption = dossierSelect.options[dossierSelect.selectedIndex];
@@ -710,7 +714,6 @@
             }
         }
         if (titleInput) titleInput.value = act.titre || '';
-        if (societeSelect) societeSelect.value = act.societe_id || '';
         if (dateInput)     dateInput.value     = fullDateStr;
         if (dureeSelect)   dureeSelect.value   = String(act.duree_minutes || 60);
         if (responsableSelect) responsableSelect.value = act.responsable_id || '';
@@ -966,11 +969,6 @@
     const dossierSelect = document.getElementById('activity-dossier');
     const societeSelect = document.getElementById('activity-societe');
 
-    dossierSelect?.addEventListener('change', function() {
-        const option = this.options[this.selectedIndex];
-        if (societeSelect) societeSelect.value = option?.dataset?.societe || '';
-    });
-
     console.log('Modal:', modal);
     console.log('Button:', openBtn);
     console.log('Delete Button:', deleteBtn);
@@ -994,6 +992,7 @@
         const modalTitle = modal.querySelector('.activity-modal-header h3');
         if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-calendar-plus"></i> Nouvelle activité';
         form.reset();
+        window.activityCompanyProjectFilter?.refresh('');
         window.setActivityReminders?.([]);
         window.renderActivityReminderHistory?.([]);
         form.dataset.mode = 'create';
@@ -1013,6 +1012,7 @@
     function closeModal() {
         modal.style.display = 'none';
         form.reset();
+        window.activityCompanyProjectFilter?.refresh('');
         form.dataset.mode = 'create';
         form.dataset.activityId = '';
         deleteBtn.style.display = 'none';

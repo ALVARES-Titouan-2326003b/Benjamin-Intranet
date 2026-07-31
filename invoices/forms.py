@@ -5,7 +5,14 @@ from django.utils import timezone
 from django.db import connection, models
 
 from technique.models import TechnicalProject
+from technique.widgets import CompanyProjectSelect
 from .models import ActeurExterne, Client, Entreprise, Facture, Fournisseur, PieceJointe, Societe
+
+
+class DossierSocieteSelect(CompanyProjectSelect):
+    """Alias conservé pour compatibilité avec les imports existants."""
+
+    pass
 
 
 def get_enum_labels(enum_name: str) -> list[str]:
@@ -99,8 +106,10 @@ class FactureForm(forms.ModelForm):
 
     dossier = forms.ModelChoiceField(
         queryset=TechnicalProject.objects.all().order_by("reference", "name"),
-        required=True,
+        required=False,
         label="Dossier / affaire concerné",
+        empty_label="Divers / sans dossier",
+        widget=DossierSocieteSelect(),
     )
 
     echeance = forms.DateField(
@@ -135,6 +144,7 @@ class FactureForm(forms.ModelForm):
         ]
         widgets = {
             "commentaire_compta": forms.Textarea(attrs={"rows": 4}),
+            "dossier": DossierSocieteSelect(),
         }
 
     def __init__(self, *args, **kwargs):
@@ -144,7 +154,10 @@ class FactureForm(forms.ModelForm):
         self.fields["statut"].choices = Facture.STATUS
         self.fields["montant"].label = "Montant TTC (€)"
         self.fields["numero_facture"].required = True
-        self.fields["societe"].required = True
+        self.fields["societe"].required = False
+        self.fields["societe"].help_text = (
+            "Automatique lorsqu’un dossier est sélectionné ; obligatoire pour une facture diverse."
+        )
         active_companies = Societe.objects.filter(is_active=True)
         if self.instance.societe_id:
             active_companies = Societe.objects.filter(
@@ -190,6 +203,30 @@ class FactureForm(forms.ModelForm):
         if timezone.is_naive(dt):
             dt = timezone.make_aware(dt, timezone.get_current_timezone())
         return dt
+
+    def clean(self):
+        cleaned_data = super().clean()
+        dossier = cleaned_data.get("dossier")
+        societe = cleaned_data.get("societe")
+        if dossier:
+            if not societe:
+                self.add_error(
+                    "societe",
+                    "Sélectionnez une société avant de choisir un dossier.",
+                )
+            elif societe.pk != dossier.societe_id:
+                self.add_error(
+                    "dossier",
+                    "Ce dossier n’est pas rattaché à la société sélectionnée.",
+                )
+            else:
+                self.instance.societe = dossier.societe
+        elif not societe:
+            self.add_error(
+                "societe",
+                "Sélectionnez une société, y compris pour une facture sans dossier.",
+            )
+        return cleaned_data
 
     def save(self, commit=True):
         """

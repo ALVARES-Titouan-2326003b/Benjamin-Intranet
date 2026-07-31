@@ -34,4 +34,14 @@
   </form>
 </div>
 
+<script src="{% static 'js/company_project_filter.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  window.bindCompanyProjectFilter(
+    document.getElementById('id_societe'),
+    document.getElementById('id_project'),
+    { allowEmptyProject: true, emptyWhenCompany: '-- Aucun dossier --' }
+  );
+});
+</script>
 {% endblock %}

@@ -67,7 +67,7 @@
          <div class="project-filter project-filter-search">
             <label class="form-label" for="project-search">Recherche</label>
             <input type="search" id="project-search" name="q" value="{{ search_query }}" class="form-control"
-                   placeholder="Affaire, adresse, vendeur, bénéficiaire, locataire">
+                   placeholder="Affaire, société, adresse, vendeur, bénéficiaire, locataire">
          </div>
          <div class="project-toolbar-actions">
             <button type="submit" class="btn btn-secondary">
@@ -80,6 +80,15 @@
       </div>
 
       <div class="project-filter-grid">
+         <div class="project-filter">
+            <label class="form-label" for="project-societe-filter">Société</label>
+            <select id="project-societe-filter" class="form-control">
+               <option value="">Toutes les sociétés</option>
+               {% for societe in societes %}
+               <option value="{{ societe.pk }}">{{ societe.nom }}</option>
+               {% endfor %}
+            </select>
+         </div>
          <div class="project-filter">
             <label class="form-label" for="project-type-filter">Type</label>
             <select id="project-type-filter" class="form-control">
@@ -188,9 +197,9 @@
                <input type="text" id="project-affaire" class="form-control" required placeholder="Ex. Résidence Les Oliviers">
             </div>
             <div class="form-group">
-               <label class="form-label">Société</label>
-               <select id="project-societe" class="form-control">
-                  <option value="">-- Aucune société --</option>
+               <label class="form-label">Société *</label>
+               <select id="project-societe" class="form-control" required>
+                  <option value="">-- Sélectionner une société --</option>
                   {% for societe in societes %}<option value="{{ societe.pk }}" {% if not societe.is_active %}disabled{% endif %}>{{ societe.nom }}{% if not societe.is_active %} (inactive){% endif %}</option>{% endfor %}
                </select>
             </div>
