@@ -14,12 +14,13 @@ from technique.services.attachment_processing import process_attachment
 
 
 @pytest.fixture
-def attachment_setup(db, user_factory, tmp_path, settings):
+def attachment_setup(db, user_factory, tmp_path, settings, societe):
     settings.MEDIA_ROOT = tmp_path
     user = user_factory(username="tech-attachments", email="tech@example.com")
     project = TechnicalProject.objects.create(
         reference="TECH-PJ",
         name="Projet pièces jointes",
+        societe=societe,
     )
     email = TechnicalEmail.objects.create(
         subject="Document technique",
@@ -135,6 +136,7 @@ def test_project_change_updates_linked_document_without_recreating(attachment_se
     new_project = TechnicalProject.objects.create(
         reference="TECH-NEW",
         name="Nouveau projet",
+        societe=attachment_setup["project"].societe,
     )
     attachment.email.project = new_project
     attachment.email.save(update_fields=["project"])

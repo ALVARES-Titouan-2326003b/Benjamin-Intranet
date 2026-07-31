@@ -15,8 +15,7 @@ from django.db.models.functions import TruncMonth
 from .services.quality import get_invoice_anomalies
 
 
-OPEN_STATUSES = ["ongoing", "received"]
-INACTIVE_STATUSES = ["paid", "archived"]
+OPEN_STATUSES = ["received", "pending"]
 
 
 def _invoice_list_url(**params):
@@ -37,9 +36,9 @@ class DashboardView(TemplateView):
     Context data:
 
         kpi: {
-            total_amount, total_count, paid_amount,
+            total_amount, total_count, received_amount,
             pending_amount, overdue_amount,
-            overdue_count, paid_percent
+            overdue_count, received_percent
         }
 
         chart_status: { labels, data }  Pie chart statuts
@@ -59,7 +58,7 @@ class DashboardView(TemplateView):
         qs = self._filtered_queryset(base_qs)
         now = timezone.now()
         overdue_filter = Q(statut__in=OPEN_STATUSES, echeance__lt=now)
-        pending_filter = ~Q(statut__in=INACTIVE_STATUSES)
+        pending_filter = Q(statut="pending")
 
         # 2. KPIs
         # Total facturé (Toutes factures confondues)
@@ -70,16 +69,16 @@ class DashboardView(TemplateView):
         total_amount = total_aggregate['total'] or 0
         total_count = total_aggregate['count'] or 0
 
-        # Montant Payé
-        paid_aggregate = qs.filter(statut='paid').aggregate(total=Sum('montant'))
-        paid_amount = paid_aggregate['total'] or 0
+        # Montant des factures reçues
+        received_aggregate = qs.filter(statut="received").aggregate(total=Sum("montant"))
+        received_amount = received_aggregate["total"] or 0
 
-        # En attente (Tout ce qui n'est pas payé ni annulé/archivé)
+        # Montant des factures en attente
         pending_qs = qs.filter(pending_filter)
         pending_aggregate = pending_qs.aggregate(total=Sum('montant'))
         pending_amount = pending_aggregate['total'] or 0
 
-        # En Retard (Non payée et date dépassée) OU Statut explicitement 'En retard'
+        # Factures dont l'échéance est dépassée, quel que soit le statut actif.
         overdue_qs = qs.filter(overdue_filter)
         overdue_aggregate = overdue_qs.aggregate(
             total=Sum('montant'),
@@ -91,13 +90,13 @@ class DashboardView(TemplateView):
         context['kpi'] = {
             'total_amount': total_amount,
             'total_count': total_count,
-            'paid_amount': paid_amount,
+            'received_amount': received_amount,
             'pending_amount': pending_amount,
             'overdue_amount': overdue_amount,
             'overdue_count': overdue_count,
-            'paid_percent': (paid_amount / total_amount * 100) if total_amount > 0 else 0,
+            'received_percent': (received_amount / total_amount * 100) if total_amount > 0 else 0,
             'pending_percent': (pending_amount / total_amount * 100) if total_amount > 0 else 0,
-            'avg_processing_days': self._average_processing_days(qs),
+            'avg_pending_days': self._average_pending_days(qs),
         }
         context["active_filters"] = self._active_filters()
         context["status_choices"] = Facture.STATUS
@@ -105,7 +104,7 @@ class DashboardView(TemplateView):
         context["reset_dashboard_url"] = reverse("invoices:dashboard")
 
         # 3. Chart 1: Répartition par Statut (Pie Chart)
-        # Returns list of dicts: [{'statut': 'Payée', 'total': 1200}, ...]
+        # Retourne une ligne par statut parmi Reçue et En attente.
         status_data = qs.values('statut').annotate(count=Count('id'), total=Sum('montant')).order_by('statut')
         
         # Prepare for Chart.js
@@ -257,11 +256,6 @@ class DashboardView(TemplateView):
     def _business_alerts(self, queryset, overdue_filter):
         missing_company_count = queryset.filter(societe__isnull=True).count()
         missing_project_count = queryset.filter(dossier__isnull=True).count()
-        inconsistent_project_count = sum(
-            1
-            for invoice in queryset.exclude(dossier__isnull=True)
-            if invoice.affaire and invoice.affaire != str(invoice.dossier)
-        )
         overdue_project_count = (
             queryset.filter(overdue_filter)
             .exclude(dossier__isnull=True)
@@ -283,12 +277,6 @@ class DashboardView(TemplateView):
                 "url": _invoice_list_url(dossier=""),
             },
             {
-                "label": "Affaire différente du dossier lié",
-                "count": inconsistent_project_count,
-                "severity": "warning",
-                "url": _invoice_list_url(),
-            },
-            {
                 "label": "Dossiers avec factures en retard",
                 "count": overdue_project_count,
                 "severity": "danger",
@@ -303,15 +291,13 @@ class DashboardView(TemplateView):
             return f"{reference} - {name}"
         return reference or name or "Dossier sans libellé"
 
-    def _average_processing_days(self, queryset):
-        durations = []
-        paid_invoices = queryset.filter(statut='paid').prefetch_related('historique')
-        for invoice in paid_invoices:
-            history = list(invoice.historique.all().order_by('created_at'))
-            paid_event = next((event for event in history if event.new_status == 'paid'), None)
-            if not paid_event or not history:
-                continue
-            durations.append((paid_event.created_at - history[0].created_at).total_seconds() / 86400)
+    def _average_pending_days(self, queryset):
+        now = timezone.now()
+        durations = [
+            (now - invoice.date_soumission).total_seconds() / 86400
+            for invoice in queryset.filter(statut="pending")
+            if invoice.date_soumission
+        ]
         if not durations:
             return None
         return sum(durations) / len(durations)

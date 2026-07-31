@@ -26,14 +26,14 @@ def _companies_queryset():
             project_count=Count("dossiers", distinct=True),
             activity_count=Count("activites", distinct=True),
             total_amount=Sum("factures__montant"),
-            paid_amount=Sum(
+            pending_amount=Sum(
                 "factures__montant",
-                filter=Q(factures__statut="paid"),
+                filter=Q(factures__statut="pending"),
             ),
             overdue_count=Count(
                 "factures",
                 filter=Q(
-                    factures__statut__in=["ongoing", "received"],
+                    factures__statut__in=["received", "pending"],
                     factures__echeance__lt=timezone.now(),
                 ),
                 distinct=True,
@@ -130,7 +130,7 @@ def company_detail(request, pk):
         invoice.is_overdue = bool(
             invoice.echeance
             and invoice.echeance < now
-            and invoice.statut in {"ongoing", "received"}
+            and invoice.statut in {"received", "pending"}
         )
 
     dossiers = list(
@@ -146,11 +146,11 @@ def company_detail(request, pk):
     )
     invoice_stats = company.factures.aggregate(
         total_amount=Sum("montant"),
-        paid_amount=Sum("montant", filter=Q(statut="paid")),
+        pending_amount=Sum("montant", filter=Q(statut="pending")),
         overdue_count=Count(
             "pk",
             filter=Q(
-                statut__in=["ongoing", "received"],
+                statut__in=["received", "pending"],
                 echeance__lt=now,
             ),
         ),
@@ -165,7 +165,7 @@ def company_detail(request, pk):
             "documents": documents,
             "activities_count": company.activites.count(),
             "total_amount": invoice_stats["total_amount"] or 0,
-            "paid_amount": invoice_stats["paid_amount"] or 0,
+            "pending_amount": invoice_stats["pending_amount"] or 0,
             "overdue_count": invoice_stats["overdue_count"],
             "company_usage": _company_usage(company),
         },

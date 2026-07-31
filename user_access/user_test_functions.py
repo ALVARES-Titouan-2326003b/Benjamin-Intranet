@@ -8,8 +8,10 @@ def has_finance_access(user):
     Args:
         user (User):  L'utilisateur
     """
+    if not getattr(user, "is_authenticated", False):
+        return False
     user = User.objects.get(username=user.username)
-    return user.is_staff or user.groups.filter(name="POLE_FINANCIER").exists()
+    return user.is_superuser or user.groups.filter(name="POLE_FINANCIER").exists()
 
 def has_administratif_access(user):
     """
@@ -18,8 +20,10 @@ def has_administratif_access(user):
     Args:
         user (User):  L'utilisateur
     """
+    if not getattr(user, "is_authenticated", False):
+        return False
     user = User.objects.get(username=user.username)
-    return user.is_superuser or user.is_staff or user.groups.filter(name="POLE_ADMINISTRATIF").exists()
+    return user.is_superuser or user.groups.filter(name="POLE_ADMINISTRATIF").exists()
 
 def has_technique_access(user):
     """
@@ -146,14 +150,10 @@ def can_edit_facture(user, facture):
         facture (Facture):  La facture
     """
     user = User.objects.get(username=user.username)
-    if can_change_facture_status(user) or has_finance_access(user):
+    if has_finance_access(user):
         return True
     if getattr(user, "is_authenticated", False):
-        return (
-            facture.collaborateur_id == user.id
-            or facture.created_by_id == user.id
-            or facture.demandeur_id == user.id
-        )
+        return facture.created_by_id == user.id
     return False
 
 
@@ -176,12 +176,11 @@ def can_edit_facture_field(user, facture, field):
             return can_change_facture_status(user)
         return True
     
-    # Les demandeurs ne peuvent éditer que leurs propres factures
+    # Les créateurs ne peuvent éditer que leurs propres factures
     # et seulement certains champs.
-    if getattr(user, "is_authenticated", False) and (
-        facture.collaborateur_id == user.id
-        or facture.created_by_id == user.id
-        or facture.demandeur_id == user.id
+    if (
+        getattr(user, "is_authenticated", False)
+        and facture.created_by_id == user.id
     ):
         # Ces champs ne peuvent pas être édités par les collaborateurs
         forbidden_fields = ['collaborateur']
