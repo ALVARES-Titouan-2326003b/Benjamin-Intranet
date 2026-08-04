@@ -234,7 +234,7 @@ class DashboardView(TemplateView):
             .annotate(
                 total=Sum("montant"),
                 count=Count("id"),
-                open_count=Count("id", filter=pending_filter),
+                open_count=Count("id", filter=Q(statut__in=OPEN_STATUSES)),
                 overdue_total=Sum("montant", filter=overdue_filter),
                 overdue_count=Count("id", filter=overdue_filter),
                 urgent_count=Count("id", filter=Q(priorite__in=["urgent", "critical"])),
