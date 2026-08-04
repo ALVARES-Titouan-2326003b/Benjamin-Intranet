@@ -144,7 +144,7 @@
 
 <div class="card" style="padding: 0; overflow: hidden;">
     <div class="table-responsive">
-        <table class="table">
+        <table class="table invoice-table">
             <thead style="background: var(--bg-table)">
                 <tr>
                     {% if can_manage_bulk_delete %}
@@ -156,10 +156,10 @@
                     <th>Dossier / affaire</th>
                     <th>Service</th>
                     <th>Fournisseur</th>
-                    <th>Montant</th>
-                    <th>Statut</th>
-                    <th>Créée le</th>
-                    <th>Échéance</th>
+                    <th class="invoice-table__amount-cell">Montant</th>
+                    <th class="invoice-table__status-cell">Statut</th>
+                    <th class="invoice-table__date-cell">Créée le</th>
+                    <th class="invoice-table__date-cell">Échéance</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -179,23 +179,32 @@
                     <td>{{ invoice.dossier|default:invoice.affaire|default:"-" }}</td>
                     <td>{% if invoice.service %}{{ invoice.get_service_display }}{% else %}-{% endif %}</td>
                     <td>{{ invoice.fournisseur|default:"-" }}</td>
-                    <td style="font-family: monospace; font-size: 0.95rem;">
+                    <td class="invoice-table__amount-cell" style="font-family: monospace; font-size: 0.95rem;">
                         {% if invoice.montant %}
                         {{ invoice.montant }} EUR
                         {% else %}
                         <span style="color: #ccc;">-</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td class="invoice-table__status-cell">
                         {% if invoice.statut %}
-                        {% if invoice.statut == 'received' %}<span class="badge badge-info text-dark">{{ invoice.get_statut_display }}</span>
-                        {% else %}<span class="badge" style="background:#fef3c7;color:#92400e;">{{ invoice.get_statut_display }}</span>{% endif %}
+                        {% if invoice.statut == 'received' %}
+                        <span class="invoice-status invoice-status--received">
+                            <span class="invoice-status__dot" aria-hidden="true"></span>
+                            {{ invoice.get_statut_display }}
+                        </span>
+                        {% else %}
+                        <span class="invoice-status invoice-status--pending">
+                            <span class="invoice-status__dot" aria-hidden="true"></span>
+                            {{ invoice.get_statut_display }}
+                        </span>
+                        {% endif %}
                         {% else %}
                         -
                         {% endif %}
                     </td>
-                    <td>{{ invoice.date_soumission|date:"d/m/Y H:i" }}</td>
-                    <td>
+                    <td class="invoice-table__date-cell">{{ invoice.date_soumission|date:"d/m/Y H:i" }}</td>
+                    <td class="invoice-table__date-cell">
                         {% if invoice.echeance %}
                         {{ invoice.echeance|date:"d M Y" }}
                         {% else %}

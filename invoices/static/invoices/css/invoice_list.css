@@ -1,3 +1,61 @@
+.invoice-table {
+    min-width: 72rem;
+}
+
+.invoice-table__amount-cell,
+.invoice-table__date-cell,
+.invoice-table__status-cell {
+    white-space: nowrap;
+}
+
+.invoice-table__amount-cell {
+    min-width: 7.5rem;
+}
+
+.invoice-table__date-cell {
+    min-width: 8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.invoice-table__status-cell {
+    min-width: 8.25rem;
+}
+
+.invoice-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-width: 6.75rem;
+    padding: 0.4rem 0.7rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+}
+
+.invoice-status__dot {
+    flex: 0 0 auto;
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.7;
+}
+
+.invoice-status--received {
+    color: #075985;
+    background: #e0f2fe;
+}
+
+.invoice-status--pending {
+    color: #92400e;
+    background: #fef3c7;
+}
+
 .invoice-pagination {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
