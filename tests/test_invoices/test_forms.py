@@ -1,7 +1,7 @@
 import pytest
 from django.utils import timezone
 
-from invoices.forms import FactureForm, best_match, build_choices, normalize_label
+from invoices.forms import FactureForm, PieceJointeForm, best_match, build_choices, normalize_label
 from invoices.models import Client, Facture, Societe
 from technique.models import TechnicalProject
 
@@ -39,6 +39,19 @@ def test_invoice_statuses_are_limited_to_received_and_pending():
     ]
     assert Facture().statut == "received"
     assert list(FactureForm().fields["statut"].choices) == Facture.STATUS
+
+
+def test_invoice_attachment_can_be_required_on_creation():
+    form = PieceJointeForm(data={}, files={}, required=True)
+
+    assert not form.is_valid()
+    assert "Ce champ est obligatoire" in form.errors["fichier"][0]
+
+
+def test_invoice_attachment_stays_optional_on_update():
+    form = PieceJointeForm(data={}, files={}, required=False)
+
+    assert form.is_valid()
 
 
 @pytest.mark.django_db

@@ -322,8 +322,9 @@ class PieceJointeForm(forms.ModelForm):
         model = PieceJointe
         fields = ["fichier"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, required=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["fichier"].required = required
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'
 

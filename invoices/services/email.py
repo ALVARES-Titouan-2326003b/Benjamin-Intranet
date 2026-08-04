@@ -1,3 +1,6 @@
+import mimetypes
+from pathlib import Path
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import EmailMessage
@@ -66,7 +69,22 @@ def _invoice_details(facture):
     )
 
 
-def _send_finance_email(subject, body):
+def _invoice_attachments(facture):
+    """Retourne les fichiers de facture prêts à être joints à un EmailMessage."""
+    attachments = []
+    for piece in facture.piecejointe_set.all().order_by("uploaded_at", "pk"):
+        piece.fichier.open("rb")
+        try:
+            content = piece.fichier.read()
+        finally:
+            piece.fichier.close()
+        filename = Path(piece.fichier.name).name
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        attachments.append((filename, content, content_type))
+    return attachments
+
+
+def _send_finance_email(subject, body, attachments=None):
     recipients = get_finance_notification_recipients()
     if not recipients:
         return False
@@ -78,6 +96,8 @@ def _send_finance_email(subject, body):
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=recipients,
         )
+        for filename, content, content_type in attachments or []:
+            email.attach(filename, content, content_type)
         email.send()
         return True
     except Exception as exc:
@@ -97,7 +117,10 @@ def send_invoice_submission_email(facture):
         "Cordialement,\n"
         "L'intranet Benjamin Immobilier"
     )
-    return _send_finance_email(subject, body)
+    attachments = _invoice_attachments(facture)
+    if not attachments:
+        return False
+    return _send_finance_email(subject, body, attachments=attachments)
 
 
 def send_invoice_status_email(facture, old_status, new_status):

@@ -251,10 +251,15 @@ class FactureDetailView(DetailView):
 # ================== Pièce jointe ==================
 
 class _PieceJointeMixin:
+    def is_invoice_attachment_required(self):
+        """Une facture doit toujours avoir un fichier lors de sa création."""
+        return self.object is None
+
     def get_piece_form(self):
+        kwargs = {"required": self.is_invoice_attachment_required()}
         if self.request.method == "POST":
-            return PieceJointeForm(self.request.POST, self.request.FILES)
-        return PieceJointeForm()
+            return PieceJointeForm(self.request.POST, self.request.FILES, **kwargs)
+        return PieceJointeForm(**kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -333,6 +338,7 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
         context["user_ceo"] = has_ceo_access(self.request.user)
         context["is_collaborateur"] = has_collaborateur_access(self.request.user)
         context["can_change_invoice_status"] = can_change_facture_status(self.request.user)
+        context["invoice_attachment_required"] = True
         return context
 
 

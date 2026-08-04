@@ -3,6 +3,7 @@ from datetime import date, timedelta
 import pytest
 from django.contrib.auth.models import Group, User
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 
 from invoices.forms import FactureForm
@@ -13,9 +14,11 @@ from invoices.models import (
     Facture,
     FactureHistorique,
     Fournisseur,
+    PieceJointe,
     Societe,
 )
 from invoices.services.quality import get_invoice_anomalies
+from invoices.services.email import send_invoice_submission_email
 from invoices.views_dashboard import DashboardView
 from technique.models import DocumentTechnique, TechnicalProject
 from user_access.user_test_functions import can_change_facture_status
@@ -104,6 +107,45 @@ def test_site_admin_can_change_invoice_status_without_ceo_group():
     )
 
     assert can_change_facture_status(admin) is True
+
+
+@pytest.mark.django_db
+def test_invoice_submission_email_contains_invoice_file(
+    invoice, finance_user, settings, tmp_path
+):
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    settings.DEFAULT_FROM_EMAIL = "intranet@example.com"
+    settings.SITE_URL = "https://intranet.example.test"
+    settings.MEDIA_ROOT = tmp_path
+    mail.outbox = []
+    PieceJointe.objects.create(
+        facture=invoice,
+        fichier=SimpleUploadedFile(
+            "facture-2026.pdf",
+            b"%PDF-1.4 facture de test",
+            content_type="application/pdf",
+        ),
+    )
+
+    assert send_invoice_submission_email(invoice) is True
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == [finance_user.email]
+    assert len(mail.outbox[0].attachments) == 1
+    attachment = mail.outbox[0].attachments[0]
+    assert attachment[0] == "facture-2026.pdf"
+    assert attachment[1] == b"%PDF-1.4 facture de test"
+    assert attachment[2] == "application/pdf"
+
+
+@pytest.mark.django_db
+def test_invoice_submission_email_is_not_sent_without_invoice_file(
+    invoice, finance_user, settings
+):
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    mail.outbox = []
+
+    assert send_invoice_submission_email(invoice) is False
+    assert mail.outbox == []
 
 
 @pytest.mark.django_db
@@ -352,6 +394,22 @@ def test_invoice_affaire_filter_also_searches_linked_dossiers(
 
 
 @pytest.mark.django_db
+def test_invoice_list_renders_stable_status_and_date_cells(client, finance_user, invoice):
+    invoice.statut = "pending"
+    invoice.save(update_fields=["statut"])
+    client.force_login(finance_user)
+
+    response = client.get("/finance/")
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert 'class="table invoice-table"' in content
+    assert 'class="invoice-table__status-cell"' in content
+    assert 'class="invoice-status invoice-status--pending"' in content
+    assert 'class="invoice-table__date-cell"' in content
+
+
+@pytest.mark.django_db
 def test_invoice_list_is_ordered_by_most_recent_creation_date(
     client,
     finance_user,
@@ -471,7 +529,16 @@ def test_promotion_user_can_create_invoice_without_collaborateur_role(client, pr
 
     response = client.post(
         "/finance/facture/new/",
-        invoice_payload(project, societe, statut="pending"),
+        invoice_payload(
+            project,
+            societe,
+            statut="pending",
+            fichier=SimpleUploadedFile(
+                "facture-promotion.pdf",
+                b"%PDF-1.4 facture promotion",
+                content_type="application/pdf",
+            ),
+        ),
     )
 
     assert response.status_code == 302
@@ -486,10 +553,13 @@ def test_promotion_user_can_create_invoice_without_collaborateur_role(client, pr
 
 
 @pytest.mark.django_db
-def test_invoice_creation_notifies_finance_and_ceo(client, project, settings, societe):
+def test_invoice_creation_notifies_finance_and_ceo(
+    client, project, settings, societe, tmp_path
+):
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     settings.DEFAULT_FROM_EMAIL = "intranet@example.com"
     settings.SITE_URL = "https://intranet.example.test"
+    settings.MEDIA_ROOT = tmp_path
     mail.outbox = []
 
     finance_group, _ = Group.objects.get_or_create(name="POLE_FINANCIER")
@@ -506,7 +576,16 @@ def test_invoice_creation_notifies_finance_and_ceo(client, project, settings, so
 
     response = client.post(
         "/finance/facture/new/",
-        invoice_payload(project, societe, numero_facture="FA-NOTIF-001"),
+        invoice_payload(
+            project,
+            societe,
+            numero_facture="FA-NOTIF-001",
+            fichier=SimpleUploadedFile(
+                "facture-notification.pdf",
+                b"%PDF-1.4 facture notification",
+                content_type="application/pdf",
+            ),
+        ),
     )
 
     assert response.status_code == 302
@@ -522,6 +601,8 @@ def test_invoice_creation_notifies_finance_and_ceo(client, project, settings, so
     assert "Demandeur : promotion-notif" in email.body
     assert "Service / pôle : Promotion" in email.body
     assert "Lien intranet : https://intranet.example.test/finance/facture/" in email.body
+    assert len(email.attachments) == 1
+    assert email.attachments[0][0] == "facture-notification.pdf"
 
 
 @pytest.mark.django_db
