@@ -123,7 +123,7 @@ def _snapshot_key_date(key_date):
         "date": _history_value(key_date.date),
         "status": key_date.status,
         "comment": key_date.comment,
-        "document": key_date.document_id or "",
+        "documents": list(key_date.documents.order_by("pk").values_list("pk", flat=True)),
         "action": key_date.action_id or "",
     }
 
@@ -597,7 +597,7 @@ def financial_project_detail(request, pk):
     project_documents = project.documents.order_by("-created_at")[:10]
     project_document_options = project.documents.order_by("-created_at")
     key_dates = (
-        project.key_dates.select_related("document", "action")
+        project.key_dates.select_related("action").prefetch_related("documents")
         .all()
         .order_by("date", "id")
     )
@@ -728,10 +728,10 @@ def financial_project_detail(request, pk):
     if project.total_estimated and project.total_estimated > 0:
         budget_ratio = (project.frais_engages / project.total_estimated) * 100
 
-    if project.frais_engages > project.total_estimated:
+    if project.total_estimated and budget_ratio >= 100:
         budget_status = "over"
-        budget_label = "Dépassé"
-    elif budget_ratio >= 80:
+        budget_label = "Dépassé" if budget_ratio > 100 else "Budget atteint"
+    elif budget_ratio >= 75:
         budget_status = "warning"
         budget_label = "À surveiller"
     else:
@@ -787,6 +787,7 @@ def financial_project_detail(request, pk):
             "budget_status": budget_status,
             "budget_label": budget_label,
             "budget_ratio": round(budget_ratio, 2),
+            "budget_gauge_ratio": min(max(round(budget_ratio, 2), 0), 100),
             "can_manage_project": can_manage_project,
         },
     )
@@ -980,6 +981,7 @@ def project_key_date_create(request, pk):
                 key_date.created_by = request.user
                 key_date.updated_by = request.user
             key_date.save()
+            form.save_m2m()
             _log_project_history(
                 project=project,
                 user=request.user,
@@ -1011,6 +1013,7 @@ def project_key_date_update(request, key_date_pk):
             if request.user.is_authenticated:
                 key_date.updated_by = request.user
             key_date.save()
+            form.save_m2m()
             after_key_date = _snapshot_key_date(key_date)
             if before_key_date != after_key_date:
                 _log_project_history(

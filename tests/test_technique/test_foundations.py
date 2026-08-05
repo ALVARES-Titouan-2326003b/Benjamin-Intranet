@@ -88,9 +88,9 @@ def test_document_forms_require_company_before_project(project):
     )
 
     assert not missing_company.is_valid()
-    assert "Sélectionnez une société" in missing_company.errors["societe"]
+    assert "Sélectionnez une société" in missing_company.errors["societe"][0]
     assert not mismatch.is_valid()
-    assert "n’est pas rattaché" in mismatch.errors["project"]
+    assert "n’est pas rattaché" in mismatch.errors["project"][0]
 
 
 @pytest.mark.django_db
@@ -433,6 +433,27 @@ def test_project_expense_can_be_created_without_invoice(client, technique_user, 
 
 
 @pytest.mark.django_db
+def test_project_detail_displays_budget_gauge_and_local_chart(
+    client, technique_user, project
+):
+    ProjectExpense.objects.create(
+        project=project,
+        label="Travaux engagés",
+        amount=Decimal("800.00"),
+    )
+    client.force_login(technique_user)
+
+    response = client.get(reverse("technique:dossier_detail", args=[project.pk]))
+
+    assert response.status_code == 200
+    assert response.context["budget_status"] == "warning"
+    assert response.context["budget_ratio"] == Decimal("80.00")
+    assert response.context["budget_gauge_ratio"] == Decimal("80.00")
+    assert b'role="progressbar"' in response.content
+    assert b"technique/js/chart.umd.js" in response.content
+
+
+@pytest.mark.django_db
 def test_project_actions_can_be_managed_from_project_detail(client, technique_user, project):
     client.force_login(technique_user)
     create_url = reverse("technique:dossier_action_create", args=[project.pk])
@@ -567,13 +588,19 @@ def test_administrative_pole_has_read_only_technical_project_access(
 
 
 @pytest.mark.django_db
-def test_project_key_dates_can_link_documents_and_actions(client, technique_user, project, settings, tmp_path):
+def test_project_key_dates_can_link_multiple_documents_and_actions(client, technique_user, project, settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path
     client.force_login(technique_user)
     document = DocumentTechnique.objects.create(
         project=project,
         titre="Permis de construire",
         fichier=SimpleUploadedFile("permis.txt", b"permis"),
+        created_by=technique_user,
+    )
+    second_document = DocumentTechnique.objects.create(
+        project=project,
+        titre="Plan de masse",
+        fichier=SimpleUploadedFile("plan.txt", b"plan"),
         created_by=technique_user,
     )
     action = TechnicalProjectAction.objects.create(
@@ -589,7 +616,7 @@ def test_project_key_dates_can_link_documents_and_actions(client, technique_user
             "date": "2026-06-20",
             "status": "planned",
             "comment": "Dossier à déposer en mairie.",
-            "document": document.pk,
+            "documents": [document.pk, second_document.pk],
             "action": action.pk,
         },
     )
@@ -597,7 +624,7 @@ def test_project_key_dates_can_link_documents_and_actions(client, technique_user
     assert response.status_code == 302
     key_date = TechnicalProjectKeyDate.objects.get(label="Dépôt du permis")
     assert key_date.project == project
-    assert key_date.document == document
+    assert set(key_date.documents.all()) == {document, second_document}
     assert key_date.action == action
     assert key_date.created_by == technique_user
     assert TechnicalProjectHistory.objects.filter(project=project, action="key_date_created").exists()
@@ -614,7 +641,7 @@ def test_project_key_dates_can_link_documents_and_actions(client, technique_user
             "date": "2026-06-25",
             "status": "done",
             "comment": "Dépôt réalisé.",
-            "document": "",
+            "documents": [],
             "action": "",
         },
     )
@@ -622,7 +649,7 @@ def test_project_key_dates_can_link_documents_and_actions(client, technique_user
     assert response.status_code == 302
     key_date.refresh_from_db()
     assert key_date.label == "Dépôt du permis actualisé"
-    assert key_date.document is None
+    assert not key_date.documents.exists()
     assert key_date.action is None
     assert key_date.status == "done"
     assert key_date.updated_by == technique_user
@@ -633,6 +660,37 @@ def test_project_key_dates_can_link_documents_and_actions(client, technique_user
     assert response.status_code == 302
     assert not TechnicalProjectKeyDate.objects.filter(pk=key_date.pk).exists()
     assert TechnicalProjectHistory.objects.filter(project=project, action="key_date_deleted").exists()
+
+
+@pytest.mark.django_db
+def test_project_key_date_rejects_document_from_another_project(
+    client, technique_user, project, settings, tmp_path
+):
+    settings.MEDIA_ROOT = tmp_path
+    other_project = TechnicalProject.objects.create(
+        reference="DOS-OTHER",
+        name="Autre dossier",
+        societe=project.societe,
+    )
+    foreign_document = DocumentTechnique.objects.create(
+        project=other_project,
+        titre="Document étranger",
+        fichier=SimpleUploadedFile("foreign.txt", b"foreign"),
+        created_by=technique_user,
+    )
+    client.force_login(technique_user)
+
+    response = client.post(
+        reverse("technique:dossier_key_date_create", args=[project.pk]),
+        {
+            "label": "Date invalide",
+            "date": "2026-06-20",
+            "documents": [foreign_document.pk],
+        },
+    )
+
+    assert response.status_code == 302
+    assert not TechnicalProjectKeyDate.objects.filter(label="Date invalide").exists()
 
 
 @pytest.mark.django_db

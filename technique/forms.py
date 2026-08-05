@@ -192,23 +192,22 @@ class TechnicalProjectKeyDateForm(forms.ModelForm):
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["status"].required = False
-        self.fields["document"].required = False
-        self.fields["document"].empty_label = "-- Aucun document --"
+        self.fields["documents"].required = False
         self.fields["action"].required = False
         self.fields["action"].empty_label = "-- Aucune action --"
 
         if project is not None:
-            self.fields["document"].queryset = project.documents.order_by("-created_at")
+            self.fields["documents"].queryset = project.documents.order_by("-created_at")
             self.fields["action"].queryset = project.actions.order_by("due_date", "id")
 
     class Meta:
         model = TechnicalProjectKeyDate
-        fields = ["label", "date", "status", "comment", "document", "action"]
+        fields = ["label", "date", "status", "comment", "documents", "action"]
         widgets = {
             "label": forms.TextInput(attrs={"class": "form-control", "placeholder": "Libellé de la date clé"}),
             "date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "status": forms.Select(attrs={"class": "form-control"}),
             "comment": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
-            "document": forms.Select(attrs={"class": "form-control"}),
+            "documents": forms.CheckboxSelectMultiple(attrs={"class": "key-date-document-checkbox"}),
             "action": forms.Select(attrs={"class": "form-control"}),
         }

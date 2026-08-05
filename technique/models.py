@@ -351,13 +351,11 @@ class TechnicalProjectKeyDate(models.Model):
     date = models.DateField("Date")
     comment = models.TextField("Commentaire", blank=True)
     status = models.CharField("Statut", max_length=20, choices=STATUS_CHOICES, blank=True)
-    document = models.ForeignKey(
+    documents = models.ManyToManyField(
         DocumentTechnique,
-        null=True,
         blank=True,
-        on_delete=models.SET_NULL,
         related_name="key_dates",
-        verbose_name="Document lié",
+        verbose_name="Documents liés",
     )
     action = models.ForeignKey(
         TechnicalProjectAction,

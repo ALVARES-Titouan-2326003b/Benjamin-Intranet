@@ -81,6 +81,24 @@
       </div>
     </div>
 
+    <div class="budget-gauge budget-gauge--{{ budget_status }}">
+      <div class="budget-gauge__header">
+        <div>
+          <span class="budget-gauge__eyebrow">Consommation du budget</span>
+          <strong>{{ budget_ratio }} %</strong>
+        </div>
+        <span class="badge {% if budget_status == 'ok' %}success-soft{% elif budget_status == 'warning' %}warning-soft{% else %}danger-soft{% endif %}">{{ budget_label }}</span>
+      </div>
+      <div class="budget-gauge__track" role="progressbar" aria-label="Budget consommé" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ budget_gauge_ratio|unlocalize }}">
+        <span class="budget-gauge__fill" style="width: {{ budget_gauge_ratio|unlocalize }}%;"></span>
+      </div>
+      <div class="budget-gauge__legend">
+        <span><strong>{{ frais_engages }} €</strong> engagés</span>
+        <span><strong>{{ frais_payes }} €</strong> payés</span>
+        <span><strong>{{ total_estime }} €</strong> prévus</span>
+      </div>
+    </div>
+
     <div class="dossier-overview-grid">
       <section class="panel">
         <div class="panel__title">Statut du dossier</div>
@@ -144,6 +162,7 @@
     {% if can_manage_project %}
     <form method="post" action="{% url 'technique:dossier_action_create' project.pk %}" class="creation-panel">
       {% csrf_token %}
+      <div class="creation-panel__title"><i class="bi bi-plus-circle"></i> Ajouter une action</div>
       <div class="project-task-form-grid">
         <div class="field-group">
           <label for="{{ action_form.title.id_for_label }}">Action</label>
@@ -330,8 +349,12 @@
           {{ key_date_form.status }}
         </div>
         <div class="field-group">
-          <label for="{{ key_date_form.document.id_for_label }}">Document lié</label>
-          {{ key_date_form.document }}
+          <label>Documents liés</label>
+          {% if project_document_options %}
+          <div class="key-date-document-picker">{{ key_date_form.documents }}</div>
+          {% else %}
+          <div class="key-date-document-picker__empty">Importez d’abord un document dans ce dossier.</div>
+          {% endif %}
         </div>
         <div class="field-group">
           <label for="{{ key_date_form.action.id_for_label }}">Action liée</label>
@@ -360,9 +383,9 @@
           {% if key_date.comment %}<p>{{ key_date.comment }}</p>{% endif %}
           <div class="timeline-links">
             <span>{{ key_date.get_status_display|default:"Sans statut" }}</span>
-            {% if key_date.document %}
-            <a href="{% url 'technique:documents_detail' key_date.document.pk %}">{{ key_date.document.titre }}</a>
-            {% endif %}
+            {% for document in key_date.documents.all %}
+            <a href="{% url 'technique:documents_detail' document.pk %}"><i class="bi bi-paperclip"></i> {{ document.titre }}</a>
+            {% endfor %}
             {% if key_date.action %}<span>{{ key_date.action.title }}</span>{% endif %}
           </div>
           {% if can_manage_project %}
@@ -389,13 +412,17 @@
                   </select>
                 </div>
                 <div class="field-group">
-                  <label>Document lié</label>
-                  <select name="document" class="form-control">
-                    <option value="">-- Aucun document --</option>
+                  <label>Documents liés</label>
+                  <div class="key-date-document-picker">
                     {% for document in project_document_options %}
-                    <option value="{{ document.pk }}" {% if key_date.document_id == document.pk %}selected{% endif %}>{{ document.titre }}</option>
+                    <label>
+                      <input type="checkbox" name="documents" value="{{ document.pk }}" {% if document in key_date.documents.all %}checked{% endif %}>
+                      <span>{{ document.titre }}</span>
+                    </label>
+                    {% empty %}
+                    <span class="key-date-document-picker__empty">Aucun document disponible.</span>
                     {% endfor %}
-                  </select>
+                  </div>
                 </div>
                 <div class="field-group">
                   <label>Action liée</label>
@@ -478,6 +505,7 @@
       <div>
         <form method="post" class="creation-panel">
           {% csrf_token %}
+          <div class="creation-panel__title"><i class="bi bi-wallet2"></i> Budget prévisionnel</div>
           <div class="fin-data-grid">{{ form.as_p }}</div>
           <div class="form-footer">
             <button type="submit" class="btn btn-primary">
@@ -488,6 +516,7 @@
 
         <form method="post" action="{% url 'technique:dossier_expense_create' project.pk %}" class="creation-panel">
           {% csrf_token %}
+          <div class="creation-panel__title"><i class="bi bi-plus-circle"></i> Ajouter une dépense</div>
           <div class="expense-form-grid">
             <div class="field-group">
               <label for="id_facture">Facture associée</label>
@@ -783,7 +812,7 @@
   </section>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'technique/js/chart.umd.js' %}"></script>
 <script>
   (function () {
     const canvas = document.getElementById("barChart");

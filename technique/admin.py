@@ -57,9 +57,13 @@ class TechnicalProjectActionAdmin(admin.ModelAdmin):
 
 @admin.register(TechnicalProjectKeyDate)
 class TechnicalProjectKeyDateAdmin(admin.ModelAdmin):
-    list_display = ("id", "project", "label", "date", "status", "document", "action")
+    list_display = ("id", "project", "label", "date", "status", "documents_display", "action")
     list_filter = ("status", "date")
     search_fields = ("label", "comment", "project__reference", "project__name")
+
+    @admin.display(description="Documents liés")
+    def documents_display(self, obj):
+        return ", ".join(obj.documents.values_list("titre", flat=True)) or "—"
 
 
 @admin.register(TechnicalProjectHistory)
