@@ -19,7 +19,7 @@ class SignatureUserForm(forms.ModelForm):
     """
     class Meta:
         model = SignatureUser
-        fields = ["image"]
+        fields = ["name", "image", "is_active"]
 
 
 class TamponForm(forms.ModelForm):

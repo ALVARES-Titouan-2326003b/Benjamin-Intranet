@@ -40,6 +40,9 @@ def signer_document_avec_position(
     tampon=None,
     page_number: int | None = None,
     signature_mention: str = "",
+    signature_place: str = "",
+    signature_date=None,
+    signature_profile=None,
 ):
     """
     Signature avec placement interactif
@@ -62,6 +65,9 @@ def signer_document_avec_position(
             tampon=tampon,
             page_number=page_number,
             signature_mention=signature_mention,
+            signature_place=signature_place,
+            signature_date=signature_date,
+            signature_profile=signature_profile,
         )
     except Exception as e:
         HistoriqueSignature.objects.create(
@@ -71,8 +77,12 @@ def signer_document_avec_position(
         )
         raise
 
+    mention_details = f" Mention : {document.signature_mention}." if document.signature_mention else ""
     HistoriqueSignature.objects.create(
         document=document,
         statut="signe",
-        commentaire=f"Document signé après placement manuel ({document.get_signature_mode_display()}).",
+        commentaire=(
+            f"Document signé après placement manuel ({document.get_signature_mode_display()})."
+            f"{mention_details}"
+        ),
     )

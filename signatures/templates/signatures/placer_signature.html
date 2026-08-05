@@ -1,7 +1,11 @@
 {% extends "base.html" %}
-{% load l10n %}
+{% load l10n static %}
 
 {% block title %}Placer la signature – {{ doc.titre }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'signatures/css/placement.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
@@ -60,75 +64,109 @@
         </div>
     </div>
 
-    <form method="post" style="display: flex; justify-content: flex-end; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+    <form method="post" class="signature-placement-form">
         {% csrf_token %}
         <input type="hidden" name="pos_x_pct" id="pos_x_pct">
         <input type="hidden" name="pos_y_pct" id="pos_y_pct">
         <input type="hidden" name="page_number" id="page_number" value="{{ pdf_page_number }}">
         <input type="hidden" name="size_scale_pct" id="size_scale_pct" value="{{ signature_scale_pct_css }}">
 
-        <label style="display: flex; flex-direction: column; gap: 0.35rem; min-width: 210px; margin-right: auto;">
-            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);">Mode</span>
-            <select name="signature_mode" id="signature-mode"
-                style="width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); background: white;">
-                {% for value, label in signature_mode_choices %}
-                <option value="{{ value }}" {% if value == default_signature_mode %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-        </label>
+        <div class="signature-form-heading">
+            <h3>Options de signature</h3>
+            <p>Configurez les éléments qui seront apposés sur le document.</p>
+        </div>
 
-        <label style="display: flex; flex-direction: column; gap: 0.35rem; min-width: 220px;">
-            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);">Mention à insérer</span>
-            <select name="signature_mention_choice" id="signature-mention-choice"
-                style="width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); background: white;">
-                {% for value, label in signature_mention_choices %}
-                <option value="{{ value }}">{{ label }}</option>
-                {% endfor %}
-            </select>
-        </label>
+        <div class="signature-form-grid">
+            <label class="signature-field">
+                <span class="signature-field__label">Mode</span>
+                <select name="signature_mode" id="signature-mode" class="signature-field__control">
+                    {% for value, label in signature_mode_choices %}
+                    <option value="{{ value }}" {% if value == default_signature_mode %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
 
-        <label id="signature-mention-custom-wrapper" style="display: none; flex-direction: column; gap: 0.35rem; min-width: 260px;">
-            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);">Texte personnalisé</span>
-            <input type="text" name="signature_mention_custom" id="signature-mention-custom"
-                maxlength="{{ signature_mention_max_length }}" placeholder="Saisir la mention à apposer"
-                style="width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); background: white;">
-        </label>
+            <label class="signature-field">
+                <span class="signature-field__label">Mention à insérer</span>
+                <select name="signature_mention_choice" id="signature-mention-choice" class="signature-field__control">
+                    {% for value, label in signature_mention_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
 
-        <label id="tampon-select-wrapper" style="display: flex; flex-direction: column; gap: 0.35rem; min-width: 260px;">
-            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);">Société / tampon</span>
-            <select name="tampon_id" id="tampon-select"
-                style="width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); background: white;">
-                <option value="">Sélectionner un tampon</option>
-                {% for tampon in tampons %}
-                <option value="{{ tampon.pk }}">{{ tampon.societe }}</option>
-                {% endfor %}
-            </select>
-        </label>
+            <label id="signature-mention-custom-wrapper" class="signature-field" style="display: none;">
+                <span class="signature-field__label">Texte personnalisé</span>
+                <input type="text" name="signature_mention_custom" id="signature-mention-custom"
+                    class="signature-field__control" maxlength="{{ signature_mention_max_length }}"
+                    placeholder="Saisir la mention à apposer">
+            </label>
 
-        {% if not is_designated_signer %}
-        <label style="display: flex; flex-direction: column; gap: 0.35rem; min-width: 260px;">
-            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);">Membre administratif</span>
-            <select name="admin_signer_id" required
-                style="width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); background: white;">
-                <option value="">Sélectionner un membre</option>
-                {% for admin_signer in admin_signers %}
-                <option value="{{ admin_signer.pk }}">{{ admin_signer.get_full_name|default:admin_signer.username }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        {% endif %}
+            <div id="signature-made-at-wrapper" class="signature-made-at-fields" style="display: none;">
+                <label class="signature-field">
+                    <span class="signature-field__label">Lieu de signature</span>
+                    <input type="text" name="signature_place" id="signature-place"
+                        class="signature-field__control" maxlength="{{ signature_place_max_length }}"
+                        placeholder="Ex. Paris">
+                </label>
+                <label class="signature-field">
+                    <span class="signature-field__label">Date de signature</span>
+                    <input type="date" name="signature_date" id="signature-date"
+                        class="signature-field__control" value="{{ default_signature_date }}">
+                </label>
+            </div>
 
-        <a href="{{ doc.fichier.url }}" target="_blank" class="btn btn-ghost">
-            <i class="bi bi-eye"></i> Voir le PDF original
-        </a>
+            <label id="tampon-select-wrapper" class="signature-field">
+                <span class="signature-field__label">Société / tampon</span>
+                <select name="tampon_id" id="tampon-select" class="signature-field__control">
+                    <option value="">Sélectionner un tampon</option>
+                    {% for tampon in tampons %}
+                    <option value="{{ tampon.pk }}">{{ tampon.societe }}</option>
+                    {% endfor %}
+                </select>
+            </label>
 
-        <button type="submit" class="btn btn-primary">
-            {% if is_designated_signer %}
-            <i class="bi bi-pen"></i> Signer à cet endroit
-            {% else %}
-            <i class="bi bi-send"></i> Demander la signature à cet endroit
+            <label class="signature-field">
+                <span class="signature-field__label">Signature à apposer</span>
+                <select name="signature_profile_id" id="signature-profile-select" class="signature-field__control" required>
+                    <option value="">Sélectionner une signature</option>
+                    {% for signature in available_signatures %}
+                    <option value="{{ signature.pk }}" data-image-url="{{ signature.image.url }}">{{ signature.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            {% if not is_designated_signer %}
+            <label class="signature-field">
+                <span class="signature-field__label">Membre administratif</span>
+                <select name="admin_signer_id" required class="signature-field__control">
+                    <option value="">Sélectionner un membre</option>
+                    {% for admin_signer in admin_signers %}
+                    <option value="{{ admin_signer.pk }}">{{ admin_signer.get_full_name|default:admin_signer.username }}</option>
+                    {% endfor %}
+                </select>
+            </label>
             {% endif %}
-        </button>
+        </div>
+
+        <div id="signature-profile-preview" class="signature-profile-preview" hidden>
+            <span>Aperçu de la signature sélectionnée</span>
+            <img src="" alt="Aperçu de la signature sélectionnée">
+        </div>
+
+        <div class="signature-form-actions">
+            <a href="{{ doc.fichier.url }}" target="_blank" class="btn btn-ghost">
+                <i class="bi bi-eye"></i> Voir le PDF original
+            </a>
+
+            <button type="submit" class="btn btn-primary">
+                {% if is_designated_signer %}
+                <i class="bi bi-pen"></i> Apposer cette signature
+                {% else %}
+                <i class="bi bi-send"></i> Demander l’apposition de cette signature
+                {% endif %}
+            </button>
+        </div>
     </form>
 </div>
 
@@ -155,6 +193,12 @@
         const mentionSelect = document.getElementById("signature-mention-choice");
         const customMentionWrapper = document.getElementById("signature-mention-custom-wrapper");
         const customMentionInput = document.getElementById("signature-mention-custom");
+        const madeAtWrapper = document.getElementById("signature-made-at-wrapper");
+        const signaturePlaceInput = document.getElementById("signature-place");
+        const signatureDateInput = document.getElementById("signature-date");
+        const signatureProfileSelect = document.getElementById("signature-profile-select");
+        const signatureProfilePreview = document.getElementById("signature-profile-preview");
+        const signatureProfileImage = signatureProfilePreview?.querySelector("img");
 
         const pages = JSON.parse(document.getElementById("signature-pdf-pages").textContent);
         const previewUrl = "{% url 'signatures:page_preview' doc.pk %}";
@@ -187,6 +231,13 @@
         function currentMentionText() {
             if (!mentionSelect?.value) return '';
             if (mentionSelect.value === 'custom') return customMentionInput?.value.trim() || '';
+            if (mentionSelect.value === 'made_at') {
+                const place = signaturePlaceInput?.value.trim() || '…';
+                const rawDate = signatureDateInput?.value || '';
+                const parts = rawDate.split('-');
+                const date = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : '…';
+                return `Fait à ${place}, le ${date}`;
+            }
             return mentionSelect.options[mentionSelect.selectedIndex]?.textContent.trim() || '';
         }
 
@@ -396,11 +447,23 @@
         modeSelect?.addEventListener("change", syncSignatureMode);
         mentionSelect?.addEventListener("change", function () {
             const custom = mentionSelect.value === 'custom';
+            const madeAt = mentionSelect.value === 'made_at';
             if (customMentionWrapper) customMentionWrapper.style.display = custom ? 'flex' : 'none';
             if (customMentionInput) customMentionInput.required = custom;
+            if (madeAtWrapper) madeAtWrapper.style.display = madeAt ? 'grid' : 'none';
+            if (signaturePlaceInput) signaturePlaceInput.required = madeAt;
+            if (signatureDateInput) signatureDateInput.required = madeAt;
             syncSignatureMode();
         });
         customMentionInput?.addEventListener("input", syncSignatureMode);
+        signaturePlaceInput?.addEventListener("input", syncSignatureMode);
+        signatureDateInput?.addEventListener("input", syncSignatureMode);
+        signatureProfileSelect?.addEventListener("change", function () {
+            const option = signatureProfileSelect.options[signatureProfileSelect.selectedIndex];
+            const imageUrl = option?.dataset.imageUrl || "";
+            if (signatureProfilePreview) signatureProfilePreview.hidden = !imageUrl;
+            if (signatureProfileImage && imageUrl) signatureProfileImage.src = imageUrl;
+        });
         previousPageButton?.addEventListener("click", () => showPage(currentPage - 1));
         nextPageButton?.addEventListener("click", () => showPage(currentPage + 1));
         analyzeButton?.addEventListener("click", analyzePlacement);

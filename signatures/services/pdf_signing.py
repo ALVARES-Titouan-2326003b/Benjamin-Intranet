@@ -153,6 +153,9 @@ def signer_pdf_avec_images_position(
     tampon: Tampon | None = None,
     page_number: int | None = None,
     signature_mention: str = "",
+    signature_place: str = "",
+    signature_date=None,
+    signature_profile: SignatureUser | None = None,
 ) -> None:
     """
     Signe le PDF en plaçant le bloc tampon+signature à la position donnée
@@ -175,10 +178,16 @@ def signer_pdf_avec_images_position(
         )
 
     # Signature utilisateur et tampon
-    try:
-        signature_user = SignatureUser.objects.get(user=user)
-    except SignatureUser.DoesNotExist:
+    signature_user = signature_profile
+    if signature_user is None:
+        signature_user = SignatureUser.objects.filter(
+            user=user,
+            is_active=True,
+        ).order_by("pk").first()
+    if signature_user is None:
         raise ValueError("Aucune image de signature configurée pour cet utilisateur.")
+    if not signature_user.is_active:
+        raise ValueError("La signature sélectionnée est inactive.")
 
     if signature_mode == "stamp_signature":
         tampon = tampon or Tampon.objects.filter(is_active=True).first()
@@ -187,8 +196,11 @@ def signer_pdf_avec_images_position(
     if signature_mode == "stamp_signature" and not tampon:
         raise ValueError("Aucun tampon configuré dans la base.")
 
-    # Lecture du PDF original
-    reader = PdfReader(document.fichier.path)
+    # Chaque nouvelle signature est fusionnée sur la version la plus récente.
+    # Le premier signataire part de l'original, les suivants conservent ainsi
+    # toutes les signatures déjà apposées.
+    source_pdf = document.fichier_signe if document.fichier_signe else document.fichier
+    reader = PdfReader(source_pdf.path)
     writer = PdfWriter()
 
     num_pages = len(reader.pages)
@@ -292,7 +304,10 @@ def signer_pdf_avec_images_position(
     filename = f"{document.pk}_signe.pdf"
     document.signature_mode = signature_mode
     document.signature_mention = signature_mention
+    document.signature_place = signature_place
+    document.signature_date = signature_date
     document.tampon = tampon
+    document.signature_profile = signature_user
     document.fichier_signe.save(
         filename,
         ContentFile(output_buffer.read()),

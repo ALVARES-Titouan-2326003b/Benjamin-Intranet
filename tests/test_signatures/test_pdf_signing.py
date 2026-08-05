@@ -154,6 +154,29 @@ class TestSignerPdfAvecImagesPosition:
         assert "Bon pour remboursement" in signed.pages[0].extract_text()
         assert document_pdf_simple.signature_mention == "Bon pour remboursement"
 
+    def test_signature_avec_lieu_et_date_structures(
+        self,
+        document_pdf_simple,
+        signature_user_ceo,
+    ):
+        from datetime import date
+        from signatures.services.pdf_signing import signer_pdf_avec_images_position
+
+        signer_pdf_avec_images_position(
+            document=document_pdf_simple,
+            user=signature_user_ceo.user,
+            pos_x_pct=20.0,
+            pos_y_pct=15.0,
+            signature_mode="signature",
+            signature_mention="Fait à Paris, le 31/07/2026",
+            signature_place="Paris",
+            signature_date=date(2026, 7, 31),
+        )
+
+        document_pdf_simple.refresh_from_db()
+        assert document_pdf_simple.signature_place == "Paris"
+        assert document_pdf_simple.signature_date == date(2026, 7, 31)
+
 
     def test_erreur_signature_user_inexistant(
         self,

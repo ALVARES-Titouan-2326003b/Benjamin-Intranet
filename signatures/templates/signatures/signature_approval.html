@@ -26,6 +26,7 @@
         Mode : <strong>{{ signature_mode_label }}</strong>
         · Page : <strong>{{ signature_request_page_number }} / {{ pdf_page_count }}</strong>
         {% if selected_tampon %} · Tampon : <strong>{{ selected_tampon.societe }}</strong>{% endif %}
+        {% if selected_signature %} · Signature : <strong>{{ selected_signature.name }}</strong>{% endif %}
         {% if signature_mention %} · Mention : <strong>{{ signature_mention }}</strong>{% endif %}
     </p>
 

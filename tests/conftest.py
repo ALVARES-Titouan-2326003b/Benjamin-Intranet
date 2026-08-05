@@ -585,7 +585,7 @@ def signature_user_ceo(db, user_factory, image_signature):
     user.is_staff = True
     user.save()
 
-    sig_user = SignatureUser.objects.create(user=user)
+    sig_user = SignatureUser.objects.create(user=user, name="CEO")
     sig_user.image.save('ceo_signature.png', image_signature, save=True)
 
     return sig_user

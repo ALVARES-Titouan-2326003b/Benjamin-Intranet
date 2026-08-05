@@ -158,3 +158,42 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
     response = client.get(reverse("signatures:signature_approval", args=[demande.token]))
 
     assert response.status_code == 200
+
+
+@pytest.mark.django_db
+def test_demande_signature_conserve_la_mention_fait_a(
+    client,
+    user_factory,
+    document_pdf_simple,
+    tampon_entreprise,
+    pole_administratif_group,
+    settings,
+):
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    technique_group = Group.objects.get_or_create(name="POLE_TECHNIQUE")[0]
+    demandeur = user_factory(username="demandeur_fait_a", email="demandeur-fait-a@example.com")
+    demandeur.groups.add(technique_group)
+    admin = user_factory(username="admin_fait_a", email="admin-fait-a@example.com")
+    admin.groups.add(pole_administratif_group)
+    client.force_login(demandeur)
+
+    response = client.post(
+        reverse("signatures:placer_signature", args=[document_pdf_simple.pk]),
+        {
+            "pos_x_pct": "42",
+            "pos_y_pct": "58",
+            "page_number": "1",
+            "admin_signer_id": str(admin.pk),
+            "signature_mode": "stamp_signature",
+            "tampon_id": str(tampon_entreprise.pk),
+            "signature_mention_choice": "made_at",
+            "signature_place": "Paris",
+            "signature_date": "2026-07-31",
+        },
+    )
+
+    assert response.status_code == 302
+    demande = SignatureRequest.objects.get(document=document_pdf_simple)
+    assert demande.signature_mention == "Fait à Paris, le 31/07/2026"
+    assert demande.signature_place == "Paris"
+    assert demande.signature_date.isoformat() == "2026-07-31"

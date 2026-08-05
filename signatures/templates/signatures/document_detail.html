@@ -61,11 +61,11 @@
             {% elif is_designated_signer %}
             {% if pending_request %}
             <div class="alert alert-warning">
-                <h4 style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">Demande de signature en attente
-                </h4>
+                <h4 style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">Demande de signature en attente</h4>
                 <p style="font-size: 0.9rem; margin-bottom: 1rem;">
                     Demandée par <strong>{{ requester_name }}</strong>
                     le {{ request_date|date:"d/m/Y H:i" }}.
+                    {% if pending_request.signature_profile %}<br>Signature prévue : <strong>{{ pending_request.signature_profile.name }}</strong>.{% endif %}
                 </p>
                 <a href="{% url 'signatures:signature_approval' pending_request.token %}" class="btn btn-primary">
                     <i class="bi bi-pen"></i> Ouvrir la demande et signer
@@ -73,7 +73,7 @@
             </div>
             {% else %}
             <div>
-                <p style="margin-bottom: 1rem;">Vous pouvez signer ce document directement sans demande préalable.</p>
+                <p style="margin-bottom: 1rem;">Vous pouvez choisir la signature à apposer sur ce document.</p>
                 <a href="{% url 'signatures:placer_signature' doc.pk %}" class="btn btn-primary">
                     <i class="bi bi-pen"></i> Signer ce document
                 </a>
@@ -85,13 +85,12 @@
             <div class="alert alert-info">
                 <i class="bi bi-hourglass-split"></i>
                 Une demande de signature est en attente auprès du signataire (créée le {{ request_date|date:"d/m/Y" }}).
-                <br>Vous serez notifié une fois la signature effectuée.
+                {% if pending_request.signature_profile %}<br>Signature prévue : <strong>{{ pending_request.signature_profile.name }}</strong>.{% endif %}
             </div>
             {% else %}
             <div>
                 <p style="margin-bottom: 1rem;">
-                    Vous pouvez préparer le document en plaçant l'emplacement du tampon et de la signature, puis
-                    l'envoyer aux signataires autorisés pour validation.
+                    Placez le bloc, choisissez la signature à apposer, puis envoyez la demande.
                 </p>
                 <a href="{% url 'signatures:placer_signature' doc.pk %}" class="btn btn-primary">
                     <i class="bi bi-send"></i> Demander la signature

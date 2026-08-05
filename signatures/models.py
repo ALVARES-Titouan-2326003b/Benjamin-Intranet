@@ -17,18 +17,21 @@ class SignatureUser(models.Model):
         user (OneToOneField): Utilisateur
         image (ImageFieldFile): Fichier image de la signature
     """
-    user = models.OneToOneField(
+    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="signature_profile",
+        related_name="signature_profiles",
     )
+    name = models.CharField("Nom du signataire", max_length=120)
     image = models.ImageField(upload_to="signatures/")
+    is_active = models.BooleanField("Active", default=True)
 
     class Meta:
         db_table = 'signature_utilisateur'
+        ordering = ["name", "pk"]
 
     def __str__(self):
-        return f"Signature de {self.user.get_username()}"
+        return self.name
 
 
 class Tampon(models.Model):
@@ -97,12 +100,22 @@ class Document(models.Model):
         default="stamp_signature",
     )
     signature_mention = models.CharField(max_length=160, blank=True)
+    signature_place = models.CharField(max_length=100, blank=True)
+    signature_date = models.DateField(null=True, blank=True)
     tampon = models.ForeignKey(
         Tampon,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="documents_signes",
+    )
+    signature_profile = models.ForeignKey(
+        SignatureUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents_signes",
+        verbose_name="Signature apposée",
     )
     date_upload = models.DateTimeField(auto_now_add=True)
 
@@ -193,7 +206,6 @@ class SignatureRequest(models.Model):
         on_delete=models.CASCADE,
         related_name="signatures_demandes_a_valider",
     )
-
     # position choisie par le collaborateur (en %)
     pos_x_pct = models.FloatField()
     pos_y_pct = models.FloatField()
@@ -205,12 +217,22 @@ class SignatureRequest(models.Model):
         default="stamp_signature",
     )
     signature_mention = models.CharField(max_length=160, blank=True)
+    signature_place = models.CharField(max_length=100, blank=True)
+    signature_date = models.DateField(null=True, blank=True)
     tampon = models.ForeignKey(
         Tampon,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="demandes_signature",
+    )
+    signature_profile = models.ForeignKey(
+        SignatureUser,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="demandes_signature",
+        verbose_name="Signature à apposer",
     )
 
     statut = models.CharField(max_length=20, choices=STATUTS, default="pending")

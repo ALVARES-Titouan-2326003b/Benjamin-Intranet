@@ -1,18 +1,19 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}Ma signature{% endblock %}
-{% block header_title %}Ma signature électronique{% endblock %}
+{% block title %}Bibliothèque des signatures{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'signatures/css/library.css' %}">
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+<div class="signature-library-header">
     <div>
-        <h2 style="margin: 0;">Déposer / modifier ma signature</h2>
-        <div style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
-            Votre signature sera utilisée lors de l’approbation et de la génération des documents signés.
-        </div>
+        <h2>Bibliothèque des signatures</h2>
+        <p>Enregistrez les signatures disponibles, puis sélectionnez celle à apposer lors du placement.</p>
     </div>
-
-    <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+    <div class="signature-library-header__actions">
         <a href="{% url 'signatures:tampon_edit' %}" class="btn btn-ghost">
             <i class="bi bi-building"></i> Tampons
         </a>
@@ -22,61 +23,93 @@
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem; align-items:start;">
-    <!-- Colonne gauche : formulaire -->
-    <div class="card">
-        <div class="card-title">Configuration</div>
+<div class="signature-library-layout">
+    <section class="card signature-library-form-card">
+        <div class="card-title">
+            {% if signature_user %}Modifier « {{ signature_user.name }} »{% else %}Ajouter une signature{% endif %}
+        </div>
 
-        <form method="post" enctype="multipart/form-data">
+        <form method="post" enctype="multipart/form-data" class="signature-library-form">
             {% csrf_token %}
+            {% if signature_user %}<input type="hidden" name="signature_id" value="{{ signature_user.pk }}">{% endif %}
 
             {% if form.non_field_errors %}
-            <div class="alert alert-danger" style="margin-bottom: 1rem;">
-                {{ form.non_field_errors }}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="{{ form.name.id_for_label }}" class="form-label">Nom du signataire</label>
+                {{ form.name }}
+                {% if form.name.errors %}<div class="form-error">{{ form.name.errors }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.image.id_for_label }}" class="form-label">Image de signature</label>
+                {{ form.image }}
+                <small>Format conseillé : PNG transparent, signature sombre.</small>
+                {% if form.image.errors %}<div class="form-error">{{ form.image.errors }}</div>{% endif %}
+            </div>
+
+            <label class="signature-active-toggle">
+                {{ form.is_active }}
+                <span>Signature disponible dans le sélecteur</span>
+            </label>
+
+            {% if signature_user and signature_user.image %}
+            <div class="signature-current-preview">
+                <span>Aperçu actuel</span>
+                <img src="{{ signature_user.image.url }}" alt="Signature de {{ signature_user.name }}">
             </div>
             {% endif %}
 
-            <div style="display:grid; gap: 1rem;">
-                <div class="form-group" style="margin: 0;">
-                    <label class="form-label">{{ form.image.label }}</label>
-                    {{ form.image }}
-                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: .35rem;">
-                        Conseil : PNG avec fond transparent, signature noire sur fond transparent.
-                    </div>
-                    {% if form.image.errors %}
-                    <div class="alert alert-danger" style="margin-top: .5rem;">
-                        {{ form.image.errors }}
-                    </div>
-                    {% endif %}
-                </div>
-
-                <div style="display:flex; justify-content:flex-end; gap: .75rem; margin-top: .5rem;">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg"></i> Enregistrer
-                    </button>
-                </div>
+            <div class="signature-library-form__actions">
+                {% if signature_user %}
+                <a href="{% url 'signatures:ma_signature' %}" class="btn btn-ghost">Annuler</a>
+                {% endif %}
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> Enregistrer
+                </button>
             </div>
         </form>
-    </div>
+    </section>
 
-    <!-- Colonne droite : aperçu -->
-    <div class="card">
-        <div class="card-title">Aperçu</div>
+    <section class="card">
+        <div class="card-title">Signatures enregistrées <span class="badge">{{ signatures_library|length }}</span></div>
 
-        {% if signature_user and signature_user.image %}
-            <div style="border: 1px solid var(--border-light); background: var(--bg-card); border-radius: 8px; padding: 1rem;">
-                <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: .75rem;">
-                    Signature actuelle
+        <div class="signature-library-grid">
+            {% for signature in signatures_library %}
+            <article class="signature-library-item{% if not signature.is_active %} is-inactive{% endif %}">
+                <div class="signature-library-item__image">
+                    <img src="{{ signature.image.url }}" alt="Signature de {{ signature.name }}">
                 </div>
-                <div style="display:flex; justify-content:center; align-items:center; min-height: 160px;">
-                    <img src="{{ signature_user.image.url }}" alt="Signature" style="max-width: 100%; max-height: 220px;">
+                <div class="signature-library-item__body">
+                    <div>
+                        <strong>{{ signature.name }}</strong>
+                        <span class="signature-library-status{% if signature.is_active %} is-active{% endif %}">
+                            {% if signature.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+                    <small>Ajoutée par {{ signature.user.get_full_name|default:signature.user.username }}</small>
                 </div>
+                <div class="signature-library-item__actions">
+                    <a href="{% url 'signatures:ma_signature' %}?signature_id={{ signature.pk }}" class="btn btn-sm btn-secondary">
+                        <i class="bi bi-pencil"></i> Modifier
+                    </a>
+                    <form method="post" action="{% url 'signatures:signature_delete' signature.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Supprimer cette signature ?');">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </article>
+            {% empty %}
+            <div class="signature-library-empty">
+                <i class="bi bi-pen"></i>
+                <p>Aucune signature enregistrée.</p>
             </div>
-        {% else %}
-            <div class="alert alert-info" style="margin: 0;">
-                Aucune signature n’est configurée pour le moment.
-            </div>
-        {% endif %}
-    </div>
+            {% endfor %}
+        </div>
+    </section>
 </div>
 {% endblock %}

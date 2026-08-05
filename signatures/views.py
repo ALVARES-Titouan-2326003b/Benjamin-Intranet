@@ -1,11 +1,12 @@
-# signatures/views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import (
@@ -49,9 +50,11 @@ SIGNATURE_MENTION_PRESETS = {
 SIGNATURE_MENTION_CHOICES = [
     ("", "Aucune mention"),
     *SIGNATURE_MENTION_PRESETS.items(),
+    ("made_at", "Fait à…, le…"),
     ("custom", "Texte personnalisé"),
 ]
 SIGNATURE_MENTION_MAX_LENGTH = 160
+SIGNATURE_PLACE_MAX_LENGTH = 100
 
 
 def _has_group(user, group_name):
@@ -90,6 +93,10 @@ def _get_ceo_signature_users():
     )
 
 
+def _active_signatures():
+    return SignatureUser.objects.filter(is_active=True).select_related("user").order_by("name", "pk")
+
+
 def _get_signature_email_recipients(designated_signer=None):
     emails = []
 
@@ -126,12 +133,35 @@ def _get_selected_signature_options(data):
     return signature_mode, tampon
 
 
-def _get_signature_mention(data):
+def _get_selected_signature_profile(data):
+    signature_id = (data.get("signature_profile_id") or "").strip()
+    if not signature_id:
+        return None
+    signature = _active_signatures().filter(pk=signature_id).first()
+    if not signature:
+        raise ValueError("Veuillez sélectionner une signature active.")
+    return signature
+
+
+def _get_signature_details(data):
     choice = (data.get("signature_mention_choice") or "").strip()
     if not choice:
-        return ""
+        return "", "", None
     if choice in SIGNATURE_MENTION_PRESETS:
-        return SIGNATURE_MENTION_PRESETS[choice]
+        return SIGNATURE_MENTION_PRESETS[choice], "", None
+    if choice == "made_at":
+        place = " ".join((data.get("signature_place") or "").split())
+        signature_date = parse_date((data.get("signature_date") or "").strip())
+        if not place:
+            raise ValueError("Veuillez renseigner le lieu de signature.")
+        if len(place) > SIGNATURE_PLACE_MAX_LENGTH:
+            raise ValueError(
+                f"Le lieu ne peut pas dépasser {SIGNATURE_PLACE_MAX_LENGTH} caractères."
+            )
+        if not signature_date:
+            raise ValueError("Veuillez renseigner une date de signature valide.")
+        mention = f"Fait à {place}, le {signature_date.strftime('%d/%m/%Y')}"
+        return mention, place, signature_date
     if choice != "custom":
         raise ValueError("Mention de signature invalide.")
 
@@ -142,7 +172,7 @@ def _get_signature_mention(data):
         raise ValueError(
             f"Le texte personnalisé ne peut pas dépasser {SIGNATURE_MENTION_MAX_LENGTH} caractères."
         )
-    return mention
+    return mention, "", None
 
 
 def _signature_preview_context(
@@ -261,10 +291,7 @@ def _can_user_approve_signature_request(user, demande):
     if not user.is_authenticated:
         return False
 
-    return (
-        user == demande.approver
-        or user.is_superuser
-    )
+    return user == demande.approver or user.is_superuser
 
 
 @login_required
@@ -362,7 +389,6 @@ def document_detail(request, pk):
     historiques = doc.historique.order_by("-date_action")
 
     pending_request = doc.demandes_signature.filter(statut="pending").first()
-
     is_signed = bool(doc.fichier_signe)
 
     requester_name = None
@@ -442,14 +468,11 @@ def envoyer_signature(request, pk):
 
 @login_required
 @user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
+@user_passes_test(_can_manage_signature_assets, login_url="/signatures", redirect_field_name=None)
 def ma_signature(request):
-    """
-    Permet à l'utilisateur courant de déposer/modifier son image de signature.
-    """
-    try:
-        instance = request.user.signature_profile  # lié à SignatureUser.user
-    except SignatureUser.DoesNotExist:
-        instance = None
+    """Gère la bibliothèque des signatures nommées disponibles."""
+    signature_id = request.POST.get("signature_id") or request.GET.get("signature_id")
+    instance = SignatureUser.objects.filter(pk=signature_id).first() if signature_id else None
 
     if request.method == "POST":
         form = SignatureUserForm(request.POST, request.FILES, instance=instance)
@@ -457,7 +480,7 @@ def ma_signature(request):
             signature_obj = form.save(commit=False)
             signature_obj.user = request.user
             signature_obj.save()
-            messages.success(request, "Votre signature a été enregistrée.")
+            messages.success(request, f"La signature « {signature_obj.name} » a été enregistrée.")
             return redirect("signatures:ma_signature")
     else:
         form = SignatureUserForm(instance=instance)
@@ -468,8 +491,33 @@ def ma_signature(request):
         {
             "form": form,
             "signature_user": instance,
+            "signatures_library": SignatureUser.objects.select_related("user").all(),
         },
     )
+
+
+@login_required
+@user_passes_test(has_all_poles_access, login_url="/", redirect_field_name=None)
+@user_passes_test(_can_manage_signature_assets, login_url="/signatures", redirect_field_name=None)
+@require_POST
+def signature_delete(request, pk):
+    signature = get_object_or_404(SignatureUser, pk=pk)
+    signature_name = signature.name
+    image_name = signature.image.name
+    image_storage = signature.image.storage
+    try:
+        signature.delete()
+    except ProtectedError:
+        messages.error(
+            request,
+            "Cette signature est liée à une demande et ne peut pas être supprimée. Désactivez-la plutôt.",
+        )
+        return redirect("signatures:ma_signature")
+
+    if image_name:
+        image_storage.delete(image_name)
+    messages.success(request, f"La signature « {signature_name} » a été supprimée.")
+    return redirect("signatures:ma_signature")
 
 
 @login_required
@@ -627,14 +675,13 @@ def placer_signature(request, pk):
     is_designated_signer = _can_user_sign_document(request.user, doc)
     signer_label = SIGNATURE_SIGNER_LABEL
     admin_signers = _get_admin_signature_users()
+    available_signatures = _active_signatures()
     tampons = _active_tampons()
 
-    # 1) Si déjà signé → on bloque tout
     if doc.fichier_signe:
         messages.info(request, "Ce document est déjà signé.")
         return redirect("signatures:document_detail", pk=doc.pk)
 
-    # 2) Si le demandeur n'est pas signataire et qu'il existe déjà une demande pending → on bloque
     existing_pending = doc.demandes_signature.filter(statut="pending").first()
     if not is_designated_signer and existing_pending:
         messages.info(
@@ -660,14 +707,14 @@ def placer_signature(request, pk):
 
         try:
             signature_mode, tampon = _get_selected_signature_options(request.POST)
-            signature_mention = _get_signature_mention(request.POST)
+            signature_profile = _get_selected_signature_profile(request.POST)
+            signature_mention, signature_place, signature_date = _get_signature_details(request.POST)
         except ValueError as e:
             messages.error(request, str(e))
             return redirect("signatures:placer_signature", pk=doc.pk)
 
         size_scale = min(max(size_scale, 50.0), 150.0)
 
-        # BRANCHE SIGNATAIRE : il signe directement
         if is_designated_signer:
             try:
                 signer_document_avec_position(
@@ -680,6 +727,9 @@ def placer_signature(request, pk):
                     tampon=tampon,
                     page_number=page_number,
                     signature_mention=signature_mention,
+                    signature_place=signature_place,
+                    signature_date=signature_date,
+                    signature_profile=signature_profile,
                 )
             except Exception as e:
                 HistoriqueSignature.objects.create(
@@ -708,7 +758,6 @@ def placer_signature(request, pk):
             messages.success(request, "Document signé avec succès.")
             return redirect("signatures:document_detail", pk=doc.pk)
 
-        # BRANCHE EMPLOYÉ : création d'une demande pour le membre administratif choisi
         selected_admin_id = request.POST.get("admin_signer_id")
         designated_signer = admin_signers.filter(pk=selected_admin_id).first()
         email_recipients = _get_signature_email_recipients(designated_signer)
@@ -720,15 +769,13 @@ def placer_signature(request, pk):
             return redirect("signatures:document_detail", pk=doc.pk)
 
         # Double check : si quelqu'un a créé une demande entre-temps
-        existing_pending = doc.demandes_signature.filter(statut="pending").first()
-        if existing_pending:
+        if doc.demandes_signature.filter(statut="pending").exists():
             messages.info(
                 request,
                 "Une demande de signature a déjà été créée pendant votre action.",
             )
             return redirect("signatures:document_detail", pk=doc.pk)
 
-        # Créer la demande de signature
         demande = SignatureRequest.objects.create(
             document=doc,
             requested_by=request.user,
@@ -739,27 +786,27 @@ def placer_signature(request, pk):
             size_scale_pct=size_scale,
             signature_mode=signature_mode,
             signature_mention=signature_mention,
+            signature_place=signature_place,
+            signature_date=signature_date,
             tampon=tampon,
+            signature_profile=signature_profile,
         )
 
-        # Mettre à jour l'historique
         HistoriqueSignature.objects.create(
             document=doc,
             statut="en_attente",
             commentaire=(
                 "Demande de signature envoyée au membre administratif choisi et aux CEO : "
                 f"{', '.join(email_recipients)}. Mode : {demande.get_signature_mode_display()}."
+                + (f" Signature : {signature_profile.name}." if signature_profile else "")
             ),
         )
 
-        # Construire l'URL d'approbation
         from django.urls import reverse
 
         approval_url = request.build_absolute_uri(
             reverse("signatures:signature_approval", args=[demande.token])
         )
-
-        # Utilisation du service email
         try:
             envoyer_demande_signature(email_recipients, approval_url, doc)
         except Exception as e:
@@ -780,11 +827,14 @@ def placer_signature(request, pk):
         "is_designated_signer": is_designated_signer,
         "signer_label": signer_label,
         "admin_signers": admin_signers,
+        "available_signatures": available_signatures,
         "tampons": tampons,
         "signature_mode_choices": Document.SIGNATURE_MODES,
         "default_signature_mode": DEFAULT_SIGNATURE_MODE,
         "signature_mention_choices": SIGNATURE_MENTION_CHOICES,
         "signature_mention_max_length": SIGNATURE_MENTION_MAX_LENGTH,
+        "signature_place_max_length": SIGNATURE_PLACE_MAX_LENGTH,
+        "default_signature_date": timezone.localdate().isoformat(),
     }
     context.update(_signature_preview_context(doc))
     return render(request, "signatures/placer_signature.html", context)
@@ -829,9 +879,13 @@ def signature_approval(request, token):
                     tampon=demande.tampon,
                     page_number=demande.page_number,
                     signature_mention=demande.signature_mention,
+                    signature_place=demande.signature_place,
+                    signature_date=demande.signature_date,
+                    signature_profile=demande.signature_profile,
                 )
             except Exception as e:
-                demande.marquer_refusee(commentaire=f"Erreur technique : {e}")
+                demande.commentaire_ceo = f"Erreur technique : {e}"
+                demande.save(update_fields=["commentaire_ceo"])
                 HistoriqueSignature.objects.create(
                     document=doc,
                     statut="erreur",
@@ -847,7 +901,10 @@ def signature_approval(request, token):
             HistoriqueSignature.objects.create(
                 document=doc,
                 statut="signe",
-                commentaire=f"Document signé et approuvé par un signataire autorisé ({doc.get_signature_mode_display()}).",
+                commentaire=(
+                    "Document signé et approuvé par un signataire autorisé "
+                    f"({doc.get_signature_mode_display()})."
+                ),
             )
             messages.success(request, "Document signé et approuvé.")
             return redirect("signatures:document_detail", pk=doc.pk)
@@ -874,6 +931,7 @@ def signature_approval(request, token):
         "selected_tampon": demande.tampon,
         "signature_request_page_number": demande.page_number,
         "signature_mention": demande.signature_mention,
+        "selected_signature": demande.signature_profile,
     }
     context.update(
         _signature_preview_context(

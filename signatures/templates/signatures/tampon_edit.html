@@ -1,10 +1,15 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Tampons numériques{% endblock %}
 {% block header_title %}Tampons numériques{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'signatures/css/stamps.css' %}">
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-between align-center mb-4" style="margin-bottom: 1.5rem;">
+<div class="stamp-library-header">
     <div>
         <h2 style="margin: 0;">Gérer les tampons</h2>
         <div style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
@@ -12,9 +17,9 @@
         </div>
     </div>
 
-    <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+    <div class="stamp-library-header__actions">
         <a href="{% url 'signatures:ma_signature' %}" class="btn btn-ghost">
-            <i class="bi bi-pencil-square"></i> Ma signature
+            <i class="bi bi-pencil-square"></i> Signatures
         </a>
         <a href="{% url 'signatures:ceo_dashboard' %}" class="btn btn-secondary">
             <i class="bi bi-arrow-left"></i> Retour
@@ -22,9 +27,9 @@
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem; align-items:start;">
+<div class="stamp-library-layout">
     <!-- Colonne gauche : formulaire -->
-    <div class="card">
+    <section class="card stamp-form-card">
         <div class="card-title">{% if tampon %}Modifier le tampon{% else %}Nouveau tampon{% endif %}</div>
 
         <form method="post" enctype="multipart/form-data">
@@ -79,48 +84,106 @@
                 </div>
             </div>
         </form>
-    </div>
+    </section>
 
     <!-- Colonne droite : aperçu -->
-    <div class="card">
-        <div class="card-title">Tampons configurés</div>
+    <section class="card stamp-list-card">
+        <div class="stamp-list-heading">
+            <div>
+                <div class="card-title">Tampons configurés <span class="badge">{{ tampons|length }}</span></div>
+                <p>Recherchez une société ou filtrez les tampons disponibles.</p>
+            </div>
+            <div class="stamp-toolbar">
+                <label class="stamp-search">
+                    <i class="bi bi-search"></i>
+                    <input type="search" id="stamp-search" placeholder="Rechercher une société…" autocomplete="off">
+                </label>
+                <select id="stamp-status-filter" aria-label="Filtrer par statut">
+                    <option value="all">Tous les statuts</option>
+                    <option value="active">Actifs</option>
+                    <option value="inactive">Inactifs</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="stamp-results-summary" aria-live="polite">
+            <strong id="stamp-visible-count">{{ tampons|length }}</strong>
+            <span id="stamp-visible-label">tampon{% if tampons|length > 1 %}s{% endif %} affiché{% if tampons|length > 1 %}s{% endif %}</span>
+        </div>
 
         {% if tampons %}
-            <div style="display:grid; gap:.75rem;">
+            <div class="stamp-grid" id="stamp-grid">
                 {% for item in tampons %}
-                <div style="border:1px solid var(--border-light); border-radius:8px; padding:.75rem; display:grid; gap:.5rem;">
-                    <div style="display:flex; justify-content:space-between; gap:.75rem; align-items:flex-start;">
-                        <div>
-                            <strong>{{ item.societe }}</strong>
-                        </div>
-                        <span class="status-badge" {% if not item.is_active %}style="background:#fee2e2;color:#991b1b;"{% endif %}>
+                <article class="stamp-item{% if not item.is_active %} is-inactive{% endif %}" data-name="{{ item.societe.nom|lower }}" data-status="{% if item.is_active %}active{% else %}inactive{% endif %}">
+                    <div class="stamp-item__header">
+                        <strong title="{{ item.societe }}">{{ item.societe }}</strong>
+                        <span class="stamp-status{% if item.is_active %} is-active{% endif %}">
                             {% if item.is_active %}Actif{% else %}Inactif{% endif %}
                         </span>
                     </div>
                     {% if item.image %}
-                    <div style="display:flex; justify-content:center; align-items:center; min-height:90px; background:#f8fafc; border-radius:6px;">
-                        <img src="{{ item.image.url }}" alt="Tampon {{ item.societe }}" style="max-width:100%; max-height:120px;">
+                    <div class="stamp-item__preview">
+                        <img src="{{ item.image.url }}" alt="Tampon {{ item.societe }}" loading="lazy">
                     </div>
                     {% endif %}
-                    <div style="display:flex; justify-content:flex-end; gap:.5rem;">
+                    <div class="stamp-item__actions">
+                        <a href="{% url 'signatures:tampon_edit' %}?tampon_id={{ item.pk }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-pencil-square"></i> Modifier
+                        </a>
                         <form method="post" action="{% url 'signatures:tampon_delete' item.pk %}" onsubmit="return confirm('Supprimer définitivement le tampon de {{ item.societe|escapejs }} ?');">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-danger">
+                            <button type="submit" class="btn btn-sm btn-ghost stamp-delete-button" title="Supprimer le tampon de {{ item.societe }}">
                                 <i class="bi bi-trash"></i> Supprimer
                             </button>
                         </form>
-                        <a href="{% url 'signatures:tampon_edit' %}?tampon_id={{ item.pk }}" class="btn btn-secondary">
-                            <i class="bi bi-pencil-square"></i> Modifier
-                        </a>
                     </div>
-                </div>
+                </article>
                 {% endfor %}
+            </div>
+            <div class="stamp-no-results" id="stamp-no-results" hidden>
+                <i class="bi bi-search"></i>
+                <strong>Aucun tampon trouvé</strong>
+                <span>Modifiez la recherche ou le filtre sélectionné.</span>
             </div>
         {% else %}
             <div class="alert alert-info" style="margin: 0;">
                 Aucun tampon n'est configuré pour le moment.
             </div>
         {% endif %}
-    </div>
+    </section>
 </div>
+
+<script>
+(function () {
+    const search = document.getElementById("stamp-search");
+    const status = document.getElementById("stamp-status-filter");
+    const cards = Array.from(document.querySelectorAll(".stamp-item"));
+    const count = document.getElementById("stamp-visible-count");
+    const label = document.getElementById("stamp-visible-label");
+    const empty = document.getElementById("stamp-no-results");
+
+    if (!search || !status) return;
+
+    const normalize = value => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    function filterStamps() {
+        const query = normalize(search.value);
+        const selectedStatus = status.value;
+        let visible = 0;
+
+        cards.forEach(card => {
+            const matchesName = normalize(card.dataset.name || "").includes(query);
+            const matchesStatus = selectedStatus === "all" || card.dataset.status === selectedStatus;
+            card.hidden = !(matchesName && matchesStatus);
+            if (!card.hidden) visible += 1;
+        });
+
+        count.textContent = visible;
+        label.textContent = `tampon${visible > 1 ? "s" : ""} affiché${visible > 1 ? "s" : ""}`;
+        if (empty) empty.hidden = visible !== 0;
+    }
+
+    search.addEventListener("input", filterStamps);
+    status.addEventListener("change", filterStamps);
+})();
+</script>
 {% endblock %}

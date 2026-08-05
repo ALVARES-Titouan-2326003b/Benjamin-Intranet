@@ -105,10 +105,15 @@ def test_ecran_de_placement_commence_sur_la_derniere_page(
     assert b'id="analyze-placement"' in response.content
     assert b'<img id="pdf-preview"' in response.content
     assert b'id="signature-mention-choice"' in response.content
+    assert b'id="signature-made-at-wrapper"' in response.content
+    assert b"signatures/css/placement.css" in response.content
+    assert b'class="signature-form-grid"' in response.content
+    assert b'class="signature-field__control"' in response.content
     assert "Bon pour remboursement" in response.content.decode()
     assert b"widthPoints: 160.0" in response.content
     assert b"widthPoints: 160,0" not in response.content
     assert response.content.count(b"let dragging = false;") == 1
+    assert response.content.count(b"let placementSuggestions = [];") == 1
 
 
 @pytest.mark.django_db
