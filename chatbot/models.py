@@ -6,6 +6,7 @@ User = get_user_model()
 
 class ChatbotQuery(models.Model):
     QUERY_TYPES = [
+        ("case", "Dossier / affaire"),
         ("invoice","Facture"),
         ("document","Document interne"),
         ("legal","Juridique"),

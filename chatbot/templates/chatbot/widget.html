@@ -1,6 +1,7 @@
 {% load static %}
 <!-- Widget Chatbot pour inclure dans d'autres pages -->
 <div id="chatbot-widget">
+    <input type="hidden" id="chatbot-csrf-token" value="{{ csrf_token }}">
     <div id="chatbot-toggle" onclick="toggleChat()">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
             <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
@@ -10,7 +11,7 @@
     <div id="chatbot-container" class="hidden">
         <div id="chatbot-header">
             <div class="chatbot-header-text">
-                <span>Assistant Factures</span>
+                <span>Assistant interne</span>
                 <a href="{% url 'chatbot:history' %}" class="chatbot-history-link">
                     Voir l’historique
                 </a>
@@ -20,7 +21,7 @@
         
         <div id="chatbot-messages">
             <div class="bot-message">
-                Bonjour ! Je peux vous aider à consulter l'état de vos factures.
+                Bonjour ! Je peux synthétiser vos dossiers, factures, dates clés, actions et documents accessibles.
             </div>
         </div>
         

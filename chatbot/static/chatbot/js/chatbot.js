@@ -11,6 +11,7 @@
 
 // ── Icônes par type de route ──────────────────────────────────────────────────
 const ROUTE_BADGE = {
+    case:           { label: '🏗️ Dossier / affaire', color: '#6d28d9', bg: '#ede9fe' },
     invoice:        { label: '💰 Facture',           color: '#1d4ed8', bg: '#dbeafe' },
     document:       { label: '📄 Document interne',  color: '#166534', bg: '#dcfce7' },
     legal:          { label: '⚖️ Juridique',          color: '#92400e', bg: '#fef3c7' },
@@ -42,7 +43,10 @@ function sendMessage() {
 
     fetch('/chatbot/query/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
         body: JSON.stringify({ message }),
     })
     .then(r => r.json())
@@ -58,6 +62,16 @@ function sendMessage() {
         hideTypingIndicator();
         addMessage('Erreur réseau. Veuillez réessayer.', 'bot');
     });
+}
+
+function getCookie(name) {
+    const prefix = `${name}=`;
+    const cookie = document.cookie
+        .split(';')
+        .map(value => value.trim())
+        .find(value => value.startsWith(prefix));
+    if (cookie) return decodeURIComponent(cookie.slice(prefix.length));
+    return document.getElementById('chatbot-csrf-token')?.value || '';
 }
 
 // ── Ajout d'un message ────────────────────────────────────────────────────────

@@ -4,11 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistant Factures</title>
+    <title>Assistant interne</title>
     <link rel="stylesheet" href="{% static 'chatbot/css/chatbot.css' %}">
 </head>
 <body>
     <div id="chatbot-widget">
+        <input type="hidden" id="chatbot-csrf-token" value="{{ csrf_token }}">
         <div id="chatbot-toggle" onclick="toggleChat()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
                 <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
@@ -18,8 +19,8 @@
         <div id="chatbot-container" class="hidden">
             <div id="chatbot-header">
                 <div class="chatbot-header-text">
-                    <span>Assistant Factures et Juridique</span>
-                    <div class="chatbot-subtitle">Questions immobilières et suivi des factures</div>
+                    <span>Assistant interne</span>
+                    <div class="chatbot-subtitle">Dossiers, finances, documents et questions juridiques</div>
                 </div>
                 <a href="{% url 'chatbot:history' %}"
                    style="color: white; font-size: 0.85rem; text-decoration: underline;">
@@ -33,7 +34,8 @@
                 <div class="message-block bot-block">
                     <div class="bot-message">
                         Bonjour {{ user.username }} ! Je peux vous aider sur :
-                        • l’état de vos factures fournisseurs
+                        • la synthèse d’une affaire et de ses échéances
+                        • les factures et documents auxquels vous avez accès
                         • vos questions juridiques immobilières
                     </div>
                     <div class="message-footer">

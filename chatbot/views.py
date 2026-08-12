@@ -1,731 +1,366 @@
-from django.shortcuts import render
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
-from django.conf import settings
 import json
 import re
+
 import requests
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.db.models import Q
+from django.http import JsonResponse
+from django.shortcuts import render
 
 from invoices.models import Facture
-from .legifrance import legifrance_search_generic, format_legifrance_context
+from invoices.views import visible_invoices_for
+from technique.models import DocumentTechnique
+from user_access.user_test_functions import has_technique_access
+
+from .legifrance import format_legifrance_context, legifrance_search_generic
 from .models import ChatbotQuery
+from .services.case_context import append_sources, build_case_context, resolve_case
+
+
+INVOICE_STATUS_MAP = {
+    "recu": "received",
+    "reçue": "received",
+    "reçues": "received",
+    "received": "received",
+    "en attente": "pending",
+    "attente": "pending",
+    "pending": "pending",
+}
+SUMMARY_KEYWORDS = {"stats", "résumé", "resume", "total", "synthèse", "synthese"}
+LIST_KEYWORDS = {"liste", "toutes", "all"}
+
+_ROUTER_SYSTEM = (
+    "Tu routes les questions d'un assistant intranet immobilier. "
+    "Réponds avec un seul mot parmi :\n"
+    "- case : synthèse d'une affaire ou d'un dossier, budget, dépenses, dates clés, actions ou risques ;\n"
+    "- invoice : factures, fournisseurs, montants et statuts sans dossier précis ;\n"
+    "- document : clauses, contrats et documents techniques internes ;\n"
+    "- legal : droit immobilier et réglementation générale."
+)
 
 
 @login_required
 def chatbot_history(request):
-    """
-    Affiche l'historique des requêtes du chatbot
-    pour l'utilisateur connecté uniquement.
-    """
     query_type = (request.GET.get("type") or "").strip()
     search = (request.GET.get("q") or "").strip()
-
-    qs = ChatbotQuery.objects.filter(user=request.user).order_by("-created_at")
-
+    queries = ChatbotQuery.objects.filter(user=request.user).order_by("-created_at")
     if query_type:
-        qs = qs.filter(query_type=query_type)
-
+        queries = queries.filter(query_type=query_type)
     if search:
-        qs = qs.filter(message__icontains=search)
-
+        queries = queries.filter(message__icontains=search)
     return render(
         request,
         "chatbot/history.html",
-        {
-            "queries": qs,
-            "selected_type": query_type,
-            "search": search,
-        },
+        {"queries": queries, "selected_type": query_type, "search": search},
     )
 
 
-# Factures
-
-INVOICE_STATUS_MAP = {
-    'recu': 'received', 'reçue': 'received', 'reçues': 'received', 'received': 'received',
-    'en attente': 'pending', 'attente': 'pending', 'pending': 'pending',
-}
-
-# Résumé ou liste
-SUMMARY_KEYWORDS = {'stats', 'résumé', 'resume', 'total', 'synthèse', 'synthese'}
-LIST_KEYWORDS = {'liste', 'toutes', 'all'}
-
-
-
-
-
-_ROUTER_SYSTEM = (
-    "Tu es un routeur de requêtes pour un assistant intranet d'une agence immobilière.\n"
-    "Classe la question de l'utilisateur dans UNE SEULE des catégories suivantes :\n"
-    "- 'invoice'  : question sur des factures, fournisseurs, paiements, statuts de factures, montants\n"
-    "- 'document' : question sur des contrats, documents techniques, projets immobiliers internes, "
-    "clauses, conditions suspensives, permis de construire, procès-verbaux, résumés de documents\n"
-    "- 'legal'    : question juridique générale sur le droit immobilier, les lois, la réglementation, "
-    "les baux, le DPE, la fiscalité, la copropriété, etc.\n\n"
-    "Réponds UNIQUEMENT avec le mot exact : invoice, document ou legal. Rien d'autre."
-)
-
-
-def _route_message(message: str) -> str:
-    """
-    Appelle Groq pour classifier l'intention du message.
-    Retourne 'invoice', 'document' ou 'legal'.
-    Fallback sur 'legal' en cas d'erreur ou de réponse inattendue.
-    """
+def _route_message(message):
     api_key = getattr(settings, "GROQ_API_KEY", None)
     if not api_key:
-        # Pas de clé : fallback sur la détection par mots-clés
         return _route_fallback(message)
-
     try:
-        r = requests.post(
+        response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
                 "model": "llama-3.3-70b-versatile",
-                "temperature": 0.0,
+                "temperature": 0,
                 "max_tokens": 10,
                 "messages": [
                     {"role": "system", "content": _ROUTER_SYSTEM},
-                    {"role": "user",   "content": message},
+                    {"role": "user", "content": message},
                 ],
             },
             timeout=10,
         )
-        if r.status_code == 200:
-            intent = r.json()["choices"][0]["message"]["content"].strip().lower()
-            if intent in ("invoice", "document", "legal"):
-                return intent
-        # Réponse inattendue : fallback
-        return _route_fallback(message)
-
+        if response.status_code == 200:
+            route = response.json()["choices"][0]["message"]["content"].strip().lower()
+            if route in {"case", "invoice", "document", "legal"}:
+                return route
     except Exception:
-        return _route_fallback(message)
+        pass
+    return _route_fallback(message)
 
 
-def _route_fallback(message: str) -> str:
-    """
-    Détection par mots-clés utilisée si Groq est indisponible.
-    Conserve le comportement historique + ajoute la catégorie 'document'.
-    """
-    m = message.lower()
-    has_invoice_id = bool(re.search(r'\b[A-Z]{3,}-[A-Z0-9]{4,}\b', message))
-    invoice_kw = ['facture', 'factures', 'fournisseur', 'statut', 'liste', 'total', 'combien', 'stats']
-    doc_kw = ['contrat', 'document', 'clause', 'permis', 'procès-verbal', 'résumé', 'projet technique',
-              'conditions suspensives', 'pénalités', 'délais', 'vefa', 'réservation']
-
-    if has_invoice_id or any(k in m for k in invoice_kw):
+def _route_fallback(message):
+    lowered = message.lower()
+    case_words = {
+        "affaire",
+        "dossier",
+        "budget",
+        "dépense",
+        "dépenses",
+        "date clé",
+        "dates clés",
+        "action en retard",
+        "actions en retard",
+    }
+    invoice_words = {"facture", "factures", "fournisseur", "paiement"}
+    document_words = {
+        "contrat",
+        "document",
+        "clause",
+        "permis",
+        "procès-verbal",
+        "conditions suspensives",
+    }
+    has_case_reference = bool(re.search(r"\b[A-Z]{2,}(?:-[A-Z0-9]+)+\b", message.upper()))
+    if any(word in lowered for word in case_words):
+        return "case"
+    if any(word in lowered for word in invoice_words):
         return "invoice"
-    if any(k in m for k in doc_kw):
+    if has_case_reference:
+        return "case"
+    if any(word in lowered for word in document_words):
         return "document"
     return "legal"
 
 
-# ══════════════════════════════════════════════════════════════════
-#  RAG — DOCUMENTS TECHNIQUES
-#  Recherche les passages les plus pertinents dans DocumentTechnique
-#  et les injecte dans le prompt Groq.
-# ══════════════════════════════════════════════════════════════════
-
-def _build_rag_context(question: str, max_docs: int = 4, max_chars_per_doc: int = 1200) -> str:
-    """
-    Recherche dans DocumentTechnique les documents dont le résumé ou le texte
-    contient des mots de la question, et construit un bloc de contexte textuel.
-
-    Stratégie simple (pas de vecteurs) :
-      1. On extrait les mots significatifs de la question (> 3 caractères).
-      2. On filtre les documents qui matchent au moins un mot dans le titre,
-         le contenu ou le dossier associé.
-      3. On tronque le texte_brut pour rester dans les limites du contexte.
-    """
-    try:
-        from technique.models import DocumentTechnique
-    except ImportError:
-        return ""
-
-    # Mots-clés de la question (> 3 lettres, hors stop-words courants)
-    stopwords = {"pour", "avec", "dans", "quel", "quoi", "est", "les", "des", "une", "que",
-                 "pas", "plus", "tout", "mais", "cette", "sont", "quel", "quels", "quelle",
-                 "quelles", "comment", "quand", "peut", "peut-on", "doit", "doit-on"}
-    words = [w for w in re.findall(r'\b\w{4,}\b', question.lower()) if w not in stopwords]
-
-    if not words:
-        return ""
-
-    from django.db.models import Q
-    q_filter = Q()
-    for w in words[:6]:          # On limite à 6 mots pour ne pas surcharger la requête
-        q_filter |= (
-            Q(resume__icontains=w)
-            | Q(texte_brut__icontains=w)
-            | Q(titre__icontains=w)
-            | Q(project__reference__icontains=w)
-            | Q(project__name__icontains=w)
-        )
-
-    docs = (
-        DocumentTechnique.objects.select_related("project")
-        .filter(q_filter)
-        .order_by("-created_at")[:max_docs]
-    )
-
-    if not docs:
-        return ""
-
-    blocks = []
-    for doc in docs:
-        # On préfère le résumé structuré (plus dense) au texte brut complet
-        content = doc.resume or doc.texte_brut or ""
-        if not content.strip():
-            continue
-
-        # Ajouter les champs structurés si disponibles
-        extras = []
-        if doc.prix and doc.prix not in ("—", "Non identifié"):
-            extras.append(f"Prix/montants : {doc.prix}")
-        if doc.dates and doc.dates not in ("—", "Non identifié"):
-            extras.append(f"Dates clés : {doc.dates}")
-        if doc.conditions_suspensives and doc.conditions_suspensives not in ("—", "Non identifié"):
-            extras.append(f"Conditions suspensives : {doc.conditions_suspensives}")
-        if doc.penalites and doc.penalites not in ("—", "Non identifié"):
-            extras.append(f"Pénalités : {doc.penalites}")
-
-        extra_text = "\n".join(extras)
-        full = f"{content}\n{extra_text}".strip()[:max_chars_per_doc]
-
-        blocks.append(
-            f"--- Document : {doc.titre} | Dossier : {doc.project or '—'} ---\n{full}"
-        )
-
-    if not blocks:
-        return ""
-
-    return (
-        "Extraits de documents internes Benjamin Immobilier pertinents pour cette question :\n\n"
-        + "\n\n".join(blocks)
-    )
-
-
-def _handle_document_query(message: str) -> str:
-    """
-    Répond à une question sur les documents techniques internes.
-    Injecte le contexte RAG dans le prompt Groq.
-    """
+def _groq_answer(system_prompt, context, message, max_tokens=900):
     api_key = getattr(settings, "GROQ_API_KEY", None)
     if not api_key:
-        return "Clé API Groq manquante."
-
-    rag_context = _build_rag_context(message)
-
-    system_prompt = (
-        "Tu es un assistant spécialisé dans les documents techniques et juridiques "
-        "de l'entreprise Benjamin Immobilier (promoteur immobilier).\n"
-        "Tu réponds aux questions en te basant PRIORITAIREMENT sur les documents internes fournis.\n"
-        "Si les documents ne contiennent pas l'information, dis-le clairement et donne une réponse "
-        "générale basée sur tes connaissances du droit immobilier français.\n"
-        "Sois précis, concis et cite le nom du document source quand tu utilises son contenu."
-    )
-
-    messages_payload = [{"role": "system", "content": system_prompt}]
-
-    if rag_context:
-        messages_payload.append({
-            "role": "system",
-            "content": f"Contexte documentaire interne :\n\n{rag_context}",
-        })
-    else:
-        messages_payload.append({
-            "role": "system",
-            "content": (
-                "Aucun document interne correspondant trouvé. "
-                "Réponds avec tes connaissances générales en droit immobilier français."
-            ),
-        })
-
-    messages_payload.append({"role": "user", "content": message})
-
+        return None
     try:
-        r = requests.post(
+        response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
                 "model": "llama-3.3-70b-versatile",
-                "temperature": 0.2,
-                "max_tokens": 800,
-                "messages": messages_payload,
+                "temperature": 0.1,
+                "max_tokens": max_tokens,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": context},
+                    {"role": "user", "content": message},
+                ],
             },
             timeout=30,
         )
-        if r.status_code == 200:
-            return r.json()["choices"][0]["message"]["content"].strip()
-        return f"Erreur API Groq ({r.status_code})"
-    except requests.exceptions.Timeout:
-        return "⏱️ Délai d'attente dépassé."
-    except Exception as e:
-        return f"Erreur inattendue : {e}"
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"].strip()
+    except Exception:
+        return None
+    return None
 
 
-# ══════════════════════════════════════════════════════════════════
-#  VUES DJANGO
-# ══════════════════════════════════════════════════════════════════
+def _handle_case_query(message, user):
+    resolution = resolve_case(message, user)
+    if resolution.is_ambiguous:
+        choices = "\n".join(
+            f"- **{project.reference}** — {project.name}" for project in resolution.alternatives
+        )
+        return "Plusieurs dossiers correspondent. Précisez la référence souhaitée :\n" + choices
+    if resolution.project is None:
+        return (
+            "Je n’ai trouvé aucun dossier accessible correspondant à cette question. "
+            "Indiquez sa référence exacte ou une partie suffisamment précise de son nom."
+        )
+
+    context = build_case_context(resolution.project, user)
+    system_prompt = (
+        "Tu es l'assistant interne de Benjamin Immobilier. Réponds uniquement à partir de "
+        "l'instantané du dossier fourni. Croise les factures, le budget, les dates, les actions "
+        "et les documents quand cela répond à la question. N'invente aucune donnée. Signale "
+        "explicitement les informations absentes. Commence par une réponse directe puis détaille "
+        "les échéances ou risques utiles. Ne reproduis pas une source qui n'est pas fournie."
+    )
+    answer = _groq_answer(system_prompt, context.prompt, message)
+    if not answer:
+        return context.fallback_answer
+    return append_sources(answer, context.sources)
+
+
+def _build_rag_context(question, user, max_docs=4, max_chars_per_doc=1200):
+    """Recherche documentaire limitée aux utilisateurs du pôle technique."""
+    if not getattr(user, "is_authenticated", False) or not has_technique_access(user):
+        return ""
+    stopwords = {
+        "pour", "avec", "dans", "quel", "quoi", "les", "des", "une", "cette",
+        "sont", "quels", "quelle", "quelles", "comment", "quand", "peut", "doit",
+    }
+    words = [word for word in re.findall(r"\b\w{4,}\b", question.lower()) if word not in stopwords]
+    if not words:
+        return ""
+    query = Q()
+    for word in words[:6]:
+        query |= (
+            Q(resume__icontains=word)
+            | Q(texte_brut__icontains=word)
+            | Q(titre__icontains=word)
+            | Q(project__reference__icontains=word)
+            | Q(project__name__icontains=word)
+        )
+    documents = DocumentTechnique.objects.select_related("project").filter(query).order_by("-created_at")[:max_docs]
+    blocks = []
+    for document in documents:
+        content = document.resume or document.texte_brut or ""
+        if not content.strip():
+            continue
+        extras = [
+            text
+            for text in (
+                f"Prix/montants : {document.prix}" if document.prix else "",
+                f"Dates clés : {document.dates}" if document.dates else "",
+                f"Conditions suspensives : {document.conditions_suspensives}" if document.conditions_suspensives else "",
+                f"Pénalités : {document.penalites}" if document.penalites else "",
+            )
+            if text
+        ]
+        excerpt = f"{content}\n{' '.join(extras)}".strip()[:max_chars_per_doc]
+        blocks.append(f"--- Document : {document.titre} | Dossier : {document.project or '—'} ---\n{excerpt}")
+    if not blocks:
+        return ""
+    return "Extraits de documents internes autorisés :\n\n" + "\n\n".join(blocks)
+
+
+def _handle_document_query(message, user):
+    context = _build_rag_context(message, user)
+    if not context:
+        return "Aucun document interne accessible ne correspond à cette question."
+    prompt = (
+        "Réponds uniquement à partir des extraits internes. Cite le titre du document utilisé. "
+        "Si l'information est absente, indique-le clairement."
+    )
+    return _groq_answer(prompt, context, message, max_tokens=800) or context
+
+
+def _user_queryset(user):
+    queryset = Facture.objects.select_related("client", "fournisseur", "dossier")
+    return visible_invoices_for(user, queryset)
+
+
+def _invoice_by_id(invoice_id, user):
+    try:
+        invoice = _user_queryset(user).get(id=invoice_id)
+    except Facture.DoesNotExist:
+        return f"Aucune facture accessible trouvée avec l’ID {invoice_id}"
+    return (
+        f"Facture #{invoice.id}\n"
+        f"- État : {invoice.get_statut_display()}\n"
+        f"- Fournisseur : {invoice.fournisseur}\n"
+        f"- Montant : {invoice.montant} €\n"
+        f"- Dossier : {invoice.dossier or '—'}\n"
+        f"- Échéance : {invoice.echeance.strftime('%d/%m/%Y') if invoice.echeance else '—'}"
+    )
+
+
+def _invoices_by_status(status, user):
+    invoices = _user_queryset(user).filter(statut=status).order_by("-echeance")[:5]
+    label = dict(Facture.STATUS).get(status, status)
+    if not invoices:
+        return f"Aucune facture avec le statut {label}."
+    rows = [f"Factures « {label} » :"]
+    rows.extend(f"- #{item.id} — {item.fournisseur} — {item.montant} €" for item in invoices)
+    return "\n".join(rows)
+
+
+def _invoices_by_supplier(supplier, user):
+    invoices = _user_queryset(user).filter(fournisseur__nom__icontains=supplier).order_by("-echeance")[:5]
+    if not invoices:
+        return f"Aucune facture accessible pour « {supplier} »"
+    rows = [f"Factures — {supplier} :"]
+    rows.extend(f"- #{item.id} — {item.get_statut_display()} — {item.montant} €" for item in invoices)
+    return "\n".join(rows)
+
+
+def _invoices_all(user, limit=20):
+    invoices = _user_queryset(user).order_by("-date_soumission")[:limit]
+    if not invoices:
+        return "Aucune facture accessible."
+    return "Toutes les factures accessibles :\n" + "\n".join(
+        f"- #{item.id} — {item.get_statut_display()} — {item.fournisseur} — {item.montant} €"
+        for item in invoices
+    )
+
+
+def _invoices_summary(user):
+    invoices = list(_user_queryset(user))
+    if not invoices:
+        return "Aucune facture accessible."
+    total = sum(item.montant or 0 for item in invoices)
+    return f"Résumé des factures\n- Total : {len(invoices)}\n- Montant cumulé : {total:,.2f} €".replace(",", " ")
+
+
+def _extract_existing_invoice_id(text, user):
+    for token in re.findall(r"\b[A-Z]{3,}-[A-Z0-9-]{4,}\b", text.upper()):
+        if _user_queryset(user).filter(id=token).exists():
+            return token
+    return None
+
+
+def _handle_invoice_query(message, user):
+    invoice_id = _extract_existing_invoice_id(message, user)
+    if invoice_id:
+        return _invoice_by_id(invoice_id, user)
+    lowered = message.lower()
+    if any(word in lowered for word in SUMMARY_KEYWORDS):
+        return _invoices_summary(user)
+    if any(word in lowered for word in LIST_KEYWORDS):
+        return _invoices_all(user)
+    for key in sorted(INVOICE_STATUS_MAP, key=len, reverse=True):
+        if key in lowered:
+            return _invoices_by_status(INVOICE_STATUS_MAP[key], user)
+    match = re.search(r"fournisseur\s+(.+)$", message, flags=re.I)
+    return _invoices_by_supplier(match.group(1).strip() if match else message.strip(), user)
+
+
+def _handle_legal_query(message):
+    api_key = getattr(settings, "GROQ_API_KEY", None)
+    if not api_key:
+        return "Clé API Groq manquante"
+    try:
+        result = legifrance_search_generic(message, page_size=5)
+        context = format_legifrance_context(result, max_items=3)
+    except Exception as exc:
+        context = f"Légifrance indisponible : {exc}"
+    prompt = (
+        "Tu es un assistant juridique en droit immobilier français. Distingue les informations "
+        "certaines des éléments à vérifier et recommande un professionnel pour toute décision importante."
+    )
+    return _groq_answer(prompt, context, message, max_tokens=700) or "Le service juridique est temporairement indisponible."
+
 
 @login_required
 def chatbot_interface(request):
-    """Affiche l'interface du chatbot."""
-    return render(request, 'chatbot/interface.html')
+    return render(request, "chatbot/interface.html")
 
 
-@csrf_exempt
 @login_required
 def chatbot_query(request):
-    """
-    Point d'entrée unique du chatbot.
-    Le routeur IA classe la question en 3 catégories :
-      - invoice  → interroge la base de données des factures
-      - document → RAG sur les documents techniques internes
-      - legal    → Légifrance + Groq
-    """
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'response': 'Méthode non autorisée'}, status=405)
-
-    message = ""
+    if request.method != "POST":
+        return JsonResponse({"success": False, "response": "Méthode non autorisée"}, status=405)
     try:
-        data = json.loads(request.body or '{}')
-        message = (data.get('message') or '').strip()
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "response": "Requête JSON invalide."}, status=400)
+    message = (payload.get("message") or "").strip()
+    if not message:
+        return JsonResponse({"success": False, "response": "Message vide."}, status=400)
 
-        if not message:
-            return JsonResponse({'success': False, 'response': 'Message vide.'}, status=400)
-
-        # ── Routing IA ────────────────────────────────────────────
-        route = _route_message(message)
-
-        if route == "invoice":
-            resp = _handle_invoice_query(message, request.user)
-            # Fallback legal si aucune facture trouvée
-            if resp.startswith("Aucune facture") or "Aucune facture" in resp:
-                route = "legal_fallback"
-                resp = _handle_legal_query(message)
-
-        elif route == "document":
-            resp = _handle_document_query(message)
-
-        else:  # legal
-            resp = _handle_legal_query(message)
-
-        # ── Sauvegarde historique ─────────────────────────────────
+    route = _route_message(message)
+    handlers = {
+        "case": lambda: _handle_case_query(message, request.user),
+        "invoice": lambda: _handle_invoice_query(message, request.user),
+        "document": lambda: _handle_document_query(message, request.user),
+        "legal": lambda: _handle_legal_query(message),
+    }
+    try:
+        answer = handlers[route]()
         ChatbotQuery.objects.create(
             user=request.user,
             message=message,
-            response=resp,
+            response=answer,
             query_type=route,
         )
-
-        return JsonResponse({'success': True, 'response': resp, 'query_type': route})
-
-    except Exception as e:
-        error_message = f'Erreur : {e}'
-        if request.user.is_authenticated and message:
-            ChatbotQuery.objects.create(
-                user=request.user,
-                message=message,
-                response=error_message,
-                query_type="unknown",
-            )
-        return JsonResponse({'success': False, 'response': error_message}, status=500)
-
-
-INVOICE_STATUS_MAP = {
-    'recu': 'received', 'reçue': 'received', 'reçues': 'received', 'received': 'received',
-    'en attente': 'pending', 'attente': 'pending', 'pending': 'pending',
-}
-SUMMARY_KEYWORDS = {'stats', 'résumé', 'resume', 'total', 'synthèse', 'synthese'}
-LIST_KEYWORDS    = {'liste', 'toutes', 'all'}
-
-
-def _user_queryset(user):
-    return Facture.objects.select_related('client', 'fournisseur', 'dossier')
-
-
-def _invoice_by_id(invoice_id: str, user) -> str:
-    try:
-        inv = _user_queryset(user).get(id=invoice_id)
-        return (
-            f"Facture #{inv.id}\n"
-            f"• État : {inv.get_statut_display()}\n"
-            f"• Fournisseur : {inv.fournisseur}\n"
-            f"• Client : {inv.client or '—'}\n"
-            f"• Montant : {inv.montant}€\n"
-            f"• Dossier : {inv.dossier or '—'}\n"
-            f"• Échéance : {inv.echeance.strftime('%d/%m/%Y') if inv.echeance else '—'}\n"
-            f"• Titre : {inv.titre or '—'}"
+        return JsonResponse({"success": True, "response": answer, "query_type": route})
+    except Exception:
+        answer = "Une erreur interne empêche momentanément de répondre à cette question."
+        ChatbotQuery.objects.create(
+            user=request.user,
+            message=message,
+            response=answer,
+            query_type="unknown",
         )
-    except Facture.DoesNotExist:
-        return f"Aucune facture trouvée avec l'ID {invoice_id}"
-
-
-def _invoices_by_status(status: str, user) -> str:
-    qs = _user_queryset(user).filter(statut=status).order_by('-echeance')[:5]
-    if not qs:
-        return f"Aucune facture avec le statut {dict(Facture.STATUS).get(status, status)}."
-    lines = [f"Factures « {dict(Facture.STATUS).get(status, status)} » :"]
-    for inv in qs:
-        deadline = inv.echeance.strftime('%d/%m') if inv.echeance else '—'
-        lines.append(f"• #{inv.id} — {inv.fournisseur} — {inv.montant}€ — {deadline}")
-    return "\n".join(lines)
-
-
-def _invoices_by_supplier(supplier: str, user) -> str:
-    qs = _user_queryset(user).filter(fournisseur__nom__icontains=supplier).order_by('-echeance')[:5]
-    if not qs:
-        return f"Aucune facture pour « {supplier} »"
-    lines = [f"Factures — {supplier} :"]
-    for inv in qs:
-        lines.append(f"• #{inv.id} — {inv.statut} — {inv.montant}€")
-    return "\n".join(lines)
-
-
-def _invoices_all(user, limit=20) -> str:
-    qs = _user_queryset(user).order_by('-echeance')[:limit]
-    if not qs:
-        return "Aucune facture."
-    lines = ["Toutes les factures :"]
-    for inv in qs:
-        lines.append(f"• #{inv.id} — {inv.statut} — {inv.fournisseur} — {inv.montant}€")
-    return "\n".join(lines)
-
-
-def _invoices_summary(user) -> str:
-    qs = _user_queryset(user)
-    total = qs.count()
-    if total == 0:
-        return "Aucune facture."
-    total_amount = sum(inv.montant or 0 for inv in qs)
-    return (
-        "Résumé des factures\n"
-        f"• Total : {total}\n"
-        f"• Montant cumulé : {total_amount:,.2f}€".replace(',', ' ').replace('.', ',')
-    )
-
-
-def _extract_existing_invoice_id(text: str) -> str | None:
-    for token in re.findall(r'\b[A-Z]{3,}-[A-Z0-9]{4,}\b', text.upper()):
-        if Facture.objects.filter(id=token).exists():
-            return token
-    return None
-
-
-def _map_status_from_text(text: str) -> str | None:
-    m = text.lower()
-    for k in sorted(INVOICE_STATUS_MAP.keys(), key=len, reverse=True):
-        if k in m:
-            return INVOICE_STATUS_MAP[k]
-    return None
-
-
-def _handle_invoice_query(message: str, user) -> str:
-    maybe_id = _extract_existing_invoice_id(message)
-    if maybe_id:
-        return _invoice_by_id(maybe_id, user)
-
-    low = message.lower()
-    if any(w in low for w in SUMMARY_KEYWORDS):
-        return _invoices_summary(user)
-    if any(w in low for w in LIST_KEYWORDS):
-        return _invoices_all(user, limit=20)
-
-    mapped_status = _map_status_from_text(message)
-    if mapped_status:
-        return _invoices_by_status(mapped_status, user)
-
-    m = re.search(r'fournisseur\s+(.+)$', message, flags=re.I)
-    if m:
-        supplier = m.group(1).strip()
-        if supplier:
-            return _invoices_by_supplier(supplier, user)
-
-    return _invoices_by_supplier(message.strip(), user)
-
-
-# ══════════════════════════════════════════════════════════════════
-#  JURIDIQUE (inchangé sauf signature de la fonction)
-# ══════════════════════════════════════════════════════════════════
-
-def _handle_legal_query(message: str) -> str:
-    api_key = getattr(settings, 'GROQ_API_KEY', None)
-    if not api_key:
-        return "Clé API Groq manquante"
-
-    legifrance_context = ""
-    try:
-        search_result = legifrance_search_generic(message, page_size=5)
-        legifrance_context = format_legifrance_context(search_result, max_items=3)
-    except Exception as e:
-        legifrance_context = f"(Impossible de récupérer des résultats Légifrance : {e})"
-
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    base_system_prompt = (
-        "Tu es un assistant juridique spécialisé en droit immobilier en France. "
-        "Tu t'adresses à des professionnels d'une agence immobilière.\n\n"
-        "Quand la question concerne des mesures très récentes (2023, 2024, 2025 : MaPrimeRénov', fiscalité, "
-        "taxe foncière, taxe d'habitation résiduelle, locations de courte durée type Airbnb, encadrement des loyers, "
-        "calendrier d'interdiction des logements F et G, etc.) :\n"
-        "- sois particulièrement prudent,\n"
-        "- ne donne pas de dates ou de seuils chiffrés si tu n'es pas sûr,\n"
-        "- recommande explicitement de vérifier sur service-public.fr, impots.gouv.fr, ANAH ou Légifrance "
-        "et de demander conseil à un professionnel (avocat, notaire, expert-comptable).\n"
-        "Précise clairement quand tu donnes une réponse générale ou approximative."
-    )
-
-    messages_list = [{"role": "system", "content": base_system_prompt}]
-    if legifrance_context:
-        messages_list.append({
-            "role": "system",
-            "content": f"Contexte Légifrance :\n\n{legifrance_context}",
-        })
-    messages_list.append({"role": "user", "content": message})
-
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": messages_list,
-        "temperature": 0.2,
-        "max_tokens": 700,
-        "stream": False,
-    }
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-
-    try:
-        r = requests.post(url, headers=headers, json=payload, timeout=30)
-        if r.status_code == 200:
-            data = r.json()
-            answer = data["choices"][0]["message"]["content"].strip()
-            if legifrance_context and legifrance_context.startswith("Résultats Légifrance"):
-                answer += (
-                    "\n\n---\n📚 **Sources Légifrance (métadonnées)**\n"
-                    + legifrance_context.replace("Résultats Légifrance (métadonnées) :", "").strip()
-                )
-            return answer
-        try:
-            err = r.json()
-        except Exception:
-            err = r.text
-        return f"Erreur API Groq ({r.status_code}) : {err}"
-    except requests.exceptions.Timeout:
-        return "Délai d'attente dépassé."
-    except requests.exceptions.ConnectionError as e:
-        return f"Erreur de connexion : {e}"
-    except Exception as e:
-        return f"Erreur inattendue : {e}"
-
-def _user_queryset(user):
-    return Facture.objects.select_related('client', 'fournisseur', 'dossier')
-
-
-def _invoice_by_id(invoice_id: str, user) -> str:
-    try:
-        inv = _user_queryset(user).get(id=invoice_id)
-        return (
-            f" Facture #{inv.id}\n"
-            f"• État : {inv.get_statut_display()}\n"
-            f"• Fournisseur : {inv.fournisseur}\n"
-            f"• Client : {inv.client or '—'}\n"
-            f"• Montant : {inv.montant}€\n"
-            f"• Dossier : {inv.dossier or '—'}\n"
-            f"• Échéance : {inv.echeance.strftime('%d/%m/%Y') if inv.echeance else '—'}\n"
-            f"• Titre : {inv.titre or '—'}"
-        )
-    except Facture.DoesNotExist:
-        return f"Aucune facture trouvée avec l’ID {invoice_id}"
-
-
-def _invoices_by_status(status: str, user) -> str:
-    qs = _user_queryset(user).filter(statut=status).order_by('-echeance')[:5]
-    if not qs:
-        return f"Aucune facture avec le statut {dict(Facture.STATUS).get(status, status)}."
-
-    lines = [f"Factures « {dict(Facture.STATUS).get(status, status)} » :"]
-    for inv in qs:
-        deadline = inv.echeance.strftime('%d/%m') if inv.echeance else '—'
-        lines.append(f"• #{inv.id} — {inv.fournisseur} — {inv.montant}€ — {deadline}")
-    return "\n".join(lines)
-
-
-def _invoices_by_supplier(supplier: str, user) -> str:
-    qs = _user_queryset(user).filter(fournisseur__nom__icontains=supplier).order_by('-echeance')[:5]
-    if not qs:
-        return f" Aucune facture pour « {supplier} »"
-
-    lines = [f" Factures — {supplier} :"]
-    for inv in qs:
-        lines.append(f"• #{inv.id} — {inv.statut} — {inv.montant}€")
-    return "\n".join(lines)
-
-
-def _invoices_all(user, limit=20) -> str:
-    qs = _user_queryset(user).order_by('-echeance')[:limit]
-    if not qs:
-        return "Aucune facture."
-
-    lines = ["Toutes les factures :"]
-    for inv in qs:
-        lines.append(f"• #{inv.id} — {inv.statut} — {inv.fournisseur} — {inv.montant}€")
-    return "\n".join(lines)
-
-
-def _invoices_summary(user) -> str:
-    qs = _user_queryset(user)
-    total = qs.count()
-    if total == 0:
-        return "Aucune facture."
-
-    total_amount = sum(inv.montant or 0 for inv in qs)
-    return (
-        "Résumé des factures\n"
-        f"• Total : {total}\n"
-        f"• Montant cumulé : {total_amount:,.2f}€".replace(',', ' ').replace('.', ',')
-    )
-
-
-
-def _extract_existing_invoice_id(text: str) -> str | None:
-    """
-    Cherche un token type FAC-XXXX dans le message et vérifie qu'il existe en base.
-    """
-    for token in re.findall(r'\b[A-Z]{3,}-[A-Z0-9]{4,}\b', text.upper()):
-        if Facture.objects.filter(id=token).exists():
-            return token
-    return None
-
-
-def _map_status_from_text(text: str) -> str | None:
-    m = text.lower()
-    # on teste les clés les plus longues
-    for k in sorted(INVOICE_STATUS_MAP.keys(), key=len, reverse=True):
-        if k in m:
-            return INVOICE_STATUS_MAP[k]
-    return None
-
-
-def _handle_invoice_query(message: str, user) -> str:
-    # 1) ID 
-    maybe_id = _extract_existing_invoice_id(message)
-    if maybe_id:
-        return _invoice_by_id(maybe_id, user)
-
-    low = message.lower()
-
-    # 2) Stats / résumé
-    if any(w in low for w in SUMMARY_KEYWORDS):
-        return _invoices_summary(user)
-
-    # 3) Liste complète 
-    if any(w in low for w in LIST_KEYWORDS):
-        return _invoices_all(user, limit=20)
-
-    # 4) Filtre par statut 
-    mapped_status = _map_status_from_text(message)
-    if mapped_status:
-        return _invoices_by_status(mapped_status, user)
-
-    # 5) Fournisseur
-    m = re.search(r'fournisseur\s+(.+)$', message, flags=re.I)
-    if m:
-        supplier = m.group(1).strip()
-        if supplier:
-            return _invoices_by_supplier(supplier, user)
-
-    return _invoices_by_supplier(message.strip(), user)
-
-
-# Questions juridiques
-
-def _handle_legal_query(message: str) -> str:
-    """
-    Utilise Légifrance comme base de connaissance (via /search),
-    puis Groq (Llama) pour générer la réponse en s'appuyant sur ces résultats
-    Spécialisé pour l'immobilier
-    """
-    
-    api_key = getattr(settings, 'GROQ_API_KEY', None)
-    if not api_key:
-        return "Clé API Groq manquante"
-
-    # 1) On récupérer des résultats depuis Légifrance
-    legifrance_context = ""
-    try:
-        # LODA_DATE dans legifrance_search_generic
-        search_result = legifrance_search_generic(message, page_size=5)
-        legifrance_context = format_legifrance_context(search_result, max_items=3)
-    except Exception as e:
-        # Si Légifrance est KO, on prévient juste le modèle pour ne planter le tout
-        legifrance_context = f"(Impossible de récupérer des résultats sur Légifrance pour cette question : {e})"
-
-    # 2) On contextualise la réponse via Groq
-    url = "https://api.groq.com/openai/v1/chat/completions"
-
-    base_system_prompt = (
-        "Tu es un assistant juridique spécialisé en droit immobilier en France. "
-        "Tu t'adresses à des professionnels d'une agence immobilière.\n\n"
-        "Quand la question concerne des mesures très récentes (2023, 2024, 2025 : MaPrimeRénov', fiscalité, "
-        "taxe foncière, taxe d'habitation résiduelle, locations de courte durée type Airbnb, encadrement des loyers, "
-        "calendrier d'interdiction des logements F et G, etc.) :\n"
-        "- sois particulièrement prudent,\n"
-        "- ne donne pas de dates ou de seuils chiffrés si tu n'es pas sûr,\n"
-        "- recommande explicitement de vérifier sur service-public.fr, impots.gouv.fr, ANAH ou Légifrance "
-        "et de demander conseil à un professionnel (avocat, notaire, expert-comptable).\n"
-        "Précise clairement quand tu donnes une réponse générale ou approximative."
-    )
-
-
-
-    messages = [
-        {"role": "system", "content": base_system_prompt},
-    ]
-
-    if legifrance_context:
-        messages.append({
-            "role": "system",
-            "content": (
-                "Contexte brut provenant directement de l'API Légifrance. "
-                "Utilise-le pour étayer ta réponse :\n\n"
-                f"{legifrance_context}"
-            )
-        })
-
-    messages.append({"role": "user", "content": message})
-
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": messages,
-        "temperature": 0.2,
-        "max_tokens": 700,
-        "stream": False,
-    }
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-
-    try:
-        r = requests.post(url, headers=headers, json=payload, timeout=30)
-        if r.status_code == 200:
-            data = r.json()
-            answer = data["choices"][0]["message"]["content"].strip()
-
-            # On ajoute les sources Légifrance à la fin
-            if legifrance_context and legifrance_context.startswith("Résultats Légifrance"):
-                answer += (
-                    "\n\n---\n"
-                    "📚 **Sources Légifrance (métadonnées)**\n"
-                    + legifrance_context.replace("Résultats Légifrance (métadonnées) :", "").strip()
-                )
-
-            return answer
-        try:
-            err = r.json()
-        except Exception:
-            err = r.text
-        return f" Erreur API Groq ({r.status_code}) : {err}"
-    except requests.exceptions.Timeout:
-        return "⏱️ Délai d’attente dépassé."
-    except requests.exceptions.ConnectionError as e:
-        return f" Erreur de connexion : {e}"
-    except Exception as e:
-        return f" Erreur inattendue : {e}"
+        return JsonResponse({"success": False, "response": answer}, status=500)
