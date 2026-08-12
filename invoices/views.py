@@ -121,7 +121,7 @@ class FactureListView(FilterView):
             'Société',
             'Affaire',
             'Dossier',
-            'Service',
+            'Pôle',
             'Fournisseur',
             'Montant TTC',
             'Statut',
@@ -316,8 +316,7 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
         form.instance.created_by = self.request.user
         form.instance.demandeur = self.request.user
         form.instance.collaborateur = self.request.user
-        form.instance.service = get_invoice_service_for_user(self.request.user)
-        
+
         response = super().form_valid(form)
         FactureHistorique.objects.create(
             facture=self.object,
@@ -332,6 +331,11 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
     def get_success_url(self):
         messages.success(self.request, "Facture créée.")
         return reverse('invoices:detail', args=[self.object.pk])
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial.setdefault("service", get_invoice_service_for_user(self.request.user))
+        return initial
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

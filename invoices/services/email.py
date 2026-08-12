@@ -63,7 +63,7 @@ def _invoice_details(facture):
         f"Montant TTC : {facture.montant if facture.montant is not None else '-'} €\n"
         f"Échéance : {facture.echeance.strftime('%d/%m/%Y') if facture.echeance else '-'}\n"
         f"Demandeur : {demandeur}\n"
-        f"Service / pôle : {facture.get_service_display() if facture.service else '-'}\n"
+        f"Pôle : {facture.get_service_display() if facture.service else '-'}\n"
         f"Priorité : {facture.get_priorite_display() if facture.priorite else '-'}\n"
         f"Lien intranet : {_invoice_link(facture)}"
     )

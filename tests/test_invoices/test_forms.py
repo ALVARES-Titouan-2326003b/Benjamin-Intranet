@@ -25,11 +25,14 @@ def test_choice_helpers():
     assert build_choices(labels) == [(label, label) for label in labels]
 
 
-def test_facture_form_keeps_service_assignment_outside_user_input():
+def test_facture_form_exposes_required_pole_field():
     form = FactureForm()
 
     assert "client_input" not in form.fields
-    assert "service" not in form.fields
+    assert "service" in form.fields
+    assert form.fields["service"].label == "Pôle"
+    assert form.fields["service"].required is True
+    assert list(form.fields["service"].choices)[1:] == Facture.SERVICE_CHOICES
 
 
 def test_invoice_statuses_are_limited_to_received_and_pending():

@@ -135,6 +135,7 @@ class FactureForm(forms.ModelForm):
             "societe",
             "dossier",
             "montant",
+            "service",
             "statut",
             "date_facture",
             "echeance",
@@ -153,6 +154,8 @@ class FactureForm(forms.ModelForm):
         # Statut : utilise directement les choices du modèle
         self.fields["statut"].choices = Facture.STATUS
         self.fields["montant"].label = "Montant TTC (€)"
+        self.fields["service"].label = "Pôle"
+        self.fields["service"].required = True
         self.fields["numero_facture"].required = True
         self.fields["societe"].required = False
         self.fields["societe"].help_text = (
@@ -276,6 +279,7 @@ class FactureFormCollaborateur(FactureForm):
             "societe",
             "dossier",
             "montant",
+            "service",
             "date_facture",
             "echeance",
             "priorite",

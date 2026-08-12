@@ -533,6 +533,7 @@ def test_promotion_user_can_create_invoice_without_collaborateur_role(client, pr
             project,
             societe,
             statut="pending",
+            service="technique",
             fichier=SimpleUploadedFile(
                 "facture-promotion.pdf",
                 b"%PDF-1.4 facture promotion",
@@ -547,7 +548,7 @@ def test_promotion_user_can_create_invoice_without_collaborateur_role(client, pr
     assert facture.demandeur == user
     assert facture.collaborateur == user
     assert facture.statut == "received"
-    assert facture.service == "promotion"
+    assert facture.service == "technique"
     assert facture.dossier == project
     assert facture.affaire == "TECH-001 - Projet Test"
 
@@ -599,7 +600,7 @@ def test_invoice_creation_notifies_finance_and_ceo(
     assert "Dossier / affaire : TECH-001 - Projet Test" in email.body
     assert "Montant TTC : 450.0 €" in email.body
     assert "Demandeur : promotion-notif" in email.body
-    assert "Service / pôle : Promotion" in email.body
+    assert "Pôle : Promotion" in email.body
     assert "Lien intranet : https://intranet.example.test/finance/facture/" in email.body
     assert len(email.attachments) == 1
     assert email.attachments[0][0] == "facture-notification.pdf"
@@ -723,7 +724,7 @@ def test_non_finance_user_cannot_forge_invoice_status_update(client, invoice, so
     assert response.status_code == 302
     invoice.refresh_from_db()
     assert invoice.statut == "received"
-    assert invoice.service == "financier"
+    assert invoice.service == "developpement"
 
 
 @pytest.mark.django_db

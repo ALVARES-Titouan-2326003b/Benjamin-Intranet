@@ -148,7 +148,13 @@ class Facture(models.Model):
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING, db_column='client')
     montant = models.FloatField("Montant TTC (€)", null=True)
     statut = models.TextField(choices=STATUS, default="received")
-    service = models.CharField(max_length=100, choices=SERVICE_CHOICES, blank=True, default="")
+    service = models.CharField(
+        "Pôle",
+        max_length=100,
+        choices=SERVICE_CHOICES,
+        blank=True,
+        default="",
+    )
     date_facture = models.DateField("Date de facture", null=True, blank=True)
     date_soumission = models.DateTimeField("Date de soumission", default=timezone.now)
     echeance = models.DateTimeField("Échéance de paiement", null=True, blank=True)

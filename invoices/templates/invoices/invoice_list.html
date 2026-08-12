@@ -93,7 +93,7 @@
         </div>
 
         <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 0.8rem;">Service</label>
+            <label class="form-label" style="font-size: 0.8rem;">Pôle</label>
             <select name="service" class="form-control">
                 <option value="">Tous</option>
                 <option value="developpement" {% if request.GET.service == 'developpement' %}selected{% endif %}>Développement</option>
@@ -154,7 +154,7 @@
                     <th>N° facture</th>
                     <th>Société</th>
                     <th>Dossier / affaire</th>
-                    <th>Service</th>
+                    <th>Pôle</th>
                     <th>Fournisseur</th>
                     <th class="invoice-table__amount-cell">Montant</th>
                     <th class="invoice-table__status-cell">Statut</th>
