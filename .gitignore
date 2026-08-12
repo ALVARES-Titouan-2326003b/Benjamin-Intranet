@@ -76,6 +76,8 @@ media/
 factures/
 uploads/
 backups/
+data/excel/*
+!data/excel/.gitkeep
 .env.production
 deploy/certs/*.pem
 .coverage

@@ -1,4 +1,5 @@
 import io
+import logging
 from html import escape
 
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -37,6 +38,10 @@ from .models import (
 )
 from .services.email import send_invoice_submission_email
 from .services.quality import get_invoice_anomalies
+from .services.excel_sync import sync_invoice_to_workbook
+
+
+logger = logging.getLogger(__name__)
 
 
 USER_GROUP_TO_INVOICE_SERVICE = {
@@ -63,6 +68,47 @@ def get_invoice_service_for_user(user):
         if group_name in group_names:
             return service
     return ""
+
+
+def synchronize_configured_invoice_workbook(invoice, user=None):
+    """Synchronise la facture si un classeur a été configuré pour l'environnement."""
+    from django.conf import settings
+
+    workbook_path = getattr(settings, "INVOICE_EXCEL_SYNC_PATH", "")
+    if not workbook_path:
+        return None
+    try:
+        result = sync_invoice_to_workbook(
+            invoice,
+            workbook_path,
+            sheet_name=getattr(settings, "INVOICE_EXCEL_SYNC_SHEET", ""),
+            header_row=getattr(settings, "INVOICE_EXCEL_SYNC_HEADER_ROW", 1),
+            create_if_missing=getattr(
+                settings,
+                "INVOICE_EXCEL_SYNC_CREATE_IF_MISSING",
+                False,
+            ),
+        )
+    except Exception as exc:
+        logger.exception("Échec de synchronisation Excel pour la facture %s", invoice.pk)
+        FactureHistorique.objects.create(
+            facture=invoice,
+            action="excel_sync_error",
+            user=user,
+            details=str(exc)[:2000],
+        )
+        return False
+
+    FactureHistorique.objects.create(
+        facture=invoice,
+        action="excel_sync_success",
+        user=user,
+        details=(
+            f"{result.workbook_path.name} — feuille {result.sheet_name}, "
+            f"ligne {result.row} ({'ajout' if result.created else 'mise à jour'})"
+        ),
+    )
+    return True
 
 
 # ================== Liste / Détail ==================
@@ -370,6 +416,12 @@ class FactureCreateView(_PieceJointeMixin, CreateView):
             details=f"Facture créée par {self.request.user.username}"
         )
         send_invoice_submission_email(self.object)
+        if synchronize_configured_invoice_workbook(self.object, self.request.user) is False:
+            messages.warning(
+                self.request,
+                "La facture est enregistrée, mais sa synchronisation Excel a échoué. "
+                "L'erreur est conservée dans l'historique.",
+            )
         return response
 
     def get_success_url(self):
@@ -423,6 +475,12 @@ class FactureUpdateView(_PieceJointeMixin, UpdateView):
             user=self.request.user,
             details=f"Facture modifiée par {self.request.user.username}"
         )
+
+        if synchronize_configured_invoice_workbook(self.object, self.request.user) is False:
+            messages.warning(
+                self.request,
+                "La facture est mise à jour dans l'intranet, mais la synchronisation Excel a échoué.",
+            )
 
         return response
 

@@ -194,6 +194,8 @@ class FactureHistorique(models.Model):
         ('reminder_skipped', 'Relance ignorée'),
         ('reminder_error', 'Erreur de relance'),
         ('user_action', 'Action utilisateur'),
+        ('excel_sync_success', 'Synchronisation Excel réussie'),
+        ('excel_sync_error', 'Erreur de synchronisation Excel'),
     ]
 
     facture = models.ForeignKey(

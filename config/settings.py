@@ -259,6 +259,15 @@ MEDIA_ROOT = BASE_DIR / 'media'
 FILE_UPLOAD_MAX_MEMORY_SIZE = env.int("FILE_UPLOAD_MAX_MEMORY_SIZE", default=10 * 1024 * 1024)
 DATA_UPLOAD_MAX_MEMORY_SIZE = env.int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=12 * 1024 * 1024)
 
+# Classeur partagé de suivi des factures. Une valeur vide désactive la synchronisation.
+INVOICE_EXCEL_SYNC_PATH = env("INVOICE_EXCEL_SYNC_PATH", default="").strip()
+INVOICE_EXCEL_SYNC_SHEET = env("INVOICE_EXCEL_SYNC_SHEET", default="").strip()
+INVOICE_EXCEL_SYNC_HEADER_ROW = env.int("INVOICE_EXCEL_SYNC_HEADER_ROW", default=1)
+INVOICE_EXCEL_SYNC_CREATE_IF_MISSING = env.bool(
+    "INVOICE_EXCEL_SYNC_CREATE_IF_MISSING",
+    default=False,
+)
+
 # url email
 SITE_URL = env("SITE_URL", default="http://127.0.0.1:8000")
 

@@ -13,6 +13,7 @@ x-app: &app
   volumes:
     - media_data:/app/media
     - static_data:/app/staticfiles
+    - ${INVOICE_EXCEL_HOST_DIR:-./data/excel}:/data/shared
   restart: unless-stopped
 
 services:
