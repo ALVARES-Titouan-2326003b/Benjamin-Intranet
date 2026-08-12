@@ -2,6 +2,18 @@
  * Calendrier avec activités - Version avec Tooltips
  */
 
+function addMinutesToLocalDateTime(value, minutes) {
+    if (!value) return '';
+    const [datePart, timePart] = value.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minute] = timePart.split(':').map(Number);
+    const result = new Date(year, month - 1, day, hours, minute);
+    result.setMinutes(result.getMinutes() + Number(minutes || 0));
+    const pad = number => String(number).padStart(2, '0');
+    return `${result.getFullYear()}-${pad(result.getMonth() + 1)}-${pad(result.getDate())}`
+        + `T${pad(result.getHours())}:${pad(result.getMinutes())}`;
+}
+
 (function() {
 
 
@@ -689,7 +701,8 @@
         const societeSelect    = document.getElementById('activity-societe');
         const titleInput       = document.getElementById('activity-title');
         const dateInput        = document.getElementById('activity-date');
-        const dureeSelect      = document.getElementById('activity-duree-minutes');
+        const endDateInput     = document.getElementById('activity-end-date');
+        const durationInput    = document.getElementById('activity-duree-minutes');
         const responsableSelect = document.getElementById('activity-responsable');
         const statutSelect     = document.getElementById('activity-statut');
         const prioriteSelect   = document.getElementById('activity-priorite');
@@ -715,7 +728,11 @@
         }
         if (titleInput) titleInput.value = act.titre || '';
         if (dateInput)     dateInput.value     = fullDateStr;
-        if (dureeSelect)   dureeSelect.value   = String(act.duree_minutes || 60);
+        if (endDateInput) {
+            endDateInput.value = addMinutesToLocalDateTime(fullDateStr, Number(act.duree_minutes || 60));
+            endDateInput.min = fullDateStr;
+        }
+        if (durationInput) durationInput.value = String(act.duree_minutes || 60);
         if (responsableSelect) responsableSelect.value = act.responsable_id || '';
         if (statutSelect) statutSelect.value = act.statut || 'todo';
         if (prioriteSelect) prioriteSelect.value = act.priorite || 'normal';
@@ -968,6 +985,9 @@
     const statusDiv = document.getElementById('activity-form-status');
     const dossierSelect = document.getElementById('activity-dossier');
     const societeSelect = document.getElementById('activity-societe');
+    const startDateInput = document.getElementById('activity-date');
+    const endDateInput = document.getElementById('activity-end-date');
+    const durationInput = document.getElementById('activity-duree-minutes');
 
     console.log('Modal:', modal);
     console.log('Button:', openBtn);
@@ -1000,13 +1020,26 @@
         deleteBtn.style.display = 'none';
         document.getElementById('activity-statut').value = 'todo';
         document.getElementById('activity-priorite').value = 'normal';
-        document.getElementById('activity-duree-minutes').value = '60';
         modal.style.display = 'flex';
         const now = new Date();
         const selectedDate = window.adminCalendarState?.selectedDate;
         const defaultDate = selectedDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const defaultTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        document.getElementById('activity-date').value = `${defaultDate}T${defaultTime}`;
+        const defaultStart = `${defaultDate}T${defaultTime}`;
+        if (startDateInput) startDateInput.value = defaultStart;
+        if (endDateInput) {
+            endDateInput.value = addMinutesToLocalDateTime(defaultStart, 60);
+            endDateInput.min = defaultStart;
+        }
+        if (durationInput) durationInput.value = '60';
+    });
+
+    startDateInput?.addEventListener('change', function() {
+        if (!this.value || !endDateInput) return;
+        if (!endDateInput.value || endDateInput.value <= this.value) {
+            endDateInput.value = addMinutesToLocalDateTime(this.value, 60);
+        }
+        endDateInput.min = this.value;
     });
 
     function closeModal() {
@@ -1080,12 +1113,20 @@
     form.addEventListener('submit', function(e) {
         e.preventDefault();
 
+        const startValue = startDateInput?.value || '';
+        const endValue = endDateInput?.value || '';
+        if (startValue && endValue && durationInput) {
+            const duration = Math.round((new Date(endValue) - new Date(startValue)) / 60000);
+            if (Number.isFinite(duration) && duration > 0) durationInput.value = String(duration);
+        }
+
         const formData = {
             titre:       document.getElementById('activity-title').value.trim(),
             dossier:     document.getElementById('activity-dossier').value.trim(),
             societe:     document.getElementById('activity-societe').value,
-            date:        document.getElementById('activity-date').value,
-            duree_minutes: document.getElementById('activity-duree-minutes').value,
+            date:        startValue,
+            date_fin:    endValue,
+            duree_minutes: durationInput?.value || '60',
             responsable: document.getElementById('activity-responsable').value,
             statut:      document.getElementById('activity-statut').value,
             priorite:    document.getElementById('activity-priorite').value,
@@ -1094,8 +1135,12 @@
             sync_outlook: document.getElementById('activity-sync-outlook')?.checked || false
         };
 
-        if (!formData.date) {
+        if (!formData.date || (endDateInput && !formData.date_fin)) {
             showStatus('Veuillez remplir tous les champs obligatoires', 'error');
+            return;
+        }
+        if (formData.date_fin && formData.date_fin <= formData.date) {
+            showStatus('La fin du créneau doit être postérieure au début', 'error');
             return;
         }
 

@@ -115,6 +115,11 @@ def test_superadmin_does_not_see_admin_calendar_toggle(client, admin_user):
     assert b"Calendrier administrateur" not in response.content
     assert b'activity-type' not in response.content
     assert "Type d’activité".encode() not in response.content
+    assert b'id="activity-date"' in response.content
+    assert b'id="activity-end-date"' in response.content
+    assert b'<input type="hidden" id="activity-duree-minutes"' in response.content
+    assert b'calendar.js' in response.content
+    assert b'?v=10' in response.content
 
 
 @pytest.mark.django_db
@@ -326,7 +331,37 @@ def test_activity_create_update_delete_with_outlook(client, admin_user, responsa
 
 
 @pytest.mark.django_db
-def test_activity_rejects_invalid_duration(client, admin_user, dossier):
+def test_activity_accepts_custom_start_and_end_slot(client, admin_user, dossier):
+    client.force_login(admin_user)
+    start = (timezone.now() + timedelta(days=3)).replace(
+        hour=9,
+        minute=15,
+        second=0,
+        microsecond=0,
+    )
+    end = start + timedelta(minutes=95)
+
+    response = _post_json(
+        client,
+        "/api/create-activity/",
+        {
+            "titre": "Créneau personnalisé",
+            "dossier": dossier.reference,
+            "societe": dossier.societe_id,
+            "date": start.isoformat(),
+            "date_fin": end.isoformat(),
+        },
+    )
+
+    assert response.status_code == 200
+    activity = Activite.objects.get(pk=response.json()["activity_id"])
+    assert activity.duree_minutes == 95
+    assert activity.get_duree_minutes_display() == "1 h 35"
+    assert response.json()["activity"]["end_time"] == timezone.localtime(end).strftime("%H:%M")
+
+
+@pytest.mark.django_db
+def test_activity_rejects_invalid_custom_slot(client, admin_user, dossier):
     client.force_login(admin_user)
     date_value = (timezone.now() + timedelta(days=3)).replace(second=0, microsecond=0)
 
@@ -338,12 +373,12 @@ def test_activity_rejects_invalid_duration(client, admin_user, dossier):
             "dossier": dossier.reference,
             "societe": dossier.societe_id,
             "date": date_value.isoformat(),
-            "duree_minutes": 45,
+            "date_fin": (date_value - timedelta(minutes=15)).isoformat(),
         },
     )
 
     assert response.status_code == 400
-    assert "Durée de créneau invalide" in response.json()["message"]
+    assert "postérieure au début" in response.json()["message"]
 
 
 @pytest.mark.django_db

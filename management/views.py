@@ -29,10 +29,6 @@ from user_access.user_test_functions import has_administratif_access
 from .email_manager import (
     create_outlook_event,
     delete_outlook_event,
-    fetch_new_emails,
-    get_email_summary,
-    get_sent_emails,
-    send_email_reply,
     update_outlook_event,
 )
 from .models import (
@@ -660,6 +656,8 @@ def _can_mutate_calendar_activity(user, activity):
 
 def _serialize_activity(activity, include_datetime=False):
     date_value = activity.date
+    if date_value and timezone.is_aware(date_value):
+        date_value = timezone.localtime(date_value)
     duree_minutes = activity.duree_minutes or 60
     is_overdue = bool(
         date_value
@@ -1108,8 +1106,6 @@ def _apply_calendar_filters(queryset, params):
     responsable = (params.get("responsable") or "").strip()
     statut = (params.get("statut") or "").strip()
     priorite = (params.get("priorite") or "").strip()
-    client = (params.get("client") or "").strip()
-    contact = (params.get("contact") or "").strip()
     date_from = (params.get("date_from") or "").strip()
     date_to = (params.get("date_to") or "").strip()
 
@@ -1236,10 +1232,12 @@ def _parse_ics_duration_minutes(value):
 
 
 def _normalize_import_duration(minutes):
-    allowed = [value for value, _ in Activite.DUREES_CRENEAU]
     if not minutes:
         return 60
-    return min(allowed, key=lambda value: abs(value - minutes))
+    return min(
+        max(int(minutes), Activite.DUREE_MINIMALE_MINUTES),
+        Activite.DUREE_MAXIMALE_MINUTES,
+    )
 
 
 def _parse_calendar_ics_events(uploaded_file):
@@ -1462,23 +1460,32 @@ def _activity_form_data(data, current_dossier=None, current_societe=None):
 
     statut = (data.get("statut") or "todo").strip()
     priorite = (data.get("priorite") or "normal").strip()
-    duree_raw = str(data.get("duree_minutes") or "60").strip()
+    activity_start = _parse_iso_datetime(date_str)
+    end_date_str = str(data.get("date_fin") or data.get("end_date") or "").strip()
     if statut not in dict(Activite.STATUTS):
         raise ValueError("Statut invalide")
     if priorite not in dict(Activite.PRIORITES):
         raise ValueError("Priorité invalide")
-    try:
-        duree_minutes = int(duree_raw)
-    except ValueError:
-        raise ValueError("Durée de créneau invalide.")
-    if duree_minutes not in dict(Activite.DUREES_CRENEAU):
-        raise ValueError("Durée de créneau invalide.")
+    if end_date_str:
+        activity_end = _parse_iso_datetime(end_date_str)
+        duration_seconds = (activity_end - activity_start).total_seconds()
+        if duration_seconds <= 0:
+            raise ValueError("La fin du créneau doit être postérieure au début.")
+        duree_minutes = int(duration_seconds // 60)
+    else:
+        duree_raw = str(data.get("duree_minutes") or "60").strip()
+        try:
+            duree_minutes = int(duree_raw)
+        except ValueError:
+            raise ValueError("Durée de créneau invalide.")
+    if not Activite.DUREE_MINIMALE_MINUTES <= duree_minutes <= Activite.DUREE_MAXIMALE_MINUTES:
+        raise ValueError("Le créneau doit durer entre 5 minutes et 24 heures.")
 
     return {
         "titre": (data.get("titre") or "").strip(),
         "dossier": dossier_obj,
         "societe": societe,
-        "date": _parse_iso_datetime(date_str),
+        "date": activity_start,
         "duree_minutes": duree_minutes,
         "date_type": "date",
         "commentaire": (data.get("commentaire") or "").strip() or None,

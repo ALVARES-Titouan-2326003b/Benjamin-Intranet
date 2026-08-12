@@ -193,12 +193,8 @@ class Activite(models.Model):
         ("high", "Haute"),
         ("urgent", "Urgente"),
     ]
-    DUREES_CRENEAU = [
-        (30, "30 min"),
-        (60, "1 h"),
-        (90, "1 h 30"),
-        (120, "2 h"),
-    ]
+    DUREE_MINIMALE_MINUTES = 5
+    DUREE_MAXIMALE_MINUTES = 24 * 60
 
     id = models.TextField(primary_key=True)
     titre = models.CharField(max_length=255, blank=True)
@@ -218,7 +214,7 @@ class Activite(models.Model):
         verbose_name="Société",
     )
     date = models.DateTimeField(blank=True, null=True)
-    duree_minutes = models.PositiveSmallIntegerField("Durée du créneau", choices=DUREES_CRENEAU, default=60)
+    duree_minutes = models.PositiveSmallIntegerField("Durée du créneau", default=60)
     date_type = models.TextField(choices=TYPES, default="echeance")
     commentaire = models.TextField(blank=True, null=True)
     statut = models.CharField(max_length=20, choices=STATUTS, default="todo")
@@ -257,6 +253,16 @@ class Activite(models.Model):
         date_label = self.date.strftime('%Y-%m-%d') if self.date else "sans date"
         dossier_label = self.dossier or "sans dossier"
         return f"{self.titre or 'Activité'} - {dossier_label} ({date_label})"
+
+    def get_duree_minutes_display(self):
+        """Formate aussi bien les anciens créneaux que les durées personnalisées."""
+        minutes = self.duree_minutes or 0
+        hours, remaining_minutes = divmod(minutes, 60)
+        if hours and remaining_minutes:
+            return f"{hours} h {remaining_minutes:02d}"
+        if hours:
+            return f"{hours} h"
+        return f"{remaining_minutes} min"
 
     def save(self, *args, **kwargs):
         if self.dossier_id:

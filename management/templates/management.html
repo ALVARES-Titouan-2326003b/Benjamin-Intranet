@@ -378,21 +378,19 @@
             </select>
          </div>
 
-         <!-- Date & heure -->
-         <div class="form-group">
-            <label class="form-label">Date et heure *</label>
-            <input type="datetime-local" id="activity-date" name="date" class="form-control" required>
+         <!-- Créneau personnalisé -->
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem;">
+            <div class="form-group">
+               <label class="form-label">Début du créneau *</label>
+               <input type="datetime-local" id="activity-date" name="date" class="form-control" required>
+            </div>
+            <div class="form-group">
+               <label class="form-label">Fin du créneau *</label>
+               <input type="datetime-local" id="activity-end-date" name="date_fin" class="form-control" required>
+            </div>
          </div>
-
-         <div class="form-group">
-            <label class="form-label">Créneau *</label>
-            <select id="activity-duree-minutes" name="duree_minutes" class="form-control" required>
-               <option value="30">30 min</option>
-               <option value="60" selected>1 h</option>
-               <option value="90">1 h 30</option>
-               <option value="120">2 h</option>
-            </select>
-         </div>
+         {# Compatibilité avec une ancienne version de calendar.js encore en cache. #}
+         <input type="hidden" id="activity-duree-minutes" name="duree_minutes" value="60">
 
          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;">
             <div class="form-group">
@@ -609,6 +607,6 @@ document.addEventListener('DOMContentLoaded', function () {
    );
 });
 </script>
-<script src="{% static '/js/calendar.js' %}?v=9"></script>
+<script src="{% static '/js/calendar.js' %}?v=10"></script>
 <script src="{% static '/js/oauth_status.js' %}?v=4"></script>
 {% endblock %}
