@@ -546,7 +546,7 @@ def test_project_actions_only_allow_technical_assignees(
 def test_administrative_pole_has_read_only_technical_project_access(
     client, administrative_user, project
 ):
-    action = TechnicalProjectAction.objects.create(project=project, title="Action visible")
+    TechnicalProjectAction.objects.create(project=project, title="Action visible")
     client.force_login(administrative_user)
 
     list_response = client.get(reverse("technique:dossiers_list"))

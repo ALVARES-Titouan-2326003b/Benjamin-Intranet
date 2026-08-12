@@ -4,6 +4,9 @@ Hérite de settings.py mais utilise SQLite en mémoire
 """
 from .settings import *  # noqa: F403,F401
 
+DEBUG = True
+CELERY_TASK_ALWAYS_EAGER = True
+
 # Override de la base de données pour les tests
 DATABASES = {
     'default': {
@@ -12,10 +15,11 @@ DATABASES = {
     }
 }
 
-# Optionnel : désactiver le cache pour les tests
+# Cache mémoire pour tester aussi les sondes de disponibilité.
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'benjamin-intranet-tests',
     }
 }
 

@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-and-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: benjamin_ci
+          POSTGRES_USER: benjamin_ci
+          POSTGRES_PASSWORD: ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U benjamin_ci -d benjamin_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PYTHONIOENCODING: utf-8
+      DJANGO_ENV: production
+      SECRET_KEY: ci-only-secret-key-with-more-than-fifty-random-looking-characters-829461
+      FIELD_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      CSRF_TRUSTED_ORIGINS: https://localhost
+      SITE_URL: https://localhost
+      POSTGRES_DB: benjamin_ci
+      POSTGRES_USER: benjamin_ci
+      POSTGRES_PASSWORD: ci-password
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: 5432
+      POSTGRES_SSLMODE: disable
+      CELERY_BROKER_URL: redis://127.0.0.1:6379/0
+      CELERY_RESULT_BACKEND: django-db
+      CACHE_URL: redis://127.0.0.1:6379/1
+      SECURE_HSTS_INCLUDE_SUBDOMAINS: "True"
+      SECURE_HSTS_PRELOAD: "True"
+      GROQ_API_KEY: ci-placeholder
+      LEGIFRANCE_CLIENT_ID: ci-placeholder
+      LEGIFRANCE_CLIENT_SECRET: ci-placeholder
+      GOOGLE_CLIENT_ID: ci-placeholder
+      GOOGLE_CLIENT_SECRET: ci-placeholder
+      EMAIL_HOST: smtp.invalid
+      EMAIL_HOST_USER: ci@example.invalid
+      EMAIL_HOST_PASSWORD: ci-placeholder
+      DEFAULT_FROM_EMAIL: ci@example.invalid
+      LEGIFRANCE_ENV: prod
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Audit des dépendances
+        run: python -m pip_audit --strict -r requirements.txt
+      - name: Qualité Python
+        run: python -m ruff check . --exclude htmlcov,.venv
+      - name: Cohérence des migrations
+        run: python manage.py makemigrations --check --dry-run
+      - name: Migration d'une base vierge
+        run: python manage.py migrate --noinput
+      - name: Contrôles de déploiement
+        run: python manage.py check --deploy --fail-level WARNING
+      - name: Collecte des statiques
+        run: python manage.py collectstatic --noinput --dry-run
+      - name: Tests
+        run: python -m pytest -q

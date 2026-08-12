@@ -1,7 +1,6 @@
 import os
 import logging
 import traceback
-from datetime import datetime, timedelta
 
 from celery import shared_task
 from django.conf import settings
@@ -15,7 +14,6 @@ from .models import (
     ModeleRelance,
     TempsRelance,
     EmailClient,
-    Activite,
     HistoriqueRappelActivite,
     RappelActivite,
     OAuthToken,
