@@ -1,18 +1,18 @@
 from datetime import date, timedelta
+from io import BytesIO
 
 import pytest
+from pypdf import PdfReader
 from django.contrib.auth.models import Group, User
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 
-from invoices.forms import FactureForm
 from invoices.models import (
     ActeurExterne,
     Client,
     Entreprise,
     Facture,
-    FactureHistorique,
     Fournisseur,
     PieceJointe,
     Societe,
@@ -407,6 +407,33 @@ def test_invoice_list_renders_stable_status_and_date_cells(client, finance_user,
     assert 'class="invoice-table__status-cell"' in content
     assert 'class="invoice-status invoice-status--pending"' in content
     assert 'class="invoice-table__date-cell"' in content
+
+
+@pytest.mark.django_db
+def test_invoice_pdf_export_fits_all_columns_on_landscape_page(
+    client,
+    finance_user,
+    invoice,
+):
+    invoice.dossier.name = "Une résidence avec un nom volontairement très long"
+    invoice.dossier.save(update_fields=["name"])
+    invoice.fournisseur.nom = "Un fournisseur au nom particulièrement long"
+    invoice.fournisseur.save(update_fields=["nom"])
+    client.force_login(finance_user)
+
+    response = client.get("/finance/", {"export": "pdf"})
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "application/pdf"
+    reader = PdfReader(BytesIO(response.content))
+    first_page = reader.pages[0]
+    assert float(first_page.mediabox.width) > float(first_page.mediabox.height)
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    assert "Dossier / affaire" in text
+    assert "Pôle" in text
+    assert "Fournisseur" in text
+    assert "Échéance" in text
+    assert "FAC-001" in text
 
 
 @pytest.mark.django_db

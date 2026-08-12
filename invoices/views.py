@@ -1,20 +1,22 @@
 import io
+from html import escape
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils import timezone
 from django.views import View
 from django.utils.decorators import method_decorator
 from django_filters.views import FilterView
 from django.views.generic import DetailView, CreateView, UpdateView, TemplateView
 
 from openpyxl import Workbook
-from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
 
 from user_access.user_test_functions import (
     has_finance_access,
@@ -162,40 +164,81 @@ class FactureListView(FilterView):
 
     def export_to_pdf(self, queryset):
         output = io.BytesIO()
-        doc = SimpleDocTemplate(output, pagesize=letter)
+        doc = SimpleDocTemplate(
+            output,
+            pagesize=landscape(A4),
+            leftMargin=24,
+            rightMargin=24,
+            topMargin=24,
+            bottomMargin=24,
+            title="Export des factures",
+        )
 
-        data = [[
-            'ID',
-            'N° facture',
-            'Société',
-            'Affaire',
-            'Dossier',
-            'Service',
-            'Montant',
-            'Statut',
-            'Échéance',
-        ]]
+        header_style = ParagraphStyle(
+            "InvoiceExportHeader",
+            fontName="Helvetica-Bold",
+            fontSize=7,
+            leading=8,
+            textColor=colors.white,
+            alignment=TA_LEFT,
+        )
+        cell_style = ParagraphStyle(
+            "InvoiceExportCell",
+            fontName="Helvetica",
+            fontSize=6.7,
+            leading=8,
+            textColor=colors.black,
+            alignment=TA_LEFT,
+            splitLongWords=True,
+        )
+
+        def cell(value, style=cell_style):
+            return Paragraph(escape(str(value or "—")), style)
+
+        headers = [
+            "ID",
+            "N° facture",
+            "Société",
+            "Dossier / affaire",
+            "Pôle",
+            "Fournisseur",
+            "Montant",
+            "Statut",
+            "Échéance",
+        ]
+        data = [[cell(label, header_style) for label in headers]]
 
         for invoice in queryset:
+            case_label = str(invoice.dossier) if invoice.dossier else invoice.affaire
             data.append([
-                invoice.id,
-                invoice.numero_facture or '',
-                str(invoice.societe) if invoice.societe else '',
-                invoice.affaire or '',
-                str(invoice.dossier) if invoice.dossier else '',
-                invoice.get_service_display() if invoice.service else '',
-                f"{invoice.montant:.2f}" if invoice.montant is not None else '',
-                invoice.get_statut_display(),
-                invoice.echeance.strftime('%Y-%m-%d') if invoice.echeance else '',
+                cell(invoice.id),
+                cell(invoice.numero_facture),
+                cell(invoice.societe),
+                cell(case_label),
+                cell(invoice.get_service_display() if invoice.service else "—"),
+                cell(invoice.fournisseur),
+                cell(f"{invoice.montant:.2f} €" if invoice.montant is not None else "—"),
+                cell(invoice.get_statut_display()),
+                cell(invoice.echeance.strftime("%d/%m/%Y") if invoice.echeance else "—"),
             ])
 
-        table = Table(data, repeatRows=1, hAlign='LEFT')
+        table = Table(
+            data,
+            colWidths=[85, 72, 88, 155, 72, 105, 62, 70, 72],
+            repeatRows=1,
+            hAlign="LEFT",
+        )
         table_style = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.whitesmoke]),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ])
         table.setStyle(table_style)
 
