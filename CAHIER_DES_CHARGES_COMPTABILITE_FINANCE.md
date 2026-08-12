@@ -16,7 +16,7 @@ Note de cadrage : les nouveaux besoins du pôle finance ajoutent un module de **
   - Pôle Administratif : création et gestion des dossiers et des sociétés auxquels les factures peuvent être rattachées.
   - Pôle Financier : validation, correction et changement de statut des factures.
   - Superadministrateur : droits complets, dont modification du statut des factures.
-- Le rôle de superadministrateur doit pouvoir être attribué à plusieurs utilisateurs. Lors de la mise en service initiale, ce rôle est attribué à Mégane et Rudy avec des droits identiques, sauf exception explicitement documentée.
+- Rudy porte le rôle métier CEO et les pouvoirs de superadministration. Mégane reste membre du pôle administratif et reçoit le rôle transversal Assistante de direction : elle consulte tous les pôles et toutes les factures sans recevoir les privilèges techniques ni les droits de modification du pôle financier.
 - Gestion des statuts de factures limitée à : Reçue et En attente.
 - Filtres disponibles : par société, dossier / affaire, montant, date, statut et pôle.
 - Téléversement obligatoire d'au moins une facture en pièce jointe, avec prise en charge des formats autorisés.
@@ -95,20 +95,18 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 - Prévoir un index et un tri sur la date de création des factures.
 - Aucun moteur de relance automatique fondé sur la date d'échéance n'est requis. La date d'échéance reste une information consultable et filtrable.
 
-### Suivi Excel entre les deux plateformes
+### Suivi Intranet vers Excel
 
-Une étude de faisabilité doit déterminer comment consolider dans Excel le suivi des factures provenant des deux plateformes utilisées par l'entreprise.
+L'intranet constitue la source officielle. Chaque facture créée ou modifiée dans
+l'intranet doit ajouter ou mettre à jour la ligne correspondante dans le
+classeur Excel historique. Les champs synchronisés sont ceux du formulaire de
+facture et sont rapprochés des colonnes existantes par leur intitulé.
 
-Cette étude doit identifier :
-
-- les possibilités d'échange de chaque plateforme : API, export Excel, import Excel ou accès documenté aux données ;
-- la plateforme ou la base faisant foi ;
-- l'identifiant commun permettant de rapprocher une même facture ;
-- la fréquence de mise à jour attendue ;
-- le traitement des doublons et des conflits de modification ;
-- les colonnes nécessaires au fichier consolidé.
-
-Pour la première version, la solution recommandée est un export Excel consolidé depuis l'intranet. Une synchronisation bidirectionnelle ne doit être engagée qu'après validation des interfaces disponibles, des règles de responsabilité des données et des risques de conflit.
+La synchronisation est strictement unidirectionnelle : une modification dans
+Excel ne met pas à jour l'intranet. L'identifiant interne de la facture et un
+registre masqué permettent de conserver la correspondance même si le numéro de
+facture est corrigé. Les colonnes supplémentaires du document sont préservées,
+et chaque succès ou erreur est enregistré dans l'historique de la facture.
 
 ### Extension IA (phase 2)
 
@@ -191,7 +189,7 @@ Pour la première version, la solution recommandée est un export Excel consolid
 
 ### Priorité 1 – Rôles et référentiels partagés
 
-- permettre plusieurs superadministrateurs et attribuer initialement ce rôle à Mégane et Rudy ;
+- attribuer le rôle CEO à Rudy et le rôle Assistante de direction à Mégane, en séparant lecture transversale et administration technique ;
 - utiliser le référentiel de sociétés géré par le pôle administratif ;
 - fiabiliser le référentiel partagé des dossiers et ajouter l'option fonctionnelle Divers.
 
@@ -221,12 +219,12 @@ Pour la première version, la solution recommandée est un export Excel consolid
 - recalculer les indicateurs à partir des statuts Reçue et En attente ;
 - retirer les indicateurs payée, refusée, archivée ou en retard qui ne sont plus alimentés.
 
-### Priorité 6 – Excel et seconde plateforme
+### Priorité 6 – Synchronisation Excel
 
-- collecter la documentation des deux plateformes ;
-- réaliser l'étude de faisabilité ;
-- livrer en premier un export Excel consolidé ;
-- n'envisager une synchronisation bidirectionnelle qu'après validation du système faisant foi et des règles de rapprochement.
+- raccorder le classeur historique à l'intranet ;
+- synchroniser les créations et modifications de factures ;
+- permettre une resynchronisation complète ou ciblée ;
+- conserver l'intranet comme source officielle sans import depuis Excel.
 
 ## Documents à collecter (pré-requis)
 
@@ -237,5 +235,4 @@ Pour la première version, la solution recommandée est un export Excel consolid
 - Liste des dossiers / affaires rattachables à une facture
 - Adresse e-mail ou groupe de diffusion du pôle finance
 - Adresses ou groupe de notification des superadministrateurs
-- Documentation des possibilités d'export, d'import ou d'API des deux plateformes à consolider dans Excel
-- Mapping attendu des colonnes du fichier Excel consolidé
+- Copie du classeur Excel historique et nom de la feuille contenant les factures

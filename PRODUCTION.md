@@ -44,6 +44,19 @@ docker compose run --rm web python manage.py makemigrations --check --dry-run
 Configurer dans Google OAuth l'URI exacte
 `https://VOTRE_DOMAINE/oauth/callback/`.
 
+Déposer le classeur de suivi dans `data/excel/` sur l'hôte, vérifier que son
+propriétaire autorise l'écriture par le conteneur, puis renseigner
+`INVOICE_EXCEL_SYNC_PATH=/data/shared/NOM_DU_FICHIER.xlsx`. Le nom de feuille et
+la ligne d'en-tête doivent correspondre au fichier existant. Conserver
+`INVOICE_EXCEL_SYNC_CREATE_IF_MISSING=False` pour éviter de créer silencieusement
+un second classeur à la suite d'une erreur de chemin.
+
+Après sauvegarde du classeur original, effectuer le raccordement initial :
+
+```bash
+docker compose exec web python manage.py sync_invoices_excel
+```
+
 ## 4. Déployer
 
 ```bash
@@ -112,6 +125,8 @@ Celery sans envoyer les données personnelles par défaut.
 - Invitations et réinitialisations de mots de passe.
 - Téléversement et consultation authentifiée des médias.
 - Création et export des factures.
+- Création puis modification d'une facture avec contrôle de la ligne Excel et
+  de l'historique de synchronisation.
 - Signature simple et multi-signataires.
 - OAuth Gmail, synchronisation, envoi et révocation.
 - Traitement asynchrone d'un document et exécution de Beat.

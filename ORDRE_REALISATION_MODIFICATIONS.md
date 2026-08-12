@@ -27,9 +27,9 @@ Ce document consolide les priorités des cahiers des charges Technique, Administ
 - exclure les dossiers archivés des nouvelles sélections ;
 - ajouter l'option fonctionnelle Divers pour les factures, sans créer de faux dossier.
 
-### Travail reporté – Gestion de plusieurs superadministrateurs
+### Rôles de direction
 
-La gestion de plusieurs superadministrateurs est volontairement reportée. Elle sera traitée dans une phase ultérieure sans bloquer le transfert du référentiel des sociétés.
+Rudy porte le rôle CEO et les pouvoirs de superadministration. Mégane appartient au pôle administratif et reçoit une vue transversale via le rôle Assistante de direction, sans droits techniques de superadministration ni droits de modification des autres pôles.
 
 ## Phase 2 – Simplification des activités et des factures
 
@@ -116,13 +116,13 @@ La gestion de plusieurs superadministrateurs est volontairement reportée. Elle 
 - retirer les indicateurs payée, refusée, archivée ou en retard qui ne sont plus alimentés ;
 - vérifier les analyses par société et par dossier.
 
-### 15. Suivi Excel sur les deux plateformes
+### 15. Suivi Intranet vers Excel
 
-- réaliser l'étude de faisabilité ;
-- définir le système faisant foi et l'identifiant de rapprochement ;
-- produire d'abord un export Excel consolidé ;
-- traiter les doublons et conflits ;
-- n'engager une synchronisation bidirectionnelle qu'après validation des interfaces disponibles.
+- conserver l'intranet comme système faisant foi ;
+- ajouter ou mettre à jour la ligne Excel à chaque écriture de facture ;
+- utiliser l'identifiant intranet pour éviter les doublons ;
+- préserver les colonnes supplémentaires du classeur historique ;
+- journaliser les erreurs et permettre une resynchronisation complète ou ciblée.
 
 ## Phase 7 – Approfondissement de l'IA interne
 
@@ -152,4 +152,4 @@ Cette phase arrive en dernier car l'IA dépend de documents correctement rattach
 12. Dashboard Finance.
 13. Export ou liaison Excel.
 14. Approfondissement de l'IA interne.
-15. Gestion de plusieurs superadministrateurs, reportée.
+15. Activation future d'Outlook après obtention des autorisations Microsoft Entra.

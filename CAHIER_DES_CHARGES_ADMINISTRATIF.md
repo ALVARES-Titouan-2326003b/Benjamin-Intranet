@@ -502,7 +502,7 @@ Rôles minimums :
 - Superadministrateur ;
 - Pôle administratif.
 
-Le rôle de superadministrateur doit pouvoir être attribué à plusieurs utilisateurs simultanément. Lors de la mise en service initiale, il est attribué à Mégane et Rudy. Ces deux comptes disposent du même niveau de droits, sauf exception explicitement documentée et validée.
+Rudy dispose du rôle CEO et des pouvoirs de superadministration. Mégane reste membre du pôle administratif et reçoit en complément le rôle Assistante de direction. Ce rôle lui donne une vue sur tous les pôles pour assister le CEO, sans lui attribuer les privilèges techniques ni les droits de modification propres aux autres pôles.
 
 ### 10.3 Permissions à prévoir
 
@@ -692,7 +692,7 @@ Le module administratif devra respecter les exigences suivantes :
 - autoriser la suppression définitive uniquement pour une société jamais utilisée ;
 - retirer des nouvelles sélections une société déjà utilisée qui ne doit plus être proposée.
 
-La gestion de plusieurs superadministrateurs, dont l'attribution initiale à Mégane et Rudy, est conservée dans le périmètre mais reportée à une phase ultérieure.
+La séparation entre CEO et Assistante de direction est retenue : Rudy est CEO/superadministrateur ; Mégane appartient au pôle administratif et bénéficie d'une lecture transversale.
 
 ### Priorité 3 : Activités administratives
 
@@ -794,7 +794,7 @@ Avant développement complet, les points suivants doivent être validés :
 
 - liste exacte des catégories envoyées par Mégane ;
 - confirmation que Mégane est couverte par les droits du pôle administratif, sans exception nominative ;
-- validation de l'attribution initiale du rôle de superadministrateur à Mégane et Rudy, avec des droits identiques ;
+- validation de l'attribution initiale du rôle CEO à Rudy et du rôle Assistante de direction à Mégane ;
 - liste définitive des états de dossier ;
 - validation du fait que les statuts d’activité actuels suffisent ;
 - validation des limites autorisées pour les créneaux personnalisés, actuellement de 5 minutes à 24 heures ;
@@ -826,7 +826,7 @@ La priorité est de structurer l’intranet autour des dossiers, et non plus aut
 Le travail restant consiste principalement à :
 
 - confirmer les arbitrages métier avec le pôle administratif ;
-- mettre en place les deux superadministrateurs et transférer le référentiel des sociétés au pôle administratif ;
+- mettre en place le rôle CEO de Rudy et la vue transversale Assistante de direction de Mégane ;
 - finaliser le module d’activité sans type d'activité, avec un créneau personnalisé et les statuts actuels ;
 - ajouter le paramétrage des rappels par e-mail, avec rappels individuels et créneaux horaires ;
 - ajouter l’export Excel, l’export PDF et l’import des dossiers administratifs ;

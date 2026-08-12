@@ -285,8 +285,43 @@ tâche Celery extrait et résume les fichiers PDF, DOC, DOCX et TXT, puis crée 
 `DocumentTechnique` associé. Les autres formats et les erreurs sont affichés
 explicitement dans le détail de l'e-mail.
 
-Le code Microsoft/Outlook est conservé pour une éventuelle réactivation, mais
+Microsoft Outlook est la cible finale pour l'ensemble des services de messagerie et de calendrier. Gmail reste un adaptateur temporaire tant que les permissions Microsoft Entra ne sont pas disponibles. Le code Microsoft/Outlook est conservé pour son activation progressive, mais
 ses routes et contrôles ne sont pas exposés dans l'interface.
+
+## Synchronisation des factures vers Excel
+
+L'intranet est la source officielle. Lorsqu'un classeur est configuré, chaque
+création ou modification effectuée depuis le formulaire de facture ajoute ou
+met à jour la ligne correspondante dans Excel. Le fichier n'est jamais relu
+pour modifier la base de données.
+
+Le service reconnaît les colonnes à partir de leurs intitulés usuels : numéro
+de facture, société, dossier, pôle, fournisseur, montant, statut, dates,
+priorité, demandeur, commentaire et titre. Les colonnes inconnues sont
+préservées. Une feuille masquée `_IntranetSync` mémorise la correspondance entre
+l'identifiant Django et la ligne Excel, ce qui évite les doublons si le numéro
+de facture est corrigé.
+
+Variables disponibles :
+
+```env
+INVOICE_EXCEL_SYNC_PATH=/data/shared/suivi_factures.xlsx
+INVOICE_EXCEL_SYNC_SHEET=Factures
+INVOICE_EXCEL_SYNC_HEADER_ROW=1
+INVOICE_EXCEL_SYNC_CREATE_IF_MISSING=False
+```
+
+Une valeur vide pour `INVOICE_EXCEL_SYNC_PATH` désactive le raccordement. Avec
+Docker, le dossier hôte `./data/excel` est monté dans `/data/shared`. Il peut
+être remplacé avec `INVOICE_EXCEL_HOST_DIR`. Le classeur doit rester fermé dans
+Excel pendant une écriture si le partage utilisé verrouille les fichiers.
+
+Pour raccorder toutes les factures déjà présentes ou réparer le classeur :
+
+```bash
+python manage.py sync_invoices_excel
+python manage.py sync_invoices_excel --invoice-id FAC-XXXXXXXX
+```
 
 ---
 

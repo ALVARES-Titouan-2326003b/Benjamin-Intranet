@@ -75,7 +75,7 @@ Correction de cadrage : le retrait demandé ne concerne pas les types de dossier
 
 La règle attendue est d'archiver les dossiers techniques plutôt que de les supprimer définitivement.
 
-La règle fonctionnelle ne doit pas dépendre d'une personne nommée en dur, mais du rôle de superadministrateur. Ce rôle peut être attribué à plusieurs utilisateurs ; lors de la mise en service initiale, Mégane et Rudy disposent de ce rôle.
+La règle fonctionnelle ne doit pas dépendre d'une personne nommée en dur. Rudy dispose du rôle CEO et des pouvoirs de superadministration. Mégane appartient au pôle administratif et dispose du rôle Assistante de direction, qui lui donne une vue transversale sans lui accorder les privilèges techniques du CEO.
 
 Règles attendues :
 
