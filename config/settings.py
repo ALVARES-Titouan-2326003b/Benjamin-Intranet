@@ -12,10 +12,13 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from datetime import timedelta
 from pathlib import Path
+import base64
+import hashlib
 from django.utils.encoding import force_str
 import os
 import sys
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -26,14 +29,89 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(BASE_DIR / ".env")
 
+ENVIRONMENT = env("DJANGO_ENV", default="development").strip().lower()
+IS_PRODUCTION = ENVIRONMENT == "production"
+
+if IS_PRODUCTION:
+    _required_production_variables = (
+        "POSTGRES_DB",
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+        "POSTGRES_HOST",
+        "POSTGRES_PORT",
+        "SITE_URL",
+        "EMAIL_HOST",
+        "EMAIL_HOST_USER",
+        "EMAIL_HOST_PASSWORD",
+        "DEFAULT_FROM_EMAIL",
+        "GROQ_API_KEY",
+        "LEGIFRANCE_CLIENT_ID",
+        "LEGIFRANCE_CLIENT_SECRET",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+    )
+    _missing_production_variables = [
+        name
+        for name in _required_production_variables
+        if not env(name, default="").strip()
+    ]
+    if _missing_production_variables:
+        raise ImproperlyConfigured(
+            "Variables de production manquantes : "
+            + ", ".join(_missing_production_variables)
+        )
+    if not env("SITE_URL").startswith("https://"):
+        raise ImproperlyConfigured("SITE_URL doit utiliser HTTPS en production.")
+    if env("LEGIFRANCE_ENV", default="sandbox") != "prod":
+        raise ImproperlyConfigured("LEGIFRANCE_ENV doit valoir 'prod' en production.")
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-SECRET_KEY = force_str(os.getenv('SECRET_KEY'))
-SECRET_KEY_FALLBACKS = os.getenv('SECRET_KEY_FALLBACKS').split(',') or []
-DEBUG = True
-ALLOWED_HOSTS = []
+SECRET_KEY = force_str(env("SECRET_KEY"))
+SECRET_KEY_FALLBACKS = [
+    value.strip()
+    for value in env.list("SECRET_KEY_FALLBACKS", default=[])
+    if value.strip()
+]
+DEBUG = not IS_PRODUCTION
+ALLOWED_HOSTS = env.list(
+    "ALLOWED_HOSTS",
+    default=["127.0.0.1", "localhost"] if not IS_PRODUCTION else [],
+)
+if IS_PRODUCTION and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured("ALLOWED_HOSTS doit être défini en production.")
+
+# Clé distincte de SECRET_KEY pour chiffrer les secrets applicatifs en base.
+# En développement, une clé stable est dérivée pour préserver la simplicité locale.
+_field_encryption_key = env("FIELD_ENCRYPTION_KEY", default="").strip()
+if IS_PRODUCTION and not _field_encryption_key:
+    raise ImproperlyConfigured("FIELD_ENCRYPTION_KEY doit être défini en production.")
+if not _field_encryption_key:
+    _field_encryption_key = base64.urlsafe_b64encode(
+        hashlib.sha256(SECRET_KEY.encode("utf-8")).digest()
+    ).decode("ascii")
+FIELD_ENCRYPTION_KEYS = [_field_encryption_key] + [
+    value.strip()
+    for value in env.list("FIELD_ENCRYPTION_KEY_FALLBACKS", default=[])
+    if value.strip()
+]
+
+SENTRY_DSN = env("SENTRY_DSN", default="").strip()
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration(), CeleryIntegration()],
+        environment=ENVIRONMENT,
+        release=env("APP_RELEASE", default=None),
+        send_default_pii=False,
+        traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),
+    )
 
 
 # Application definition
@@ -117,10 +195,6 @@ TEMPLATES = [
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
-    "chatbot/static",
-    "management/static",
-    "technique/static",
-
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
@@ -137,6 +211,14 @@ DATABASES = {
         "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
         "HOST": os.getenv("POSTGRES_HOST"),
         "PORT": os.getenv("POSTGRES_PORT"),
+        "CONN_MAX_AGE": env.int("POSTGRES_CONN_MAX_AGE", default=60),
+        "CONN_HEALTH_CHECKS": True,
+        "OPTIONS": {
+            "sslmode": env(
+                "POSTGRES_SSLMODE",
+                default="require" if IS_PRODUCTION else "prefer",
+            ),
+        },
     }
 }
 
@@ -171,8 +253,11 @@ USE_TZ = True
 GROQ_API_KEY = env("GROQ_API_KEY")
 
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+FILE_UPLOAD_MAX_MEMORY_SIZE = env.int("FILE_UPLOAD_MAX_MEMORY_SIZE", default=10 * 1024 * 1024)
+DATA_UPLOAD_MAX_MEMORY_SIZE = env.int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=12 * 1024 * 1024)
 
 # url email
 SITE_URL = env("SITE_URL", default="http://127.0.0.1:8000")
@@ -197,8 +282,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv("EMAIL_HOST")
 # Port pour TLS
-EMAIL_PORT = os.getenv("EMAIL_PORT")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
@@ -206,12 +291,24 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 # API LEGIFRANCE
 LEGIFRANCE_CLIENT_ID = os.getenv("LEGIFRANCE_CLIENT_ID")
 LEGIFRANCE_CLIENT_SECRET = os.getenv("LEGIFRANCE_CLIENT_SECRET")
-# Configuration Celery - TOUT dans PostgreSQL
-CELERY_BROKER_URL = 'sqla+postgresql://%(USER)s:%(PASSWORD)s@%(HOST)s:%(PORT)s/%(NAME)s' % DATABASES['default']
-CELERY_RESULT_BACKEND = 'db+postgresql://%(USER)s:%(PASSWORD)s@%(HOST)s:%(PORT)s/%(NAME)s' % DATABASES['default']
+# Redis est le broker de production. Le transport SQLAlchemy reste réservé au
+# lanceur local historique et n'est installé que par requirements-dev.txt.
+_development_broker_url = (
+    'sqla+postgresql://%(USER)s:%(PASSWORD)s@%(HOST)s:%(PORT)s/%(NAME)s'
+    % DATABASES['default']
+)
+CELERY_BROKER_URL = env(
+    "CELERY_BROKER_URL",
+    default=_development_broker_url,
+)
+if IS_PRODUCTION and not os.getenv("CELERY_BROKER_URL"):
+    raise ImproperlyConfigured("CELERY_BROKER_URL doit être défini en production.")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="django-db")
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-# Alternative pour result_backend (utilise django-celery-results) :
-# CELERY_RESULT_BACKEND = 'django-db'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = env.int("CELERY_TASK_TIME_LIMIT", default=30 * 60)
+CELERY_TASK_SOFT_TIME_LIMIT = env.int("CELERY_TASK_SOFT_TIME_LIMIT", default=25 * 60)
+CELERY_WORKER_MAX_TASKS_PER_CHILD = env.int("CELERY_WORKER_MAX_TASKS_PER_CHILD", default=500)
 
 # "sandbox" pour tester, "prod" quand ça sera bon
 LEGIFRANCE_ENV = os.getenv("LEGIFRANCE_ENV", "sandbox")
@@ -223,15 +320,24 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Europe/Paris'
 CELERY_ENABLE_UTC = True
 
+CACHE_URL = env("CACHE_URL", default="")
+if IS_PRODUCTION and not CACHE_URL:
+    raise ImproperlyConfigured("CACHE_URL doit être défini en production.")
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-        'LOCATION': 'my_cache_table',
+    "default": {
+        "BACKEND": (
+            "django.core.cache.backends.redis.RedisCache"
+            if CACHE_URL
+            else "django.core.cache.backends.locmem.LocMemCache"
+        ),
+        "LOCATION": CACHE_URL or "benjamin-intranet-local",
     }
 }
 
 
+# SAMEORIGIN est requis pour les aperçus PDF internes. Les domaines tiers restent interdits.
 X_FRAME_OPTIONS = "SAMEORIGIN"
+SILENCED_SYSTEM_CHECKS = ["security.W019"]
 
 # --- CONFIGURATION AXES (Brute Force) ---
 # Nombre d'échecs autorisés avant blocage
@@ -305,24 +411,35 @@ LOGGING = {
     },
 }
 
+if IS_PRODUCTION:
+    # Les conteneurs collectent stdout. Éviter les fichiers locaux sans rotation,
+    # qui divergent entre instances et peuvent remplir le disque.
+    for logger_config in LOGGING["loggers"].values():
+        logger_config["handlers"] = [
+            handler for handler in logger_config["handlers"] if handler != "daily_file"
+        ]
+    LOGGING["handlers"].pop("daily_file", None)
 
 
-if os.getenv('DJANGO_ENV') == 'production':
-    DEBUG = False
-    SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+if IS_PRODUCTION:
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+    if env.bool("TRUST_X_FORWARDED_PROTO", default=True):
+        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
     # Permet de séccuriser les cookies
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
     # On empêche de faire des connexions http
-    SECURE_HSTS_SECONDS = 31536000  # 1 an
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-
-    # Permet de sécuriser les Hosts
-    ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'benjamin-intranet.fr').split(',')
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=3600)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False)
+    SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SAMESITE = "Lax"
+    CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
     
     print(
         "\n[PRODUCTION] HTTPS forcé, cookies sécurisés, debug désactivé.\n",

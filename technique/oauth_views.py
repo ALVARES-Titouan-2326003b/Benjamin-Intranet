@@ -1,6 +1,7 @@
+import logging
+
 from django.shortcuts import redirect
 from django.http import JsonResponse
-import traceback
 
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
@@ -13,6 +14,7 @@ from management.oauth_utils import (
 
 # URL de redirection par défaut (pôle administratif)
 DEFAULT_REDIRECT = '/administratif/'
+logger = logging.getLogger(__name__)
 
 # Liste blanche des redirections autorisées après OAuth
 ALLOWED_REDIRECTS = [
@@ -41,11 +43,7 @@ def initiate_oauth(request):
     authorization_url, state = get_authorization_url(redirect_uri)
     request.session['oauth_state'] = state
 
-    print(f"\n{'='*60}")
-    print(f"   Initiation OAuth pour {request.user.username}")
-    print(f"   Redirect URI: {redirect_uri}")
-    print(f"   Retour après auth : {next_url}")
-    print(f"{'='*60}\n")
+    logger.info("Initiation OAuth technique pour user_id=%s", request.user.pk)
 
     return redirect(authorization_url)
 
@@ -66,11 +64,7 @@ def oauth_callback(request):
     if next_url not in ALLOWED_REDIRECTS:
         next_url = DEFAULT_REDIRECT
 
-    print(f"\n{'='*60}")
-    print(f"   Callback OAuth pour {request.user.username}")
-    print(f"   Code: {code[:20]}..." if code else "   Code: None")
-    print(f"   Retour prévu : {next_url}")
-    print(f"{'='*60}\n")
+    logger.info("Callback OAuth technique pour user_id=%s", request.user.pk)
 
     if error:
         messages.error(request, f"Erreur OAuth : {error}")
@@ -88,9 +82,6 @@ def oauth_callback(request):
     try:
         redirect_uri = request.build_absolute_uri('/oauth/callback/')
         tokens = exchange_code_for_tokens(code, redirect_uri)
-
-        print(f"   Email: {tokens['email']}")
-        print(f"   Refresh token: {'OUI' if tokens['refresh_token'] else 'NON'}")
 
         if tokens['email'] != request.user.email:
             messages.warning(
@@ -122,9 +113,9 @@ def oauth_callback(request):
 
         return redirect(next_url)
 
-    except Exception as e:
-        messages.error(request, f"Erreur lors de l'authentification : {str(e)}")
-        traceback.print_exc()
+    except Exception:
+        messages.error(request, "Erreur lors de l'authentification OAuth.")
+        logger.exception("Échec du callback OAuth technique pour user_id=%s", request.user.pk)
         return redirect(next_url)
 
 
@@ -141,7 +132,7 @@ def revoke_oauth(request):
         oauth_token.delete()
 
         messages.success(request, f"Accès à la boîte mail {email} révoqué avec succès.")
-        print(f"Token OAuth supprimé pour {request.user.username}")
+        logger.info("Jeton OAuth technique révoqué pour user_id=%s", request.user.pk)
 
         return JsonResponse({'success': True})
 

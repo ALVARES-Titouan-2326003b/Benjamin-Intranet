@@ -4,6 +4,7 @@ Modèles pour la partie administrative - Gestion des relances
 from django.db import models
 from invoices.models import Contact
 from django.contrib.auth import get_user_model
+from config.fields import EncryptedTextField
 Utilisateur = get_user_model()
 
 
@@ -431,8 +432,8 @@ class OAuthToken(models.Model):
     email = models.EmailField()
 
 
-    access_token = models.TextField()
-    refresh_token = models.TextField()
+    access_token = EncryptedTextField()
+    refresh_token = EncryptedTextField()
 
     token_expiry = models.DateTimeField()
 

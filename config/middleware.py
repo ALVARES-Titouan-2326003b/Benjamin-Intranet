@@ -27,7 +27,9 @@ class AuditLogMiddleware:
             user_display = f"{user.username} (ID: {user.pk})" if user.is_authenticated else "Anonymous"
             
             ip = self.get_client_ip(request)
-            path = request.get_full_path()
+            # Ne pas journaliser la query string : elle peut contenir des codes
+            # OAuth, critères de recherche ou autres données personnelles.
+            path = request.path
             method = request.method
             status = response.status_code
             

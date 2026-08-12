@@ -2,11 +2,9 @@ import requests
 from datetime import timedelta
 from management.models import OAuthToken
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
 from management.oauth_utils import (
     GRAPH_URL,
     get_graph_headers,
-    send_email_via_graph_api,
 )
 from management.gmail_service import (
     get_message as get_gmail_message,
@@ -26,8 +24,6 @@ def _gmail_headers(message):
 def _graph_get(user, url, params=None):
     headers = get_graph_headers(user)
     response = requests.get(url, headers=headers, params=params, timeout=20)
-    print("GRAPH STATUS:", response.status_code)
-    print("GRAPH BODY:", response.text)
     response.raise_for_status()
     return response.json()
 
