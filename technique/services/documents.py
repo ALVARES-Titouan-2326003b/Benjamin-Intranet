@@ -4,7 +4,7 @@ from io import BytesIO
 def _read_pdf(file_obj) -> str:
     """Retourne le texte contenu dans un fichier PDF."""
     try:
-        from PyPDF2 import PdfReader
+        from pypdf import PdfReader
     except Exception:
         return ""
     try:

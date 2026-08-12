@@ -201,7 +201,9 @@ def signer_pdf_avec_images_position(
     # toutes les signatures déjà apposées.
     source_pdf = document.fichier_signe if document.fichier_signe else document.fichier
     reader = PdfReader(source_pdf.path)
-    writer = PdfWriter()
+    # Cloner d'abord les pages dans le writer évite de modifier une page encore
+    # rattachée au reader (API supprimée dans pypdf 7).
+    writer = PdfWriter(clone_from=reader)
 
     num_pages = len(reader.pages)
     selected_page_number = page_number or num_pages
@@ -291,10 +293,8 @@ def signer_pdf_avec_images_position(
 
     # Fusion sur la page choisie par l'utilisateur.
     for i in range(num_pages):
-        page = reader.pages[i]
         if i == selected_page_number - 1:
-            page.merge_page(overlay_page)
-        writer.add_page(page)
+            writer.pages[i].merge_page(overlay_page)
 
     # Sauvegarde du nouveau PDF signé
     output_buffer = BytesIO()
