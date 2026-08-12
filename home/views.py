@@ -10,7 +10,9 @@ from user_access.user_test_functions import (has_administratif_access,
                                              has_technique_access,
                                              has_collaborateur_access,
                                              can_create_facture,
-                                             has_all_poles_access)
+                                             has_all_poles_access,
+                                             can_view_technical_dossiers)
+from user_access.roles import has_global_read_access
 
 def is_only_collaborator(user):
     """
@@ -69,7 +71,7 @@ def global_search(request):
             factures = factures[:10]
         else:
             factures = []
-        if has_finance_access(request.user):
+        if has_global_read_access(request.user) or has_finance_access(request.user):
             # 2. Documents (Signatures) (Titre)
             documents = Document.objects.filter(
                 titre__icontains=query
@@ -78,7 +80,7 @@ def global_search(request):
         else:
             documents = []
 
-        if has_technique_access(request.user):
+        if can_view_technical_dossiers(request.user):
             # 3. Projets Techniques (Nom, Reference)
             projets = TechnicalProject.objects.filter(
                 Q(name__icontains=query) |

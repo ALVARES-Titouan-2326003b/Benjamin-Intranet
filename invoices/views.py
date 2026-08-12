@@ -20,6 +20,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
 
 from user_access.user_test_functions import (
     has_finance_access,
+    can_view_finance,
     has_ceo_access,
     can_read_facture,
     can_create_facture,
@@ -51,7 +52,7 @@ USER_GROUP_TO_INVOICE_SERVICE = {
 def visible_invoices_for(user, queryset=None):
     """Applique la portée de consultation des factures de manière centralisée."""
     queryset = queryset if queryset is not None else Facture.objects.all()
-    if has_finance_access(user):
+    if can_view_finance(user):
         return queryset
     return queryset.filter(created_by=user)
 

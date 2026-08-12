@@ -14,6 +14,7 @@ from django.db import IntegrityError, connection, transaction
 from django.db.models.deletion import ProtectedError
 from .forms import UserInvitationForm, AccountActivationForm
 from django_otp.plugins.otp_email.models import EmailDevice
+from user_access.roles import has_direction_access, is_ceo
 
 
 LEGACY_USER_OWNED_TABLES = {
@@ -76,14 +77,14 @@ class CustomLoginView(LoginView):
 # --- GESTION DES COMPTES (SUPERUSER) ---
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(has_direction_access)
 def user_management_view(request):
     """Tableau de bord de gestion des utilisateurs."""
     users = User.objects.all().order_by('-date_joined')
     return render(request, 'authentication/user_management.html', {'users': users})
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(has_direction_access)
 def delete_user_view(request, user_id):
     """Supprime un utilisateur avec gestion hiérarchique des droits."""
     if request.method == 'POST':
@@ -92,8 +93,8 @@ def delete_user_view(request, user_id):
             actor = request.user
             
             # Vérifications des rôles
-            is_actor_ceo = actor.groups.filter(name="CEO").exists()
-            is_target_ceo = target_user.groups.filter(name="CEO").exists()
+            is_actor_ceo = is_ceo(actor)
+            is_target_ceo = is_ceo(target_user)
             is_target_superuser = target_user.is_superuser
 
             # Sécurité de base : ne pas se supprimer soi-même
@@ -132,7 +133,7 @@ def delete_user_view(request, user_id):
     return redirect('authentication:user_management')
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(has_direction_access)
 def invite_user_view(request):
     """Vue pour inviter un nouvel utilisateur."""
     if request.method == 'POST':

@@ -37,6 +37,7 @@ from .forms import (
     TechnicalProjectKeyDateForm,
 )
 from user_access.user_test_functions import can_view_technical_dossiers, has_technique_access
+from user_access.roles import has_direction_access
 from django.db.models import Q
 
 User = get_user_model()
@@ -145,7 +146,7 @@ def _log_project_history(project, user, action, target_type, target_label="", be
 def _user_can_delete_technical_projects(user):
     if not getattr(user, "is_authenticated", False):
         return False
-    return user.is_superuser
+    return has_direction_access(user)
 
 
 def _user_can_archive_technical_projects(user):

@@ -18,6 +18,7 @@ def ensure_groups(sender, instance, created, **kwargs):
         'POLE_DEVELOPPEMENT',
         'POLE_INVESTISSEMENT',
         'CEO',
+        'ASSISTANTE_DIRECTION',
         'COLLABORATEUR',
     ]:
         Group.objects.get_or_create(name=name)

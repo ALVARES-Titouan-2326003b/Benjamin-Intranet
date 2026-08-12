@@ -1,5 +1,7 @@
 from django.contrib.auth.models import User
 
+from .roles import has_direction_access, has_global_read_access
+
 
 def has_finance_access(user):
     """
@@ -11,7 +13,14 @@ def has_finance_access(user):
     if not getattr(user, "is_authenticated", False):
         return False
     user = User.objects.get(username=user.username)
-    return user.is_superuser or user.groups.filter(name="POLE_FINANCIER").exists()
+    return has_direction_access(user) or user.groups.filter(name="POLE_FINANCIER").exists()
+
+
+def can_view_finance(user):
+    """Consultation globale de la finance, y compris pour l'assistante de direction."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return has_global_read_access(user) or user.groups.filter(name="POLE_FINANCIER").exists()
 
 def has_administratif_access(user):
     """
@@ -23,7 +32,7 @@ def has_administratif_access(user):
     if not getattr(user, "is_authenticated", False):
         return False
     user = User.objects.get(username=user.username)
-    return user.is_superuser or user.groups.filter(name="POLE_ADMINISTRATIF").exists()
+    return has_direction_access(user) or user.groups.filter(name="POLE_ADMINISTRATIF").exists()
 
 def has_technique_access(user):
     """
@@ -38,9 +47,8 @@ def has_technique_access(user):
     """
     user = User.objects.get(username=user.username)
     return (
-        user.is_superuser
+        has_direction_access(user)
         or user.groups.filter(name="POLE_TECHNIQUE").exists()
-        or user.groups.filter(name="CEO").exists()
     )
 
 
@@ -48,7 +56,11 @@ def can_view_technical_dossiers(user):
     """Autorise la consultation des dossiers techniques sans ouvrir le reste du pôle."""
     if not getattr(user, "is_authenticated", False):
         return False
-    return has_technique_access(user) or user.groups.filter(name="POLE_ADMINISTRATIF").exists()
+    return (
+        has_technique_access(user)
+        or has_global_read_access(user)
+        or user.groups.filter(name="POLE_ADMINISTRATIF").exists()
+    )
 
 def has_ceo_access(user):
     """
@@ -58,7 +70,7 @@ def has_ceo_access(user):
         user (User):  L'utilisateur
     """
     user = User.objects.get(username=user.username)
-    return user.is_superuser
+    return has_direction_access(user)
 
 
 def has_all_poles_access(user):
@@ -70,7 +82,7 @@ def has_all_poles_access(user):
     """
     user = User.objects.get(username=user.username)
 
-    if user.is_superuser or user.is_staff:
+    if has_global_read_access(user) or user.is_staff:
         return True
 
     return (
@@ -123,7 +135,7 @@ def can_change_facture_status(user):
         return False
     user = User.objects.get(username=user.username)
     return (
-        user.is_superuser
+        has_direction_access(user)
         or user.groups.filter(name="POLE_FINANCIER").exists()
     )
 

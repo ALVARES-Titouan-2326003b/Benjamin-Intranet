@@ -36,6 +36,7 @@ from user_access.user_test_functions import (
     has_all_poles_access,
     has_ceo_access,
 )
+from user_access.roles import has_direction_access, has_global_read_access
 
 
 SIGNATURE_SIGNER_LABEL = "CEO ou pôle administratif"
@@ -70,7 +71,7 @@ def _can_delete_signature_documents(user):
 
 
 def _can_supervise_signature_documents(user):
-    return user.is_superuser
+    return has_global_read_access(user)
 
 
 def _get_admin_signature_users():
@@ -87,7 +88,7 @@ def _get_admin_signature_users():
 def _get_ceo_signature_users():
     User = get_user_model()
     return (
-        User.objects.filter(is_superuser=True, is_active=True)
+        User.objects.filter(Q(is_superuser=True) | Q(groups__name="CEO"), is_active=True)
         .exclude(email="")
         .distinct()
     )
@@ -243,7 +244,7 @@ def _can_user_sign_document(user, document):
         return False
 
     return (
-        user.is_superuser
+        has_direction_access(user)
         or _has_group(user, "POLE_ADMINISTRATIF")
     )
 
@@ -291,7 +292,11 @@ def _can_user_approve_signature_request(user, demande):
     if not user.is_authenticated:
         return False
 
-    return user == demande.approver or user.is_superuser
+    return (
+        user == demande.approver
+        or has_direction_access(user)
+        or has_administratif_access(user)
+    )
 
 
 @login_required

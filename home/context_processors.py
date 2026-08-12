@@ -2,23 +2,26 @@
 Context processors pour rendre des variables disponibles dans tous les templates
 """
 
+from user_access.roles import has_direction_access, has_global_read_access
+
 def user_role_context(request):
     """
     Ajoute les rôles de navigation au contexte de tous les templates.
     """
     if request.user.is_authenticated:
         user_groups = set(request.user.groups.values_list('name', flat=True))
-        is_ceo = request.user.is_superuser or "CEO" in user_groups
+        user_is_ceo = has_direction_access(request.user)
+        global_read = has_global_read_access(request.user)
         is_only_collaborator = (
             not request.user.is_superuser
             and not request.user.is_staff
             and (not user_groups or user_groups == {"COLLABORATEUR"})
         )
-        can_finance = is_ceo or "POLE_FINANCIER" in user_groups
+        can_finance = global_read or "POLE_FINANCIER" in user_groups
         can_invoices = True
-        can_manage_technique = is_ceo or "POLE_TECHNIQUE" in user_groups
-        can_administratif = is_ceo or "POLE_ADMINISTRATIF" in user_groups
-        can_view_technical_dossiers = can_manage_technique or can_administratif
+        can_manage_technique = user_is_ceo or "POLE_TECHNIQUE" in user_groups
+        can_administratif = user_is_ceo or "POLE_ADMINISTRATIF" in user_groups
+        can_view_technical_dossiers = global_read or can_manage_technique or can_administratif
         can_signatures = bool(
             request.user.is_superuser
             or request.user.is_staff
@@ -36,7 +39,7 @@ def user_role_context(request):
         )
     else:
         is_only_collaborator = False
-        is_ceo = False
+        user_is_ceo = False
         can_finance = False
         can_invoices = False
         can_manage_technique = False
@@ -46,7 +49,7 @@ def user_role_context(request):
 
     return {
         "is_only_collaborator": is_only_collaborator,
-        "nav_is_ceo": is_ceo,
+        "nav_is_ceo": user_is_ceo,
         "nav_can_finance": can_finance,
         "nav_can_invoices": can_invoices,
         "nav_can_manage_technique": can_manage_technique,

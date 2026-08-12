@@ -65,10 +65,11 @@ def test_destinataires_signature_incluent_admin_et_superadmin(
 
     assert set(destinataires) == {
         "admin@example.com",
+        "ceo@example.com",
         "superadmin@example.com",
     }
     assert destinataires.count("admin@example.com") == 1
-    assert legacy_ceo.email not in destinataires
+    assert legacy_ceo.email in destinataires
     assert superadmin.email in destinataires
 
 
@@ -131,17 +132,18 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
     assert len(mail.outbox) == 1
     assert set(mail.outbox[0].to) == {
         "autre-admin@example.com",
+        "ceo@example.com",
         "superadmin@example.com",
     }
 
     assert _can_user_sign_document(admin, document_pdf_simple)
-    assert not _can_user_sign_document(legacy_ceo, document_pdf_simple)
+    assert _can_user_sign_document(legacy_ceo, document_pdf_simple)
     assert _can_user_sign_document(superadmin, document_pdf_simple)
 
     client.force_login(admin)
     response = client.get(reverse("signatures:signature_approval", args=[demande.token]))
 
-    assert response.status_code == 403
+    assert response.status_code == 200
 
     client.force_login(autre_admin)
     response = client.get(reverse("signatures:signature_approval", args=[demande.token]))
@@ -151,8 +153,7 @@ def test_demande_signature_envoie_mail_admin_et_ceo(
     client.force_login(legacy_ceo)
     response = client.get(reverse("signatures:signature_approval", args=[demande.token]))
 
-    assert response.status_code == 302
-    assert response.url == "/"
+    assert response.status_code == 200
 
     client.force_login(superadmin)
     response = client.get(reverse("signatures:signature_approval", args=[demande.token]))

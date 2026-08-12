@@ -90,12 +90,12 @@ def invoice_payload(project, societe, **overrides):
 
 
 @pytest.mark.django_db
-def test_legacy_ceo_group_cannot_change_invoice_status_without_superadmin_rights():
+def test_ceo_group_can_change_invoice_status_without_django_superuser_flag():
     ceo_group, _ = Group.objects.get_or_create(name="CEO")
     ceo = User.objects.create_user(username="ceo", email="ceo@example.com")
     ceo.groups.add(ceo_group)
 
-    assert can_change_facture_status(ceo) is False
+    assert can_change_facture_status(ceo) is True
 
 
 @pytest.mark.django_db

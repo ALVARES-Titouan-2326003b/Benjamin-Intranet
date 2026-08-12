@@ -1,4 +1,5 @@
 from django import template
+from user_access.roles import is_ceo
 
 register = template.Library()
 
@@ -13,8 +14,8 @@ def can_manage_user(actor, target):
     if actor == target:
         return False
         
-    is_actor_ceo = actor.groups.filter(name="CEO").exists()
-    is_target_ceo = target.groups.filter(name="CEO").exists()
+    is_actor_ceo = is_ceo(actor)
+    is_target_ceo = is_ceo(target)
     is_target_superuser = target.is_superuser
 
     if is_actor_ceo:

@@ -25,6 +25,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from invoices.models import Facture, Societe
 from technique.models import TechnicalProject, TechnicalProjectHistory
 from user_access.user_test_functions import has_administratif_access
+from user_access.roles import has_direction_access
 
 from .email_manager import (
     create_outlook_event,
@@ -595,16 +596,15 @@ def _user_label(user):
 
 
 def _is_ceo_user(user):
-    """Dans l'application, le CEO métier correspond au superadmin du site."""
-    return bool(user and user.is_superuser)
+    """Identifie le CEO métier indépendamment du back-office Django."""
+    return has_direction_access(user)
 
 
 def _can_archive_admin_dossier(user):
     return bool(
         user
         and (
-            user.is_superuser
-            or user.groups.filter(name="CEO").exists()
+            has_direction_access(user)
         )
     )
 
