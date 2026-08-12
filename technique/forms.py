@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.db import models
 from invoices.models import Societe
+from config.upload_validation import validate_uploaded_file
 from .models import (
     DocumentTechnique,
     ProjectExpense,
@@ -45,6 +46,11 @@ class DocumentTechniqueUploadForm(forms.ModelForm):
         elif project and project.societe_id != societe.pk:
             self.add_error("project", "Ce dossier n’est pas rattaché à la société sélectionnée.")
         return cleaned_data
+
+    def clean_fichier(self):
+        fichier = self.cleaned_data["fichier"]
+        validate_uploaded_file(fichier, {".pdf", ".doc", ".docx", ".txt"})
+        return fichier
 
     class Meta:
         model = DocumentTechnique

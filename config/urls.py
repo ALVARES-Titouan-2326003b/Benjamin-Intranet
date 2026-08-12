@@ -22,8 +22,11 @@ from management.company_views import (
 )
 from technique import views as technique_views
 from home.views import dashboard_view, global_search
+from config.views import health_live, health_ready, protected_media
 
 urlpatterns = [
+    path('health/live/', health_live, name='health_live'),
+    path('health/ready/', health_ready, name='health_ready'),
     path('admin/', admin.site.urls),
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'img/favicon.png', permanent=True)),
     path('', dashboard_view, name='home'),
@@ -108,3 +111,5 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    urlpatterns += [path('media/<path:path>', protected_media, name='protected_media')]

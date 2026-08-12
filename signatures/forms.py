@@ -1,6 +1,7 @@
 from django import forms
 from django.db.models import Q
 from invoices.models import Societe
+from config.upload_validation import validate_uploaded_file
 from .models import Document, SignatureUser, Tampon
 
 
@@ -12,6 +13,11 @@ class DocumentUploadForm(forms.ModelForm):
         model = Document
         fields = ["titre", "fichier"]
 
+    def clean_fichier(self):
+        fichier = self.cleaned_data["fichier"]
+        validate_uploaded_file(fichier, {".pdf"})
+        return fichier
+
 
 class SignatureUserForm(forms.ModelForm):
     """
@@ -21,6 +27,11 @@ class SignatureUserForm(forms.ModelForm):
         model = SignatureUser
         fields = ["name", "image", "is_active"]
 
+    def clean_image(self):
+        image = self.cleaned_data["image"]
+        validate_uploaded_file(image, {".png", ".jpg", ".jpeg"})
+        return image
+
 
 class TamponForm(forms.ModelForm):
     """
@@ -29,6 +40,11 @@ class TamponForm(forms.ModelForm):
     class Meta:
         model = Tampon
         fields = ["societe", "image", "is_active"]
+
+    def clean_image(self):
+        image = self.cleaned_data["image"]
+        validate_uploaded_file(image, {".png", ".jpg", ".jpeg"})
+        return image
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
