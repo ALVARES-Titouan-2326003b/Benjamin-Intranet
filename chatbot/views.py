@@ -7,11 +7,12 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 
 from invoices.models import Facture
 from invoices.views import visible_invoices_for
 from technique.models import DocumentTechnique
-from user_access.user_test_functions import has_technique_access
+from user_access.user_test_functions import can_view_technical_dossiers
 
 from .legifrance import format_legifrance_context, legifrance_search_generic
 from .models import ChatbotQuery
@@ -174,7 +175,7 @@ def _handle_case_query(message, user):
 
 def _build_rag_context(question, user, max_docs=4, max_chars_per_doc=1200):
     """Recherche documentaire limitée aux utilisateurs du pôle technique."""
-    if not getattr(user, "is_authenticated", False) or not has_technique_access(user):
+    if not getattr(user, "is_authenticated", False) or not can_view_technical_dossiers(user):
         return ""
     stopwords = {
         "pour", "avec", "dans", "quel", "quoi", "les", "des", "une", "cette",
@@ -283,6 +284,29 @@ def _invoices_summary(user):
     return f"Résumé des factures\n- Total : {len(invoices)}\n- Montant cumulé : {total:,.2f} €".replace(",", " ")
 
 
+def _invoice_ai_context(user, limit=100):
+    """Instantané financier borné, limité aux factures visibles par l'utilisateur."""
+    invoices = list(
+        _user_queryset(user)
+        .select_related("societe", "fournisseur", "dossier", "created_by")
+        .order_by("-date_soumission", "-id")[:limit]
+    )
+    lines = ["FACTURES AUTORISÉES (les plus récentes en premier)"]
+    sources = []
+    for invoice in invoices:
+        lines.append(
+            f"- {invoice.id} | n° {invoice.numero_facture or '—'} | société {invoice.societe or '—'} | "
+            f"dossier {invoice.dossier or 'Divers'} | fournisseur {invoice.fournisseur} | "
+            f"montant {invoice.montant or 0} € | statut {invoice.get_statut_display()} | "
+            f"pôle {invoice.get_service_display() or '—'} | facture {invoice.date_facture or '—'} | "
+            f"échéance {invoice.echeance or '—'} | ajout {invoice.date_soumission:%d/%m/%Y}"
+            + (f" | commentaire {invoice.commentaire_compta}" if invoice.commentaire_compta else "")
+        )
+        if len(sources) < 12:
+            sources.append((f"Facture {invoice.id}", reverse("invoices:detail", args=[invoice.pk])))
+    return "\n".join(lines), tuple(sources)
+
+
 def _extract_existing_invoice_id(text, user):
     for token in re.findall(r"\b[A-Z]{3,}-[A-Z0-9-]{4,}\b", text.upper()):
         if _user_queryset(user).filter(id=token).exists():
@@ -294,6 +318,8 @@ def _handle_invoice_query(message, user):
     invoice_id = _extract_existing_invoice_id(message, user)
     if invoice_id:
         return _invoice_by_id(invoice_id, user)
+    if re.search(r"\b[A-Z]{3,}-[A-Z0-9-]{4,}\b", message.upper()):
+        return "Aucune facture accessible ne correspond à cette référence."
     lowered = message.lower()
     if any(word in lowered for word in SUMMARY_KEYWORDS):
         return _invoices_summary(user)
@@ -303,7 +329,21 @@ def _handle_invoice_query(message, user):
         if key in lowered:
             return _invoices_by_status(INVOICE_STATUS_MAP[key], user)
     match = re.search(r"fournisseur\s+(.+)$", message, flags=re.I)
-    return _invoices_by_supplier(match.group(1).strip() if match else message.strip(), user)
+    if match:
+        return _invoices_by_supplier(match.group(1).strip(), user)
+
+    context, sources = _invoice_ai_context(user)
+    answer = _groq_answer(
+        "Tu es l'assistant financier interne. Réponds uniquement à partir des factures autorisées "
+        "fournies. Tu peux filtrer, comparer, totaliser et signaler des échéances. N'invente rien et "
+        "indique clairement lorsqu'une donnée est absente.",
+        context,
+        message,
+        max_tokens=900,
+    )
+    if answer:
+        return append_sources(answer, sources)
+    return _invoices_by_supplier(message.strip(), user)
 
 
 def _handle_legal_query(message):

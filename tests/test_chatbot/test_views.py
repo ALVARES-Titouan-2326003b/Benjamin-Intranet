@@ -7,7 +7,7 @@ from django.contrib.auth.models import Group, User
 from django.urls import reverse
 
 from chatbot.models import ChatbotQuery
-from chatbot.services.case_context import resolve_case
+from chatbot.services.case_context import build_case_context, resolve_case
 from chatbot.views import (
     _build_rag_context,
     _handle_case_query,
@@ -218,6 +218,37 @@ def test_case_resolution_only_uses_projects_visible_to_user(societe):
 
 
 @pytest.mark.django_db
+def test_executive_assistant_has_global_read_access_without_invoice_edit_rights(societe):
+    owner = User.objects.create_user(username="invoice-owner-direction")
+    assistant = User.objects.create_user(username="executive-assistant")
+    assistant.groups.add(Group.objects.get_or_create(name="ASSISTANTE_DIRECTION")[0])
+    project = TechnicalProject.objects.create(
+        reference="CASE-DIRECTION",
+        name="Dossier Direction",
+        societe=societe,
+    )
+    supplier_actor = ActeurExterne.objects.create(id="DIRECTION-SUPPLIER")
+    supplier = Fournisseur.objects.create(id=supplier_actor, nom="Fournisseur Direction")
+    client_actor = ActeurExterne.objects.create(id="DIRECTION-CLIENT")
+    invoice_client = Client.objects.create(id=client_actor)
+    invoice = Facture.objects.create(
+        id="FAC-DIRECTION-001",
+        fournisseur=supplier,
+        client=invoice_client,
+        dossier=project,
+        montant=4200,
+        created_by=owner,
+    )
+
+    assert resolve_case("Résumé CASE-DIRECTION", assistant).project == project
+    assert "FAC-DIRECTION-001" in build_case_context(project, assistant).prompt
+
+    from user_access.user_test_functions import can_edit_facture
+
+    assert can_edit_facture(assistant, invoice) is False
+
+
+@pytest.mark.django_db
 def test_case_query_combines_finances_dates_actions_documents_and_sources(
     societe,
     settings,
@@ -281,6 +312,42 @@ def test_case_query_combines_finances_dates_actions_documents_and_sources(
     assert "documents accessibles : 1" in answer
     assert reverse("technique:dossier_detail", args=[project.pk]) in answer
     assert reverse("invoices:detail", args=[invoice.pk]) in answer
+
+
+@pytest.mark.django_db
+def test_case_context_includes_administrative_activity_and_fields(societe):
+    from management.models import (
+        Activite,
+        ChampPersonnaliseDossier,
+        ValeurChampPersonnaliseDossier,
+    )
+
+    user = User.objects.create_user(username="admin-context")
+    user.groups.add(Group.objects.get_or_create(name="POLE_ADMINISTRATIF")[0])
+    project = TechnicalProject.objects.create(
+        reference="CASE-ADMIN-001",
+        name="Dossier administratif global",
+        societe=societe,
+    )
+    Activite.objects.create(
+        id="CHATBOT-ADMIN-ACTIVITY",
+        dossier=project,
+        titre="Relire la promesse",
+        responsable=user,
+    )
+    field = ChampPersonnaliseDossier.objects.create(label="Notaire référent")
+    ValeurChampPersonnaliseDossier.objects.create(
+        dossier=project,
+        field=field,
+        value="Maître Martin",
+    )
+
+    context = build_case_context(project, user)
+
+    assert "ACTIVITÉS ADMINISTRATIVES OUVERTES" in context.prompt
+    assert "Relire la promesse" in context.prompt
+    assert "Notaire référent : Maître Martin" in context.prompt
+    assert reverse("admin_dossier_detail", args=[project.pk]) in context.fallback_answer
 
 
 @pytest.mark.django_db

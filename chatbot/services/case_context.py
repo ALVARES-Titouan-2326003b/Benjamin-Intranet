@@ -8,10 +8,7 @@ from django.utils import timezone
 
 from invoices.views import visible_invoices_for
 from technique.models import TechnicalProject
-from user_access.user_test_functions import (
-    can_view_technical_dossiers,
-    has_technique_access,
-)
+from user_access.user_test_functions import can_view_technical_dossiers
 
 
 STOP_WORDS = {
@@ -134,8 +131,18 @@ def build_case_context(project, user):
         .order_by("due_date", "id")[:15]
     )
     documents = []
-    if has_technique_access(user):
+    if can_view_technical_dossiers(user):
         documents = list(project.documents.order_by("-created_at")[:8])
+    administrative_activities = list(
+        project.activite_set.select_related("responsable")
+        .exclude(statut__in=["done", "cancelled"])
+        .order_by("date", "id")[:15]
+    )
+    custom_values = list(
+        project.custom_field_values.select_related("field")
+        .filter(field__is_active=True, field__show_in_detail=True)
+        .order_by("field__sort_order", "field__label")[:20]
+    )
 
     invoice_total = sum((Decimal(str(invoice.montant or 0)) for invoice in invoices), Decimal("0"))
     engaged = sum((expense.amount for expense in expenses), Decimal("0"))
@@ -159,8 +166,11 @@ def build_case_context(project, user):
         "FACTURES VISIBLES",
     ]
     lines.extend(
-        f"- {invoice.id} | {invoice.fournisseur} | {_money(invoice.montant)} | "
-        f"{invoice.get_statut_display()} | échéance {_date(invoice.echeance)}"
+        f"- {invoice.id} | n° {invoice.numero_facture or '—'} | {invoice.fournisseur} | "
+        f"{_money(invoice.montant)} | {invoice.get_statut_display()} | "
+        f"pôle {invoice.get_service_display() or '—'} | facture {_date(invoice.date_facture)} | "
+        f"échéance {_date(invoice.echeance)}"
+        + (f" | commentaire : {invoice.commentaire_compta}" if invoice.commentaire_compta else "")
         for invoice in invoices
     )
     if not invoices:
@@ -190,6 +200,37 @@ def build_case_context(project, user):
     if not actions:
         lines.append("- Aucune action ouverte.")
 
+    lines.extend(["", "ACTIVITÉS ADMINISTRATIVES OUVERTES"])
+    for item in administrative_activities:
+        responsible = (
+            item.responsable.get_full_name() or item.responsable.username
+            if item.responsable
+            else "—"
+        )
+        lines.append(
+            f"- {item.titre or 'Activité'} | {item.get_statut_display()} | "
+            f"priorité {item.get_priorite_display()} | date {_date(item.date)} | responsable {responsible}"
+            + (f" | {item.commentaire}" if item.commentaire else "")
+        )
+    if not administrative_activities:
+        lines.append("- Aucune activité administrative ouverte.")
+
+    lines.extend(["", "DONNÉES ADMINISTRATIVES DU DOSSIER"])
+    lines.extend(
+        [
+            f"- Type : {project.get_type_dossier_display()}",
+            f"- Activité métier : {project.get_activite_metier_display()}",
+            f"- État administratif : {project.get_etat_display()}",
+            f"- Catégorie : {project.categorie or '—'}",
+            f"- Date de promesse : {_date(project.date_promesse)}",
+            f"- Date DG : {_date(project.date_dg)}",
+            f"- Dépôt permis : {_date(project.depot_permis)}",
+            f"- Obtention permis : {_date(project.obtention_permis)}",
+            f"- Date de réitération : {_date(project.date_reiteration)}",
+        ]
+    )
+    lines.extend(f"- {item.field.label} : {item.value or '—'}" for item in custom_values)
+
     lines.extend(["", "DOCUMENTS TECHNIQUES AUTORISÉS"])
     for document in documents:
         excerpt = " ".join((document.resume or document.texte_brut or "").split())[:900]
@@ -197,7 +238,10 @@ def build_case_context(project, user):
     if not documents:
         lines.append("- Aucun document technique accessible.")
 
-    sources = [(f"Dossier {project.reference}", reverse("technique:dossier_detail", args=[project.pk]))]
+    sources = [
+        (f"Dossier technique {project.reference}", reverse("technique:dossier_detail", args=[project.pk])),
+        (f"Dossier administratif {project.reference}", reverse("admin_dossier_detail", args=[project.pk])),
+    ]
     sources.extend(
         (f"Facture {invoice.id}", reverse("invoices:detail", args=[invoice.pk]))
         for invoice in invoices[:8]
@@ -213,7 +257,9 @@ def build_case_context(project, user):
         f"- Statut : {project.get_status_display()}",
         f"- Budget : {_money(project.total_estimated)} ; engagé : {_money(engaged)} ; payé : {_money(paid)}",
         f"- Factures visibles : {len(invoices)}, pour un total de {_money(invoice_total)}",
-        f"- Dates clés : {len(key_dates)} ; actions ouvertes : {len(actions)} ; documents accessibles : {len(documents)}",
+        f"- Dates clés : {len(key_dates)} ; actions ouvertes : {len(actions)} ; "
+        f"activités administratives ouvertes : {len(administrative_activities)} ; "
+        f"documents accessibles : {len(documents)}",
     ]
     upcoming_date = next(
         (item for item in key_dates if item.date >= timezone.localdate()),
