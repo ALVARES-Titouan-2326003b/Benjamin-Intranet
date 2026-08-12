@@ -75,35 +75,37 @@ Les modules ainsi que leur version sont tous disponibles dans le fichier `requir
 
 | Package                          | Version |
 |----------------------------------|---------|
-| protobuf                         | 6.33.4  |
-| Django                           | 5.2.8   |
+| protobuf                         | 6.33.5  |
+| Django                           | 5.2.16  |
 | django-celery-beat               | 2.8.1   |
 | django-celery-results            | 2.5.0   |
 | django_environ                   | 0.12.0  |
 | django_mailbox                   | 4.10.1  |
 | django-filter                    | 25.2    |
-| PyPDF2                           | 3.0.1   |
 | python_docx                      | 1.2.0   |
 | reportlab                        | 4.4.4   |
 | Requests                         | 2.32.5  |
-| Pillow                           | 12.0.0  |
-| pypdf                            | 6.3.0   |
+| Pillow                           | 12.3.0  |
+| pypdf                            | 6.15.0  |
 | psycopg2-binary                  | 2.9.11  |
-| celery                           | 5.3.4   |
-| SQLAlchemy                       | 2.0.44  |
+| celery                           | 5.6.3   |
 | google-auth                      | 2.29.0  |
 | google-auth-oauthlib             | 1.2.0   |
 | google-api-python-client         | 2.122.0 |
 | google-auth-httplib2             | 0.2.0   |
-| requests                         | 2.32.5  |
-| django-two-factor-auth[call,sms] | 1.18.1  |
+| requests                         | 2.33.0  |
+| django-two-factor-auth           | 1.18.1  |
 | phonenumbers                     | 9.0.21  |
 | django-otp                       | 1.6.3   |
 | django-axes                      | 8.1.0   |
-| pytest                           | 8.3.4   |
+| pytest                           | 9.0.3   |
 | pytest-django                    | 4.9.0   |
 | pytest-cov                       | 6.0.0   |
 | ruff                             | 0.15.2  |
+| cryptography                     | 50.0.0  |
+| gunicorn                         | 26.0.0  |
+| redis                            | 8.0.1   |
+| sentry-sdk                       | 2.66.1  |
 
 
 ---
@@ -134,7 +136,7 @@ source .venv/bin/activate   # macOS / Linux
 Dans un terminal, à la racine du projet :
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 4. **Créer les dossiers pour accueillir les fichiers uploadés et les logs**
@@ -260,7 +262,6 @@ Ce script démarre automatiquement **tous les services nécessaires** :
 Grâce au script `start_intranet.py`, vous n'avez plus besoin de lancer manuellement les commandes Celery.
 Les tâches crons suivantes seront exécutées automatiquement en arrière-plan :
 
-- **Relance factures**
 - **Relance activités**
 - **Relance mail**
 
@@ -278,11 +279,6 @@ dans un journal persistant. Les relances sont envoyées dans le fil Gmail
 existant et chaque synchronisation, envoi, changement de statut, erreur ou note
 est conservé dans l'historique.
 
-Le pôle financier désigne depuis la liste des factures un unique compte Gmail
-actif pour les relances automatiques. Les factures ouvertes sont relancées après
-échéance à J+X, puis lorsque X jours se sont écoulés depuis le dernier envoi
-réussi. Les statuts payée, refusée et archivée arrêtent les relances.
-
 Le pôle technique importe les messages et pièces jointes depuis Gmail. Après
 classement automatique à haute confiance ou validation manuelle du projet, une
 tâche Celery extrait et résume les fichiers PDF, DOC, DOCX et TXT, puis crée le
@@ -291,3 +287,11 @@ explicitement dans le détail de l'e-mail.
 
 Le code Microsoft/Outlook est conservé pour une éventuelle réactivation, mais
 ses routes et contrôles ne sont pas exposés dans l'interface.
+
+---
+
+## Production
+
+Le lanceur `start_intranet.py` est réservé au développement. La procédure de
+production Docker, la gestion des secrets, les sauvegardes, le retour arrière
+et la checklist de recette sont décrits dans [PRODUCTION.md](PRODUCTION.md).

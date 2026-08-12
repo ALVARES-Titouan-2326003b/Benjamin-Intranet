@@ -9,7 +9,7 @@ Note de cadrage : les nouveaux besoins exprimés par le pôle technique complèt
 Points à confirmer avant validation définitive :
 
 - le retrait du typage des documents techniques ;
-- les règles d'archivage des dossiers, à valider par le rôle CEO / superadmin ;
+- les règles d'archivage des dossiers, à valider par le rôle superadministrateur ;
 - les modalités de convergence avec le dossier administratif dans une logique de dossier unique.
 
 ## 2. Socle transversal – Dossiers techniques
@@ -75,7 +75,7 @@ Correction de cadrage : le retrait demandé ne concerne pas les types de dossier
 
 La règle attendue est d'archiver les dossiers techniques plutôt que de les supprimer définitivement.
 
-Dans le contexte actuel, Rudy représente le rôle CEO / superadmin. La règle fonctionnelle ne doit donc pas dépendre d'une personne nommée en dur, mais d'un niveau de droit.
+La règle fonctionnelle ne doit pas dépendre d'une personne nommée en dur, mais du rôle de superadministrateur. Ce rôle peut être attribué à plusieurs utilisateurs ; lors de la mise en service initiale, Mégane et Rudy disposent de ce rôle.
 
 Règles attendues :
 
@@ -84,7 +84,7 @@ Règles attendues :
 - un dossier archivé ne doit plus pouvoir être sélectionné lors de la création ou du rattachement d'une facture ;
 - un dossier archivé ne doit plus pouvoir être sélectionné lors de la création ou du rattachement d'une activité ;
 - l'archivage doit être historisé avec l'utilisateur, la date et, si possible, un commentaire ;
-- la suppression définitive éventuelle doit rester exceptionnelle et validée par le CEO / superadmin.
+- la suppression définitive éventuelle doit rester exceptionnelle et validée par un superadministrateur.
 
 ## 3. Module 1 – Assistant IA juridique pour la promotion immobilière
 
@@ -98,6 +98,11 @@ Fournir une interface IA capable de répondre aux questions juridiques liées à
 - Interface en langage naturel pour consultation simple.
 - Historique des requêtes par utilisateur.
 - Recherche dans les sources officielles lorsque cela est possible, notamment via Légifrance.
+- Questions-réponses contextualisées à l'échelle d'un dossier technique ou, selon les droits, de l'ensemble de la base documentaire interne.
+- Résumé et comparaison de plusieurs documents.
+- Extraction des dates, montants, parties, clauses et informations importantes.
+- Affichage des documents et passages utilisés pour produire chaque réponse.
+- Respect strict des droits d'accès : l'assistant ne doit ni interroger ni restituer le contenu d'un document inaccessible à l'utilisateur.
 
 ### 3.3 Spécifications techniques
 
@@ -145,6 +150,7 @@ Le module documents doit donc privilégier :
 - Journalisation des analyses avec tri par projet.
 - Remplacer progressivement le rattachement texte libre d'un document par un rattachement structuré au dossier technique.
 - Retirer le champ de type de document des formulaires, filtres et vues du pôle technique, ou le masquer s'il doit être conservé temporairement pour compatibilité technique.
+- Pour toute réponse générée à partir de documents internes, conserver les références des sources utilisées afin de permettre leur consultation et la vérification du résultat.
 
 ## 5. Module 3 – Tri automatique des e-mails et pièces jointes
 
@@ -174,7 +180,7 @@ Donner au pôle technique une visibilité en temps réel sur les paiements liés
 
 ### 6.2 Fonctionnalités
 
-- Liste des factures reçues, validées, en attente, payées.
+- Liste des factures selon les deux statuts du module financier : Reçue et En attente.
 - Filtres par fournisseur, date, projet.
 - Téléchargement des justificatifs.
 - Accès aux justificatifs et documents financiers depuis la fiche dossier technique.
@@ -205,16 +211,41 @@ Le point d'entrée principal doit être le dossier technique, plutôt qu'une pag
 - Affichage des documents financiers liés au dossier.
 - Affichage direct des informations financières depuis la fiche dossier technique.
 - Lien avec les briques affaire/dossier lorsque le dossier technique correspond à une affaire suivie ailleurs dans l'intranet.
+- Rattachement obligatoire de chaque dossier à une société du référentiel partagé, visible et filtrable dans toutes les vues qui utilisent le dossier.
+- Dans tout l’intranet, sélection obligatoire de la société avant le dossier ; le sélecteur de dossiers ne propose que les dossiers rattachés à cette société.
+- Validation serveur systématique de la cohérence société–dossier pour les factures, activités, documents, e-mails et autres éléments liés.
 - Affichage des factures rattachées au dossier et provenant du pôle financier.
 - Saisie de dépenses propres au dossier, avec ou sans facture associée.
+- Modification d'une dépense existante directement depuis la fiche du dossier, sans navigation vers une page distincte.
+- Affichage d'une jauge budgétaire synthétique sur la fiche du dossier.
 
 Une facture est un élément issu du pôle financier. Une dépense est une ligne de suivi du dossier technique : elle peut être liée à une facture existante, mais elle peut aussi être saisie sans facture lorsque la dépense est prévisionnelle, estimative ou non encore facturée.
+
+Le formulaire de création et de modification d'une dépense doit présenter une interface commune et contenir au minimum :
+
+- un libellé ;
+- un montant prévu ;
+- un montant engagé ou payé ;
+- une date ;
+- un commentaire optionnel ;
+- une facture associée optionnelle.
+
+La jauge budgétaire doit afficher :
+
+- le budget total du dossier ;
+- le montant engagé ;
+- le montant payé ;
+- le montant restant ;
+- le pourcentage du budget consommé.
+
+Un code couleur doit signaler un budget normal, proche de sa limite ou dépassé. Les seuils proposés sont : vert jusqu'à 75 %, orange au-delà de 75 % et jusqu'à 100 %, rouge au-delà de 100 %. Ces seuils doivent être configurables ou validés par le pôle technique avant mise en production.
 
 ### 7.3 Spécifications techniques
 
 - Interface web interactive (React/Vue.js).
 - Liaison avec la base de données projets et les données finance disponibles.
 - Historique des mises à jour par utilisateur.
+- Historisation de chaque modification de dépense avec l'utilisateur, la date et les valeurs modifiées.
 
 ## 8. Module 6 – Dates clés du dossier
 
@@ -232,7 +263,15 @@ Chaque date clé doit contenir :
 - une date ;
 - un commentaire optionnel ;
 - un statut optionnel ;
-- un lien éventuel avec un document ou une action à mener.
+- un lien éventuel avec une action à mener ;
+- zéro, un ou plusieurs documents associés.
+
+Depuis une date clé, l'utilisateur doit pouvoir :
+
+- sélectionner plusieurs documents déjà présents dans le dossier ;
+- téléverser un nouveau document et l'associer à la date clé ;
+- consulter ou télécharger les documents associés ;
+- retirer l'association d'un document sans supprimer le document du dossier.
 
 Exemples de dates clés :
 
@@ -262,7 +301,10 @@ Le module doit permettre :
 - d'ajouter une description ou un commentaire ;
 - d'ajouter une date d'échéance si nécessaire ;
 - de conserver des actions sans date lorsqu'elles ne correspondent pas à une échéance précise ;
-- de filtrer les actions par dossier, collaborateur, statut et priorité.
+- de filtrer les actions par dossier, collaborateur, statut et priorité ;
+- de modifier une action directement depuis la fiche du dossier, sans navigation vers une page distincte.
+
+Le formulaire de modification doit reprendre la même présentation et les mêmes champs que le formulaire de création. Selon ses droits, l'utilisateur doit pouvoir modifier le responsable, le statut, la priorité, la date éventuelle, la description et les commentaires. Les modifications doivent être historisées.
 
 Statuts proposés pour les actions :
 
@@ -282,3 +324,33 @@ Les dossiers archivés ne doivent pas être proposés comme dossiers rattachable
 - Documentation technique et formation des utilisateurs.
 - Gestion fine des droits sur les dossiers, documents, actions, dates clés et archivages.
 - Traçabilité des modifications importantes, notamment sur les dossiers, budgets, documents et archivages.
+
+## 11. Ordre de réalisation recommandé
+
+### Priorité 1 – Modèle de données et liaisons
+
+- permettre l'association de plusieurs documents à une date clé ;
+- vérifier les liaisons entre dossiers techniques, factures et dépenses ;
+- préparer les données nécessaires au calcul du budget engagé, payé et restant ;
+- compléter l'historisation des dépenses et des actions.
+
+### Priorité 2 – Interfaces métier du dossier
+
+- modifier l'interface de création et de modification des dépenses ;
+- modifier l'interface de création et de modification des actions ;
+- intégrer ces formulaires directement dans la fiche du dossier ;
+- ajouter la gestion des documents depuis les dates clés.
+
+### Priorité 3 – Jauge budgétaire
+
+- calculer les montants agrégés du dossier ;
+- afficher la jauge et ses valeurs détaillées ;
+- valider les seuils de couleur avec le pôle technique.
+
+### Priorité 4 – Approfondissement de l'IA interne
+
+- définir le périmètre documentaire interrogeable ;
+- appliquer les droits d'accès aux recherches ;
+- ajouter les réponses contextualisées par dossier, la comparaison et l'extraction d'informations ;
+- afficher systématiquement les sources utilisées ;
+- évaluer la qualité des réponses sur un jeu de documents métier validé.

@@ -13,13 +13,17 @@ Note de cadrage : les nouveaux besoins du pôle finance ajoutent un module de **
 - Création d’un portail intranet web.
 - Gestion des rôles :
   - Tout utilisateur connecté : création / transmission de factures et consultation de ses propres factures.
-  - Pôle Administratif : création et gestion des projets auxquels les factures peuvent être rattachées.
-  - Pôle Financier : validation, correction, changement de statut, paiement et archivage des factures.
-  - CEO / superadmin : droits complets, dont modification du statut des factures.
-- Gestion des statuts de factures : Reçue, En cours, Payée, Refusée, Archivées.
-- Filtres disponibles : par société, dossier / affaire, montant, date, statut, service.
-- Téléversement de justificatifs et factures PDF.
+  - Pôle Administratif : création et gestion des dossiers et des sociétés auxquels les factures peuvent être rattachées.
+  - Pôle Financier : validation, correction et changement de statut des factures.
+  - Superadministrateur : droits complets, dont modification du statut des factures.
+- Le rôle de superadministrateur doit pouvoir être attribué à plusieurs utilisateurs. Lors de la mise en service initiale, ce rôle est attribué à Mégane et Rudy avec des droits identiques, sauf exception explicitement documentée.
+- Gestion des statuts de factures limitée à : Reçue et En attente.
+- Filtres disponibles : par société, dossier / affaire, montant, date, statut et pôle.
+- Téléversement obligatoire d'au moins une facture en pièce jointe, avec prise en charge des formats autorisés.
 - Notifications automatiques par e-mail ou via Teams/Slack.
+- Tri par défaut de la liste des factures selon leur date de création décroissante, avec possibilité d'inverser le tri.
+
+Une nouvelle facture reçoit automatiquement le statut **Reçue**. Son passage au statut **En attente** est réservé au pôle financier et aux superadministrateurs. Les anciens statuts En cours, Payée, Refusée et Archivée sont retirés des formulaires, filtres, tableaux de bord et traitements.
 
 ### Transmission de factures
 
@@ -37,24 +41,34 @@ Les champs attendus pour une facture sont notamment :
 - montant TTC ;
 - échéance de paiement ;
 - date de soumission automatique ;
-- pièce(s) jointe(s), avec prise en charge PDF, JPG, PNG et Excel ;
+- pièce(s) jointe(s) obligatoire(s), avec prise en charge PDF, JPG, PNG et Excel ;
 - nom du demandeur ;
-- service / département du demandeur ;
+- pôle concerné ;
 - société concernée ;
 - dossier / affaire concerné ;
 - priorité de traitement : Normal, Urgent, Critique ;
 - commentaire libre à destination de la comptabilité.
 
-La création d’une facture doit être ouverte à n’importe quel utilisateur connecté, sans restriction au seul pôle financier. Le pôle financier et le CEO / superadmin conservent en revanche les droits de validation, correction, changement de statut, paiement et archivage.
+La création d’une facture doit être ouverte à n’importe quel utilisateur connecté, sans restriction au seul pôle financier. Le pôle financier et les superadministrateurs conservent en revanche les droits de validation, correction et changement de statut.
 
 Les dossiers archivés ne doivent pas être proposés comme dossiers rattachables à une facture.
+
+Chaque facture doit obligatoirement être rattachée à une société issue du référentiel géré par le pôle administratif. Elle doit également être rattachée soit à un dossier existant, soit à l'option fonctionnelle **Divers**.
+
+La société doit être sélectionnée avant le dossier. Le sélecteur de dossiers ne propose alors que les dossiers rattachés à cette société et le serveur refuse tout couple incohérent. Lorsque l’option **Divers** est utilisée, la société demeure obligatoire.
+
+L'option Divers ne doit pas créer un faux dossier dans le référentiel. Lorsqu'elle est sélectionnée, un commentaire décrivant l'objet de la facture devient obligatoire.
+
+Le formulaire ne doit pas pouvoir être validé sans pièce jointe correspondant à la facture.
 
 ### Notifications et circuit d’information
 
 - À chaque création, transmission ou rattachement d’une facture, une notification e-mail doit être envoyée au pôle finance.
-- Rudy doit également être destinataire de ces notifications.
+- Les superadministrateurs configurés doivent également être destinataires de ces notifications.
 - Les destinataires doivent idéalement être configurables afin d’éviter de coder une adresse en dur.
-- La notification doit contenir au minimum : fournisseur, numéro de facture, société, dossier / affaire, montant, échéance, demandeur et lien vers la facture dans l’intranet.
+- La notification doit contenir au minimum : fournisseur, numéro de facture, société, dossier / affaire ou mention Divers, montant, échéance, demandeur et lien vers la facture dans l’intranet.
+- La facture doit obligatoirement être jointe à l'e-mail envoyé lors de sa création.
+- Si la taille de la pièce jointe dépasse la limite autorisée par la messagerie, le système doit signaler l'échec d'envoi et conserver une notification visible pour le pôle finance. Une règle de remplacement par un lien sécurisé pourra être validée ultérieurement.
 
 ### Contrôle des doublons
 
@@ -78,6 +92,23 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
   - Authentification : SSO entreprise ou gestion simple par e-mail/mot de passe
 - Interfaces d’échange à documenter pour une éventuelle intégration future avec les outils de facturation.
 - Hébergement : cloud (AWS, OVH, ou autre).
+- Prévoir un index et un tri sur la date de création des factures.
+- Aucun moteur de relance automatique fondé sur la date d'échéance n'est requis. La date d'échéance reste une information consultable et filtrable.
+
+### Suivi Excel entre les deux plateformes
+
+Une étude de faisabilité doit déterminer comment consolider dans Excel le suivi des factures provenant des deux plateformes utilisées par l'entreprise.
+
+Cette étude doit identifier :
+
+- les possibilités d'échange de chaque plateforme : API, export Excel, import Excel ou accès documenté aux données ;
+- la plateforme ou la base faisant foi ;
+- l'identifiant commun permettant de rapprocher une même facture ;
+- la fréquence de mise à jour attendue ;
+- le traitement des doublons et des conflits de modification ;
+- les colonnes nécessaires au fichier consolidé.
+
+Pour la première version, la solution recommandée est un export Excel consolidé depuis l'intranet. Une synchronisation bidirectionnelle ne doit être engagée qu'après validation des interfaces disponibles, des règles de responsabilité des données et des risques de conflit.
 
 ### Extension IA (phase 2)
 
@@ -107,21 +138,18 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 
 - Classification automatique des documents nécessitant une signature via OCR + NLP.
 
-## Point 3 – Dashboard analytique & relances automatisées
+## Point 3 – Dashboard analytique
 
-**Objectif :** Créer une interface de visualisation financière et un moteur de relance automatisée selon les statuts des factures.
+**Objectif :** Créer une interface de visualisation financière et de suivi des statuts des factures.
 
 ### Spécifications fonctionnelles
 
 - Dashboard de visualisation :
-  - Factures en attente, payées, en retard
+  - Factures reçues et factures en attente
+  - Répartition et évolution des factures selon les deux statuts retenus
   - Moyenne de traitement
   - Top 5 fournisseurs, dépenses par mois…
-  - Évolution mensuelle des factures et montants engagés / payés
-- Système de relances :
-  - Relance automatique à J+X selon la date d’échéance
-  - Envoi personnalisé (modèle mail ou PDF généré automatiquement)
-  - Historique des relances envoyées
+  - Évolution mensuelle du nombre de factures et des montants transmis
 - Filtres d’analyse :
   - société ;
   - dossier / affaire ;
@@ -132,13 +160,11 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 ### Spécifications techniques
 
 - Dashboard : Power BI, Google Data Studio ou interface personnalisée
-- Automatisation : Zapier / Make, ou Node.js / Python + SMTP / service mail
 - Connexion à la base de données de factures
 - Hébergement : Cloud sécurisé (type OVH ou AWS)
 
 ### Extension IA
 
-- Génération de mails personnalisés via IA
 - Détection de fournisseurs à risque
 - Prévisions budgétaires basées sur les historiques
 
@@ -148,24 +174,68 @@ L’alerte doit intervenir dès la saisie ou au plus tard avant la validation fi
 
 ### Spécifications fonctionnelles
 
-- Prévoir une liste de sociétés proposée dans les formulaires finance.
-- Permettre le pré-enregistrement d’une société afin d’éviter les saisies libres incohérentes.
-- Étudier une section dédiée aux sociétés dans le pôle finance.
-- Afficher des statistiques par société lorsque les données sont disponibles : nombre de factures, montants engagés, montants payés, factures en retard et répartition par statut.
+- La création, la modification et le retrait des sociétés sont transférés au pôle administratif.
+- Le pôle finance utilise le référentiel partagé en lecture et pour la sélection dans les formulaires.
+- Une société déjà liée à une facture ou à un autre objet métier ne doit pas être supprimée physiquement. Elle doit être retirée des nouvelles sélections tout en restant visible dans l'historique.
+- Une société jamais utilisée peut être supprimée définitivement par un utilisateur administratif autorisé.
+- Afficher des statistiques par société lorsque les données sont disponibles : nombre de factures, montants transmis et répartition entre les statuts Reçue et En attente.
 - Utiliser ce référentiel pour fiabiliser les filtres et les contrôles de doublons.
 
 ### Spécifications techniques
 
 - Prévoir un modèle ou référentiel de sociétés réutilisable par les factures, les dossiers et les tampons.
 - Conserver une compatibilité avec les factures existantes contenant déjà une société saisie en texte libre.
+- Les droits de modification du référentiel sont gérés dans le module administratif.
+
+## Ordre de réalisation recommandé
+
+### Priorité 1 – Rôles et référentiels partagés
+
+- permettre plusieurs superadministrateurs et attribuer initialement ce rôle à Mégane et Rudy ;
+- utiliser le référentiel de sociétés géré par le pôle administratif ;
+- fiabiliser le référentiel partagé des dossiers et ajouter l'option fonctionnelle Divers.
+
+### Priorité 2 – Modèle et règles des factures
+
+- limiter les statuts à Reçue et En attente ;
+- rendre obligatoires la société, le dossier ou Divers, et la pièce jointe ;
+- rendre le commentaire obligatoire avec l'option Divers ;
+- préparer la compatibilité ou la migration des anciennes valeurs de statut.
+
+### Priorité 3 – Parcours de saisie et liste des factures
+
+- adapter l'assistant d'ajout de facture ;
+- afficher uniquement les deux statuts retenus ;
+- trier par défaut selon la date de création décroissante ;
+- adapter les filtres, contrôles de doublons et écrans de détail.
+
+### Priorité 4 – Notifications
+
+- joindre obligatoirement la facture à l'e-mail de création ;
+- rendre les destinataires configurables ;
+- notifier le pôle finance et les superadministrateurs ;
+- gérer explicitement les échecs liés à la taille ou à l'envoi des pièces jointes.
+
+### Priorité 5 – Dashboard
+
+- recalculer les indicateurs à partir des statuts Reçue et En attente ;
+- retirer les indicateurs payée, refusée, archivée ou en retard qui ne sont plus alimentés.
+
+### Priorité 6 – Excel et seconde plateforme
+
+- collecter la documentation des deux plateformes ;
+- réaliser l'étude de faisabilité ;
+- livrer en premier un export Excel consolidé ;
+- n'envisager une synchronisation bidirectionnelle qu'après validation du système faisant foi et des règles de rapprochement.
 
 ## Documents à collecter (pré-requis)
 
 - Documentation Lockimmo utile aux exports éventuels
 - Modèles de signature acceptés par la direction
 - Liste des rôles/accès utilisateurs
-- Modèle de relance actuel utilisé
 - Liste des sociétés à proposer dans les formulaires finance
 - Liste des dossiers / affaires rattachables à une facture
 - Adresse e-mail ou groupe de diffusion du pôle finance
-- Adresse e-mail de Rudy pour les notifications finance
+- Adresses ou groupe de notification des superadministrateurs
+- Documentation des possibilités d'export, d'import ou d'API des deux plateformes à consolider dans Excel
+- Mapping attendu des colonnes du fichier Excel consolidé

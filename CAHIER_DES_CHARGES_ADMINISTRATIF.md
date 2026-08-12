@@ -146,6 +146,33 @@ Chaque dossier doit disposer d’une page détail permettant de consulter :
 - son historique de modifications ;
 - ses relances éventuelles.
 
+### 3.8 Référentiel des sociétés
+
+La gestion du référentiel des sociétés relève du pôle administratif. Ce référentiel doit rester commun aux dossiers, factures, signatures, tampons et autres modules qui utilisent une société.
+
+Le module doit permettre aux utilisateurs administratifs autorisés :
+
+- de créer et modifier une société ;
+- de rechercher et consulter les sociétés ;
+- de supprimer définitivement une société qui n'a jamais été utilisée ;
+- de retirer des listes de sélection une société qui ne doit plus être utilisée.
+
+Une société déjà liée à un dossier, une facture, un document ou un tampon ne doit pas être supprimée physiquement, afin de préserver l'intégrité et l'historique des données. Elle doit être retirée des nouvelles sélections tout en restant visible sur les éléments historiques auxquels elle est liée.
+
+Les autres pôles peuvent utiliser ce référentiel selon leurs droits, sans pouvoir le modifier sauf permission administrative explicite.
+
+### 3.9 Liaison obligatoire entre dossier et société
+
+Chaque dossier, qu’il soit consulté depuis le pôle administratif, technique, financier ou un autre module, doit obligatoirement être rattaché à une société active du référentiel partagé.
+
+- la société est demandée lors de la création d’un dossier ;
+- un dossier existant ne peut pas être enregistré sans société ;
+- la société du dossier est affichée dans les listes, filtres, fiches et exports ;
+- les imports de nouveaux dossiers doivent contenir une société reconnue du référentiel ;
+- dans tout écran proposant un dossier, la société doit être sélectionnée en premier et seuls ses dossiers doivent être proposés ;
+- toute création ou modification reçue par le serveur doit être refusée si le dossier est fourni sans société ou si le couple société–dossier est incohérent ;
+- une modification de la société du dossier est répercutée sur ses factures et activités liées afin d’éviter toute association contradictoire.
+
 ## 4. Module 2 : Tableau de suivi administratif
 
 ### 4.1 Objectif
@@ -205,6 +232,8 @@ Adapter le module d’activité afin qu’il corresponde aux besoins du pôle ad
 
 Une activité représente une tâche, une action ou un suivi à réaliser sur un dossier.
 
+Le type d'activité est entièrement supprimé. Il ne doit plus exister dans le modèle de données ni être demandé, affiché ou utilisé dans les formulaires, tableaux, filtres, calendriers, imports ou pages de détail. Les activités, leurs statuts, priorités, responsables, dates et rappels restent conservés.
+
 ### 5.2 Modification du formulaire “Nouvelle activité”
 
 Le formulaire actuel doit être modifié.
@@ -221,8 +250,9 @@ Champs attendus pour une nouvelle activité :
 - Société liée à l’affaire ;
 - Affaire concernée ou dossier concerné, facultatif ;
 - Collaborateur interne responsable ;
+- Intitulé ;
 - Statut ;
-- Date unique de suivi ou d’échéance ;
+- Créneau personnalisé avec une date et une heure de début ainsi qu’une date et une heure de fin ;
 - Description ou commentaire ;
 - Priorité éventuelle.
 
@@ -306,14 +336,13 @@ La vue calendrier doit permettre :
 - un accès rapide à la fiche dossier depuis un événement ;
 - l’affichage des échéances en retard ;
 - le filtrage par collaborateur ;
-- le filtrage par activité métier ;
 - le filtrage par catégorie de dossier ;
 - l’import d’événements calendrier ;
 - l’export d’événements calendrier.
 
 Le besoin retenu est un import/export de calendrier, et non une synchronisation complète dans cette version. Google Agenda / Gmail est une solution temporaire pour faciliter les premiers échanges. L’objectif final est de permettre l’import/export avec Outlook.
 
-L’import calendrier doit pouvoir créer des activités sans dossier rattaché, sans sélection de type d’activité ni de responsable, afin d’intégrer un calendrier externe sans dépendance préalable à des données intranet. Les activités importées sont associées au calendrier personnel de l’utilisateur qui réalise l’import et utilisent un type système dédié à l’import calendrier.
+L’import calendrier doit pouvoir créer des activités sans dossier rattaché et sans responsable sélectionné, afin d’intégrer un calendrier externe sans dépendance préalable à des données intranet. Les activités importées sont associées au calendrier personnel de l’utilisateur qui réalise l’import. Aucun type d'activité ne doit être demandé ou affiché lors de cet import.
 
 Le pôle administratif peut consulter le calendrier administrateur / CEO, c’est-à-dire le calendrier du superadmin. Il ne doit pas pouvoir créer, modifier ou supprimer des événements dans ce calendrier.
 
@@ -347,7 +376,7 @@ Exemples :
 
 Le paramétrage doit permettre de choisir si le rappel est envoyé avant ou après l’échéance, ainsi que le nombre de jours concerné.
 
-Le rappel doit également permettre de renseigner une heure ou un créneau horaire. Les créneaux doivent pouvoir être saisis sous forme de durée standard, par exemple 30 minutes, 1 heure ou une durée équivalente à confirmer.
+Le formulaire d’activité doit permettre de définir librement le début et la fin du créneau. La durée est calculée automatiquement et réutilisée dans le calendrier, les rappels et les échanges Outlook/ICS.
 
 Dans la première version, un e-mail suffit. Il doit être envoyé à la personne associée à l’activité.
 
@@ -363,9 +392,9 @@ Le circuit de signature attendu fonctionne ainsi :
 
 - n’importe quel membre de l’intranet peut envoyer un document à signer ;
 - la demande est assignée à un membre du pôle administratif ;
-- un e-mail est envoyé au membre du pôle administratif assigné ainsi qu’à Rudy (CEO) ;
-- Rudy conserve une visibilité complète sur toutes les demandes de signature ;
-- le membre du pôle administratif assigné et Rudy peuvent signer le document.
+- un e-mail est envoyé au membre du pôle administratif assigné ainsi qu’aux superadministrateurs configurés ;
+- les superadministrateurs conservent une visibilité complète sur toutes les demandes de signature ;
+- le membre du pôle administratif assigné et les superadministrateurs autorisés peuvent signer le document.
 
 Ce fonctionnement permet au pôle administratif de traiter les signatures tout en garantissant une traçabilité et une supervision par le CEO.
 
@@ -376,18 +405,23 @@ Le module doit permettre :
 - de lier un document à un dossier ;
 - d’envoyer un document en signature depuis n’importe quel compte intranet autorisé ;
 - d’assigner la demande à un membre du pôle administratif ;
-- d’envoyer un e-mail au membre du pôle administratif assigné et à Rudy ;
+- d’envoyer un e-mail au membre du pôle administratif assigné et aux superadministrateurs configurés ;
 - de permettre au membre du pôle administratif assigné de signer le document ;
-- de permettre à Rudy de signer le document ;
-- de permettre à Rudy de consulter l’ensemble des demandes et documents à signer ;
+- de permettre aux superadministrateurs autorisés de signer le document ;
+- de permettre aux superadministrateurs de consulter l’ensemble des demandes et documents à signer ;
 - de suivre l’état de la signature ;
 - d’archiver le document signé ;
 - de conserver l’historique de validation ;
+- de proposer quatre signatures préenregistrées au choix ;
 - de choisir entre une signature seule, un tampon seul, ou un bloc tampon + signature ;
 - de sélectionner le tampon à utiliser avant génération du PDF signé ;
 - de créer ou modifier un tampon depuis l’interface, identifié par sa société ;
 - de prévoir jusqu’à 46 tampons disponibles ;
+- de renseigner un lieu et une date pour générer la mention « Fait à [lieu], le [date] » ;
+- de prévisualiser le placement de cette mention avant la génération du document final ;
 - d’étudier l’aide OCR / IA pour détecter les zones de signature ou de tampon sur les documents.
+
+Les quatre signatures doivent être administrables uniquement par les utilisateurs disposant de la permission correspondante. La signature sélectionnée, l'utilisateur ayant réalisé l'opération, le lieu et la date doivent être conservés dans l'historique. La liste et les fichiers définitifs des quatre signatures doivent être fournis avant la mise en production.
 
 ### 8.3 Statuts de signature
 
@@ -401,7 +435,7 @@ Statuts proposés :
 
 L’intégration d’une solution de signature électronique certifiée pourra être étudiée ultérieurement si l’entreprise souhaite un processus juridiquement renforcé.
 
-L’idée retenue est que la signature soit accessible à l’administratif assigné et à Rudy, avec Rudy systématiquement informé pour conserver une trace écrite et une vue globale.
+L’idée retenue est que la signature soit accessible à l’administratif assigné et aux superadministrateurs autorisés, avec notification des superadministrateurs configurés afin de conserver une trace écrite et une vue globale.
 
 Le besoin prioritaire porte sur la signature interne avec génération de PDF signé, choix du tampon et possibilité d’apposer le tampon avec ou sans signature.
 
@@ -465,8 +499,10 @@ Sécuriser les accès et éviter les modifications non autorisées.
 
 Rôles minimums :
 
-- Rudy (CEO, superadmin)
-- Pôle administratif
+- Superadministrateur ;
+- Pôle administratif.
+
+Le rôle de superadministrateur doit pouvoir être attribué à plusieurs utilisateurs simultanément. Lors de la mise en service initiale, il est attribué à Mégane et Rudy. Ces deux comptes disposent du même niveau de droits, sauf exception explicitement documentée et validée.
 
 ### 10.3 Permissions à prévoir
 
@@ -479,6 +515,8 @@ Le système doit permettre de définir :
 - qui peut créer une activité ;
 - qui peut modifier une activité ;
 - qui peut signer un document ;
+- qui peut gérer les quatre signatures préenregistrées ;
+- qui peut créer, modifier ou retirer une société du référentiel ;
 - qui peut consulter les documents ;
 - qui peut consulter les dossiers techniques pertinents depuis le pôle administratif ;
 - qui peut consulter le calendrier administrateur / CEO superadmin en lecture seule ;
@@ -645,18 +683,30 @@ Le module administratif devra respecter les exigences suivantes :
 - confirmer les catégories avec le pôle administratif ;
 - conserver la fiche dossier et les champs issus du tableau administratif.
 
-### Priorité 2 : Activités administratives
+### Priorité 2 : Référentiel des sociétés
+
+À réaliser avant les modules qui consomment ces données :
+
+- transférer la gestion des sociétés au pôle administratif ;
+- partager le même référentiel avec les dossiers, factures, signatures et tampons ;
+- autoriser la suppression définitive uniquement pour une société jamais utilisée ;
+- retirer des nouvelles sélections une société déjà utilisée qui ne doit plus être proposée.
+
+La gestion de plusieurs superadministrateurs, dont l'attribution initiale à Mégane et Rudy, est conservée dans le périmètre mais reportée à une phase ultérieure.
+
+### Priorité 3 : Activités administratives
 
 À réaliser ensuite :
 
 - modifier le formulaire Nouvelle activité ;
 - retirer Client et Contact ;
+- retirer le type d'activité de tous les formulaires, tableaux, filtres et imports ;
 - ajouter Collaborateur interne ;
 - permettre de lier l’activité à un dossier lorsque c’est pertinent, sans rendre ce rattachement obligatoire ;
 - gérer les statuts retenus et une date unique ;
 - afficher les activités par dossier.
 
-### Priorité 3 : Tableau de suivi
+### Priorité 4 : Tableau de suivi
 
 État actuel : la gestion des dossiers administratifs est considérée comme implémentée.
 
@@ -669,7 +719,26 @@ Le module administratif devra respecter les exigences suivantes :
 - ajouter l’export Excel si absent ;
 - ajouter l’export PDF.
 
-### Priorité 4 : Calendrier et rappels
+### Priorité 5 : Signature
+
+À réaliser une fois les dossiers, les sociétés et les droits structurés :
+
+- lier les documents à un dossier ;
+- permettre à n’importe quel membre de l’intranet d’envoyer un document à signer ;
+- assigner la demande à un membre du pôle administratif ;
+- notifier le membre assigné et les superadministrateurs configurés ;
+- permettre la signature par le membre administratif assigné ou un superadministrateur autorisé ;
+- donner aux superadministrateurs une vue globale sur toutes les demandes ;
+- proposer quatre signatures préenregistrées au choix ;
+- ajouter la mention « Fait à [lieu], le [date] » et sa prévisualisation ;
+- suivre les statuts de signature et archiver les documents signés ;
+- permettre le choix signature seule, tampon seul ou tampon + signature ;
+- limiter l'affichage des documents signés aux utilisateurs concernés, sauf administrateurs et superadministrateurs ;
+- prévoir 46 tampons sélectionnables, identifiés par société ;
+- permettre la création ou modification de tampon sans gérer de nom de tampon distinct de la société ;
+- étudier l’OCR / IA pour aider au placement de la signature, du tampon et de la mention de lieu et de date.
+
+### Priorité 6 : Calendrier et rappels
 
 À réaliser ensuite :
 
@@ -678,30 +747,12 @@ Le module administratif devra respecter les exigences suivantes :
 - permettre la saisie manuelle des dates importantes sous forme d’activités ;
 - identifier les échéances en retard ;
 - paramétrer les rappels avant ou après échéance ;
-- ajouter une heure ou un créneau de rappel, par exemple 30 minutes ou 1 heure ;
+- permettre un créneau personnalisé en choisissant librement l’heure de début et l’heure de fin ;
 - envoyer les rappels par e-mail à la personne associée à l’activité ;
 - gérer les rappels individuels ;
 - prévoir l’import/export calendrier, avec Google Agenda / Gmail en solution temporaire et Outlook comme cible finale.
 
-### Priorité 5 : Signature
-
-À réaliser une fois les dossiers structurés :
-
-- lier les documents à un dossier ;
-- permettre à n’importe quel membre de l’intranet d’envoyer un document à signer ;
-- assigner la demande à un membre du pôle administratif ;
-- notifier par e-mail le membre assigné et Rudy ;
-- permettre la signature par le membre administratif assigné ou par Rudy ;
-- donner à Rudy une vue globale sur toutes les demandes ;
-- suivre les statuts de signature ;
-- archiver les documents signés ;
-- permettre le choix signature seule, tampon seul ou tampon + signature ;
-- limiter l'affichage des documents signés aux utilisateurs concernés, sauf administrateurs et CEO ;
-- prévoir 46 tampons sélectionnables, identifiés par société ;
-- permettre la création ou modification de tampon sans gérer de nom de tampon distinct de la société ;
-- étudier l’OCR / IA pour aider au placement de la signature ou du tampon.
-
-### Priorité 6 : Import / export des dossiers
+### Priorité 7 : Import / export des dossiers
 
 À réaliser :
 
@@ -710,7 +761,7 @@ Le module administratif devra respecter les exigences suivantes :
 - importer les anciens fichiers Excel après validation du mapping ;
 - contrôler les données importées avec le pôle administratif.
 
-### Priorité 7 : Champs personnalisables
+### Priorité 8 : Champs personnalisables
 
 À réaliser :
 
@@ -719,7 +770,7 @@ Le module administratif devra respecter les exigences suivantes :
 - permettre l’affichage des champs personnalisés dans la fiche dossier et, si besoin, dans le tableau ;
 - conserver l’historique ou les valeurs en cas de désactivation du champ.
 
-### Priorité 8 : Relances externes
+### Priorité 9 : Relances externes
 
 À réaliser :
 
@@ -728,7 +779,7 @@ Le module administratif devra respecter les exigences suivantes :
 - tracer les relances manuelles et automatiques ;
 - confirmer le niveau d’automatisation attendu.
 
-### Priorité 9 : Nettoyage de l’existant
+### Priorité 10 : Nettoyage de l’existant
 
 À réaliser en parallèle ou en fin de sprint :
 
@@ -743,18 +794,21 @@ Avant développement complet, les points suivants doivent être validés :
 
 - liste exacte des catégories envoyées par Mégane ;
 - confirmation que Mégane est couverte par les droits du pôle administratif, sans exception nominative ;
+- validation de l'attribution initiale du rôle de superadministrateur à Mégane et Rudy, avec des droits identiques ;
 - liste définitive des états de dossier ;
 - validation du fait que les statuts d’activité actuels suffisent ;
-- confirmation qu’une seule date suffit dans le formulaire d’activité ;
-- format attendu des créneaux de rappel : heure simple, durée de 30 minutes, durée de 1 heure ou autre durée ;
+- validation des limites autorisées pour les créneaux personnalisés, actuellement de 5 minutes à 24 heures ;
 - confirmation que le champ Société correspond bien à la société liée à l’affaire ;
 - confirmation que les dates dossier doivent être ajoutées manuellement au calendrier ;
 - règles de paramétrage des rappels : avant ou après échéance, nombre de jours, répétition éventuelle ;
 - confirmation que l’e-mail de rappel doit uniquement viser la personne associée à l’activité ;
 - règles d’import/export calendrier, d’abord Google Agenda / Gmail puis Outlook ;
-- règles de signature : émetteur intranet, membre administratif assigné, notification e-mail à l’assigné et à Rudy, signature possible par les deux ;
+- règles de signature : émetteur intranet, membre administratif assigné, notification aux superadministrateurs et droits de signature associés ;
+- liste et fichiers définitifs des quatre signatures à proposer ;
+- règle de placement de la mention « Fait à [lieu], le [date] » ;
 - liste des sociétés correspondant aux 46 tampons à prévoir ;
 - règles de création, modification et sélection des tampons par société ;
+- confirmation de la règle de retrait des sociétés déjà utilisées afin de préserver l'historique ;
 - utilité réelle de l’OCR / IA pour détecter ou proposer la zone de signature ;
 - périmètre réel des relances externes ;
 - format d’import souhaité pour les anciens fichiers Excel ;
@@ -772,10 +826,11 @@ La priorité est de structurer l’intranet autour des dossiers, et non plus aut
 Le travail restant consiste principalement à :
 
 - confirmer les arbitrages métier avec le pôle administratif ;
-- finaliser le module d’activité avec une date unique et les statuts actuels ;
+- mettre en place les deux superadministrateurs et transférer le référentiel des sociétés au pôle administratif ;
+- finaliser le module d’activité sans type d'activité, avec un créneau personnalisé et les statuts actuels ;
 - ajouter le paramétrage des rappels par e-mail, avec rappels individuels et créneaux horaires ;
 - ajouter l’export Excel, l’export PDF et l’import des dossiers administratifs ;
-- gérer le circuit de signature ouvert aux membres de l’intranet, assigné à un membre administratif, avec notification et visibilité CEO, choix du tampon et gestion du bloc tampon + signature ;
+- gérer le circuit de signature ouvert aux membres de l’intranet, avec quatre signatures au choix, la mention de lieu et de date, les tampons et la supervision des superadministrateurs ;
 - clarifier le périmètre des relances externes et conserver leur historique ;
 - ajouter les champs personnalisables ;
 - prévoir l’import/export calendrier, avec consultation du calendrier administrateur / CEO superadmin en lecture seule par le pôle administratif, Google Agenda / Gmail en solution temporaire puis Outlook comme cible finale ;
